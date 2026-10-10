@@ -7,15 +7,22 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from pharma_agent.api.csrf import install_csrf
-from pharma_agent.api.deps import session_factory, user_id_dependency
+from pharma_agent.api.deps import (
+    actor_dependency,
+    session_factory,
+    user_id_dependency,
+)
 from pharma_agent.api.errors import install_error_handlers
 from pharma_agent.api.openapi import PharmaAgentAPI
 from pharma_agent.api.routers.account import build_account_router
+from pharma_agent.api.routers.audit import build_audit_router
 from pharma_agent.api.routers.chat import build_chat_router
 from pharma_agent.api.routers.citations import build_citations_router
 from pharma_agent.api.routers.conversations import build_conversations_router
 from pharma_agent.api.routers.feedback import build_feedback_router
 from pharma_agent.api.routers.health import build_health_router
+from pharma_agent.api.routers.invitations import build_invitations_router
+from pharma_agent.api.routers.organizations import build_organizations_router
 from pharma_agent.infrastructure.auth.users import build_auth, include_auth_routes
 from pharma_agent.infrastructure.container import ContainerFactory, open_container
 from pharma_agent.infrastructure.settings import Settings
@@ -64,5 +71,9 @@ def create_app(
     api.include_router(build_conversations_router(current_user_id))
     api.include_router(build_feedback_router(current_user_id))
     api.include_router(build_citations_router(current_user_id))
+    current_actor = actor_dependency(current_user_id)
+    api.include_router(build_organizations_router(current_actor))
+    api.include_router(build_invitations_router(current_actor))
+    api.include_router(build_audit_router(current_actor))
     app.include_router(api)
     return app

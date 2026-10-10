@@ -25,11 +25,23 @@ from pharma_agent.application.errors import (
     ApplicationError,
     CitationNotFound,
     ConversationNotFound,
+    ForbiddenRole,
     InvalidInput,
+    OrganizationNotFound,
     PayloadTooLarge,
     ServiceUnavailable,
 )
 from pharma_agent.application.feedback.service import MessageNotFound
+from pharma_agent.application.organizations.errors import (
+    AlreadyMember,
+    InvitationAlreadyOpen,
+    InvitationEmailMismatch,
+    InvitationExpired,
+    InvitationNotFound,
+    InvitationNotPending,
+    LastOwner,
+    MemberNotFound,
+)
 
 VALIDATION_ERROR = "VALIDATION_ERROR"
 INTERNAL_ERROR = "INTERNAL_ERROR"
@@ -41,6 +53,16 @@ ERROR_CODE_PATTERN = re.compile(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*")
 # Subclasses must come before their base class: the first isinstance match wins.
 STATUS_BY_ERROR: dict[type[ApplicationError], int] = {
     RateLimited: 429,
+    ForbiddenRole: 403,
+    OrganizationNotFound: 404,
+    MemberNotFound: 404,
+    InvitationNotFound: 404,
+    LastOwner: 409,
+    AlreadyMember: 409,
+    InvitationExpired: 409,
+    InvitationNotPending: 409,
+    InvitationEmailMismatch: 409,
+    InvitationAlreadyOpen: 409,
     AccountNotFound: 404,
     SessionNotFound: 404,
     AccountDisabled: 403,
