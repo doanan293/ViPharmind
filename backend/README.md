@@ -156,11 +156,11 @@ uv run python -m tests.e2e.server --port 8001
 ```
 
 - Mỗi lần khởi động: xoá và tạo lại database của `E2E_POSTGRES_DSN` (mặc định
-  `postgresql+psycopg://thesis:thesis@localhost:5433/pharma_e2e`; tên database phải chứa `e2e`),
+  `postgresql+psycopg://vipharmind:vipharmind@localhost:5433/pharma_e2e`; tên database phải chứa `e2e`),
   chạy migration, xoá collection `chunks_fake_embedding_4d` trong `E2E_QDRANT_URL` (mặc định
   `http://localhost:6333`), import và publish bundle `tests/fixtures/knowledge_bundle_small`.
   Index dùng alias riêng `e2e_chunks_current` (`PHARMA_RETRIEVAL__QDRANT_COLLECTION`), nên database dev
-  `thesis` và alias `chunks_current` không bị động tới.
+  `vipharmind` và alias `chunks_current` không bị động tới.
 - Kịch bản theo câu hỏi: chứa `[e2e:blocked]` thì lượt kết thúc `blocked`; chứa `[e2e:timeout]`
   thì `timeout` sau 5 giây; còn lại là câu trả lời có citation `[1]`.
 - Cookie phiên không đặt `Secure` để mọi trình duyệt nhận qua `http://`.

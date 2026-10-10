@@ -47,7 +47,9 @@ from tests.e2e.scenario_llm import ScenarioLlm
 from tests.fakes import FAKE_EMBEDDING_DIMENSION, FAKE_EMBEDDING_MODEL, FakeEmbedder
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-DEFAULT_POSTGRES_DSN = "postgresql+psycopg://thesis:thesis@localhost:5433/pharma_e2e"
+DEFAULT_POSTGRES_DSN = (
+    "postgresql+psycopg://vipharmind:vipharmind@localhost:5433/pharma_e2e"
+)
 DEFAULT_QDRANT_URL = "http://localhost:6333"
 E2E_QDRANT_ALIAS = "e2e_chunks_current"
 E2E_JWT_SECRET = "e2e-jwt-secret-for-tests-only-0123456789"

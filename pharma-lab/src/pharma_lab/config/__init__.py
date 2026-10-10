@@ -1,1 +1,1 @@
-"""Shared configuration for thesis data processing."""
+"""Shared configuration for pharma-lab data processing."""

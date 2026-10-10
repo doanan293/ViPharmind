@@ -146,7 +146,7 @@ class LangfuseSettings(BaseModel):
 
 
 class PostgresSettings(BaseModel):
-    dsn: str = "postgresql+psycopg://thesis:thesis@localhost:5433/thesis"
+    dsn: str = "postgresql+psycopg://vipharmind:vipharmind@localhost:5433/vipharmind"
     pool_size: int = 10
     echo: bool = False
 

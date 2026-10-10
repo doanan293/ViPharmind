@@ -27,7 +27,7 @@ def test_settings_ignore_the_developer_environment(
     monkeypatch.setenv("PHARMA_LANGFUSE__SECRET_KEY", "sk-lf-dev")
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-dev")
     monkeypatch.setenv(
-        "PHARMA_POSTGRES__DSN", "postgresql+psycopg://u:p@elsewhere:5432/thesis"
+        "PHARMA_POSTGRES__DSN", "postgresql+psycopg://u:p@elsewhere:5432/vipharmind"
     )
     settings = server.e2e_settings(server.E2EConfig())
     assert settings.langfuse.enabled is False
@@ -46,7 +46,7 @@ def test_settings_ignore_the_developer_environment(
 def test_reset_refuses_a_database_without_e2e_in_its_name() -> None:
     with pytest.raises(ValueError, match="must contain 'e2e'"):
         server.reset_database(
-            "postgresql+psycopg://thesis:thesis@localhost:5433/thesis"
+            "postgresql+psycopg://vipharmind:vipharmind@localhost:5433/vipharmind"
         )
 
 

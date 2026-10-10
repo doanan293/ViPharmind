@@ -73,10 +73,11 @@ def test_platform_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings(_env_file=None)
     assert (
         settings.postgres.dsn
-        == "postgresql+psycopg://thesis:thesis@localhost:5433/thesis"
+        == "postgresql+psycopg://vipharmind:vipharmind@localhost:5433/vipharmind"
     )
     assert (
-        settings.postgres.conninfo == "postgresql://thesis:thesis@localhost:5433/thesis"
+        settings.postgres.conninfo
+        == "postgresql://vipharmind:vipharmind@localhost:5433/vipharmind"
     )
     assert settings.memory.summary_every_turns == 2
     assert settings.memory.context_turns == 4
