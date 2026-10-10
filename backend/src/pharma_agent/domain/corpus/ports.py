@@ -5,15 +5,19 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Protocol
 
+from pharma_agent.domain.access.models import Actor
 from pharma_agent.domain.corpus.models import (
     Collection,
+    CollectionOwner,
     CorpusSnapshot,
     IndexItem,
     PurgeResult,
     Release,
     ReleaseStats,
     ReleaseSummary,
+    Visibility,
 )
+from pharma_agent.domain.shared.transaction import Transaction
 
 
 class CorpusRepository(Protocol):
@@ -109,3 +113,51 @@ class VectorIndex(Protocol):
     async def delete(self, ids: Sequence[uuid.UUID]) -> None: ...
 
     async def count_release(self, release_id: uuid.UUID) -> int: ...
+
+
+class CollectionRepository(Protocol):
+    """Collections as things people own and see. Deleted collections are invisible here."""
+
+    async def get(self, collection_id: uuid.UUID) -> Collection | None: ...
+
+    async def visible_for(self, actor: Actor) -> list[Collection]:
+        """Every collection the actor may see, by the rules of domain/access/policy."""
+        ...
+
+    async def count_owned(self, owner: CollectionOwner) -> int: ...
+
+    async def create(
+        self, collection: Collection, now: datetime, tx: Transaction
+    ) -> None: ...
+
+    async def rename(
+        self, collection_id: uuid.UUID, title: str, now: datetime, tx: Transaction
+    ) -> None: ...
+
+    async def set_visibility(
+        self,
+        collection_id: uuid.UUID,
+        visibility: Visibility,
+        now: datetime,
+        tx: Transaction,
+    ) -> None: ...
+
+    async def mark_deleted(
+        self, collection_id: uuid.UUID, now: datetime, tx: Transaction
+    ) -> None:
+        """Hide the collection and clear its current release."""
+        ...
+
+    async def current_releases(
+        self, collection_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, uuid.UUID]:
+        """collection_id -> current release for live collections that have one."""
+        ...
+
+    async def live_release_ids(self, collection_id: uuid.UUID) -> list[uuid.UUID]:
+        """Releases that are not retired, deleted collections included."""
+        ...
+
+    async def deleted_with_releases(self) -> list[uuid.UUID]:
+        """Deleted collections that still have releases to retire."""
+        ...

@@ -24,6 +24,9 @@ from pharma_agent.domain.organizations.models import (
     Organization,
 )
 from pharma_agent.domain.shared.transaction import Transaction
+from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
+    CollectionTable,
+)
 from pharma_agent.infrastructure.persistence.postgres.tables import (
     OrganizationMemberTable,
     OrganizationTable,
@@ -34,6 +37,7 @@ from pharma_agent.infrastructure.persistence.postgres.transaction import session
 _org = OrganizationTable.__table__.c
 _member = OrganizationMemberTable.__table__.c
 _user = UserTable.__table__.c
+_collection = CollectionTable.__table__.c
 
 
 def _organization(
@@ -151,7 +155,18 @@ class PostgresOrganizationRepository:
         )
 
     async def delete(self, organization_id: uuid.UUID, tx: Transaction) -> None:
-        await session_of(tx).execute(
+        session = session_of(tx)
+        # Collections are deleted softly: cited chunks must survive (spec §4.6).
+        # `pharma-agent corpus purge-deleted` retires and unindexes them afterwards.
+        await session.execute(
+            update(CollectionTable)
+            .where(
+                _collection.owner_organization_id == organization_id,
+                _collection.deleted_at.is_(None),
+            )
+            .values(deleted_at=func.now(), current_release_id=None)
+        )
+        await session.execute(
             delete(OrganizationTable).where(_org.id == organization_id)
         )
 

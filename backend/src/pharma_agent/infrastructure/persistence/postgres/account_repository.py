@@ -33,6 +33,8 @@ def _account(row: UserTable) -> AccountUser:
         google_linked=row.google_linked,
         is_active=row.is_active,
         is_superuser=row.is_superuser,
+        text_quota_bytes=row.text_quota_bytes,
+        collection_quota=row.collection_quota,
     )
 
 
