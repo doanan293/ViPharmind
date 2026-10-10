@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharma_agent.domain.corpus.bundle import BlockKind
+from pharma_agent.domain.corpus.enrichment import compose_embedding_text
 from pharma_agent.domain.corpus.models import (
     ChunkVersion,
     Collection,
@@ -29,6 +30,7 @@ from pharma_agent.domain.corpus.models import (
     SectionRevision,
     Visibility,
 )
+from pharma_agent.domain.retrieval.models import ColloquialMapping, TermAnnotation
 from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     ChunkVersionTable,
     CollectionTable,
@@ -97,6 +99,24 @@ def _revision_row(revision: SectionRevision) -> dict[str, Any]:
     }
 
 
+def embedding_text_of(
+    *,
+    context_header: str,
+    chunk_text: str,
+    colloquial: dict[str, Any] | None,
+    term_annotations: list[dict[str, Any]],
+) -> str:
+    """The text that was embedded, rebuilt from the stored columns (spec §4.9)."""
+    return compose_embedding_text(
+        context_header=context_header,
+        chunk_text=chunk_text,
+        colloquial=None
+        if colloquial is None
+        else ColloquialMapping.model_validate(colloquial),
+        terms=[TermAnnotation.model_validate(item) for item in term_annotations],
+    )
+
+
 def _chunk_row(chunk: ChunkVersion) -> dict[str, Any]:
     return {
         "id": chunk.id,
@@ -105,7 +125,6 @@ def _chunk_row(chunk: ChunkVersion) -> dict[str, Any]:
         "kind": chunk.kind.value,
         "chunk_text": chunk.chunk_text,
         "context_header": chunk.context_header,
-        "embedding_text": chunk.embedding_text,
         "embedding_text_sha256": chunk.embedding_text_sha256,
         "start_page": chunk.start_page,
         "end_page": chunk.end_page,
@@ -349,7 +368,10 @@ class PostgresCorpusRepository:
                 SectionRevisionTable.section_id,
                 ChunkVersionTable.section_revision_id,
                 ChunkVersionTable.kind,
-                ChunkVersionTable.embedding_text,
+                ChunkVersionTable.context_header,
+                ChunkVersionTable.chunk_text,
+                ChunkVersionTable.colloquial,
+                ChunkVersionTable.term_annotations,
                 ChunkVersionTable.embedding_text_sha256,
             )
             .join(
@@ -389,7 +411,12 @@ class PostgresCorpusRepository:
                 section_id=section_id,
                 section_revision_id=section_revision_id,
                 kind=BlockKind(kind),
-                embedding_text=embedding_text,
+                embedding_text=embedding_text_of(
+                    context_header=context_header,
+                    chunk_text=chunk_text,
+                    colloquial=colloquial,
+                    term_annotations=term_annotations,
+                ),
                 embedding_text_sha256=embedding_text_sha256,
                 release_ids=memberships.get(chunk_id, []),
             )
@@ -400,7 +427,10 @@ class PostgresCorpusRepository:
                 section_id,
                 section_revision_id,
                 kind,
-                embedding_text,
+                context_header,
+                chunk_text,
+                colloquial,
+                term_annotations,
                 embedding_text_sha256,
             ) in rows
         ]

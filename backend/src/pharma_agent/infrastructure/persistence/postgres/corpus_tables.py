@@ -1,6 +1,6 @@
 """Tables of the Postgres schema `corpus` (spec 2026-09-13 corpus platform §6.2).
 
-`section_revisions`, `chunk_versions`, `release_chunks` and `embedding_cache` rows are
+`section_revisions`, `chunk_versions` and `release_chunks` rows are
 immutable once written; releases only change status. Chunk versions are protected by `RESTRICT` foreign keys so a citation can never
 lose the text it points to.
 """
@@ -15,7 +15,6 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -129,7 +128,6 @@ class ChunkVersionTable(Base):
     chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
     # From ChunkDraft.context_header, so readers (P3) never rebuild it.
     context_header: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding_text: Mapped[str] = mapped_column(Text, nullable=False)
     embedding_text_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     start_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
     end_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -210,14 +208,3 @@ class ReleaseChunkTable(Base):
     )
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
     hydrate_strategy: Mapped[str] = mapped_column(String(32), nullable=False)
-
-
-class EmbeddingCacheTable(Base):
-    __tablename__ = "embedding_cache"
-    __table_args__ = ({"schema": CORPUS_SCHEMA},)
-
-    model: Mapped[str] = mapped_column(String(200), primary_key=True)
-    embedding_text_sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
-    dims: Mapped[int] = mapped_column(Integer, nullable=False)
-    vector: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    created_at: Mapped[datetime] = _created_at()

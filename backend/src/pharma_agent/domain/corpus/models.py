@@ -93,7 +93,6 @@ class ReleaseStats(_Frozen):
     chunks: int = 0
     glossary_entries: int = 0
     colloquial_mappings: int = 0
-    embeddings_cached: int = 0
     embeddings_from_bundle: int = 0
     embeddings_computed: int = 0
     points_upserted: int = 0

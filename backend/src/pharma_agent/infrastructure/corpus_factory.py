@@ -19,9 +19,6 @@ from pharma_agent.infrastructure.persistence.postgres.corpus_repository import (
     PostgresCorpusRepository,
 )
 from pharma_agent.infrastructure.persistence.postgres.database import Database
-from pharma_agent.infrastructure.persistence.postgres.embedding_cache import (
-    PostgresEmbeddingCache,
-)
 from pharma_agent.infrastructure.retrieval.qdrant_adapter import OpenAiEmbedder
 from pharma_agent.infrastructure.retrieval.qdrant_index import QdrantVectorIndex
 from pharma_agent.infrastructure.settings import Settings
@@ -80,7 +77,6 @@ async def open_corpus_services(
                 embed_client, model=embedding.model, dimension=embedding.dimension
             )
         repository = PostgresCorpusRepository(database.sessions)
-        cache = PostgresEmbeddingCache(database.sessions)
         index = QdrantVectorIndex(
             qdrant,
             model=embedder.model,
@@ -92,7 +88,6 @@ async def open_corpus_services(
         yield CorpusServices(
             importer=ImportKnowledgeBundle(
                 repository,
-                cache,
                 index,
                 embedder,
                 clock,
@@ -101,7 +96,6 @@ async def open_corpus_services(
             ),
             releases=CorpusService(
                 repository,
-                cache,
                 index,
                 embedder,
                 clock,

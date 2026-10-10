@@ -290,8 +290,8 @@ def _echo_import(report: ImportReport) -> None:
     stats = release.stats
     if stats is not None:
         typer.echo(
-            f"chunks {stats.chunks} | embeddings cached {stats.embeddings_cached} "
-            f"bundle {stats.embeddings_from_bundle} computed {stats.embeddings_computed} "
+            f"chunks {stats.chunks} | embeddings bundle {stats.embeddings_from_bundle} "
+            f"computed {stats.embeddings_computed} "
             f"| points new {stats.points_upserted} updated {stats.points_updated}"
         )
 

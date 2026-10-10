@@ -5,7 +5,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from pharma_agent.application.corpus.indexing import EmbeddingResolver, IndexWriter
+from pharma_agent.application.corpus.indexing import IndexWriter
 from pharma_agent.domain.corpus.models import (
     Collection,
     CollectionNotFound,
@@ -21,7 +21,6 @@ from pharma_agent.domain.corpus.models import (
 from pharma_agent.domain.corpus.ports import (
     CorpusRepository,
     Embedder,
-    EmbeddingCache,
     VectorIndex,
 )
 from pharma_agent.domain.shared.clock import Clock
@@ -50,7 +49,6 @@ class CorpusService:
     def __init__(
         self,
         repository: CorpusRepository,
-        cache: EmbeddingCache,
         index: VectorIndex,
         embedder: Embedder,
         clock: Clock,
@@ -62,13 +60,12 @@ class CorpusService:
         self._index = index
         self._embedder = embedder
         self._clock = clock
-        self._resolver = EmbeddingResolver(
-            cache,
+        self._writer = IndexWriter(
+            index,
             embedder,
             batch_size=embed_batch_size,
             max_concurrent=embed_max_concurrent,
         )
-        self._writer = IndexWriter(index, cache, model=embedder.model)
 
     async def list_releases(
         self, collection_key: str | None = None
@@ -185,10 +182,7 @@ class CorpusService:
                 [release.id for release in usable]
             )
         ]
-        await self._resolver.ensure(
-            {item.embedding_text_sha256: item.embedding_text for item in items}, {}
-        )
-        written = await self._writer.write(items, overwrite=True)
+        written = await self._writer.write(items, bundled={}, overwrite=True)
         release_points = {
             release.id: await self._index.count_release(release.id)
             for release in usable

@@ -156,7 +156,7 @@ async def test_gc_retires_old_releases_cleans_points_and_keeps_protected_chunks(
     assert again.purge.chunk_versions_kept == 1
 
 
-async def test_reindex_rebuilds_points_from_repository_and_cache() -> None:
+async def test_reindex_rebuilds_every_point_with_fresh_embeddings() -> None:
     s = services()
     r1 = await s.publish_bundle(small_bundle())
     r2 = await s.publish_bundle(v2())
@@ -170,8 +170,6 @@ async def test_reindex_rebuilds_points_from_repository_and_cache() -> None:
     s.adapters.repository.placements[foreign.id] = list(snapshot1.release_chunks)
 
     s.adapters.index.points.clear()
-    dropped = next(iter(snapshot2.embedding_texts()))
-    del s.adapters.cache.vectors[(s.embedder.model, dropped)]
     s.embedder.batches.clear()
 
     report = await s.releases.reindex("formulary")
@@ -184,7 +182,10 @@ async def test_reindex_rebuilds_points_from_repository_and_cache() -> None:
     assert report.skipped == [foreign.id]
     shared = next(iter(ids1 & ids2))
     assert s.adapters.index.release_ids_of(shared) == sorted([r1.id, r2.id])
-    assert s.embedder.batches == [[snapshot2.embedding_texts()[dropped]]]
+    embedded = sorted(text for batch in s.embedder.batches for text in batch)
+    assert embedded == sorted(
+        {**snapshot1.embedding_texts(), **snapshot2.embedding_texts()}.values()
+    )
 
 
 async def test_gc_deletes_documents_and_sections_no_release_uses() -> None:

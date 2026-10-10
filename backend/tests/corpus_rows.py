@@ -67,9 +67,7 @@ class SeededRelease:
 async def reset_corpus(database: Database) -> None:
     """Empty schema `corpus` in the shared migrated database, as P2's tests do."""
     async with database.engine.begin() as connection:
-        await connection.execute(
-            text("TRUNCATE corpus.collections, corpus.embedding_cache CASCADE")
-        )
+        await connection.execute(text("TRUNCATE corpus.collections CASCADE"))
 
 
 def long_paragraph(marker: str) -> str:
@@ -237,7 +235,6 @@ async def seed_release(
                     kind=draft.kind.value,
                     chunk_text=draft.chunk_text,
                     context_header=draft.context_header,
-                    embedding_text=draft.embedding_text,
                     embedding_text_sha256=draft.embedding_text_sha256,
                     start_page=draft.start_page,
                     end_page=draft.end_page,
