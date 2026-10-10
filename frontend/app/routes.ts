@@ -32,6 +32,7 @@ export default [
     ),
     route("collections/:collectionId/:tab?", "routes/app/collection.tsx"),
   ]),
+  route("api/*", "routes/api-proxy.ts"),
   route("actions/locale", "routes/actions/locale.ts"),
   route("actions/theme", "routes/actions/theme.ts"),
   route("*", "routes/not-found.tsx"),
