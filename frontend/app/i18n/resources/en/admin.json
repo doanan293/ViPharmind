@@ -77,5 +77,15 @@
     }
   },
   "cancel": "Cancel",
-  "confirm": "Confirm"
+  "confirm": "Confirm",
+  "overview": {
+    "collections": "Collections",
+    "collectionsHint": "{{count}} with a release",
+    "documents": "Documents",
+    "documentsHint": "Across all collections",
+    "points": "Vector points",
+    "pointsHint": "In Qdrant",
+    "failedJobs": "Failed jobs",
+    "failedJobsHint": "Among the last {{count}} jobs"
+  }
 }

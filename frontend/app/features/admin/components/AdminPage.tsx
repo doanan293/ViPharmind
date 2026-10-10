@@ -5,6 +5,7 @@ import { useAdminAuditInfinite } from "~/api/gen/endpoints"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { AuditList } from "~/features/audit/components/AuditList"
 
+import { AdminOverview } from "./AdminOverview"
 import { CollectionsSection } from "./CollectionsSection"
 import { JobsSection } from "./JobsSection"
 import { OrganizationsSection } from "./OrganizationsSection"
@@ -38,9 +39,10 @@ export function AdminPage({ section }: { section: string | undefined }) {
   const navigate = useNavigate()
   const current: Section = SECTIONS.find((name) => name === section) ?? "users"
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-8">
+    <div className="@container/main mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6">
       <title>{t("title")}</title>
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <AdminOverview />
       <Tabs
         value={current}
         onValueChange={(value) => void navigate(`/admin/${String(value)}`)}

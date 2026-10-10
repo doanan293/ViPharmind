@@ -2268,10 +2268,10 @@ Soát toàn bộ frontend và thay mọi chỗ tự ghép bằng hàng của sha
 - [x] Nút Nguồn trong chat → `combobox` nhiều lựa chọn có nhóm (commit eb6c5be).
 - [x] Danh sách `ul/li` → `item`, trạng thái rỗng → `empty`, 27 chỗ `<p role="alert">` → `alert`/`FieldError` (commit 9b03062).
 - [x] Form `useState` còn lại → react-hook-form + zod + `field` (`NameForm`, form mời, trình soạn tài liệu) (commit e300330).
-- [ ] Trang quản trị dựng lại từ block `dashboard-01` (`site-header`, `section-cards`, `data-table` của block cho bốn bảng); xoá bản `DataTable` tự viết.
-- [ ] Khung ứng dụng: `AppSidebar` và `UserMenu` ghép từ `app-sidebar`, `nav-main`, `nav-secondary`, `nav-user` (có `avatar`) của block; đầu trang trong `routes/app/layout.tsx` là `site-header`. Giữ `ConversationSidebar` trong `SidebarContent`; test `AppSidebar.browser.test.tsx` cập nhật nhãn.
-- [ ] Dọn phần block không dùng (`nav-documents`, `chart-area-interactive`, demo route và `data.json`, `sonner`, `next-themes`, `@dnd-kit`, `recharts`), ghim phiên bản gói, `frontend/README.md` ghi quy tắc và các file `ui` khác registry.
-- [ ] Commit — `git commit -m "refactor(frontend): admin dashboard and app shell from the shadcn dashboard-01 block"`.
+- [x] Trang quản trị dựng lại từ block `dashboard-01` (`site-header`, `section-cards`, `data-table` của block cho bốn bảng); xoá bản `DataTable` tự viết.
+- [x] Khung ứng dụng: `AppSidebar` và `UserMenu` ghép từ `app-sidebar`, `nav-main`, `nav-secondary`, `nav-user` (có `avatar`) của block; đầu trang trong `routes/app/layout.tsx` là `site-header`. Giữ `ConversationSidebar` trong `SidebarContent`; test `AppSidebar.browser.test.tsx` cập nhật nhãn.
+- [x] Dọn phần block không dùng (`nav-documents`, `chart-area-interactive`, demo route và `data.json`, `sonner`, `next-themes`, `@dnd-kit`, `recharts`), ghim phiên bản gói, `frontend/README.md` ghi quy tắc và các file `ui` khác registry.
+- [x] Commit — `git commit -m "refactor(frontend): admin dashboard and app shell from the shadcn dashboard-01 block"`.
 
 ---
 

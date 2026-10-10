@@ -14,7 +14,8 @@
   },
   "userMenu": {
     "open": "Account menu",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "settings": "Settings"
   },
   "shell": {
     "toggleSidebar": "Toggle sidebar",
@@ -33,5 +34,16 @@
     "incomplete": "Enter all 6 digits.",
     "resend": "Resend code",
     "resendIn": "Resend in {{seconds}} seconds"
+  },
+  "table": {
+    "columns": "Columns",
+    "rowsPerPage": "Rows per page",
+    "page": "Page {{page}} of {{count}}",
+    "first": "First page",
+    "previous": "Previous page",
+    "next": "Next page",
+    "last": "Last page",
+    "empty": "No results.",
+    "sortBy": "Sort by {{column}}"
   }
 }

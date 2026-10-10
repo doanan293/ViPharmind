@@ -77,5 +77,15 @@
     }
   },
   "cancel": "Huỷ",
-  "confirm": "Xác nhận"
+  "confirm": "Xác nhận",
+  "overview": {
+    "collections": "Bộ tài liệu",
+    "collectionsHint": "{{count}} đang có bản phát hành",
+    "documents": "Tài liệu",
+    "documentsHint": "Trong mọi bộ tài liệu",
+    "points": "Điểm vector",
+    "pointsHint": "Trong Qdrant",
+    "failedJobs": "Tác vụ lỗi",
+    "failedJobsHint": "Trong {{count}} tác vụ gần nhất"
+  }
 }

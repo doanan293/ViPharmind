@@ -14,7 +14,8 @@
   },
   "userMenu": {
     "open": "Menu tài khoản",
-    "logout": "Đăng xuất"
+    "logout": "Đăng xuất",
+    "settings": "Cài đặt"
   },
   "shell": {
     "toggleSidebar": "Ẩn hoặc hiện thanh bên",
@@ -33,5 +34,16 @@
     "incomplete": "Nhập đủ 6 chữ số.",
     "resend": "Gửi lại mã",
     "resendIn": "Gửi lại sau {{seconds}} giây"
+  },
+  "table": {
+    "columns": "Cột",
+    "rowsPerPage": "Số dòng mỗi trang",
+    "page": "Trang {{page}}/{{count}}",
+    "first": "Trang đầu",
+    "previous": "Trang trước",
+    "next": "Trang sau",
+    "last": "Trang cuối",
+    "empty": "Không có dữ liệu.",
+    "sortBy": "Sắp xếp theo {{column}}"
   }
 }
