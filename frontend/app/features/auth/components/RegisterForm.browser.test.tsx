@@ -40,9 +40,9 @@ describe("RegisterForm", () => {
     applyZodLocale("vi")
   })
 
-  test("registers, signs in with the same credentials and opens the next path", async () => {
+  test("registers, then verifies the email with the code and opens the next path", async () => {
     let registered: unknown = null
-    let loginBody = ""
+    let verifyBody = ""
     worker.use(
       http.post("/api/v1/auth/register", async ({ request }) => {
         registered = await request.json()
@@ -51,8 +51,8 @@ describe("RegisterForm", () => {
           { status: 201 }
         )
       }),
-      http.post("/api/v1/auth/cookie/login", async ({ request }) => {
-        loginBody = await request.text()
+      http.post("/api/v1/auth/email/verify", async ({ request }) => {
+        verifyBody = await request.text()
         return new HttpResponse(null, { status: 204 })
       }),
       http.get("/api/v1/users/me", () =>
@@ -62,15 +62,18 @@ describe("RegisterForm", () => {
 
     await renderAndSubmit()
 
+    await expect
+      .element(page.getByText(/Chúng tôi đã gửi mã 6 số tới an@example\.com/))
+      .toBeVisible()
+    await page.getByLabelText("Mã xác minh").fill("123456")
+    await page.getByRole("button", { name: "Xác minh email" }).click()
     await expect.element(page.getByText("chat-page")).toBeVisible()
     expect(registered).toEqual({
       email: "an@example.com",
       password: "correct horse",
       display_name: "An",
     })
-    expect(new URLSearchParams(loginBody).get("username")).toBe(
-      "an@example.com"
-    )
+    expect(verifyBody).toBe('{"email":"an@example.com","code":"123456"}')
   })
 
   test("requires a password of at least 8 characters before calling the API", async () => {

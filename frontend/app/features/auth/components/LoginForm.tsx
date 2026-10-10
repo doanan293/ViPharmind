@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
@@ -8,7 +9,9 @@ import { z } from "zod"
 import {
   getUsersCurrentUserQueryKey,
   useAuthCookieLogin,
+  useAuthEmailVerifyRequest,
 } from "~/api/gen/endpoints"
+import { isApiError } from "~/api/problem"
 import { AuthCookieLoginBody } from "~/api/gen/zod"
 import { Button } from "~/components/ui/button"
 import {
@@ -19,6 +22,7 @@ import {
 } from "~/components/ui/field"
 import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
+import { VerifyEmailStep } from "~/features/auth/components/VerifyEmailStep"
 import { apiErrorMessage } from "~/i18n/error-message"
 import { applyApiError } from "~/lib/form-errors"
 
@@ -42,6 +46,10 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
   const login = useAuthCookieLogin({
     mutation: { meta: { skipAuthRedirect: true } },
   })
+  const requestCode = useAuthEmailVerifyRequest({
+    mutation: { meta: { skipAuthRedirect: true } },
+  })
+  const [unverified, setUnverified] = useState<string | null>(null)
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { username: "", password: "" },
@@ -51,6 +59,14 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
     try {
       await login.mutateAsync({ data: values })
     } catch (error) {
+      if (isApiError(error) && error.code === "EMAIL_NOT_VERIFIED") {
+        // A code may already be on its way; a 429 here changes nothing for the user.
+        await requestCode
+          .mutateAsync({ data: { email: values.username } })
+          .catch(() => undefined)
+        setUnverified(values.username)
+        return
+      }
       applyApiError(
         error,
         form.setError,
@@ -63,6 +79,10 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
       queryKey: getUsersCurrentUserQueryKey(),
     })
     await navigate(nextPath, { replace: true })
+  }
+
+  if (unverified !== null) {
+    return <VerifyEmailStep email={unverified} nextPath={nextPath} />
   }
 
   const serverError = form.formState.errors.root?.server?.message
