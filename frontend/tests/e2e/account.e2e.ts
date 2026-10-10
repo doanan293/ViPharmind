@@ -9,12 +9,15 @@ test("forgot password resets with an emailed code", async ({
   await registerUser(request, user)
 
   await page.goto("/login")
+  await page.waitForLoadState("networkidle")
   await page.getByRole("link", { name: "Quên mật khẩu?" }).click()
   await expect(page).toHaveURL(/\/forgot-password$/)
   await page
     .getByRole("textbox", { name: "Email", exact: true })
     .fill(user.email)
   await page.getByRole("button", { name: "Gửi mã" }).click()
+  // The registration code is in the outbox too: read it only once the reset code was sent.
+  await expect(page.getByLabel("Mã xác minh")).toBeVisible()
   await page
     .getByLabel("Mã xác minh")
     .fill(await latestCode(request, user.email))
@@ -41,9 +44,11 @@ test("phone sign-in creates an account and opens the chat", async ({
   const e164 = `+84${local.slice(1)}`
 
   await page.goto("/login")
+  await page.waitForLoadState("networkidle")
   await page.getByRole("tab", { name: "Số điện thoại" }).click()
   await page.getByRole("textbox", { name: "Số điện thoại" }).fill(local)
   await page.getByRole("button", { name: "Gửi mã" }).click()
+  await expect(page.getByLabel("Mã xác minh")).toBeVisible()
   await page.getByLabel("Mã xác minh").fill(await latestCode(request, e164))
   await page.getByRole("button", { name: "Đăng nhập" }).click()
   await expect(page).toHaveURL(/\/chat$/)

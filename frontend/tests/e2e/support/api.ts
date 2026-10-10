@@ -27,6 +27,19 @@ async function assertStatus(
   }
 }
 
+/**
+ * The CSRF header for an API context that already holds a session cookie (the backend only
+ * checks unsafe requests that carry one), and nothing for a cookieless context.
+ */
+async function csrfFor(
+  request: APIRequestContext
+): Promise<Record<string, string>> {
+  const cookie = (await request.storageState()).cookies.find(
+    (item) => item.name === "csrftoken"
+  )
+  return cookie === undefined ? {} : { "x-csrftoken": cookie.value }
+}
+
 /** A fresh user per test (the password satisfies the 8-character minimum). */
 export function newUser(): TestUser {
   const id = randomUUID().slice(0, 8)
@@ -42,6 +55,7 @@ export async function registerUser(
   user: TestUser
 ): Promise<void> {
   const response = await request.post(`${API}/auth/register`, {
+    headers: await csrfFor(request),
     data: {
       email: user.email,
       password: user.password,
@@ -50,6 +64,7 @@ export async function registerUser(
   })
   await assertStatus(response, 201)
   const verify = await request.post(`${API}/auth/email/verify`, {
+    headers: await csrfFor(request),
     data: {
       email: user.email,
       code: await latestCode(request, user.email),
@@ -125,4 +140,35 @@ export async function askOverApi(
       `stream for "${message}" did not finish: ${body.slice(-500)}`
     )
   }
+}
+
+const InvitationResponse = z.object({
+  path: z.string().startsWith("/invitations/"),
+})
+
+/** What `pharma-agent superadmin grant <email>` does on a real server. */
+export async function makeSuperadmin(
+  request: APIRequestContext,
+  email: string
+): Promise<void> {
+  const response = await request.post(`${API}/__e2e/superadmin`, {
+    headers: await csrfFor(request),
+    data: { email },
+  })
+  await assertStatus(response, 204)
+}
+
+/** The path of the last invitation link emailed to `email`, or null when none was sent. */
+export async function latestInvitationPath(
+  request: APIRequestContext,
+  email: string
+): Promise<string | null> {
+  const response = await request.get(`${API}/__e2e/outbox/invitation`, {
+    params: { to: email },
+  })
+  if (response.status() === 404) {
+    return null
+  }
+  await assertStatus(response, 200)
+  return InvitationResponse.parse(await response.json()).path
 }

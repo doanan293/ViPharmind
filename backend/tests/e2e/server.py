@@ -5,34 +5,40 @@ Run from backend/:  uv run python -m tests.e2e.server --port 8001
 On start it drops and recreates the E2E database (its name must contain "e2e"), runs the
 migrations, deletes the fake-embedding Qdrant collection, imports and publishes the small
 fixture bundle under the alias `e2e_chunks_current`, then serves the production container
-with `ScenarioLlm` and `FakeEmbedder` injected (spec A §9). Environment: E2E_POSTGRES_DSN,
-E2E_QDRANT_URL.
+with `ScenarioLlm` and `FakeEmbedder` injected (spec A §9). Publish jobs run in process;
+`POST /api/v1/__e2e/jobs/drain` waits for them and `POST /api/v1/__e2e/superadmin` grants
+the flag. Environment: E2E_POSTGRES_DSN, E2E_QDRANT_URL.
 """
 
 import argparse
 import asyncio
 import os
+import re
 from collections.abc import AsyncGenerator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import psycopg
 import uvicorn
 from alembic import command
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from psycopg import sql
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 from qdrant_client import AsyncQdrantClient
 from sqlalchemy.engine import make_url
 
 from pharma_agent.api.app import create_app
+from pharma_agent.infrastructure.auth.superadmin import set_superadmin
 from pharma_agent.infrastructure.container import (
     Container,
     ContainerFactory,
     open_container,
 )
 from pharma_agent.infrastructure.corpus_factory import open_corpus_services
+from pharma_agent.infrastructure.jobs.inprocess import InProcessDispatcher
 from pharma_agent.infrastructure.persistence.postgres.alembic_config import (
     alembic_config,
 )
@@ -172,12 +178,50 @@ def e2e_container_factory(
     return factory
 
 
+INVITATION_LINK = re.compile(r"https?://\S+/invitations/[\w-]+")
+
+
+class SuperadminRequest(BaseModel):
+    email: str
+
+
 def build_e2e_app(config: E2EConfig) -> FastAPI:
     email = RecordingEmailSender()
     sms = RecordingSmsSender()
-    app = create_app(
-        e2e_settings(config), container_factory=e2e_container_factory(email, sms)
-    )
+    settings = e2e_settings(config)
+    app = create_app(settings, container_factory=e2e_container_factory(email, sms))
+
+    @app.get("/api/v1/__e2e/outbox/invitation", include_in_schema=False)
+    async def latest_invitation(to: str) -> dict[str, str]:
+        """E2E only: the path of the last invitation link emailed to `to`."""
+        links = [
+            match.group(0)
+            for message in email.sent
+            if message.to == to
+            for match in [INVITATION_LINK.search(message.text)]
+            if match is not None
+        ]
+        if not links:
+            raise HTTPException(status_code=404, detail="NO_INVITATION")
+        return {"path": urlsplit(links[-1]).path}
+
+    @app.post("/api/v1/__e2e/superadmin", status_code=204, include_in_schema=False)
+    async def grant_superadmin(body: SuperadminRequest) -> Response:
+        """E2E only: what `pharma-agent superadmin grant` does on a real server."""
+        if not await set_superadmin(settings.postgres.conninfo, body.email, True):
+            raise HTTPException(status_code=404, detail="NO_ACCOUNT")
+        return Response(status_code=204)
+
+    @app.post("/api/v1/__e2e/jobs/drain", status_code=204, include_in_schema=False)
+    async def drain_jobs(request: Request) -> Response:
+        """E2E only: wait until every publish job started so far has finished."""
+        container: Container = request.app.state.container
+        publishing = container.publishing
+        if publishing is not None and isinstance(
+            publishing.dispatcher, InProcessDispatcher
+        ):
+            await publishing.dispatcher.drain()
+        return Response(status_code=204)
 
     @app.get("/api/v1/__e2e/outbox/code", include_in_schema=False)
     async def latest_code(to: str) -> dict[str, str]:

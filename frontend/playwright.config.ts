@@ -3,7 +3,9 @@ import { defineConfig, devices } from "@playwright/test"
 const API_PORT = 8001
 const WEB_PORT = 3100
 const PROXY_PORT = 3200
-const baseURL = `http://localhost:${PROXY_PORT}`
+// 127.0.0.1, not localhost: under WSL every `localhost` lookup from Node (Playwright's API
+// requests) waits about 5 s, which pushes multi-request tests past their timeout.
+const baseURL = `http://127.0.0.1:${PROXY_PORT}`
 const isCI = Boolean(process.env.CI)
 
 export default defineConfig({
