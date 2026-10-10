@@ -3,7 +3,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 
-import { useCreateConversation } from "~/api/gen/endpoints"
+import { updateConversation, useCreateConversation } from "~/api/gen/endpoints"
 import {
   Empty,
   EmptyDescription,
@@ -16,18 +16,26 @@ import { toast } from "~/components/ui/toast"
 import type { ChatLocationState } from "../lib/location-state"
 
 import { Composer } from "./Composer"
+import { type SourceScope, SourcesPopover } from "./SourcesPopover"
 
 export function NewChat() {
   const { t } = useTranslation("chat")
   const navigate = useNavigate()
   const [draft, setDraft] = useState("")
+  const [sources, setSources] = useState<SourceScope>(null)
   const createConversation = useCreateConversation()
 
   function start(question: string) {
     createConversation.mutate(undefined, {
-      onSuccess: (conversation) => {
+      onSuccess: async (conversation) => {
+        // The scope must be saved before the first question streams.
+        if (sources !== null) {
+          await updateConversation(conversation.id, {
+            collection_ids: sources,
+          })
+        }
         const state: ChatLocationState = { initialQuestion: question }
-        void navigate(`/chat/${conversation.id}`, { replace: true, state })
+        await navigate(`/chat/${conversation.id}`, { replace: true, state })
       },
       onError: () => {
         toast.add({ title: t("newChat.createFailed"), type: "error" })
@@ -54,6 +62,7 @@ export function NewChat() {
         error={null}
         onSubmit={start}
         onStop={() => undefined}
+        leading={<SourcesPopover value={sources} onChange={setSources} />}
       />
     </div>
   )

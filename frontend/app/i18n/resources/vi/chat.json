@@ -99,5 +99,16 @@
     "deleteConfirm": "Xoá",
     "renameFailed": "Không đổi tên được",
     "deleteFailed": "Không xoá được"
+  },
+  "scope": {
+    "button": "Nguồn",
+    "buttonCount": "Nguồn: {{count}}",
+    "all": "Tất cả nguồn tôi được thấy",
+    "public": "Công khai",
+    "mine": "Của tôi",
+    "others": "Khác",
+    "empty": "Chưa có bộ tài liệu nào.",
+    "saveFailed": "Không lưu được nguồn",
+    "search": "Tìm bộ tài liệu"
   }
 }

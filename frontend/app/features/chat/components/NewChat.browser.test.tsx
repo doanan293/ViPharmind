@@ -117,6 +117,17 @@ describe("new conversation", () => {
       ])
     )
     await renderRoutes(ChatPage, { initialEntry: "/chat" })
+    let scopeLoads = 0
+    worker.use(
+      http.get("*/api/v1/conversations/c-generated", () => {
+        scopeLoads += 1
+        return HttpResponse.json(
+          conversationView("c-generated", "Cuộc trò chuyện mới", {
+            turn_count: 0,
+          })
+        )
+      })
+    )
     await userEvent.fill(
       page.getByRole("textbox", { name: "Tin nhắn" }),
       QUESTION
@@ -125,5 +136,89 @@ describe("new conversation", () => {
     await expect
       .element(page.getByTestId("location"))
       .toMatchTextContent(/^\/chat\/c-generated$/)
+    // Wait for the sources picker's request so it does not outlive the test.
+    await expect.poll(() => scopeLoads).toBe(1)
+  })
+
+  test("saves the chosen sources before the first question is sent", async () => {
+    const order: string[] = []
+    const patches: unknown[] = []
+    worker.use(
+      http.get("*/api/v1/collections", () =>
+        HttpResponse.json({
+          public: [],
+          organizations: [],
+          mine: [
+            {
+              id: "c-mine",
+              key: "u-1",
+              title: "Ghi chú",
+              visibility: "private",
+              owner_user_id: "u1",
+              owner_organization_id: null,
+              owner_name: "An",
+              is_system: false,
+              can_edit: true,
+              can_set_public: false,
+              current_release_id: null,
+              current_release_number: null,
+            },
+          ],
+          others: [],
+        })
+      ),
+      http.post("*/api/v1/conversations", () => {
+        order.push("create")
+        return HttpResponse.json(
+          conversationView("c-new", "Cuộc trò chuyện mới", { turn_count: 0 }),
+          { status: 201 }
+        )
+      }),
+      http.patch("*/api/v1/conversations/c-new", async ({ request }) => {
+        order.push("patch")
+        patches.push(await request.json())
+        return HttpResponse.json(
+          conversationView("c-new", "Cuộc trò chuyện mới", { turn_count: 0 })
+        )
+      }),
+      getListMessagesMockHandler(messagePage([])),
+      chatStreamHandler([answerChat(QUESTION, { conversationId: "c-new" })])
+    )
+
+    await renderRoutes(ChatPage, { initialEntry: "/chat" })
+    worker.use(
+      http.get("*/api/v1/conversations/c-new", () => {
+        order.push("load")
+        return HttpResponse.json({
+          ...conversationView("c-new", "Cuộc trò chuyện mới", {
+            turn_count: 0,
+          }),
+          collection_ids: ["c-mine"],
+        })
+      })
+    )
+    await page.getByRole("combobox", { name: "Nguồn" }).click()
+    await page.getByRole("option", { name: "Ghi chú" }).click()
+    await userEvent.keyboard("{Escape}")
+    await expect
+      .element(page.getByRole("combobox", { name: "Nguồn: 1" }))
+      .toBeVisible()
+    await userEvent.fill(
+      page.getByRole("textbox", { name: "Tin nhắn" }),
+      QUESTION
+    )
+    await page.getByRole("button", { name: "Gửi" }).click()
+
+    await expect
+      .element(page.getByTestId("location"))
+      .toMatchTextContent(/^\/chat\/c-new$/)
+    await expect
+      .element(page.getByRole("combobox", { name: "Nguồn: 1" }))
+      .toBeVisible()
+    expect(patches).toEqual([{ collection_ids: ["c-mine"] }])
+    expect(order.slice(0, 2)).toEqual(["create", "patch"])
+    await expect
+      .element(page.getByRole("button", { name: "1", exact: true }))
+      .toBeVisible()
   })
 })

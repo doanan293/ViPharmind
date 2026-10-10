@@ -48,6 +48,7 @@ import { Composer } from "./Composer"
 import { MessageActions } from "./MessageActions"
 import { MessageParts } from "./MessageParts"
 import { OlderMessagesLoader } from "./OlderMessagesLoader"
+import { ConversationSources } from "./SourcesPopover"
 
 export type ChatSessionProps = {
   conversationId: string
@@ -322,6 +323,7 @@ export function ChatSession({
         }}
         busy={busy}
         error={composerError}
+        leading={<ConversationSources conversationId={conversationId} />}
         onSubmit={(question) => {
           setDraft("")
           ask(question)

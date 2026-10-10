@@ -1,5 +1,10 @@
 import { ArrowUpIcon, SquareIcon } from "lucide-react"
-import { type FormEvent, type KeyboardEvent, useId } from "react"
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  useId,
+} from "react"
 import { useTranslation } from "react-i18next"
 
 import { chatStreamBodyMessageMax } from "~/api/gen/zod"
@@ -19,6 +24,8 @@ export type ComposerProps = {
   onSubmit: (text: string) => void
   onStop: () => void
   disabled?: boolean
+  /** Controls placed before the feedback line, such as the sources picker. */
+  leading?: ReactNode
 }
 
 export function Composer({
@@ -29,6 +36,7 @@ export function Composer({
   onSubmit,
   onStop,
   disabled = false,
+  leading,
 }: ComposerProps) {
   const { t } = useTranslation("chat")
   const feedbackId = useId()
@@ -81,6 +89,7 @@ export function Composer({
           onKeyDown={handleKeyDown}
         />
         <InputGroupAddon align="block-end">
+          {leading}
           <span
             id={feedbackId}
             className={cn("text-xs", message !== null && "text-destructive")}
