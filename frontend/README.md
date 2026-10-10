@@ -22,6 +22,30 @@ Every widget comes from shadcn (style `base-nova`, on Base UI), added with `npx 
 
 A few files in `app/components/ui/` differ from the registry on purpose because `npm run lint` (jsx-a11y) forbids the registry's version. `role="group"`/`role="list"` are dropped from `input-group`, `field`, `item` and `button-group`, and the addon click-to-focus handler is dropped from `input-group`. `spinner` is `aria-hidden` (callers wrap it in `<output>`), and `toggle-group` builds its gap style without a type assertion. When `shadcn add` offers to overwrite these files, keep the local version.
 
+## Deploy to Vercel
+
+Production serves the app from Vercel (Hobby, non-commercial) and the API from Google Cloud Run
+(`devops/cloud-run/README.md`). The browser only talks to the Vercel origin, so cookies stay
+first-party: `app/routes/api-proxy.ts` forwards `/api/*` to `API_INTERNAL_URL` with the method,
+headers (minus `host` and `accept-encoding`), body and response untouched, streams included.
+Locally that route never runs, because Vite's dev proxy, nginx and the E2E proxy answer `/api`
+first.
+
+1. Import the GitHub repository in Vercel and set **Root Directory** to `frontend`. Vercel
+   detects React Router; `react-router.config.ts` adds `vercelPreset()` only when the build runs
+   with `VERCEL=1`, so `npm start`, the Dockerfile and the E2E run keep the plain server build.
+2. Environment Variables (Production): `API_INTERNAL_URL` (the Cloud Run URL),
+   `PUBLIC_SITE_URL` (`https://<project>.vercel.app`) and `THEME_COOKIE_SECRET`.
+3. Settings → Functions: keep Fluid compute on and set Max Duration to 300 s, because a streamed
+   answer can take 90 s. Settings → Git: turn preview deployments off; `main` deploys production.
+4. Add `https://<project>.vercel.app/auth/google/callback` and `/auth/google/link-callback` to the
+   Google OAuth client, and set `PHARMA_AUTH__FRONTEND_URL` on the backend to the same origin.
+
+`@vercel/react-router` declares React Router 7 as its peer; `package.json` overrides that peer
+with the project's React Router 8, and a `VERCEL=1 npm run build` produces a single Node server
+bundle. Do not add `export const config` to a route: a second server bundle makes React Router 8
+move the same CSS file twice and the build fails.
+
 ## End-to-end tests
 
 The Playwright suite in `tests/e2e/` runs the production build of this app against the backend E2E server: real FastAPI, Postgres and Qdrant, with a fake LLM and a fixture corpus. It covers:
