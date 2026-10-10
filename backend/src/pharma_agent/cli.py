@@ -25,6 +25,10 @@ from pharma_agent.infrastructure.auth.session_cleanup import (
     delete_expired_access_tokens,
     delete_stale_account_rows,
 )
+from pharma_agent.infrastructure.auth.superadmin import (
+    list_superadmins,
+    set_superadmin,
+)
 from pharma_agent.infrastructure.composition import (
     build_application,
     build_retrieval_service,
@@ -257,6 +261,39 @@ def cleanup_sessions() -> None:
     typer.echo(f"deleted {deleted} sessions older than {lifetime} seconds")
     codes, buckets = asyncio.run(delete_stale_account_rows(settings.postgres.conninfo))
     typer.echo(f"deleted {codes} codes and {buckets} rate limit buckets")
+
+
+superadmin_app = typer.Typer(
+    help="Quyền superadmin: chỉ cấp hoặc thu hồi trên server", no_args_is_help=True
+)
+app.add_typer(superadmin_app, name="superadmin")
+
+
+def _set_superadmin(email: str, value: bool) -> None:
+    settings = Settings()
+    if not asyncio.run(set_superadmin(settings.postgres.conninfo, email, value)):
+        typer.echo(f"!! no account with email {email}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"{email}: superadmin {'granted' if value else 'revoked'}")
+
+
+@superadmin_app.command("grant")
+def superadmin_grant(email: str = typer.Argument(..., help="Email tài khoản")) -> None:
+    """Cấp quyền superadmin cho tài khoản có email này."""
+    _set_superadmin(email, True)
+
+
+@superadmin_app.command("revoke")
+def superadmin_revoke(email: str = typer.Argument(..., help="Email tài khoản")) -> None:
+    """Thu hồi quyền superadmin."""
+    _set_superadmin(email, False)
+
+
+@superadmin_app.command("list")
+def superadmin_list() -> None:
+    """Liệt kê các tài khoản superadmin."""
+    for email in asyncio.run(list_superadmins(Settings().postgres.conninfo)):
+        typer.echo(email)
 
 
 corpus_app = typer.Typer(

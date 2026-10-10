@@ -1,4 +1,5 @@
 import uuid
+from typing import ClassVar
 
 import pytest
 
@@ -9,11 +10,15 @@ from pharma_agent.application.account.errors import (
     InvalidCode,
     LastSignInMethod,
     PhoneAlreadyUsed,
+    PhoneSignInDisabled,
     RateLimited,
     SessionNotFound,
 )
+from pharma_agent.application.account.service import AccountPolicy
+from pharma_agent.domain.access.models import Role
 from pharma_agent.domain.account.models import session_id_of
-from tests.account_fakes import build_account_service
+from pharma_agent.domain.organizations.models import Organization
+from tests.account_fakes import OTP_SECRET, START, build_account_service
 
 PHONE = "+84912345678"
 
@@ -191,3 +196,38 @@ async def test_a_phone_taken_meanwhile_keeps_the_change_code_unused() -> None:
     with pytest.raises(PhoneAlreadyUsed):
         await service.confirm_phone_change(user.id, "0987654321", code)
     assert all(row.consumed_at is None for row in fakes.codes.rows)
+
+
+async def test_the_account_lists_its_organizations() -> None:
+    service, fakes = build_account_service(memberships=FakeMemberships())
+    user = fakes.accounts.add(email="an@example.com", email_verified=True)
+    org = Organization(uuid.uuid4(), "Khoa Dược", None, None, START, START)
+    FakeMemberships.rows[user.id] = [(org, Role.EDITOR)]
+    view = await service.get_account(user.id)
+    assert [(m.organization_id, m.name, m.role) for m in view.memberships] == [
+        (org.id, "Khoa Dược", Role.EDITOR)
+    ]
+    assert view.is_superadmin is False and view.phone_sign_in_enabled is True
+
+
+async def test_phone_codes_are_refused_when_sms_is_off() -> None:
+    policy = AccountPolicy(otp_secret=OTP_SECRET, sms_enabled=False)
+    service, fakes = build_account_service(policy=policy)
+    user = fakes.accounts.add(email="an@example.com", email_verified=True)
+    with pytest.raises(PhoneSignInDisabled):
+        await service.request_phone_login("0912345678", locale="vi", client_ip=None)
+    with pytest.raises(PhoneSignInDisabled):
+        await service.request_phone_change(
+            user.id, "0912345678", locale="vi", client_ip=None
+        )
+    assert fakes.sms.sent == []
+    assert (await service.get_account(user.id)).phone_sign_in_enabled is False
+
+
+class FakeMemberships:
+    rows: ClassVar[dict[uuid.UUID, list[tuple[Organization, Role]]]] = {}
+
+    async def list_for_user(
+        self, user_id: uuid.UUID
+    ) -> list[tuple[Organization, Role]]:
+        return self.rows.get(user_id, [])
