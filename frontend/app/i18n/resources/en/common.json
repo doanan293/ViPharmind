@@ -1,9 +1,6 @@
 {
   "appName": "Pharma Agent",
   "actions": {
-    "save": "Save",
-    "cancel": "Cancel",
-    "retry": "Try again",
     "close": "Close",
     "loading": "Loading…"
   },

@@ -1,12 +1,11 @@
 import { DefaultChatTransport } from "ai"
 
+import { getChatStreamUrl } from "~/api/gen/endpoints"
 import type { ChatRequest } from "~/api/gen/schemas"
 import { CSRF_HEADER, readCsrfToken } from "~/lib/csrf"
 
 import { textOf } from "./chat-messages"
 import type { PharmaUIMessage } from "./message-schema"
-
-export const CHAT_STREAM_API = "/api/v1/chat/stream"
 
 function csrfHeaders(): Record<string, string> {
   const token = readCsrfToken()
@@ -25,7 +24,7 @@ export function lastUserText(messages: readonly PharmaUIMessage[]): string {
 
 export function createChatTransport(): DefaultChatTransport<PharmaUIMessage> {
   return new DefaultChatTransport<PharmaUIMessage>({
-    api: CHAT_STREAM_API,
+    api: getChatStreamUrl(),
     credentials: "same-origin",
     headers: csrfHeaders,
     prepareSendMessagesRequest: ({ id, messages }) => {
