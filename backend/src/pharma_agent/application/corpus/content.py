@@ -11,7 +11,11 @@ from pharma_agent.application.corpus.errors import (
     QuotaExceeded,
     SystemCollectionReadOnly,
 )
-from pharma_agent.application.errors import ForbiddenRole, InvalidInput
+from pharma_agent.application.errors import (
+    ForbiddenRole,
+    InvalidInput,
+    PayloadTooLarge,
+)
 from pharma_agent.domain.access import policy
 from pharma_agent.domain.access.models import Actor
 from pharma_agent.domain.account.ports import AccountRepository
@@ -33,6 +37,8 @@ from pharma_agent.domain.corpus.source import (
 from pharma_agent.domain.organizations.ports import OrganizationRepository
 from pharma_agent.domain.shared.clock import Clock
 from pharma_agent.domain.shared.transaction import Transaction, TransactionFactory
+
+__all__ = ["ColloquialMappingRecord", "GlossaryEntry"]
 
 
 class DocumentInput(BaseModel):
@@ -364,3 +370,39 @@ class ContentService:
                 entries=len(mappings),
             )
         return mappings
+
+
+MAX_UPLOAD_BYTES = 1_000_000
+UPLOAD_SUFFIXES = (".md", ".markdown", ".txt")
+
+
+class UploadResult(BaseModel):
+    """What an uploaded file would become; nothing is saved until the user saves it."""
+
+    title: str
+    markdown: str
+    char_count: int
+
+
+def read_upload(filename: str, data: bytes) -> UploadResult:
+    """Accept UTF-8 `.md` and `.txt` files; Markdown keeps its first `# ` as title."""
+    name = filename.rsplit("/", 1)[-1]
+    lowered = name.lower()
+    if not lowered.endswith(UPLOAD_SUFFIXES):
+        raise InvalidInput("upload a .md or .txt file")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise PayloadTooLarge(f"files are limited to {MAX_UPLOAD_BYTES} bytes")
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise InvalidInput("the file is not UTF-8 text") from exc
+    text = text.replace("\r\n", "\n").strip()
+    if not text or "\x00" in text:
+        raise InvalidInput("the file is empty or not text")
+    title = name.rsplit(".", 1)[0].strip()
+    if not lowered.endswith(".txt"):
+        for line in text.splitlines():
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
+    return UploadResult(title=title or "Tài liệu", markdown=text, char_count=len(text))

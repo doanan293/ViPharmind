@@ -20,10 +20,12 @@ from pharma_agent.api.routers.chat import build_chat_router
 from pharma_agent.api.routers.citations import build_citations_router
 from pharma_agent.api.routers.collections import build_collections_router
 from pharma_agent.api.routers.conversations import build_conversations_router
+from pharma_agent.api.routers.documents import build_documents_router
 from pharma_agent.api.routers.feedback import build_feedback_router
 from pharma_agent.api.routers.health import build_health_router
 from pharma_agent.api.routers.internal import build_internal_router
 from pharma_agent.api.routers.invitations import build_invitations_router
+from pharma_agent.api.routers.jobs import build_jobs_router
 from pharma_agent.api.routers.organizations import build_organizations_router
 from pharma_agent.infrastructure.auth.users import build_auth, include_auth_routes
 from pharma_agent.infrastructure.container import ContainerFactory, open_container
@@ -79,6 +81,8 @@ def create_app(
     api.include_router(build_invitations_router(current_actor))
     api.include_router(build_audit_router(current_actor))
     api.include_router(build_collections_router(current_actor))
+    api.include_router(build_documents_router(current_actor))
+    api.include_router(build_jobs_router(current_actor))
     api.include_router(build_internal_router())
     app.include_router(api)
     return app
