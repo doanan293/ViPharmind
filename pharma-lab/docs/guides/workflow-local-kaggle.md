@@ -18,7 +18,7 @@ KAGGLE_ACC2_API_TOKEN=token_acc2
 ```bash
 uv sync --directory ..    # ở repo root: một .venv chung cho uv workspace
 uv run pharma-lab doctor --backend kaggle --kaggle-account acc1
-docker compose up -d postgres qdrant llama-embedding   # tìm compose.yaml ở thư mục cha
+docker compose -f ../compose.yaml -f ../compose.local-models.yaml up -d postgres qdrant llama-embedding
 ```
 
 Production stage ở profile mode tự tìm checkpoint tương thích trong mọi profile `accN` và mirror sang owner đích trước khi submit kernel.

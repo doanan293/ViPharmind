@@ -7,7 +7,7 @@ Mọi model chạy local qua llama.cpp trong `../compose.yaml`; không dùng Kag
 ```bash
 uv sync --directory ..    # ở repo root: một .venv chung cho uv workspace
 uv run pharma-lab doctor --backend local
-docker compose up -d postgres qdrant llama-embedding llama-reranker   # tìm compose.yaml ở thư mục cha
+docker compose -f ../compose.yaml -f ../compose.local-models.yaml up -d postgres qdrant llama-embedding llama-reranker
 ```
 
 ## 2. Build, validate, export và embed
