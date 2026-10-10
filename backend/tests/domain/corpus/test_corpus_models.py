@@ -44,7 +44,9 @@ def test_snapshot_maps_the_fixture_to_rows() -> None:
     snapshot = build_snapshot(bundle)
 
     assert snapshot.collection.id == collection_id_for("formulary")
-    assert snapshot.collection.visibility is Visibility.PRIVATE
+    # A bundle carries no owner: imported as is, it is the public system corpus.
+    assert snapshot.collection.visibility is Visibility.PUBLIC
+    assert snapshot.collection.is_system
     assert snapshot.collection.current_release_id is None
     assert [document.key for document in snapshot.documents] == [PARACETAMOL, LEAFLET]
     assert len(snapshot.sections) == len(snapshot.revisions) == 5

@@ -130,6 +130,11 @@ class ConversationTable(Base):
     summarized_turns: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("0")
     )
+    # NULL: search every collection the user may see; otherwise only these, still
+    # filtered by what the user may see at each turn.
+    collection_ids: Mapped[list[uuid.UUID] | None] = mapped_column(
+        ARRAY(Uuid), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
