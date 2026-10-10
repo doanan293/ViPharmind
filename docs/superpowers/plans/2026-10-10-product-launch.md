@@ -75,7 +75,7 @@ Các tên dưới đây được tạo ở task ghi trong ngoặc và được m
 - Consumes: `compose_embedding_text(*, context_header, chunk_text, colloquial, terms)` từ `domain/corpus/enrichment.py`; `ChunkVersion` (giữ trường `embedding_text` trong model domain, chỉ cột DB bị bỏ).
 - Produces: hàm `embedding_text_of(row) -> str` trong `corpus_repository.py` dùng lại ở `postgres_corpus.py`.
 
-- [ ] **Step 1: Test migration RED**
+- [x] **Step 1: Test migration RED**
 
 Thêm vào `backend/tests/infrastructure/test_migrations.py`:
 
@@ -97,12 +97,12 @@ async def test_corpus_cleanup_dropped_the_cache_and_the_embedding_text(
 
 Sửa `EXPECTED_CORPUS_TABLES` thành bộ 7 bảng, bỏ `"embedding_cache"`. Kiểm tra `_columns` nhận tên có schema; nếu helper hiện tại chỉ nhận tên bảng, đổi chữ ký thành `_columns(connection, table, schema=None)` và truyền `schema=CORPUS_SCHEMA`.
 
-- [ ] **Step 2: Chạy để thấy FAIL**
+- [x] **Step 2: Chạy để thấy FAIL**
 
 Run: `cd backend && uv run pytest tests/infrastructure/test_migrations.py -q -m integration -k "cleanup or matches_the_models"`
 Expected: FAIL, `embedding_cache` vẫn có và `embedding_text` vẫn có.
 
-- [ ] **Step 3: Migration 0016**
+- [x] **Step 3: Migration 0016**
 
 ```python
 """Corpus cleanup: vectors live only in Qdrant, embedding text is derived, drop leftovers.
@@ -170,7 +170,7 @@ def downgrade() -> None:
     )
 ```
 
-- [ ] **Step 4: Bỏ cột và bảng khỏi model**
+- [x] **Step 4: Bỏ cột và bảng khỏi model**
 
 Trong `corpus_tables.py`: xoá dòng `embedding_text: Mapped[str] = mapped_column(Text, nullable=False)` của `ChunkVersionTable` và xoá class `EmbeddingCacheTable`. Xoá file `infrastructure/persistence/postgres/embedding_cache.py`. Việc này làm `corpus_factory.py` không import được cho tới khi Task A2 xong, nên **Task A1 và A2 là một đơn vị, commit chung ở cuối A2**; `task-done` của A1 không chạy riêng.
 
@@ -203,7 +203,7 @@ Xoá `"embedding_text": chunk.embedding_text,` khỏi `_chunk_row`. Trong `index
 
 Trong `postgres_corpus.py` `_record(...)`: thay `embedding_text=chunk.embedding_text` bằng `embedding_text=embedding_text_of(context_header=chunk.context_header, chunk_text=chunk.chunk_text, colloquial=chunk.colloquial, term_annotations=chunk.term_annotations)`.
 
-- [ ] **Step 5: Test repository RED→GREEN**
+- [x] **Step 5: Test repository RED→GREEN**
 
 Thêm vào `tests/infrastructure/test_corpus_repository.py` (dùng fixture và snapshot sẵn có của file):
 
@@ -245,7 +245,7 @@ class ImportKnowledgeBundle.__init__(self, repository, index, embedder, clock, *
 class CorpusService.__init__(...)  # cùng chữ ký, không còn cache
 ```
 
-- [ ] **Step 1: Test RED cho IndexWriter**
+- [x] **Step 1: Test RED cho IndexWriter**
 
 Thay nội dung test về resolver/cache trong `tests/application/test_import_bundle.py` bằng:
 
@@ -286,12 +286,12 @@ async def test_writer_rejects_a_wrong_dimension() -> None:
 
 `FakeEmbedder` (`tests/fakes.py`) cần thêm `self.calls: list[list[str]]` ghi lại mỗi lô; `WrongDimensionEmbedder` trả vector 3 chiều với `dimension == 4`.
 
-- [ ] **Step 2: Chạy RED**
+- [x] **Step 2: Chạy RED**
 
 Run: `cd backend && uv run pytest tests/application/test_import_bundle.py -q`
 Expected: FAIL (`IndexWriter.__init__` không nhận `embedder`).
 
-- [ ] **Step 3: Viết lại `indexing.py`**
+- [x] **Step 3: Viết lại `indexing.py`**
 
 ```python
 """Embed and index the chunks of a release batch by batch.
@@ -403,7 +403,7 @@ class IndexWriter:
 
 `itertools.batched` trả iterator dùng chung cho các worker; mỗi `for batch in batches` lấy lô kế tiếp, không trùng.
 
-- [ ] **Step 4: Sửa `import_bundle.py`, `service.py`, `corpus_factory.py`, `ports.py`, `models.py`**
+- [x] **Step 4: Sửa `import_bundle.py`, `service.py`, `corpus_factory.py`, `ports.py`, `models.py`**
 
 - Xoá class `EmbeddingCache` trong `domain/corpus/ports.py`.
 - `ReleaseStats`: xoá `embeddings_cached`.
@@ -413,12 +413,12 @@ class IndexWriter:
 - Xoá `embedding_cache.py`. Xoá class cache in-memory trong `tests/corpus_memory.py` và mọi chỗ dùng.
 - `cli.py`: nếu lệnh `corpus import` in `embeddings_cached`, bỏ dòng đó.
 
-- [ ] **Step 5: GREEN và toàn bộ suite**
+- [x] **Step 5: GREEN và toàn bộ suite**
 
 Run: `cd backend && uv run pytest -q && uv run pytest -q -m integration`
 Expected: PASS toàn bộ. `test_corpus_integration` phải bỏ `TRUNCATE ... embedding_cache`.
 
-- [ ] **Step 6: Commit (A1 và A2)**
+- [x] **Step 6: Commit (A1 và A2)**
 
 ```bash
 git add backend
@@ -432,11 +432,11 @@ public.skills table."
 
 ### Task A3: Áp migration local và đo lại dung lượng
 
-- [ ] **Step 1:** `cd backend && uv run pharma-agent migrate`
+- [x] **Step 1:** `cd backend && uv run pharma-agent migrate`
 Expected: lên 0016, không lỗi.
-- [ ] **Step 2:** Đo: `uv run python -c "..."` như câu lệnh đo đã dùng trong brainstorming, ghi con số vào `docs/superpowers/specs/2026-10-10-product-launch-design.md` mục 4.9 nếu khác đáng kể (chỉ sửa số, không sửa quyết định).
+- [x] **Step 2:** Đo: `uv run python -c "..."` như câu lệnh đo đã dùng trong brainstorming, ghi con số vào `docs/superpowers/specs/2026-10-10-product-launch-design.md` mục 4.9 nếu khác đáng kể (chỉ sửa số, không sửa quyết định).
 Expected: database dưới 120 MB.
-- [ ] **Step 3:** Commit nếu spec thay đổi: `git commit -am "docs: record the corpus size after cleanup"`.
+- [x] **Step 3:** Commit nếu spec thay đổi: `git commit -am "docs: record the corpus size after cleanup"`.
 
 ---
 
@@ -482,7 +482,7 @@ def can_create_collection_for(actor, *, owner_user_id, owner_organization_id) ->
 
 Quy tắc hiển thị (spec mục 3): `PUBLIC` ai cũng thấy; collection hệ thống (không chủ) chỉ superadmin sửa; collection cá nhân chỉ chủ thấy và sửa; collection tổ chức `PRIVATE` chỉ owner, editor thấy; `ORGANIZATION` mọi thành viên thấy; owner, editor sửa. `can_set_visibility`: `PUBLIC` chỉ superadmin; `ORGANIZATION` chỉ khi chủ là tổ chức; cá nhân chỉ `PRIVATE` (hoặc `PUBLIC` bởi superadmin).
 
-- [ ] **Step 1: Sửa `Collection`**
+- [x] **Step 1: Sửa `Collection`**
 
 Trong `domain/corpus/models.py`:
 
@@ -507,7 +507,7 @@ class Collection(_Frozen):
         return self.owner_user_id is None and self.owner_organization_id is None
 ```
 
-- [ ] **Step 2: Test dạng bảng RED**
+- [x] **Step 2: Test dạng bảng RED**
 
 `backend/tests/domain/access/test_policy.py`:
 
@@ -670,12 +670,12 @@ def test_create_collection_for_owner() -> None:
 
 Lưu ý `MINE` với actor `ME`: trong bảng `test_collection_rules`, mọi actor đều là `ME` (chỉ khác membership), nên cột view và edit của `MINE` là `True` cho cả năm.
 
-- [ ] **Step 3: Chạy RED**
+- [x] **Step 3: Chạy RED**
 
 Run: `cd backend && uv run pytest tests/domain/access -q`
 Expected: FAIL `ModuleNotFoundError: pharma_agent.domain.access`.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 `domain/access/models.py`:
 
@@ -834,12 +834,12 @@ def can_create_collection_for(
     return actor.is_superadmin
 ```
 
-- [ ] **Step 5: GREEN**
+- [x] **Step 5: GREEN**
 
 Run: `cd backend && uv run pytest tests/domain/access tests/domain/corpus tests/architecture -q`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/src/pharma_agent/domain/access backend/src/pharma_agent/domain/corpus/models.py backend/tests/domain/access
@@ -938,7 +938,7 @@ class AuditLog(Protocol):
 
 Để `for_user` hiệu quả, `AuditEvent` thêm trường `subject_user_id` được **đặt bằng chủ sở hữu cá nhân của collection** khi sự kiện về collection cá nhân (service làm việc này), nên không cần join.
 
-- [ ] **Step 1: Test RED**
+- [x] **Step 1: Test RED**
 
 ```python
 # tests/domain/organizations/test_models.py
@@ -995,13 +995,13 @@ def test_tokens_are_hashed_and_names_are_bounded() -> None:
     assert organization_name_problem(" Khoa Dược ") is None
 ```
 
-- [ ] **Step 2: RED** — Run: `cd backend && uv run pytest tests/domain/organizations -q` → FAIL import.
+- [x] **Step 2: RED** — Run: `cd backend && uv run pytest tests/domain/organizations -q` → FAIL import.
 
-- [ ] **Step 3: Implement** theo chữ ký ở Interfaces. `effective_status`: `if self.status is InvitationStatus.SENT and self.expires_at is not None and now >= self.expires_at: return EXPIRED`. `Invitation.role` kiểu `Role` (test trên truyền `"member"`, StrEnum chấp nhận khi so sánh; dùng `Role.MEMBER` trong test để pyrefly sạch).
+- [x] **Step 3: Implement** theo chữ ký ở Interfaces. `effective_status`: `if self.status is InvitationStatus.SENT and self.expires_at is not None and now >= self.expires_at: return EXPIRED`. `Invitation.role` kiểu `Role` (test trên truyền `"member"`, StrEnum chấp nhận khi so sánh; dùng `Role.MEMBER` trong test để pyrefly sạch).
 
-- [ ] **Step 4: GREEN** — Run cùng lệnh + `tests/architecture` → PASS.
+- [x] **Step 4: GREEN** — Run cùng lệnh + `tests/architecture` → PASS.
 
-- [ ] **Step 5: Commit** — `git commit -m "feat(domain): add organizations, invitations, audit events and a transaction port"`.
+- [x] **Step 5: Commit** — `git commit -m "feat(domain): add organizations, invitations, audit events and a transaction port"`.
 
 ### Task B3: Migration 0017 và bảng mới
 
@@ -1012,7 +1012,7 @@ def test_tokens_are_hashed_and_names_are_bounded() -> None:
 
 **Interfaces (Produces):** các class `OrganizationTable`, `OrganizationMemberTable`, `OrganizationInvitationTable`, `AuditEventTable`; cột `user.text_quota_bytes`, `user.collection_quota`.
 
-- [ ] **Step 1: Test RED**
+- [x] **Step 1: Test RED**
 
 Thêm `"organizations", "organization_members", "organization_invitations", "audit_events"` vào `EXPECTED_TABLES`, và:
 
@@ -1050,9 +1050,9 @@ async def test_one_open_invitation_per_email_and_organization(
     await engine.dispose()
 ```
 
-- [ ] **Step 2: RED** — Run: `uv run pytest tests/infrastructure/test_migrations.py -q -m integration` → FAIL.
+- [x] **Step 2: RED** — Run: `uv run pytest tests/infrastructure/test_migrations.py -q -m integration` → FAIL.
 
-- [ ] **Step 3: Tables**
+- [x] **Step 3: Tables**
 
 ```python
 class OrganizationTable(Base):
@@ -1163,11 +1163,11 @@ class AuditEventTable(Base):
 
 `organization_id`, `subject_user_id`, `collection_id` của nhật ký **không có FK**, để sự kiện còn lại sau khi đối tượng bị xoá. `invited_by` của lời mời là `SET NULL` để lời mời sống tiếp khi người mời xoá tài khoản (Review Focus 4). `UserTable` thêm `text_quota_bytes: Mapped[int | None]` (BigInteger) và `collection_quota: Mapped[int | None]`.
 
-- [ ] **Step 4: Migration 0017** — dùng `op.create_table` cho bốn bảng với cột như trên (`sa.BigInteger()`, `postgresql.JSONB`), `op.create_index(..., postgresql_where=sa.text("status IN ('pending_approval', 'sent')"), unique=True)`, `op.add_column("user", sa.Column("text_quota_bytes", sa.BigInteger(), nullable=True))`, `op.add_column("user", sa.Column("collection_quota", sa.Integer(), nullable=True))`. `downgrade` ngược lại.
+- [x] **Step 4: Migration 0017** — dùng `op.create_table` cho bốn bảng với cột như trên (`sa.BigInteger()`, `postgresql.JSONB`), `op.create_index(..., postgresql_where=sa.text("status IN ('pending_approval', 'sent')"), unique=True)`, `op.add_column("user", sa.Column("text_quota_bytes", sa.BigInteger(), nullable=True))`, `op.add_column("user", sa.Column("collection_quota", sa.Integer(), nullable=True))`. `downgrade` ngược lại.
 
-- [ ] **Step 5: GREEN** — Run: `uv run pytest tests/infrastructure/test_migrations.py -q -m integration` → PASS, `_diff == []`.
+- [x] **Step 5: GREEN** — Run: `uv run pytest tests/infrastructure/test_migrations.py -q -m integration` → PASS, `_diff == []`.
 
-- [ ] **Step 6: Commit** — `git commit -m "feat(db): add organizations, members, invitations, audit events and quota columns"`.
+- [x] **Step 6: Commit** — `git commit -m "feat(db): add organizations, members, invitations, audit events and quota columns"`.
 
 ### Task B4: Repository Postgres, `ActorResolver`, fakes
 
@@ -1195,7 +1195,7 @@ class ActorResolver:
 
 Fakes (`tests/organization_fakes.py`): `InMemoryTx` (factory `begin()` yield một object và, khi exception thoát khối, **hoàn tác** các thay đổi: đơn giản nhất là các repo in-memory ghi vào `tx.pending: list[Callable[[], None]]` và factory áp dụng khi thoát không lỗi), `InMemoryOrganizations`, `InMemoryInvitations`, `InMemoryAuditLog`, và `build_org_fakes()`.
 
-- [ ] **Step 1: Test integration RED** (`test_organizations_postgres.py`, `pytestmark = integration`): tạo user bằng `add_user` như `test_account_postgres.py`; tạo org với owner qua `create(org, owner, tx)`; `members()` trả owner với `display_name`; `memberships_of(owner)`; `owner_count` 1; thêm member, `set_role`, `remove_member`; `delete` xoá thành viên theo cascade; lời mời `create` hai lần cùng email mở → `InvitationConflict`; `open_for`; `get_by_token_hash`; audit `record` trong cùng tx với `rename` rồi raise → cả hai không ghi (test tính nguyên tử):
+- [x] **Step 1: Test integration RED** (`test_organizations_postgres.py`, `pytestmark = integration`): tạo user bằng `add_user` như `test_account_postgres.py`; tạo org với owner qua `create(org, owner, tx)`; `members()` trả owner với `display_name`; `memberships_of(owner)`; `owner_count` 1; thêm member, `set_role`, `remove_member`; `delete` xoá thành viên theo cascade; lời mời `create` hai lần cùng email mở → `InvitationConflict`; `open_for`; `get_by_token_hash`; audit `record` trong cùng tx với `rename` rồi raise → cả hai không ghi (test tính nguyên tử):
 
 ```python
 async def test_audit_and_change_commit_together(database: Database) -> None:
@@ -1210,15 +1210,15 @@ async def test_audit_and_change_commit_together(database: Database) -> None:
     assert await audit.for_organization(org.id, limit=10, cursor=None) == []
 ```
 
-- [ ] **Step 2: RED** → import error.
+- [x] **Step 2: RED** → import error.
 
-- [ ] **Step 3: Implement** repositories bằng SQLAlchemy Core qua `__table__.c` như `account_repository.py` (fastapi-users typing). `members()` join `user` lấy `display_name`, `email`. `list_all` phân trang keyset theo `(created_at, id)`. `AuditLog.for_*` keyset `(occurred_at desc, id desc)` với `cursor: (datetime, str)`; `limit` do caller cộng 1. `record` dùng `session_of(tx).execute(insert(AuditEventTable).values(...))` với `details=dict(event.details)`.
+- [x] **Step 3: Implement** repositories bằng SQLAlchemy Core qua `__table__.c` như `account_repository.py` (fastapi-users typing). `members()` join `user` lấy `display_name`, `email`. `list_all` phân trang keyset theo `(created_at, id)`. `AuditLog.for_*` keyset `(occurred_at desc, id desc)` với `cursor: (datetime, str)`; `limit` do caller cộng 1. `record` dùng `session_of(tx).execute(insert(AuditEventTable).values(...))` với `details=dict(event.details)`.
 
-- [ ] **Step 4: ActorResolver test** (unit, fakes): user không tồn tại → `AccountNotFound`; user có 2 membership → `Actor.memberships` đúng; `is_superuser` → `is_superadmin`.
+- [x] **Step 4: ActorResolver test** (unit, fakes): user không tồn tại → `AccountNotFound`; user có 2 membership → `Actor.memberships` đúng; `is_superuser` → `is_superadmin`.
 
-- [ ] **Step 5: GREEN** — Run: `uv run pytest tests/application/test_actor_resolver.py -q && uv run pytest tests/infrastructure/test_organizations_postgres.py -q -m integration` → PASS.
+- [x] **Step 5: GREEN** — Run: `uv run pytest tests/application/test_actor_resolver.py -q && uv run pytest tests/infrastructure/test_organizations_postgres.py -q -m integration` → PASS.
 
-- [ ] **Step 6: Commit** — `git commit -m "feat(infra): persist organizations, invitations and audit events in one transaction"`.
+- [x] **Step 6: Commit** — `git commit -m "feat(infra): persist organizations, invitations and audit events in one transaction"`.
 
 ---
 
@@ -1264,7 +1264,7 @@ class OrganizationService:
 
 Quy tắc 404 so với 403: nếu `can_view_organization` sai thì raise `OrganizationNotFound` kể cả khi tổ chức tồn tại; nếu thấy mà thiếu quyền thì `ForbiddenRole`. Viết helper `_visible(actor, organization_id) -> Organization` dùng ở mọi phương thức.
 
-- [ ] **Step 1: Test RED**
+- [x] **Step 1: Test RED**
 
 ```python
 # tests/application/test_organization_service.py (fakes từ tests/organization_fakes.py)
@@ -1325,10 +1325,10 @@ async def test_a_failed_change_leaves_no_audit_event() -> None:
 
 `build()` tạo service với fakes và trả `(service, fakes, me_uuid)`; `actor(user_id, memberships=None)` tạo `Actor`.
 
-- [ ] **Step 2: RED** → import error.
-- [ ] **Step 3: Implement** theo Interfaces. Mọi thao tác ghi: `async with self._tx.begin() as tx: await repo...(tx); await self._audit.record(new_event(...), tx)`. `set_role`/`remove_member`: nếu đối tượng là owner và `owner_count == 1` → `LastOwner`. `leave`: `can_leave(actor, org_id, owner_count=...)`, nếu không là thành viên → `OrganizationNotFound`, nếu owner cuối → `LastOwner`.
-- [ ] **Step 4: GREEN** — `uv run pytest tests/application/test_organization_service.py tests/architecture -q`.
-- [ ] **Step 5: Commit** — `git commit -m "feat(organizations): create, rename, delete organizations and manage members"`.
+- [x] **Step 2: RED** → import error.
+- [x] **Step 3: Implement** theo Interfaces. Mọi thao tác ghi: `async with self._tx.begin() as tx: await repo...(tx); await self._audit.record(new_event(...), tx)`. `set_role`/`remove_member`: nếu đối tượng là owner và `owner_count == 1` → `LastOwner`. `leave`: `can_leave(actor, org_id, owner_count=...)`, nếu không là thành viên → `OrganizationNotFound`, nếu owner cuối → `LastOwner`.
+- [x] **Step 4: GREEN** — `uv run pytest tests/application/test_organization_service.py tests/architecture -q`.
+- [x] **Step 5: Commit** — `git commit -m "feat(organizations): create, rename, delete organizations and manage members"`.
 
 ### Task C2: `InvitationService` và email lời mời
 
@@ -1360,7 +1360,7 @@ Luồng `invite`: `normalize_email`; `invitable_roles(actor, org)` phải chứa
 
 `messages.py`: `invitation_email(organization_name, inviter_name, role, link, locale) -> EmailContent`. Tạo module gốc `application/mail.py` chứa `EmailContent` và `html_message(subject, body, highlight=None)` (chuyển `_html` và `EmailContent` từ `application/account/messages.py` sang đó, `account/messages.py` import lại). Module gốc của `application/` được mọi feature dùng chung, hợp luật kiến trúc.
 
-- [ ] **Step 1: Test RED** (các ca: owner mời gửi mail ngay với link chứa token; member mời thì chờ duyệt và không có mail; editor duyệt thì mail đi; editor không mời được owner → `ForbiddenRole`; mời email đã là thành viên → `AlreadyMember`; mời trùng → `InvitationAlreadyOpen`; accept bằng tài khoản email khác → `InvitationEmailMismatch`; accept sau 7 ngày → `InvitationExpired`; accept hai lần → lần hai `InvitationNotPending`; người mời bị xoá khỏi tổ chức rồi người được mời vẫn accept được; resend làm token cũ 404; rate limit 6 lần tới cùng email trong một giờ → `RateLimited`).
+- [x] **Step 1: Test RED** (các ca: owner mời gửi mail ngay với link chứa token; member mời thì chờ duyệt và không có mail; editor duyệt thì mail đi; editor không mời được owner → `ForbiddenRole`; mời email đã là thành viên → `AlreadyMember`; mời trùng → `InvitationAlreadyOpen`; accept bằng tài khoản email khác → `InvitationEmailMismatch`; accept sau 7 ngày → `InvitationExpired`; accept hai lần → lần hai `InvitationNotPending`; người mời bị xoá khỏi tổ chức rồi người được mời vẫn accept được; resend làm token cũ 404; rate limit 6 lần tới cùng email trong một giờ → `RateLimited`).
 
 ```python
 async def test_owner_invite_sends_a_link_and_accepting_joins() -> None:
@@ -1378,8 +1378,8 @@ async def test_owner_invite_sends_a_link_and_accepting_joins() -> None:
         await s.accept(Actor(invitee.id, False, {}), token)
 ```
 
-- [ ] **Step 2: RED**, **Step 3: Implement**, **Step 4: GREEN** (`uv run pytest tests/application/test_invitation_service.py tests/application/test_invitation_messages.py tests/application/test_account_messages.py tests/architecture -q`).
-- [ ] **Step 5: Commit** — `git commit -m "feat(organizations): invite by email with approval for member invites"`.
+- [x] **Step 2: RED**, **Step 3: Implement**, **Step 4: GREEN** (`uv run pytest tests/application/test_invitation_service.py tests/application/test_invitation_messages.py tests/application/test_account_messages.py tests/architecture -q`).
+- [x] **Step 5: Commit** — `git commit -m "feat(organizations): invite by email with approval for member invites"`.
 
 ### Task C3: `AuditService`
 
@@ -1402,9 +1402,9 @@ class AuditService:
 
 Cursor dùng `encode_cursor(occurred_at, id.hex)` / `decode_cursor` của `application/pagination.py`. `actor_name` lấy từ `accounts.get(actor_user_id)` theo lô (gom id, một `get` mỗi id là chấp nhận được với trang 50; thêm `AccountRepository.get_many(ids) -> dict` **không** cần ở bước này).
 
-- [ ] **Step 1: Test RED** (3 ca: member không xem được nhật ký tổ chức; trang 2 nối tiếp đúng theo cursor; `mine` chỉ trả sự kiện có `subject_user_id == me`).
-- [ ] **Step 2–4:** RED, implement, GREEN.
-- [ ] **Step 5: Commit** — `git commit -m "feat(audit): read organization, personal and global audit logs"`.
+- [x] **Step 1: Test RED** (3 ca: member không xem được nhật ký tổ chức; trang 2 nối tiếp đúng theo cursor; `mine` chỉ trả sự kiện có `subject_user_id == me`).
+- [x] **Step 2–4:** RED, implement, GREEN.
+- [x] **Step 5: Commit** — `git commit -m "feat(audit): read organization, personal and global audit logs"`.
 
 ### Task C4: API tổ chức, lời mời, nhật ký; container; lỗi
 
@@ -1452,7 +1452,7 @@ Routes và tên (operationId cho orval):
 
 `STATUS_BY_ERROR` thêm: `ForbiddenRole: 403`, `OrganizationNotFound: 404`, `MemberNotFound: 404`, `InvitationNotFound: 404`, `LastOwner/AlreadyMember/InvitationExpired/InvitationNotPending/InvitationEmailMismatch/InvitationAlreadyOpen: 409`.
 
-- [ ] **Step 1: Test RED** (`postgres_app`): đăng ký A và B; A tạo org; B gọi `GET /organizations/{id}` → 404; A mời B qua `POST .../invitations`; đọc token từ `outbox.email`; B `GET /invitations/{token}` không đăng nhập → 200 với `email_hint`; B accept → 200 và `GET /organizations` của B có org với `role=member`; B `PATCH /organizations/{id}` → 403 `FORBIDDEN_ROLE`; A `GET .../audit` có `member.joined`; B `GET .../audit` → 403.
+- [x] **Step 1: Test RED** (`postgres_app`): đăng ký A và B; A tạo org; B gọi `GET /organizations/{id}` → 404; A mời B qua `POST .../invitations`; đọc token từ `outbox.email`; B `GET /invitations/{token}` không đăng nhập → 200 với `email_hint`; B accept → 200 và `GET /organizations` của B có org với `role=member`; B `PATCH /organizations/{id}` → 403 `FORBIDDEN_ROLE`; A `GET .../audit` có `member.joined`; B `GET .../audit` → 403.
 
 ```python
 async def test_outsiders_see_404_on_every_organization_route(migrated_dsn: str) -> None:
@@ -1488,8 +1488,8 @@ async def test_outsiders_see_404_on_every_organization_route(migrated_dsn: str) 
             assert response.status_code == 404, response.text
 ```
 
-- [ ] **Step 2: RED**, **Step 3: Implement** router theo mẫu `account.py` (body models Pydantic, `problem_responses`), **Step 4: GREEN**: `uv run pytest tests/api -q -m integration && uv run pytest -q`.
-- [ ] **Step 5: Commit** — `git commit -m "feat(api): organizations, invitations and audit endpoints"`.
+- [x] **Step 2: RED**, **Step 3: Implement** router theo mẫu `account.py` (body models Pydantic, `problem_responses`), **Step 4: GREEN**: `uv run pytest tests/api -q -m integration && uv run pytest -q`.
+- [x] **Step 5: Commit** — `git commit -m "feat(api): organizations, invitations and audit endpoints"`.
 
 ### Task C5: `/users/me` mở rộng và CLI superadmin
 
@@ -1512,9 +1512,9 @@ class MembershipLookup(Protocol):
 
 `get_account` gọi `self._memberships.list_for_user(user_id)` khi có. `phone_sign_in_enabled = self._policy.sms_enabled`. `request_phone_login`/`request_phone_change` khi `sms_enabled` False → `PhoneSignInDisabled(ServiceUnavailable)` code `PHONE_SIGN_IN_DISABLED` (map 503). `AccountSettings`/`SmsSettings.provider: Literal["log", "none"]`; `sms_enabled = settings.sms.provider != "none"`.
 
-- [ ] **Step 1: Test RED** — unit: `get_account` trả memberships từ fake lookup; `phone_sign_in_enabled=False` → `request_phone_login` raise `PhoneSignInDisabled`; CLI: `superadmin grant` với email không có → exit 1; có → `is_superuser` True (test_cli dùng fake repo qua monkeypatch như các test CLI hiện có, hoặc integration với Postgres).
-- [ ] **Step 2–4:** RED, implement, GREEN (`uv run pytest -q`).
-- [ ] **Step 5: Commit** — `git commit -m "feat(account): expose memberships and the SMS switch, grant superadmin from the CLI"`.
+- [x] **Step 1: Test RED** — unit: `get_account` trả memberships từ fake lookup; `phone_sign_in_enabled=False` → `request_phone_login` raise `PhoneSignInDisabled`; CLI: `superadmin grant` với email không có → exit 1; có → `is_superuser` True (test_cli dùng fake repo qua monkeypatch như các test CLI hiện có, hoặc integration với Postgres).
+- [x] **Step 2–4:** RED, implement, GREEN (`uv run pytest -q`).
+- [x] **Step 5: Commit** — `git commit -m "feat(account): expose memberships and the SMS switch, grant superadmin from the CLI"`.
 
 ---
 
@@ -1527,7 +1527,7 @@ class MembershipLookup(Protocol):
 - Create: `.../migrations/versions/0018_collection_owners_and_scope.py`
 - Modify: `backend/tests/infrastructure/test_migrations.py`
 
-- [ ] **Step 1: Test RED**
+- [x] **Step 1: Test RED**
 
 ```python
 async def test_collection_owner_and_visibility_constraints(migrated_dsn: str) -> None:
@@ -1564,9 +1564,9 @@ async def test_collection_owner_and_visibility_constraints(migrated_dsn: str) ->
 
 Và `_columns(connection, "conversations")` chứa `collection_ids`.
 
-- [ ] **Step 2: RED.**
+- [x] **Step 2: RED.**
 
-- [ ] **Step 3: Tables**
+- [x] **Step 3: Tables**
 
 `CollectionTable.__table_args__`:
 
@@ -1601,9 +1601,9 @@ Và `_columns(connection, "conversations")` chứa `collection_ids`.
 
 Viết lại `system_is_public` cho rõ: `"(owner_user_id IS NOT NULL OR owner_organization_id IS NOT NULL) OR visibility = 'public'"`. Thêm cột `owner_organization_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True)`. `ConversationTable.collection_ids: Mapped[list[uuid.UUID] | None] = mapped_column(ARRAY(Uuid), nullable=True)`.
 
-- [ ] **Step 4: Migration 0018**: `add_column owner_organization_id`, `drop_constraint ck_collections_visibility` rồi tạo lại với ba giá trị, tạo ba check constraint mới và hai index, `UPDATE corpus.collections SET visibility='public' WHERE owner_user_id IS NULL` (dữ liệu cũ: collection không chủ thành hệ thống công khai, spec 4.10), `add_column conversations.collection_ids ARRAY(Uuid)`. Downgrade ngược (set `visibility='private'` cho hàng `organization` trước khi thu hẹp check).
-- [ ] **Step 5: GREEN** — migration tests.
-- [ ] **Step 6: Commit** — `git commit -m "feat(db): collections belong to a user, an organization or the system; conversations keep a source scope"`.
+- [x] **Step 4: Migration 0018**: `add_column owner_organization_id`, `drop_constraint ck_collections_visibility` rồi tạo lại với ba giá trị, tạo ba check constraint mới và hai index, `UPDATE corpus.collections SET visibility='public' WHERE owner_user_id IS NULL` (dữ liệu cũ: collection không chủ thành hệ thống công khai, spec 4.10), `add_column conversations.collection_ids ARRAY(Uuid)`. Downgrade ngược (set `visibility='private'` cho hàng `organization` trước khi thu hẹp check).
+- [x] **Step 5: GREEN** — migration tests.
+- [x] **Step 6: Commit** — `git commit -m "feat(db): collections belong to a user, an organization or the system; conversations keep a source scope"`.
 
 ### Task D2: `CollectionRepository`, `CollectionService`
 
@@ -1658,9 +1658,9 @@ class CollectionService:
 
 Việc xoá điểm Qdrant: `CorpusRepository.index_items(release_ids)` trả các `IndexItem` → `index.delete([i.chunk_version_id ...])`. Chunk versions dùng chung giữa collection không xảy ra (id băm theo section key có document key có collection key).
 
-- [ ] **Step 1: Test RED** (fakes): `visible` nhóm đúng ba nhóm cho một actor có 1 org; `create` thứ 6 của người dùng → `QuotaExceeded` với `used=5, limit=5`; `set_visibility` PUBLIC bởi owner → `ForbiddenRole`, bởi superadmin → OK và audit có `details={"from": "private", "to": "public"}`; `rename` collection hệ thống bởi người thường → 404 nếu không thấy (hệ thống luôn public nên thấy) → `SystemCollectionReadOnly`; `delete` xoá điểm Qdrant (fake index ghi lại ids).
-- [ ] **Step 2: RED**, **Step 3: Implement** (SQL `visible_for`: `where visibility='public' OR owner_user_id=:u OR (owner_organization_id IN :member_orgs AND visibility='organization') OR owner_organization_id IN :editor_orgs`, superadmin → tất cả), **Step 4: GREEN** unit + `test_collection_repository` integration.
-- [ ] **Step 5: Commit** — `git commit -m "feat(corpus): collections owned by users or organizations with visibility rules"`.
+- [x] **Step 1: Test RED** (fakes): `visible` nhóm đúng ba nhóm cho một actor có 1 org; `create` thứ 6 của người dùng → `QuotaExceeded` với `used=5, limit=5`; `set_visibility` PUBLIC bởi owner → `ForbiddenRole`, bởi superadmin → OK và audit có `details={"from": "private", "to": "public"}`; `rename` collection hệ thống bởi người thường → 404 nếu không thấy (hệ thống luôn public nên thấy) → `SystemCollectionReadOnly`; `delete` xoá điểm Qdrant (fake index ghi lại ids).
+- [x] **Step 2: RED**, **Step 3: Implement** (SQL `visible_for`: `where visibility='public' OR owner_user_id=:u OR (owner_organization_id IN :member_orgs AND visibility='organization') OR owner_organization_id IN :editor_orgs`, superadmin → tất cả), **Step 4: GREEN** unit + `test_collection_repository` integration.
+- [x] **Step 5: Commit** — `git commit -m "feat(corpus): collections owned by users or organizations with visibility rules"`.
 
 ### Task D3: Phạm vi tìm kiếm theo quyền trong chat
 
@@ -1702,14 +1702,14 @@ class PostgresScopeResolver:
 
 `search_node` lấy `runtime.context.scope`; nếu rỗng, không gọi `deps.retrieval.search` và để `run.evidence` rỗng, graph đi tiếp theo nhánh "không có bằng chứng" hiện có (câu trả lời từ chối). `verify_corpus` của retriever đổi thành kiểm tra Qdrant collection và alias (`verify_collection`), không còn kiểm tra danh sách key. Health check `corpus` vẫn báo `CORPUS_NOT_READY` khi alias thiếu hoặc model lệch.
 
-- [ ] **Step 1: Test RED**
+- [x] **Step 1: Test RED**
   - `test_retrieval_service.py`: `search(..., scope={})` trả rỗng và `FakeRetriever.calls == []`; `scope` được truyền tới retriever.
   - `test_chat_service.py`: `open_turn` với `collection_ids=[c1]` cho hội thoại mới lưu vào conversation và `FakeScopeResolver` nhận `requested=[c1]`; hội thoại cũ dùng ids đã lưu.
   - `test_qdrant_adapter.py`: `search_many(queries, 5, scope={c: r})` dựng filter đúng và không gọi `current_releases`.
   - `test_scope_resolver.py` (integration): A thấy public + của mình; `requested` chứa collection của B → bị loại; collection không có current release → bị loại.
-- [ ] **Step 2: RED**, **Step 3: Implement**, cập nhật `tests/fakes.py` `FakeRetriever.search_many(..., scope)`; xoá `PHARMA_RETRIEVAL__COLLECTIONS` khỏi settings, `.env.example`, README, `tests/infrastructure/test_corpus_retrieval_integration.py` (truyền scope trực tiếp).
-- [ ] **Step 4: GREEN** — `uv run pytest -q && uv run pytest -q -m integration`.
-- [ ] **Step 5: Commit** — `git commit -m "feat(chat): search only the collections the user may see, narrowed per conversation"`.
+- [x] **Step 2: RED**, **Step 3: Implement**, cập nhật `tests/fakes.py` `FakeRetriever.search_many(..., scope)`; xoá `PHARMA_RETRIEVAL__COLLECTIONS` khỏi settings, `.env.example`, README, `tests/infrastructure/test_corpus_retrieval_integration.py` (truyền scope trực tiếp).
+- [x] **Step 4: GREEN** — `uv run pytest -q && uv run pytest -q -m integration`.
+- [x] **Step 5: Commit** — `git commit -m "feat(chat): search only the collections the user may see, narrowed per conversation"`.
 
 ### Task D4: API collections, phạm vi hội thoại, request chat
 
@@ -1732,9 +1732,9 @@ Routes:
 
 `ChatRequest` thêm `collection_ids: list[uuid.UUID] | None = Field(default=None, min_length=1)`; chỉ áp dụng khi `conversation_id` rỗng, ngược lại bị bỏ qua (ghi trong docstring).
 
-- [ ] **Step 1: Test RED** (`postgres_app` cần `collections`, `actors` trong Container của test: mở rộng `postgres_app` để lắp `build_organization_services` và `build_collection_service`): A tạo collection cá nhân → `GET /collections` của B không thấy; B gọi `GET /collections/{id}` → 404; A `PATCH visibility=public` → 403; `PATCH /conversations/{id}` với `collection_ids=[]` → 422; với `[id]` → view có `collection_ids`.
-- [ ] **Step 2–4:** RED, implement, GREEN.
-- [ ] **Step 5: Commit** — `git commit -m "feat(api): collection management and per-conversation source scope"`.
+- [x] **Step 1: Test RED** (`postgres_app` cần `collections`, `actors` trong Container của test: mở rộng `postgres_app` để lắp `build_organization_services` và `build_collection_service`): A tạo collection cá nhân → `GET /collections` của B không thấy; B gọi `GET /collections/{id}` → 404; A `PATCH visibility=public` → 403; `PATCH /conversations/{id}` với `collection_ids=[]` → 422; với `[id]` → view có `collection_ids`.
+- [x] **Step 2–4:** RED, implement, GREEN.
+- [x] **Step 5: Commit** — `git commit -m "feat(api): collection management and per-conversation source scope"`.
 
 ### Task D5: Kiểm thử phạm vi trên Qdrant thật
 
@@ -1743,7 +1743,7 @@ Routes:
 
 Dựng hai collection với fixture bundle nhỏ (`tests/corpus_fixtures.py`): một của A (private), một của tổ chức O mức `organization`; publish cả hai với `FakeEmbedder`. Dùng `PostgresScopeResolver` thật và `RetrievalService` thật (`build_retrieval_service`).
 
-- [ ] **Step 1: Test** (RED trước khi D3 xong; ở đây phải GREEN):
+- [x] **Step 1: Test** (RED trước khi D3 xong; ở đây phải GREEN):
 
 ```python
 async def test_users_only_hit_what_they_may_see(platform) -> None:
@@ -1770,8 +1770,8 @@ async def test_leaving_the_organization_empties_the_scope_next_turn(platform) ->
 async def test_narrowing_keeps_only_the_requested_collection(platform) -> None: ...
 ```
 
-- [ ] **Step 2: Run** — `uv run pytest tests/infrastructure/test_scope_retrieval_integration.py -q -m integration` → PASS.
-- [ ] **Step 3: Commit** — `git commit -m "test(retrieval): prove the search scope follows membership and visibility"`.
+- [x] **Step 2: Run** — `uv run pytest tests/infrastructure/test_scope_retrieval_integration.py -q -m integration` → PASS.
+- [x] **Step 3: Commit** — `git commit -m "test(retrieval): prove the search scope follows membership and visibility"`.
 
 ---
 
@@ -1826,9 +1826,9 @@ class JobDispatcher(Protocol):
 
 Bảng (schema `corpus`): `source_documents` (cột như spec 4.7; `UniqueConstraint(collection_id, key)`, `kind` check theo `DocumentKind`, `char_count` Integer), `glossary_entries` (`id`, `collection_id`, `term`, `case_sensitive` Boolean, `vietnamese_expansions ARRAY(Text)`, `english_expansions`, `aliases`, `category` Text default ''; `UniqueConstraint(collection_id, term)`), `colloquial_mappings` (`id`, `collection_id`, `key`, `aliases`, `visual_sign`, `product_names`, `section_keys`; `UniqueConstraint(collection_id, key)`), `ingest_jobs` (cột theo spec; `Index("uq_ingest_jobs_open", "collection_id", unique=True, postgresql_where=text("status IN ('queued','running')"))`, `release_id` FK `corpus.releases.id` `SET NULL`, `requested_by` FK `user.id` `SET NULL`).
 
-- [ ] **Step 1: Test RED**: `EXPECTED_CORPUS_TABLES` thêm bốn bảng; test unique partial index trên `ingest_jobs` (job `ready` cộng job `queued` cùng collection OK; hai `queued` → `IntegrityError`); `test_source.py`: `document_problem`.
-- [ ] **Step 2–4:** RED, implement bảng + migration + domain, GREEN.
-- [ ] **Step 5: Commit** — `git commit -m "feat(db): authored documents, glossary, colloquial names and ingest jobs"`.
+- [x] **Step 1: Test RED**: `EXPECTED_CORPUS_TABLES` thêm bốn bảng; test unique partial index trên `ingest_jobs` (job `ready` cộng job `queued` cùng collection OK; hai `queued` → `IntegrityError`); `test_source.py`: `document_problem`.
+- [x] **Step 2–4:** RED, implement bảng + migration + domain, GREEN.
+- [x] **Step 5: Commit** — `git commit -m "feat(db): authored documents, glossary, colloquial names and ingest jobs"`.
 
 ### Task E2: Trình dựng bundle từ Markdown
 
@@ -1856,7 +1856,7 @@ Quy tắc `split_markdown`:
 4. `SectionRecord.ordinal` tăng từ 1 trong tài liệu; `retrieval=DEFAULT`; không có số trang.
 5. `build_bundle`: `DocumentRecord(key=doc.key, kind=doc.kind, title=doc.title, source=SourceInfo(title=doc.source_title, url=doc.source_url))`; sections nối theo thứ tự tài liệu; `manifest.document_count`, `section_count` đúng; `files` để rỗng (manifest chỉ dùng khi ghi ra đĩa, `import_bundle` không đọc `files`); `source_digests={}`; `collection=BundleCollection(key=collection.key, title=collection.title)`; `colloquial_mappings` giữ nguyên `section_keys` nhưng loại key không còn tồn tại (trả về cùng danh sách bị loại qua `build_bundle_report` nếu cần: **không**, UI báo qua `section_choices` ở E3).
 
-- [ ] **Step 1: Test RED**
+- [x] **Step 1: Test RED**
 
 ```python
 def test_headings_split_sections_and_tables_become_blocks() -> None:
@@ -1902,8 +1902,8 @@ def test_build_bundle_digest_is_stable_and_counts_match() -> None:
     assert snapshot.chunks
 ```
 
-- [ ] **Step 2–4:** RED, implement, GREEN (`uv run pytest tests/domain/corpus -q`).
-- [ ] **Step 5: Commit** — `git commit -m "feat(corpus): build a knowledge bundle from authored Markdown documents"`.
+- [x] **Step 2–4:** RED, implement, GREEN (`uv run pytest tests/domain/corpus -q`).
+- [x] **Step 5: Commit** — `git commit -m "feat(corpus): build a knowledge bundle from authored Markdown documents"`.
 
 ### Task E3: `ContentService`, repository Postgres, hạn mức
 
@@ -1942,9 +1942,9 @@ class ContentService:
 
 Hạn mức của chủ: `user.text_quota_bytes` / `organizations.text_quota_bytes` ghi đè mặc định; `ContentService` đọc `accounts.get(owner.user_id)` hoặc `organizations.get(owner.organization_id)` để lấy override. Thêm `text_quota_bytes`, `collection_quota` vào `AccountUser` (domain account) và `Organization`.
 
-- [ ] **Step 1: Test RED**: tạo tài liệu bởi editor OK và audit; member → `ForbiddenRole`; người ngoài → `CollectionNotFoundForActor`; tài liệu 200.001 ký tự → `InvalidInput`; tài liệu thứ 101 → `QuotaExceeded(unit="documents")`; vượt byte người dùng với override `text_quota_bytes=10` → `QuotaExceeded(used, limit)`; key tự tăng `-2`; `replace_colloquial` với section key lạ → `InvalidInput`; hệ thống → `SystemCollectionReadOnly`.
-- [ ] **Step 2–4:** RED, implement (repository Core SQL với `ARRAY(Text)`), GREEN unit + integration.
-- [ ] **Step 5: Commit** — `git commit -m "feat(corpus): author documents, glossary and colloquial names under quotas"`.
+- [x] **Step 1: Test RED**: tạo tài liệu bởi editor OK và audit; member → `ForbiddenRole`; người ngoài → `CollectionNotFoundForActor`; tài liệu 200.001 ký tự → `InvalidInput`; tài liệu thứ 101 → `QuotaExceeded(unit="documents")`; vượt byte người dùng với override `text_quota_bytes=10` → `QuotaExceeded(used, limit)`; key tự tăng `-2`; `replace_colloquial` với section key lạ → `InvalidInput`; hệ thống → `SystemCollectionReadOnly`.
+- [x] **Step 2–4:** RED, implement (repository Core SQL với `ARRAY(Text)`), GREEN unit + integration.
+- [x] **Step 5: Commit** — `git commit -m "feat(corpus): author documents, glossary and colloquial names under quotas"`.
 
 ### Task E4: Xuất bản qua job, `JobDispatcher`, endpoint nội bộ
 
@@ -1991,12 +1991,12 @@ class PublishService:
 
 Route: `POST /internal/ingest-jobs/{job_id}/run` name `internal:ingest_jobs.run`, `include_in_schema=False`, dependency `verify_internal`. Container: `publish: PublishService`, `content: ContentService`, `dispatcher`. Khi `dispatcher == "inprocess"`, container tạo `InProcessDispatcher(container.publish.run)`.
 
-- [ ] **Step 1: Test RED**
+- [x] **Step 1: Test RED**
   - `test_publish_service.py`: publish tạo job và `RecordingDispatcher.enqueued == [job.id]`; publish lần hai khi job mở → `PublishInProgress`; hai `publish` song song qua `asyncio.gather` với fake repo mô phỏng unique index → đúng một job (Review Focus 2); `run` chạy importer giả, các bước đi `BUNDLE→…→PUBLISH`, `READY`, audit; `run` khi `READY` không gọi importer (Review Focus 5); lỗi lần 1 → `QUEUED` và re-raise, lần `max_attempts` → `FAILED`.
   - `test_internal_auth.py`: inprocess token sai → 401; đúng → qua.
   - `test_internal_api_postgres.py`: `POST /internal/...` không token → 401; có token với job không tồn tại → 422.
-- [ ] **Step 2–4:** RED, implement, GREEN (`uv run pytest -q && uv run pytest -q -m integration`). Chạy `uv lock` sau khi thêm dependency; pre-commit `uv-lock` kiểm tra.
-- [ ] **Step 5: Commit** — `git commit -m "feat(corpus): publish authored collections through a background job"`.
+- [x] **Step 2–4:** RED, implement, GREEN (`uv run pytest -q && uv run pytest -q -m integration`). Chạy `uv lock` sau khi thêm dependency; pre-commit `uv-lock` kiểm tra.
+- [x] **Step 5: Commit** — `git commit -m "feat(corpus): publish authored collections through a background job"`.
 
 ### Task E5: API tài liệu, metadata, job, tải lên
 
@@ -2023,9 +2023,9 @@ Routes:
 
 Upload: chấp nhận `text/plain`, `text/markdown` hoặc tên `.txt`/`.md`, tối đa 1 MB (`PayloadTooLarge`), decode UTF-8 (lỗi → `InvalidInput("the file is not UTF-8 text")`); `.txt` giữ nguyên nội dung; `title` lấy từ dòng `# ` đầu tiên của `.md` hoặc tên file không đuôi.
 
-- [ ] **Step 1: Test RED**: editor tạo tài liệu qua API, `GET` trả markdown; `upload` một file `.md` trả title từ `#`; `PUT glossary` với term trùng → 422; `publish` → 202 với `status=queued`; với `InProcessDispatcher` trong `postgres_app` (dùng `FakeEmbedder` và Qdrant thật qua fixture `qdrant_url`) chờ `drain()` rồi `GET /ingest-jobs/{id}` → `ready`, `GET /collections/{id}` có `current_release_number == 1`; `publish` lần hai khi không đổi → job `ready` với `outcome=no_change`.
-- [ ] **Step 2–4:** RED, implement, GREEN.
-- [ ] **Step 5: Commit** — `git commit -m "feat(api): author, upload and publish collection content"`.
+- [x] **Step 1: Test RED**: editor tạo tài liệu qua API, `GET` trả markdown; `upload` một file `.md` trả title từ `#`; `PUT glossary` với term trùng → 422; `publish` → 202 với `status=queued`; với `InProcessDispatcher` trong `postgres_app` (dùng `FakeEmbedder` và Qdrant thật qua fixture `qdrant_url`) chờ `drain()` rồi `GET /ingest-jobs/{id}` → `ready`, `GET /collections/{id}` có `current_release_number == 1`; `publish` lần hai khi không đổi → job `ready` với `outcome=no_change`.
+- [x] **Step 2–4:** RED, implement, GREEN.
+- [x] **Step 5: Commit** — `git commit -m "feat(api): author, upload and publish collection content"`.
 
 ### Task E6: `AdminService` và API admin
 
@@ -2054,9 +2054,9 @@ class AdminService:
 
 Mọi phương thức bắt đầu bằng `if not actor.is_superadmin: raise ForbiddenRole`. Routes dưới `/admin/...` theo spec mục 7 với name `admin:users.list`, `admin:users.update`, `admin:organizations.list`, `admin:organizations.update`, `admin:collections.list`, `admin:ingest_jobs.list`, `admin:users.conversations`, `admin:conversations.messages`, `admin:audit` (dùng `AuditService.everything`). Người không phải superadmin nhận **404** ở mọi route admin (không phải 403), để không lộ trang admin: router admin dùng dependency `require_superadmin` raise `HTTPException(404)`.
 
-- [ ] **Step 1: Test RED**: người thường gọi `GET /admin/users` → 404; superadmin (set bằng `UPDATE "user" SET is_superuser=true` trong test) → 200; khoá user → phiên của user đó mất (`GET /users/me` của họ → 401); audit có `user.disabled`; đọc tin nhắn hội thoại người khác → 200 và `GET /admin/audit` **không** có sự kiện mới.
-- [ ] **Step 2–4:** RED, implement, GREEN.
-- [ ] **Step 5: Commit** — `git commit -m "feat(admin): superadmin reads and manages users, organizations, collections and jobs"`.
+- [x] **Step 1: Test RED**: người thường gọi `GET /admin/users` → 404; superadmin (set bằng `UPDATE "user" SET is_superuser=true` trong test) → 200; khoá user → phiên của user đó mất (`GET /users/me` của họ → 401); audit có `user.disabled`; đọc tin nhắn hội thoại người khác → 200 và `GET /admin/audit` **không** có sự kiện mới.
+- [x] **Step 2–4:** RED, implement, GREEN.
+- [x] **Step 5: Commit** — `git commit -m "feat(admin): superadmin reads and manages users, organizations, collections and jobs"`.
 
 ### Task E7: Reranker DeepInfra và SMS `none`
 
@@ -2075,9 +2075,9 @@ class DeepInfraReranker:
 
 `build_reranker`: `protocol == "deepinfra"` → `httpx.AsyncClient(base_url=settings.base_url, headers={"Authorization": f"bearer {api_key}"}, timeout=...)` và `DeepInfraReranker`. `build_sms_sender`: `provider == "none"` → `LogSmsSender` vẫn được trả nhưng `AccountPolicy.sms_enabled=False` (C5) chặn trước khi gửi.
 
-- [ ] **Step 1: Test RED** (respx mock `https://api.deepinfra.com/v1/inference/Qwen/Qwen3-Reranker-4B` trả `{"scores":[0.1,0.9]}` → thứ tự đảo; `scores` thiếu → `RetrievalError`).
-- [ ] **Step 2–4:** RED, implement, GREEN.
-- [ ] **Step 5: Commit** — `git commit -m "feat(retrieval): rerank through DeepInfra's inference endpoint"`.
+- [x] **Step 1: Test RED** (respx mock `https://api.deepinfra.com/v1/inference/Qwen/Qwen3-Reranker-4B` trả `{"scores":[0.1,0.9]}` → thứ tự đảo; `scores` thiếu → `RetrievalError`).
+- [x] **Step 2–4:** RED, implement, GREEN.
+- [x] **Step 5: Commit** — `git commit -m "feat(retrieval): rerank through DeepInfra's inference endpoint"`.
 
 ---
 
@@ -2110,17 +2110,17 @@ const ALLOWED_FEATURE_IMPORTS: Record<string, string[]> = {
 
 Mã lỗi mới trong `errors.json`: `FORBIDDEN_ROLE`, `ORGANIZATION_NOT_FOUND`, `LAST_OWNER`, `ALREADY_MEMBER`, `MEMBER_NOT_FOUND`, `INVITATION_NOT_FOUND`, `INVITATION_EXPIRED`, `INVITATION_NOT_PENDING`, `INVITATION_EMAIL_MISMATCH`, `INVITATION_ALREADY_OPEN`, `ORGANIZATION_NAME_INVALID`, `COLLECTION_NOT_FOUND`, `SYSTEM_COLLECTION_READ_ONLY`, `QUOTA_EXCEEDED`, `PUBLISH_IN_PROGRESS`, `PHONE_SIGN_IN_DISABLED`.
 
-- [ ] **Step 1:** Sinh client; `npm run typecheck` sẽ FAIL ở `RenameConversationDialog` (hook đổi tên) và nơi dùng `accountView` → sửa.
-- [ ] **Step 2: Test RED**: `AppSidebar.browser.test.tsx` thêm ca "ẩn Quản trị với người thường, hiện với superadmin". Trang đăng nhập và đăng ký chưa có người dùng, nên cờ SMS lấy từ `GET /api/v1/health`: backend thêm trường `phone_sign_in_enabled: bool` vào `HealthResponse` (một dòng, kèm test ở `tests/api/test_health_api.py`), frontend đọc qua `useHealth()`; test stub health trả `false` → không có tab "Số điện thoại".
-- [ ] **Step 3:** Implement; `npx vitest run app/architecture.test.ts app/features/shell app/features/auth` → PASS.
-- [ ] **Step 4:** `npm run lint && npm run typecheck && npx vitest run` → PASS.
-- [ ] **Step 5: Commit** — `git commit -m "feat(frontend): regenerate the client, add navigation and boundaries for the new features"`.
+- [x] **Step 1:** Sinh client; `npm run typecheck` sẽ FAIL ở `RenameConversationDialog` (hook đổi tên) và nơi dùng `accountView` → sửa.
+- [x] **Step 2: Test RED**: `AppSidebar.browser.test.tsx` thêm ca "ẩn Quản trị với người thường, hiện với superadmin". Trang đăng nhập và đăng ký chưa có người dùng, nên cờ SMS lấy từ `GET /api/v1/health`: backend thêm trường `phone_sign_in_enabled: bool` vào `HealthResponse` (một dòng, kèm test ở `tests/api/test_health_api.py`), frontend đọc qua `useHealth()`; test stub health trả `false` → không có tab "Số điện thoại".
+- [x] **Step 3:** Implement; `npx vitest run app/architecture.test.ts app/features/shell app/features/auth` → PASS.
+- [x] **Step 4:** `npm run lint && npm run typecheck && npx vitest run` → PASS.
+- [x] **Step 5: Commit** — `git commit -m "feat(frontend): regenerate the client, add navigation and boundaries for the new features"`.
 
 ### Task F2: Primitive shadcn còn thiếu
 
 - [x] **Step 1:** `cd frontend && npx shadcn@latest add popover checkbox table progress native-select hover-card item toggle toggle-group button-group combobox` (style `base-nova` theo `components.json`), rồi `npx shadcn@latest add dashboard-01` để lấy block (`app-sidebar`, `nav-*`, `site-header`, `section-cards`, `data-table`, `avatar`, `breadcrumb`). Giữ bản local của file `ui` đã sửa vì lint. Bỏ demo `app/routes/dashboard.tsx`, `app/dashboard/data.json`, `chart-area-interactive`, `nav-documents`, `sonner`, `next-themes`, `@dnd-kit`, `recharts`; ghim phiên bản các gói còn lại.
-- [ ] **Step 2:** `npm run lint && npm run typecheck` → PASS.
-- [ ] **Step 3: Commit** — `git commit -m "chore(ui): add popover, checkbox, table and progress primitives"`.
+- [x] **Step 2:** `npm run lint && npm run typecheck` → PASS.
+- [x] **Step 3: Commit** — `git commit -m "chore(ui): add popover, checkbox, table and progress primitives"`.
 
 ### Task F3: Feature `audit`
 
@@ -2137,9 +2137,9 @@ export function describeEvent(event: AuditEventView, t: TFunction<"audit">): str
 
 `AuditList` nhận `queryKey` và `queryFn` để dùng chung cho tổ chức, cá nhân và admin. Route `/activity` gọi `useAuditMineInfinite`.
 
-- [ ] **Step 1: Test RED** (`describe-event.test.ts`: mỗi action có khoá ở cả vi và en, không còn `{{` sau khi dịch với details mẫu; `AuditList` hiển thị câu và tải trang 2 khi cuộn).
-- [ ] **Step 2–4:** RED, implement, GREEN.
-- [ ] **Step 5: Commit** — `git commit -m "feat(frontend): audit log list and the activity page"`.
+- [x] **Step 1: Test RED** (`describe-event.test.ts`: mỗi action có khoá ở cả vi và en, không còn `{{` sau khi dịch với details mẫu; `AuditList` hiển thị câu và tải trang 2 khi cuộn).
+- [x] **Step 2–4:** RED, implement, GREEN.
+- [x] **Step 5: Commit** — `git commit -m "feat(frontend): audit log list and the activity page"`.
 
 ### Task F4: Feature `organizations`
 
@@ -2155,9 +2155,9 @@ Hành vi:
 - `OrgCollectionsTab`: lọc `CollectionGroups.organizations[organization_id]` và nút Tạo collection cho tổ chức (dùng component `CreateCollectionDialog` của feature `collections`, owner cố định).
 - `DeleteOrganizationDialog`: ô nhập tên, nút Xoá disabled tới khi khớp.
 
-- [ ] **Step 1: Test RED** (MSW): `OrganizationPage` với `/users/me` role member → không có tab Nhật ký, không có nút Đổi tên; `InvitationsTab`: member mời → body `{email, role: "member"}` và hàng mới hiện "Chờ duyệt"; owner bấm Duyệt → POST `.../approve`; `MembersTab`: owner đổi vai trò → PATCH body `{role}`.
-- [ ] **Step 2–4:** RED, implement, GREEN.
-- [ ] **Step 5: Commit** — `git commit -m "feat(frontend): organizations with members, invitations and audit"`.
+- [x] **Step 1: Test RED** (MSW): `OrganizationPage` với `/users/me` role member → không có tab Nhật ký, không có nút Đổi tên; `InvitationsTab`: member mời → body `{email, role: "member"}` và hàng mới hiện "Chờ duyệt"; owner bấm Duyệt → POST `.../approve`; `MembersTab`: owner đổi vai trò → PATCH body `{role}`.
+- [x] **Step 2–4:** RED, implement, GREEN.
+- [x] **Step 5: Commit** — `git commit -m "feat(frontend): organizations with members, invitations and audit"`.
 
 ### Task F5: Trang nhận lời mời
 
@@ -2167,7 +2167,7 @@ Hành vi:
 
 Hành vi: `useInvitationsPreview(token)` công khai → hiện tổ chức, người mời, vai trò, `email_hint`. Trạng thái người dùng lấy từ `currentUserQueryOptions()` với `retry: false`: chưa đăng nhập (401) → hai nút Đăng nhập, Đăng ký với `next=/invitations/{token}`; đã đăng nhập → nút Tham gia (POST accept → toast và `navigate(/organizations/{id})`) và Từ chối; lỗi `INVITATION_EMAIL_MISMATCH` → câu "Lời mời này dành cho {{hint}}, bạn đang đăng nhập bằng {{email}}" và nút Đăng xuất; 404 → "Lời mời không còn hiệu lực".
 
-- [ ] **Step 1–5:** RED (3 ca: chưa đăng nhập; chấp nhận; sai email), implement, GREEN, commit `feat(frontend): invitation landing page`.
+- [x] **Step 1–5:** RED (3 ca: chưa đăng nhập; chấp nhận; sai email), implement, GREEN, commit `feat(frontend): invitation landing page`.
 
 ### Task F6: Feature `collections` (danh sách, chi tiết, metadata, release)
 
@@ -2185,9 +2185,9 @@ Hành vi:
 - `ReleasesTab`: danh sách `item` số, ngày, Badge "Đang dùng"; nút Quay lại bản trước. `CollectionsPage` nhóm bằng `item`, hạn mức bằng `progress`, tạo bằng `NameForm`.
 - `PublishButton` + `JobProgress`: POST publish → lưu `job.id` trong state, poll `useJobsGet(jobId, { query: { refetchInterval: (q) => q.state.data?.status in ["queued","running"] ? 2000 : false } })`; hiện bước bằng Progress và nhãn `collections.job.step.{bundle|chunk|embed|index|publish}`; xong thì invalidate collection và releases; lỗi hiện `error`; `PUBLISH_IN_PROGRESS` → toast.
 
-- [ ] **Step 1: Test RED**: `CollectionPage` ẩn Công khai cho người thường, hiện cho superadmin; hệ thống chỉ có tab Bản phát hành; `GlossaryTab` PUT đúng body sau khi thêm dòng; `PublishButton` poll hai lần rồi hiện "Hoàn tất".
-- [ ] **Step 2–4:** RED, implement, GREEN.
-- [ ] **Step 5: Commit** — `git commit -m "feat(frontend): collections with quotas, metadata tabs, releases and publishing"`.
+- [x] **Step 1: Test RED**: `CollectionPage` ẩn Công khai cho người thường, hiện cho superadmin; hệ thống chỉ có tab Bản phát hành; `GlossaryTab` PUT đúng body sau khi thêm dòng; `PublishButton` poll hai lần rồi hiện "Hoàn tất".
+- [x] **Step 2–4:** RED, implement, GREEN.
+- [x] **Step 5: Commit** — `git commit -m "feat(frontend): collections with quotas, metadata tabs, releases and publishing"`.
 
 ### Task F7: Trình soạn tài liệu Tiptap và tải lên
 
@@ -2201,9 +2201,9 @@ Hành vi:
 
 `DocumentEditorPage`: form tiêu đề, loại (Select theo `DocumentKind`), nguồn, URL nguồn, nội dung (MarkdownEditor), đếm ký tự `/ 200.000`, nút Lưu; `UploadButton` nhận `.txt,.md`, gọi `uploadDocumentFile`, đổ `title` và `markdown` vào form (ghi đè sau khi confirm nếu form đã có nội dung). Lỗi `QUOTA_EXCEEDED` hiện câu với `used/limit`.
 
-- [ ] **Step 1: Test RED**: gõ `# Tiêu đề` + Enter + "Nội dung" trong editor → `onChange` cuối cùng là `"# Tiêu đề\n\nNội dung"`; chèn bảng → markdown có `|`; `DocumentEditorPage` lưu → POST body đúng; upload file `.md` giả → form điền tiêu đề.
-- [ ] **Step 2–4:** RED, implement, GREEN (`npx vitest run app/features/collections`).
-- [ ] **Step 5: Commit** — `git commit -m "feat(frontend): write documents in a Tiptap editor or upload Markdown"`.
+- [x] **Step 1: Test RED**: gõ `# Tiêu đề` + Enter + "Nội dung" trong editor → `onChange` cuối cùng là `"# Tiêu đề\n\nNội dung"`; chèn bảng → markdown có `|`; `DocumentEditorPage` lưu → POST body đúng; upload file `.md` giả → form điền tiêu đề.
+- [x] **Step 2–4:** RED, implement, GREEN (`npx vitest run app/features/collections`).
+- [x] **Step 5: Commit** — `git commit -m "feat(frontend): write documents in a Tiptap editor or upload Markdown"`.
 
 ### Task F8: Nút Nguồn trong chat
 
@@ -2213,9 +2213,9 @@ Hành vi:
 
 Hành vi: `SourcesPopover({ value: string[] | null, onChange })` là `combobox` nhiều lựa chọn (`ComboboxTrigger` là `Button`, popup có `ComboboxInput` tìm, nút "Tất cả nguồn tôi được thấy" đặt value null, `ComboboxGroup` theo Công khai / từng tổ chức / Của tôi). Nút hiện "Nguồn" hoặc "Nguồn: N". Danh sách bộ tài liệu chỉ tải khi mở. Lựa chọn hiện ngay rồi mới PATCH (optimistic). Hội thoại có sẵn: `value` từ `conversation.collection_ids`, `onChange` gọi `useUpdateConversation` `{collection_ids}` và cập nhật cache. Hội thoại mới (`NewChat`): giữ lựa chọn trong state; khi gửi câu đầu, `createConversation` → nếu có lựa chọn thì `updateConversation({collection_ids})` → navigate kèm câu hỏi như hiện nay. Vì vậy `ChatRequest.collection_ids` ở backend chỉ dùng cho client API, giao diện không cần gửi nó.
 
-- [ ] **Step 1: Test RED**: popover hiện ba nhóm; bỏ chọn tất cả rồi tick một collection → PATCH `{collection_ids: [id]}` và nút hiện "Nguồn: 1"; tick lại "Tất cả" → PATCH `{collection_ids: null}`.
-- [ ] **Step 2–4:** RED, implement, GREEN.
-- [ ] **Step 5: Commit** — `git commit -m "feat(chat): narrow a conversation to chosen sources"`.
+- [x] **Step 1: Test RED**: popover hiện ba nhóm; bỏ chọn tất cả rồi tick một collection → PATCH `{collection_ids: [id]}` và nút hiện "Nguồn: 1"; tick lại "Tất cả" → PATCH `{collection_ids: null}`.
+- [x] **Step 2–4:** RED, implement, GREEN.
+- [x] **Step 5: Commit** — `git commit -m "feat(chat): narrow a conversation to chosen sources"`.
 
 ### Task F9: Feature `admin`
 
@@ -2225,9 +2225,9 @@ Hành vi: `SourcesPopover({ value: string[] | null, onChange })` là `combobox` 
 
 Guard: `clientLoader` của route admin gọi `requireUser` rồi nếu `!user.is_superadmin` → `throw data(null, { status: 404 })` để `ErrorBoundary` hiện trang 404 hiện có. `AdminPage`: `site-header` + `section-cards` + Tabs Người dùng / Tổ chức / Collection / Job / Nhật ký. `UsersSection`: `data-table` của block với ô tìm trong toolbar, nút Khoá/Mở (AlertDialog), Hạn mức (`QuotaDialog`, react-hook-form + zod), Hội thoại (Sheet liệt kê `useAdminUsersConversationsInfinite`, bấm mở `ReadOnlyThread`). `ReadOnlyThread` dùng `MessageParts` của chat với `renderActions` bỏ trống, `useAdminConversationsMessagesInfinite`. `AuditSection` dùng `AuditList` với `useAdminAuditInfinite`.
 
-- [ ] **Step 1: Test RED**: người thường vào `/admin` thấy trang 404 (dùng `createRoutesStub` với loader); superadmin khoá người dùng → PATCH `{is_active:false}`; `ReadOnlyThread` render tin nhắn không có nút phản hồi.
-- [ ] **Step 2–4:** RED, implement, GREEN.
-- [ ] **Step 5: Commit** — `git commit -m "feat(frontend): superadmin console"`.
+- [x] **Step 1: Test RED**: người thường vào `/admin` thấy trang 404 (dùng `createRoutesStub` với loader); superadmin khoá người dùng → PATCH `{is_active:false}`; `ReadOnlyThread` render tin nhắn không có nút phản hồi.
+- [x] **Step 2–4:** RED, implement, GREEN.
+- [x] **Step 5: Commit** — `git commit -m "feat(frontend): superadmin console"`.
 
 ### Task F10: Trang pháp lý và footer
 
@@ -2237,7 +2237,7 @@ Guard: `clientLoader` của route admin gọi `requireUser` rồi nếu `!user.i
 
 Nội dung bắt buộc của Chính sách quyền riêng tư: dữ liệu lưu ở Neon (Singapore) và Qdrant Cloud, model chạy tại DeepInfra; quản trị viên có thể đọc hội thoại và dữ liệu để vận hành và việc đọc không được ghi nhật ký; nội dung nạp thuộc người dùng hoặc tổ chức; email dùng để gửi mã và lời mời. Điều khoản: câu trả lời không thay thế tư vấn của dược sĩ hoặc bác sĩ; cấm nạp nội dung vi phạm; tài khoản có thể bị khoá.
 
-- [ ] **Step 1–5:** RED (trang render đủ các mục bắt buộc, có `<title>`), implement, GREEN, commit `feat(frontend): privacy policy and terms pages`.
+- [x] **Step 1–5:** RED (trang render đủ các mục bắt buộc, có `<title>`), implement, GREEN, commit `feat(frontend): privacy policy and terms pages`.
 
 ### Task F11: E2E
 
@@ -2254,8 +2254,8 @@ test("an editor writes a document, publishes, and the answer cites it", ...)   /
 test("a superadmin disables a user, whose session ends", ...)
 ```
 
-- [ ] **Step 1:** viết spec; **Step 2:** `npm run e2e` → PASS 15/15 (11 cũ + 4 mới).
-- [ ] **Step 3: Commit** — `git commit -m "test(e2e): organizations, publishing and admin flows"`.
+- [x] **Step 1:** viết spec; **Step 2:** `npm run e2e` → PASS 15/15 (11 cũ + 4 mới).
+- [x] **Step 3: Commit** — `git commit -m "test(e2e): organizations, publishing and admin flows"`.
 
 ---
 
@@ -2282,9 +2282,9 @@ Soát toàn bộ frontend và thay mọi chỗ tự ghép bằng hàng của sha
 **Files:**
 - Modify: `compose.yaml` (services `llama-embedding`, `llama-reranker` → `profiles: ["local-models"]`; `cli-proxy-api` → `profiles: ["gemini-proxy"]`; `backend` bỏ `depends_on` hai llama khi không có profile: dùng `depends_on` với `required: false`), `README.md` (mục "Chạy local": mặc định `docker compose up -d postgres qdrant`, backend chạy `uv run pharma-agent serve` trên host với DeepInfra; "Chạy model trên CPU" với `--profile local-models`), `backend/.env.example` (mặc định trỏ DeepInfra, khối llama.cpp thành ghi chú), `backend/README.md`
 
-- [ ] **Step 1:** Sửa; `docker compose config` phải parse; `docker compose --profile local-models config` liệt kê đủ service.
-- [ ] **Step 2:** Chạy `uv run pytest tests/infrastructure/test_settings.py -q` (giá trị mặc định mới của `RerankSettings`/`EmbeddingSettings` nếu đổi) → PASS.
-- [ ] **Step 3: Commit** — `git commit -m "chore(compose): local models and the Gemini proxy become optional profiles"`.
+- [x] **Step 1:** Sửa; `docker compose config` phải parse; `docker compose --profile local-models config` liệt kê đủ service.
+- [x] **Step 2:** Chạy `uv run pytest tests/infrastructure/test_settings.py -q` (giá trị mặc định mới của `RerankSettings`/`EmbeddingSettings` nếu đổi) → PASS.
+- [x] **Step 3: Commit** — `git commit -m "chore(compose): local models and the Gemini proxy become optional profiles"`.
 
 ### Task G2: Vercel cho frontend
 
@@ -2294,10 +2294,10 @@ Soát toàn bộ frontend và thay mọi chỗ tự ghép bằng hàng của sha
 
 Vercel không nội suy biến môi trường trong `vercel.json`, và rewrite của Vercel không cho kiểm soát header. Vì vậy proxy `/api/*` là một route của React Router: `app/routes/api-proxy.ts` đăng ký `route("api/*", "routes/api-proxy.ts")`, có `loader` và `action` chuyển tiếp request tới `process.env.API_INTERNAL_URL` bằng `fetch`, giữ method, headers (bỏ `host`), body, và trả `Response` gốc kèm `set-cookie`. Stream SSE đi qua vì `fetch` trả body dạng stream và React Router trả thẳng `Response`. Ở local, Vite proxy xử lý `/api` trước nên route này chỉ chạy trên bản build. Không tạo `vercel.json`.
 
-- [ ] **Step 1: Test RED** (`app/routes/api-proxy.test.ts`, unit): loader chuyển `GET /api/v1/health` tới `API_INTERNAL_URL`, giữ `cookie`, bỏ `host`; action chuyển `POST` với body và `x-csrftoken`; response `set-cookie` được giữ.
-- [ ] **Step 2–3:** implement, GREEN; `npm run build` thành công với preset.
-- [ ] **Step 4:** Thêm `tests/e2e/proxy.ts` ghi chú vẫn dùng cho e2e (không đổi).
-- [ ] **Step 5: Commit** — `git commit -m "feat(frontend): Vercel preset and a same-origin API proxy route"`.
+- [x] **Step 1: Test RED** (`app/routes/api-proxy.test.ts`, unit): loader chuyển `GET /api/v1/health` tới `API_INTERNAL_URL`, giữ `cookie`, bỏ `host`; action chuyển `POST` với body và `x-csrftoken`; response `set-cookie` được giữ.
+- [x] **Step 2–3:** implement, GREEN; `npm run build` thành công với preset.
+- [x] **Step 4:** Thêm `tests/e2e/proxy.ts` ghi chú vẫn dùng cho e2e (không đổi).
+- [x] **Step 5: Commit** — `git commit -m "feat(frontend): Vercel preset and a same-origin API proxy route"`.
 
 ### Task G3: Workflow deploy backend lên Cloud Run
 
@@ -2309,9 +2309,9 @@ Workflow (push `main`, đường dẫn `backend/**`, `pyproject.toml`, `uv.lock`
 
 Secret Manager keys (tài liệu trong `devops/cloud-run/README.md`): `PHARMA_POSTGRES__DSN`, `PHARMA_QDRANT__URL`, `PHARMA_QDRANT__API_KEY`, `PHARMA_LLM__DEFAULT__API_KEY`, `PHARMA_RETRIEVAL__EMBEDDING__API_KEY`, `PHARMA_RETRIEVAL__RERANK__API_KEY`, `PHARMA_AUTH__JWT_SECRET`, `PHARMA_AUTH__CSRF_SECRET`, `PHARMA_AUTH__OTP_SECRET`, `PHARMA_AUTH__GOOGLE_CLIENT_SECRET`, `PHARMA_EMAIL__SMTP_PASSWORD`. Biến thường: `PHARMA_LLM__DEFAULT__BASE_URL=https://api.deepinfra.com/v1/openai`, `PHARMA_LLM__DEFAULT__MODEL=Qwen/Qwen3.5-9B`, `PHARMA_LLM__DEFAULT__EXTRA_BODY={"chat_template_kwargs":{"enable_thinking":false}}`, embedding và rerank DeepInfra, `PHARMA_RETRIEVAL__RERANK__PROTOCOL=deepinfra`, `PHARMA_SMS__PROVIDER=none`, `PHARMA_EMAIL__PROVIDER=smtp`, `PHARMA_AUTH__FRONTEND_URL=https://<project>.vercel.app`, `PHARMA_API__TRUSTED_PROXY_HOPS=1` (đo lại), `PHARMA_JOBS__DISPATCHER=cloud_tasks`, `PHARMA_JOBS__BACKEND_URL`, `PHARMA_JOBS__CLOUD_TASKS_PROJECT`, `PHARMA_JOBS__SERVICE_ACCOUNT_EMAIL`.
 
-- [ ] **Step 1: Test RED** (`test_settings.py`): `PORT=8080` trong env → `settings.api.port == 8080`.
-- [ ] **Step 2:** implement; `act` không cần; kiểm tra YAML bằng `python -c "import yaml,sys; yaml.safe_load(open('.github/workflows/deploy-backend.yml'))"`.
-- [ ] **Step 3: Commit** — `git commit -m "ci: deploy the backend to Cloud Run with a migration job"`.
+- [x] **Step 1: Test RED** (`test_settings.py`): `PORT=8080` trong env → `settings.api.port == 8080`.
+- [x] **Step 2:** implement; `act` không cần; kiểm tra YAML bằng `python -c "import yaml,sys; yaml.safe_load(open('.github/workflows/deploy-backend.yml'))"`.
+- [x] **Step 3: Commit** — `git commit -m "ci: deploy the backend to Cloud Run with a migration job"`.
 
 ### Task G4: Nạp dữ liệu lần đầu và checklist ra mắt
 
@@ -2322,9 +2322,9 @@ Secret Manager keys (tài liệu trong `devops/cloud-run/README.md`): `PHARMA_PO
 
 Checklist gồm cả bước đo `TRUSTED_PROXY_HOPS`: gọi `GET /api/v1/account/sessions` sau đăng nhập qua Vercel và xem `ip_address` có phải IP thật; nếu là IP của Vercel thì tăng lên 2.
 
-- [ ] **Step 1: Test RED** (`test_cli.py`): `pharma-agent --env-file x.env check` đọc settings từ file đó.
-- [ ] **Step 2–3:** implement, GREEN.
-- [ ] **Step 4: Commit** — `git commit -m "docs: launch checklist and production env file support"`.
+- [x] **Step 1: Test RED** (`test_cli.py`): `pharma-agent --env-file x.env check` đọc settings từ file đó.
+- [x] **Step 2–3:** implement, GREEN.
+- [x] **Step 4: Commit** — `git commit -m "docs: launch checklist and production env file support"`.
 
 ### Task G5: Review cuối toàn nhánh
 
