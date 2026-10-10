@@ -68,11 +68,6 @@ def format_elapsed(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
-def format_timed_log_lines(entry: str, elapsed: float) -> list[str]:
-    prefix = f"[{format_elapsed(elapsed)}]"
-    return [f"{prefix} {line.strip()}" for line in entry.splitlines() if line.strip()]
-
-
 def parse_dataset_status(output: str) -> str:
     payload = parse_dataset_status_payload(output)
     status = str(payload["status"]).strip().upper()

@@ -206,7 +206,6 @@ METRICS: tuple[Metric, ...] = (
     Metric("llm_calls_per_turn", lambda v: float(v.answer.llm_calls), False, True),
     Metric("latency_seconds", lambda v: v.answer.latency_seconds, False, False),
 )
-BY_NAME = {metric.name: metric for metric in METRICS}
 LATENCY = "latency_seconds"
 
 # Names printed in the paper's LaTeX tables, with the direction that is better.

@@ -13,10 +13,10 @@ from typing import Any
 from pharma_lab.config.chunking import DEFAULT_CHUNK_MAX_CHARS
 from pharma_lab.config.paths import (
     CANONICAL_INTERIM_DIR,
-    DOCLING_INTERIM_DIR,
     LEAFLET_MARKDOWN_INTERIM_DIR,
     RAG_FINAL_DIR,
     RAG_INTERIM_DIR,
+    SOURCES_CURATION_DIR,
 )
 from pharma_lab.corpus.processing.preprocess_rag_corpus import (
     OFFICIAL_GENERAL_MONOGRAPHS,
@@ -25,10 +25,8 @@ from pharma_lab.corpus.processing.preprocess_rag_corpus import (
 DEFAULT_FINAL_DIR = RAG_FINAL_DIR
 DEFAULT_CANONICAL_DIR = CANONICAL_INTERIM_DIR
 DEFAULT_RAG_INTERIM_DIR = RAG_INTERIM_DIR
-DEFAULT_DOCLING_DIR = DOCLING_INTERIM_DIR
+DEFAULT_CURATED_TABLES = SOURCES_CURATION_DIR / "docling_tables.jsonl"
 DEFAULT_LEAFLET_MARKDOWN_DIR = LEAFLET_MARKDOWN_INTERIM_DIR
-DEFAULT_REPORT_JSON = RAG_FINAL_DIR / "final_validation_report.json"
-DEFAULT_REPORT_MD = RAG_FINAL_DIR / "final_validation_report.md"
 
 BSA_SECTION_ID = (
     "general:phu-luc-1-xac-dinh-dien-tich-be-mat-than-the-nguoi-tu-chieu-cao-va-can-nang:"
@@ -97,13 +95,9 @@ JOINED_NUMERIC_UNIT_RE = re.compile(
     r"(?<![A-Za-zÀ-Ỵà-ỵ])\d+(?:microgam|mg|ml|kg|cm2|m2|g)(?=\b|/)"
 )
 PUNCT_NO_SPACE_RE = re.compile(r"[A-Za-zÀ-Ỵà-ỵ0-9][:;,.][A-ZÀ-ỴĐ]")
-BRAND_INDEX_ENTRY_START_RE = re.compile(r"^- \*\*[^*]+\*\*: .+")
 BRAND_INDEX_DANGLING_RE = re.compile(r"- \*\*[^*]+\*\*:\s*$")
 BRAND_INDEX_CONTINUATION_RE = re.compile(r"^biệt dược chứa hoạt chất \*\*")
 SEVERITIES = {"blocking", "auto_fixable", "suspect", "accepted"}
-NON_LEAFLET_SOURCE = (
-    "Dược thư Quốc gia Việt Nam (Xuất bản lần thứ 2) – Nhà xuất bản Y học, Hà Nội, 2018"
-)
 LEAFLET_SOURCE = "Tờ hướng dẫn sử dụng"
 SALBUTAMOL_DESCRIPTOR_SECTIONS = {
     "drug:salbutamol:noi-dung:part-002",
@@ -325,10 +319,6 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-
-
-def chunk_record_text(record: dict[str, Any]) -> str:
-    return str(record.get("chunk_text") or record.get("text") or "")
 
 
 def duplicate_ids(records: list[dict[str, Any]], key: str) -> list[str]:
@@ -796,11 +786,10 @@ def load_inputs(
     final_dir: Path,
     canonical_dir: Path,
     rag_interim_dir: Path,
-    docling_dir: Path,
     leaflet_markdown_dir: Path,
+    curated_tables_path: Path,
     final_sections_path: Path | None = None,
     final_chunks_path: Path | None = None,
-    curated_tables_path: Path | None = None,
 ) -> CorpusInputs:
     leaflet_files = (
         sorted(leaflet_markdown_dir.glob("**/*.md"))
@@ -814,9 +803,7 @@ def load_inputs(
         canonical_sections=read_jsonl(canonical_dir / "sections.jsonl"),
         rag_sections=read_jsonl(rag_interim_dir / "sections.jsonl"),
         rag_chunks=read_jsonl(rag_interim_dir / "chunks.jsonl"),
-        curated_tables=read_jsonl(
-            curated_tables_path or docling_dir / "tables.curated.jsonl"
-        ),
+        curated_tables=read_jsonl(curated_tables_path),
         leaflet_markdown_files=leaflet_files,
     )
 
@@ -1244,17 +1231,15 @@ def run_deep_audit(
     final_dir: Path = DEFAULT_FINAL_DIR,
     canonical_dir: Path = DEFAULT_CANONICAL_DIR,
     rag_interim_dir: Path = DEFAULT_RAG_INTERIM_DIR,
-    docling_dir: Path = DEFAULT_DOCLING_DIR,
     leaflet_markdown_dir: Path = DEFAULT_LEAFLET_MARKDOWN_DIR,
     final_sections_path: Path | None = None,
     final_chunks_path: Path | None = None,
-    curated_tables_path: Path | None = None,
+    curated_tables_path: Path = DEFAULT_CURATED_TABLES,
 ) -> ValidationReport:
     inputs = load_inputs(
         final_dir=Path(final_dir),
         canonical_dir=Path(canonical_dir),
         rag_interim_dir=Path(rag_interim_dir),
-        docling_dir=Path(docling_dir),
         leaflet_markdown_dir=Path(leaflet_markdown_dir),
         final_sections_path=final_sections_path,
         final_chunks_path=final_chunks_path,
@@ -1271,13 +1256,12 @@ def validate_final_rag(
     final_dir: Path = DEFAULT_FINAL_DIR,
     canonical_dir: Path = DEFAULT_CANONICAL_DIR,
     rag_interim_dir: Path = DEFAULT_RAG_INTERIM_DIR,
-    docling_dir: Path = DEFAULT_DOCLING_DIR,
     leaflet_markdown_dir: Path = DEFAULT_LEAFLET_MARKDOWN_DIR,
     enforce_full_coverage: bool = True,
     include_deep_audit: bool = False,
     final_sections_path: Path | None = None,
     final_chunks_path: Path | None = None,
-    curated_tables_path: Path | None = None,
+    curated_tables_path: Path = DEFAULT_CURATED_TABLES,
 ) -> ValidationReport:
     final_dir = Path(final_dir)
     canonical_dir = Path(canonical_dir)
@@ -1340,7 +1324,6 @@ def validate_final_rag(
             final_dir=Path(final_dir),
             canonical_dir=Path(canonical_dir),
             rag_interim_dir=Path(rag_interim_dir),
-            docling_dir=Path(docling_dir),
             leaflet_markdown_dir=Path(leaflet_markdown_dir),
             final_sections_path=final_sections_path,
             final_chunks_path=final_chunks_path,

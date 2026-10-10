@@ -266,16 +266,6 @@ def convert_single_column_tables_to_text(text: str) -> str:
     return strip_table_bold_artifacts("\n".join(new_lines))
 
 
-def process_table_clean(table_lines: list[str]) -> list[str]:
-    if len(table_lines) <= 2:
-        has_sep = any(
-            re.match(r"^\s*\|(?:\s*:?-+:?\s*\|)+\s*$", line) for line in table_lines
-        )
-        if has_sep:
-            return []
-    return table_lines
-
-
 def strip_table_bold_artifacts(text: str) -> str:
     cleaned_lines = []
     for line in text.splitlines():

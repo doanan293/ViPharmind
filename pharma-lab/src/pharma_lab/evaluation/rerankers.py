@@ -4,7 +4,6 @@ from typing import Protocol
 import requests
 
 from pharma_lab.evaluation.candidate_text import candidate_document_text
-from pharma_lab.evaluation.rerank_score_cache import RerankScoreCache
 from pharma_lab.evaluation.retrieval_types import RetrievalCandidate
 from pharma_lab.runtime.catalog import ModelSpec
 from pharma_lab.runtime.client import LlamaCppClient
@@ -18,29 +17,6 @@ class Reranker(Protocol):
     def rerank(
         self, query: str, candidates: list[RetrievalCandidate]
     ) -> list[RetrievalCandidate]: ...
-
-
-class CachedReranker:
-    accepts_query_row = True
-
-    def __init__(self, cache: RerankScoreCache, reranker: str):
-        self.cache = cache
-        self.reranker = reranker
-
-    def rerank(
-        self, query_row: dict, candidates: list[RetrievalCandidate]
-    ) -> list[RetrievalCandidate]:
-        scored = []
-        for candidate in candidates:
-            score = self.cache.require_score(self.reranker, query_row, candidate)
-            scored.append(
-                (score, candidate.rank, candidate.resolved_chunk_id, candidate)
-            )
-        scored.sort(key=lambda item: (-item[0], item[1], item[2]))
-        return [
-            item[3].with_rerank_score(item[0], rank)
-            for rank, item in enumerate(scored, start=1)
-        ]
 
 
 def _exception_chain(exc: BaseException):

@@ -5,13 +5,13 @@ from typing import Annotated
 
 import typer
 
-from pharma_lab.cli.options import Backend
 from pharma_lab.cli.runtime import (
     CommandResult,
     CommandStatus,
     run_handler,
     state_from_context,
 )
+from pharma_lab.config.enums import Backend
 from pharma_lab.config.environment import PROJECT_ENV_FILE
 from pharma_lab.config.paths import PROJECT_ROOT
 from pharma_lab.orchestration.preflight import run_preflight
