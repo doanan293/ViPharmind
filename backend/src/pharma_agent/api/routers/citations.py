@@ -26,6 +26,6 @@ def build_citations_router(current_user_id: UserIdDependency) -> APIRouter:
         user_id: UserId,
         container: ContainerDep,
     ) -> CitationDetail:
-        return await container.queries.get_citation(user_id, message_id, index)
+        return await container.conversations.get_citation(user_id, message_id, index)
 
     return router

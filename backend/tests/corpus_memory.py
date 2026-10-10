@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from pharma_agent.application.corpus.import_bundle import ImportKnowledgeBundle
-from pharma_agent.application.corpus.releases import ReleaseService
+from pharma_agent.application.corpus.service import CorpusService
 from pharma_agent.domain.corpus.bundle import ColloquialMappingRecord, GlossaryEntry
 from pharma_agent.domain.corpus.models import (
     ChunkVersion,
@@ -395,8 +395,8 @@ def build_release_service(
     clock: Clock | None = None,
     batch_size: int = 2,
     max_concurrent: int = 1,
-) -> ReleaseService:
-    return ReleaseService(
+) -> CorpusService:
+    return CorpusService(
         adapters.repository,
         adapters.cache,
         adapters.index,

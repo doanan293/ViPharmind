@@ -6,7 +6,7 @@ from pharma_agent.infrastructure.settings import Settings
 pytestmark = pytest.mark.integration
 
 
-async def test_container_without_llm_serves_queries_only(
+async def test_container_without_llm_serves_conversations_only(
     migrated_dsn: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("PHARMA_POSTGRES__DSN", migrated_dsn)
@@ -16,7 +16,7 @@ async def test_container_without_llm_serves_queries_only(
         assert container.feedback is not None
         assert await container.health_checks["postgres"]() is True
         assert container.health_reasons == {}
-        page = await container.queries.list_conversations("a" * 32, limit=5)
+        page = await container.conversations.list_conversations("a" * 32, limit=5)
         assert page.items == [] and page.next_cursor is None
 
 

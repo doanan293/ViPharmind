@@ -10,7 +10,7 @@ from pharma_agent.application.corpus.import_bundle import (
     ImportKnowledgeBundle,
     ImportOutcome,
 )
-from pharma_agent.application.corpus.releases import ReleaseService
+from pharma_agent.application.corpus.service import CorpusService
 from pharma_agent.domain.corpus.bundle import KnowledgeBundle
 from pharma_agent.domain.corpus.models import ReleaseStatus, build_snapshot
 from pharma_agent.domain.corpus.ports import VectorIndex
@@ -53,7 +53,7 @@ class Stack:
     repository: PostgresCorpusRepository
     index: VectorIndex
     importer: ImportKnowledgeBundle
-    releases: ReleaseService
+    releases: CorpusService
 
 
 @pytest.fixture

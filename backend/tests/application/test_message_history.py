@@ -1,7 +1,7 @@
 import uuid
 from collections.abc import Collection, Sequence
 
-from pharma_agent.application.conversation.queries import ConversationQueries
+from pharma_agent.application.conversation.service import ConversationService
 from pharma_agent.domain.agent.run import AnswerMode, AnswerPlan
 from pharma_agent.domain.conversation.models import Conversation
 from pharma_agent.domain.conversation.turns import build_turn_messages
@@ -46,7 +46,7 @@ class CountingCitations(InMemoryCitationReader):
 async def test_list_messages_returns_ui_messages_with_feedback_and_is_current() -> None:
     repo, feedback = InMemoryConversationRepository(), CountingFeedback()
     citations = CountingCitations(CURRENT_RELEASE_ID)
-    queries = ConversationQueries(
+    service = ConversationService(
         repo, FixedClock(NOW), feedback=feedback, citations=citations
     )
     conversation = Conversation.start(
@@ -89,7 +89,7 @@ async def test_list_messages_returns_ui_messages_with_feedback_and_is_current() 
         )
     )
 
-    page = await queries.list_messages(OWNER, conversation.conversation_id, limit=30)
+    page = await service.list_messages(OWNER, conversation.conversation_id, limit=30)
 
     assert page.next_cursor is None
     assert [message.id for message in page.items] == [

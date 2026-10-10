@@ -55,7 +55,9 @@ class MessagePage(BaseModel):
     next_cursor: str | None
 
 
-class ConversationQueries:
+class ConversationService:
+    """Conversation use cases: create, list, read, rename and delete, plus citation lookup."""
+
     def __init__(
         self,
         conversations: ConversationRepository,

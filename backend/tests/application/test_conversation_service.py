@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import pytest
 
-from pharma_agent.application.conversation.queries import ConversationQueries
+from pharma_agent.application.conversation.service import ConversationService
 from pharma_agent.application.errors import ConversationNotFound, InvalidInput
 from pharma_agent.application.pagination import InvalidCursor
 from pharma_agent.domain.agent.run import AgentRun, AnswerMode, AnswerPlan
@@ -21,10 +21,10 @@ from tests.memory_repository import (
 OWNER, STRANGER = "a" * 32, "b" * 32
 
 
-def queries_for(
+def service_for(
     repo: InMemoryConversationRepository, clock: FixedClock
-) -> ConversationQueries:
-    return ConversationQueries(
+) -> ConversationService:
+    return ConversationService(
         repo,
         clock,
         feedback=InMemoryFeedbackRepository(),
@@ -59,7 +59,7 @@ async def add_turn(
 
 async def test_list_get_messages_rename_delete() -> None:
     repo = InMemoryConversationRepository()
-    queries = queries_for(repo, FixedClock(NOW + timedelta(days=1)))
+    service = service_for(repo, FixedClock(NOW + timedelta(days=1)))
     older = Conversation.start(user_id=OWNER, first_message="older", now=NOW)
     never_used = Conversation.start(
         user_id=OWNER, first_message="never used", now=NOW + timedelta(minutes=1)
@@ -78,11 +78,11 @@ async def test_list_get_messages_rename_delete() -> None:
     older.record_turn(NOW + timedelta(minutes=2))
     await repo.append_turn(older, user_msg, assistant_msg)
 
-    listed = await queries.list_conversations(OWNER, limit=10)
+    listed = await service.list_conversations(OWNER, limit=10)
     assert [c.title for c in listed.items] == ["older"]
     assert listed.items[0].turn_count == 1 and listed.next_cursor is None
 
-    page = await queries.list_messages(OWNER, older.conversation_id, limit=10)
+    page = await service.list_messages(OWNER, older.conversation_id, limit=10)
     assert [
         (message.role, message.parts[0].model_dump()) for message in page.items
     ] == [
@@ -91,29 +91,29 @@ async def test_list_get_messages_rename_delete() -> None:
     ]
     assert page.next_cursor is None
 
-    renamed = await queries.rename(OWNER, older.conversation_id, "  Thuốc hạ sốt ")
+    renamed = await service.rename(OWNER, older.conversation_id, "  Thuốc hạ sốt ")
     assert renamed.title == "Thuốc hạ sốt" and renamed.updated_at == NOW + timedelta(
         days=1
     )
 
     with pytest.raises(InvalidInput):
-        await queries.rename(OWNER, older.conversation_id, " ")
+        await service.rename(OWNER, older.conversation_id, " ")
     for call in (
-        queries.get_conversation(STRANGER, older.conversation_id),
-        queries.list_messages(STRANGER, older.conversation_id, limit=10),
-        queries.rename(STRANGER, older.conversation_id, "x"),
-        queries.delete(STRANGER, older.conversation_id),
+        service.get_conversation(STRANGER, older.conversation_id),
+        service.list_messages(STRANGER, older.conversation_id, limit=10),
+        service.rename(STRANGER, older.conversation_id, "x"),
+        service.delete(STRANGER, older.conversation_id),
     ):
         with pytest.raises(ConversationNotFound):
             await call
 
-    await queries.delete(OWNER, older.conversation_id)
-    assert (await queries.list_conversations(OWNER, limit=10)).items == []
+    await service.delete(OWNER, older.conversation_id)
+    assert (await service.list_conversations(OWNER, limit=10)).items == []
 
 
 async def test_pages_have_no_duplicates_or_gaps_when_timestamps_tie() -> None:
     repo = InMemoryConversationRepository()
-    queries = queries_for(repo, FixedClock(NOW))
+    service = service_for(repo, FixedClock(NOW))
     created: list[Conversation] = []
     for index in range(5):
         conversation = Conversation.start(
@@ -129,7 +129,7 @@ async def test_pages_have_no_duplicates_or_gaps_when_timestamps_tie() -> None:
     listed: list[str] = []
     cursor: str | None = None
     while True:
-        conversations = await queries.list_conversations(OWNER, limit=2, cursor=cursor)
+        conversations = await service.list_conversations(OWNER, limit=2, cursor=cursor)
         listed.extend(item.id for item in conversations.items)
         if conversations.next_cursor is None:
             break
@@ -140,7 +140,7 @@ async def test_pages_have_no_duplicates_or_gaps_when_timestamps_tie() -> None:
     pages: list[list[str]] = []
     cursor = None
     while True:
-        messages = await queries.list_messages(
+        messages = await service.list_messages(
             OWNER, conversation_id, limit=3, cursor=cursor
         )
         pages.append([m.id for m in messages.items])
@@ -152,19 +152,19 @@ async def test_pages_have_no_duplicates_or_gaps_when_timestamps_tie() -> None:
     assert [len(ids) for ids in pages] == [3, 3, 2]
     assert [mid for ids in reversed(pages) for mid in ids] == everything
 
-    exact = await queries.list_messages(OWNER, conversation_id, limit=8)
+    exact = await service.list_messages(OWNER, conversation_id, limit=8)
     assert len(exact.items) == 8 and exact.next_cursor is None
-    first_page = await queries.list_conversations(OWNER, limit=2, cursor="")
+    first_page = await service.list_conversations(OWNER, limit=2, cursor="")
     assert len(first_page.items) == 2
     with pytest.raises(InvalidCursor):
-        await queries.list_conversations(OWNER, limit=2, cursor="nope")
+        await service.list_conversations(OWNER, limit=2, cursor="nope")
 
 
 async def test_create_starts_an_empty_unlisted_conversation() -> None:
     repo = InMemoryConversationRepository()
-    queries = queries_for(repo, FixedClock(NOW))
+    service = service_for(repo, FixedClock(NOW))
 
-    view = await queries.create(OWNER)
+    view = await service.create(OWNER)
 
     assert (view.title, view.turn_count, view.created_at, view.updated_at) == (
         "Cuộc trò chuyện mới",
@@ -173,5 +173,5 @@ async def test_create_starts_an_empty_unlisted_conversation() -> None:
         NOW,
     )
     assert repo.rows[view.id].user_id == OWNER
-    assert (await queries.get_conversation(OWNER, view.id)).id == view.id
-    assert (await queries.list_conversations(OWNER, limit=10)).items == []
+    assert (await service.get_conversation(OWNER, view.id)).id == view.id
+    assert (await service.list_conversations(OWNER, limit=10)).items == []

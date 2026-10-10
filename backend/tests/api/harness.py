@@ -14,7 +14,7 @@ from pharma_agent.api.app import create_app
 from pharma_agent.application.chat.graph import build_chat_graph
 from pharma_agent.application.chat.runner import ChatTurnRunner
 from pharma_agent.application.chat.service import ChatService, MemoryPolicy
-from pharma_agent.application.conversation.queries import ConversationQueries
+from pharma_agent.application.conversation.service import ConversationService
 from pharma_agent.application.feedback.service import FeedbackService
 from pharma_agent.application.memory.summarize import SummarizeConversation
 from pharma_agent.domain.agent.budget import BudgetLimits
@@ -91,7 +91,7 @@ def build_harness(
     sink = RecordingScoreSink()
     container = Container(
         sessions=None,
-        queries=ConversationQueries(
+        conversations=ConversationService(
             repo, clock, feedback=feedback_repo, citations=citation_reader
         ),
         chat=ChatService(runner, repo, clock, MemoryPolicy()) if agent else None,

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import pytest
 
 from pharma_agent.application.corpus.import_bundle import ImportKnowledgeBundle
-from pharma_agent.application.corpus.releases import ReleaseService
+from pharma_agent.application.corpus.service import CorpusService
 from pharma_agent.domain.corpus.bundle import KnowledgeBundle
 from pharma_agent.domain.corpus.models import (
     CollectionNotFound,
@@ -39,7 +39,7 @@ class Services:
     embedder: FakeEmbedder
     clock: SteppingClock
     importer: ImportKnowledgeBundle
-    releases: ReleaseService
+    releases: CorpusService
 
     async def publish_bundle(
         self, bundle: KnowledgeBundle, *, publish: bool = True
