@@ -49,8 +49,7 @@
     "add": "Add a term",
     "remove": "Remove row",
     "save": "Save glossary",
-    "saved": "Glossary saved.",
-    "hint": "Separate several values with commas."
+    "saved": "Glossary saved."
   },
   "colloquial": {
     "key": "Colloquial name",
@@ -61,7 +60,8 @@
     "add": "Add a name",
     "remove": "Remove row",
     "save": "Save names",
-    "saved": "Colloquial names saved."
+    "saved": "Colloquial names saved.",
+    "noSections": "No sections."
   },
   "releases": {
     "empty": "Not published yet.",

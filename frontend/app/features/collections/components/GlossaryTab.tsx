@@ -11,22 +11,22 @@ import type { GlossaryEntry } from "~/api/gen/schemas"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
+import { TagsInput } from "~/components/tags-input"
 import { toast } from "~/components/ui/toast"
 import { apiErrorMessage } from "~/i18n/error-message"
-
-import { formatList, parseList } from "../lib/lists"
 
 interface Row {
   key: number
   entry: GlossaryEntry
   term: string
-  vietnamese: string
-  english: string
-  aliases: string
+  vietnamese: string[]
+  english: string[]
+  aliases: string[]
   category: string
 }
 
-const FIELDS = ["term", "vietnamese", "english", "aliases", "category"] as const
+const TEXT_FIELDS = ["term", "category"] as const
+const LIST_FIELDS = ["vietnamese", "english", "aliases"] as const
 
 let nextKey = 0
 
@@ -36,9 +36,9 @@ function toRow(entry: GlossaryEntry): Row {
     key: nextKey,
     entry,
     term: entry.term,
-    vietnamese: formatList(entry.vietnamese_expansions),
-    english: formatList(entry.english_expansions),
-    aliases: formatList(entry.aliases),
+    vietnamese: [...(entry.vietnamese_expansions ?? [])],
+    english: [...(entry.english_expansions ?? [])],
+    aliases: [...(entry.aliases ?? [])],
     category: entry.category ?? "",
   }
 }
@@ -48,9 +48,9 @@ function toEntry(row: Row): GlossaryEntry {
     ...row.entry,
     term: row.term.trim(),
     case_sensitive: row.entry.case_sensitive ?? false,
-    vietnamese_expansions: parseList(row.vietnamese),
-    english_expansions: parseList(row.english),
-    aliases: parseList(row.aliases),
+    vietnamese_expansions: row.vietnamese,
+    english_expansions: row.english,
+    aliases: row.aliases,
     category: row.category.trim(),
   }
 }
@@ -77,29 +77,40 @@ function GlossaryEditor({
     category: t("glossary.category"),
   }
 
-  function change(key: number, field: (typeof FIELDS)[number], value: string) {
+  function change(key: number, patch: Partial<Row>) {
     setRows((current) =>
-      current.map((row) => (row.key === key ? { ...row, [field]: value } : row))
+      current.map((row) => (row.key === key ? { ...row, ...patch } : row))
     )
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">{t("glossary.hint")}</p>
       <ul className="flex flex-col gap-3">
         {rows.map((row) => (
           <li
             key={row.key}
             className="grid gap-2 rounded-lg border p-3 sm:grid-cols-5"
           >
-            {FIELDS.map((field) => (
+            {TEXT_FIELDS.map((field) => (
               <Input
                 key={field}
                 aria-label={labels[field]}
                 placeholder={labels[field]}
                 value={row[field]}
                 readOnly={!editable}
-                onChange={(event) => change(row.key, field, event.target.value)}
+                onChange={(event) =>
+                  change(row.key, { [field]: event.target.value })
+                }
+              />
+            ))}
+            {LIST_FIELDS.map((field) => (
+              <TagsInput
+                key={field}
+                label={labels[field]}
+                placeholder={labels[field]}
+                value={row[field]}
+                disabled={!editable}
+                onValueChange={(value) => change(row.key, { [field]: value })}
               />
             ))}
             {editable ? (

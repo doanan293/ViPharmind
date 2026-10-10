@@ -5,6 +5,7 @@
 @import "tw-shimmer";
 @import "streamdown/styles.css";
 @import "katex/dist/katex.min.css";
+@plugin "@tailwindcss/typography";
 
 @source "../node_modules/streamdown/dist/*.js";
 @source "../node_modules/@streamdown/code/dist/*.js";
