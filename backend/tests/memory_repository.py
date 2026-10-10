@@ -59,6 +59,11 @@ class InMemoryConversationRepository:
         row = self.rows[conversation.conversation_id]
         row.title, row.updated_at = conversation.title, conversation.updated_at
 
+    async def update_scope(self, conversation: Conversation) -> None:
+        self.rows[
+            conversation.conversation_id
+        ].collection_ids = conversation.collection_ids
+
     async def update_summary(self, conversation: Conversation) -> None:
         row = self.rows[conversation.conversation_id]
         row.summary = conversation.summary

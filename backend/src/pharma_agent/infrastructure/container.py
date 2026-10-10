@@ -9,11 +9,13 @@ from contextlib import (
 )
 from dataclasses import dataclass, field
 
+from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharma_agent.application.account.service import AccountService
 from pharma_agent.application.chat.service import ChatService, MemoryPolicy
 from pharma_agent.application.conversation.service import ConversationService
+from pharma_agent.application.corpus.collections import CollectionService
 from pharma_agent.application.feedback.service import FeedbackService
 from pharma_agent.application.memory.summarize import SummarizeConversation
 from pharma_agent.application.tracing import NullTracing, Tracing
@@ -23,6 +25,7 @@ from pharma_agent.domain.llm.port import LlmPort
 from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.domain.shared.clock import SystemClock
 from pharma_agent.infrastructure.account_factory import build_account_service
+from pharma_agent.infrastructure.collections_factory import build_collection_service
 from pharma_agent.infrastructure.composition import Application, build_application
 from pharma_agent.infrastructure.observability.langfuse_tracing import LangfuseTracing
 from pharma_agent.infrastructure.organizations_factory import (
@@ -42,6 +45,7 @@ from pharma_agent.infrastructure.persistence.postgres.database import Database
 from pharma_agent.infrastructure.persistence.postgres.feedback_repository import (
     PostgresFeedbackRepository,
 )
+from pharma_agent.infrastructure.retrieval.qdrant_index import QdrantVectorIndex
 from pharma_agent.infrastructure.retrieval.scope_resolver import PostgresScopeResolver
 from pharma_agent.infrastructure.settings import Settings
 
@@ -58,6 +62,7 @@ class Container:
     conversations: ConversationService
     account: AccountService | None = None
     organizations: OrganizationServices | None = None
+    collections: CollectionService | None = None
     chat: ChatService | None = None
     summarizer: SummarizeConversation | None = None
     feedback: FeedbackService | None = None
@@ -132,6 +137,26 @@ async def open_container(
         async with AsyncExitStack() as stack:
             if isinstance(tracing, LangfuseTracing):
                 stack.callback(tracing.shutdown)
+            # Deleting a collection removes its Qdrant points; creating the client
+            # does not connect, so a missing Qdrant only fails those calls.
+            qdrant = AsyncQdrantClient(
+                url=settings.qdrant.url,
+                api_key=settings.qdrant.api_key,
+                timeout=int(settings.qdrant.timeout_seconds),
+                check_compatibility=False,
+            )
+            stack.push_async_callback(qdrant.close)
+            container.collections = build_collection_service(
+                settings,
+                database.sessions,
+                index=QdrantVectorIndex(
+                    qdrant,
+                    model=settings.retrieval.embedding.model,
+                    dimension=settings.retrieval.embedding.dimension,
+                    alias=settings.retrieval.qdrant_collection,
+                ),
+                clock=clock,
+            )
             if settings.llm.configured or llm is not None:
                 agent = build_application(
                     settings,

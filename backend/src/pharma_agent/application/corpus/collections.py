@@ -39,6 +39,9 @@ from pharma_agent.domain.shared.transaction import TransactionFactory
 TITLE_MAX_LENGTH = 200
 
 
+__all__ = ["Visibility"]
+
+
 @dataclass(frozen=True)
 class QuotaPolicy:
     """Defaults of spec §2; users and organizations may carry their own overrides."""

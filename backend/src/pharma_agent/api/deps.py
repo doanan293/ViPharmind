@@ -12,6 +12,7 @@ from pharma_agent.application.account.messages import (
 )
 from pharma_agent.application.account.service import AccountService
 from pharma_agent.application.chat.service import ChatService
+from pharma_agent.application.corpus.collections import CollectionService
 from pharma_agent.application.errors import (
     AgentUnavailable,
     ServiceNotConfigured,
@@ -72,6 +73,12 @@ def user_id_dependency(auth: Auth) -> UserIdDependency:
 
 
 ActorDependency = Callable[..., Awaitable[Actor]]
+
+
+def require_collections(container: Container) -> CollectionService:
+    if container.collections is None:
+        raise ServiceNotConfigured("collections are not configured")
+    return container.collections
 
 
 def require_organizations(container: Container) -> OrganizationServices:

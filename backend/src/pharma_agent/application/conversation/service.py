@@ -1,5 +1,7 @@
+import uuid
 from collections.abc import Sequence
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel
 
@@ -31,6 +33,8 @@ class ConversationView(BaseModel):
     turn_count: int
     created_at: datetime
     updated_at: datetime
+    # Chosen sources; null searches everything the user may see.
+    collection_ids: list[uuid.UUID] | None = None
 
     @classmethod
     def of(cls, conversation: Conversation) -> "ConversationView":
@@ -40,7 +44,19 @@ class ConversationView(BaseModel):
             turn_count=conversation.turn_count,
             created_at=conversation.created_at,
             updated_at=conversation.updated_at,
+            collection_ids=None
+            if conversation.collection_ids is None
+            else list(conversation.collection_ids),
         )
+
+
+class Keep(Enum):
+    """Marks a field `update` leaves as it is, since None is a value there."""
+
+    KEEP = "keep"
+
+
+KEEP = Keep.KEEP
 
 
 class ConversationPage(BaseModel):
@@ -134,12 +150,31 @@ class ConversationService:
     async def rename(
         self, user_id: str, conversation_id: str, title: str
     ) -> ConversationView:
+        return await self.update(user_id, conversation_id, title=title)
+
+    async def update(
+        self,
+        user_id: str,
+        conversation_id: str,
+        *,
+        title: str | Keep = KEEP,
+        collection_ids: Sequence[uuid.UUID] | Keep | None = KEEP,
+    ) -> ConversationView:
+        """Rename and/or choose the sources; `collection_ids=None` means every source."""
         conversation = await self._owned(user_id, conversation_id)
-        try:
-            conversation.rename(title, now=self._clock.now())
-        except InvalidTitle as exc:
-            raise InvalidInput(str(exc)) from exc
-        await self._conversations.update_title(conversation)
+        if not isinstance(title, Keep):
+            try:
+                conversation.rename(title, now=self._clock.now())
+            except InvalidTitle as exc:
+                raise InvalidInput(str(exc)) from exc
+            await self._conversations.update_title(conversation)
+        if not isinstance(collection_ids, Keep):
+            if collection_ids is not None and not collection_ids:
+                raise InvalidInput("choose at least one source, or null for all")
+            conversation.collection_ids = (
+                None if collection_ids is None else tuple(dict.fromkeys(collection_ids))
+            )
+            await self._conversations.update_scope(conversation)
         return ConversationView.of(conversation)
 
     async def delete(self, user_id: str, conversation_id: str) -> None:

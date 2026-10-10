@@ -21,6 +21,11 @@ from pharma_agent.application.account.errors import (
     RateLimited,
     SessionNotFound,
 )
+from pharma_agent.application.corpus.errors import (
+    CollectionNotFoundForActor,
+    PublishInProgress,
+    SystemCollectionReadOnly,
+)
 from pharma_agent.application.errors import (
     ApplicationError,
     CitationNotFound,
@@ -53,6 +58,9 @@ ERROR_CODE_PATTERN = re.compile(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*")
 # Subclasses must come before their base class: the first isinstance match wins.
 STATUS_BY_ERROR: dict[type[ApplicationError], int] = {
     RateLimited: 429,
+    CollectionNotFoundForActor: 404,
+    SystemCollectionReadOnly: 403,
+    PublishInProgress: 409,
     ForbiddenRole: 403,
     OrganizationNotFound: 404,
     MemberNotFound: 404,

@@ -1,3 +1,4 @@
+import uuid
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -9,10 +10,15 @@ MESSAGE_ID_PATTERN = CONVERSATION_ID_PATTERN
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     conversation_id: str | None = Field(default=None, pattern=CONVERSATION_ID_PATTERN)
+    # Sources of a new conversation; ignored when conversation_id is set.
+    collection_ids: list[uuid.UUID] | None = Field(default=None, min_length=1)
 
 
-class RenameConversationRequest(BaseModel):
-    title: str = Field(min_length=1, max_length=80)
+class UpdateConversationRequest(BaseModel):
+    """Fields left out stay as they are; `collection_ids: null` means every source."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=80)
+    collection_ids: list[uuid.UUID] | None = None
 
 
 class HealthResponse(BaseModel):
