@@ -73,6 +73,21 @@ EXPECTED_OPERATION_IDS = {
     "collections:get",
     "collections:update",
     "collections:delete",
+    "documents:list",
+    "documents:create",
+    "documents:upload",
+    "documents:get",
+    "documents:update",
+    "documents:delete",
+    "collections:glossary.get",
+    "collections:glossary.put",
+    "collections:colloquial.get",
+    "collections:colloquial.put",
+    "collections:sections",
+    "collections:publish",
+    "collections:rollback",
+    "collections:releases",
+    "jobs:get",
 }
 
 
