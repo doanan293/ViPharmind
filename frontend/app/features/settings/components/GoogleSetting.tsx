@@ -6,6 +6,16 @@ import {
   getUsersCurrentUserQueryKey,
   useAccountGoogleUnlink,
 } from "~/api/gen/endpoints"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog"
 import { Button } from "~/components/ui/button"
 import { apiErrorMessage } from "~/i18n/error-message"
 
@@ -17,19 +27,23 @@ export function GoogleSetting({ linked }: { linked: boolean }) {
   const queryClient = useQueryClient()
   const unlink = useAccountGoogleUnlink()
   const [error, setError] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
 
-  async function toggle() {
+  async function run(action: () => Promise<void>) {
     setError(null)
     try {
-      if (linked) {
-        const updated = await unlink.mutateAsync()
-        queryClient.setQueryData(getUsersCurrentUserQueryKey(), updated)
-      } else {
-        await startGoogleLink()
-      }
+      await action()
     } catch (caught) {
       setError(apiErrorMessage(caught, tErrors))
     }
+  }
+
+  async function removeGoogle() {
+    setConfirming(false)
+    await run(async () => {
+      const updated = await unlink.mutateAsync()
+      queryClient.setQueryData(getUsersCurrentUserQueryKey(), updated)
+    })
   }
 
   return (
@@ -38,7 +52,18 @@ export function GoogleSetting({ linked }: { linked: boolean }) {
         <span>
           {linked ? t("account.google.linked") : t("account.google.notLinked")}
         </span>
-        <Button type="button" variant="outline" onClick={() => void toggle()}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={unlink.isPending}
+          onClick={() => {
+            if (linked) {
+              setConfirming(true)
+            } else {
+              void run(startGoogleLink)
+            }
+          }}
+        >
           {linked ? t("account.google.unlink") : t("account.google.link")}
         </Button>
       </div>
@@ -47,6 +72,27 @@ export function GoogleSetting({ linked }: { linked: boolean }) {
           {error}
         </p>
       )}
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("account.google.unlinkTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("account.google.unlinkDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("account.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => void removeGoogle()}
+            >
+              {t("account.google.unlinkConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

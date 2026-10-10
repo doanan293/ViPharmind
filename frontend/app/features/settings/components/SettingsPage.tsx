@@ -59,7 +59,10 @@ export function SettingsPage() {
           {user.data === undefined ? (
             <Spinner />
           ) : (
-            <PasswordForm passwordSet={user.data.password_set} />
+            <PasswordForm
+              passwordSet={user.data.password_set}
+              hasVerifiedEmail={user.data.email_verified}
+            />
           )}
         </CardContent>
       </Card>

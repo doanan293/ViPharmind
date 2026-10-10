@@ -627,6 +627,38 @@
         "title": "EmailCodeBody",
         "type": "object"
       },
+      "EmailVerifyBody": {
+        "properties": {
+          "code": {
+            "pattern": "^\\d{6}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "required": [
+          "email",
+          "code"
+        ],
+        "title": "EmailVerifyBody",
+        "type": "object"
+      },
       "EvidenceData": {
         "properties": {
           "items": {
@@ -2250,7 +2282,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EmailCodeBody"
+                "$ref": "#/components/schemas/EmailVerifyBody"
               }
             }
           },
@@ -2289,6 +2321,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           }
         },
         "summary": "Auth:Email.Verify",

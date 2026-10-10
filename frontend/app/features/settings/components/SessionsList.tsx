@@ -37,6 +37,23 @@ export function SessionsList() {
     timeStyle: "short",
   })
 
+  if (sessions.isError) {
+    return (
+      <div className="flex flex-col items-start gap-2 text-sm">
+        <p role="alert" className="text-destructive">
+          {t("sessions.loadFailed")}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={sessions.isFetching}
+          onClick={() => void sessions.refetch()}
+        >
+          {t("sessions.retry")}
+        </Button>
+      </div>
+    )
+  }
   if (sessions.data === undefined) {
     return <Spinner />
   }

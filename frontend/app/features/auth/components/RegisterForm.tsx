@@ -4,7 +4,10 @@ import { useTranslation } from "react-i18next"
 import { useMemo, useState } from "react"
 import { z } from "zod"
 
-import { useRegisterRegister } from "~/api/gen/endpoints"
+import {
+  useAuthEmailVerifyRequest,
+  useRegisterRegister,
+} from "~/api/gen/endpoints"
 import { RegisterRegisterBody } from "~/api/gen/zod"
 import { Button } from "~/components/ui/button"
 import {
@@ -15,7 +18,11 @@ import {
 } from "~/components/ui/field"
 import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
-import { VerifyEmailStep } from "~/features/auth/components/VerifyEmailStep"
+import {
+  type VerificationRequest,
+  VerifyEmailStep,
+  requestVerificationCode,
+} from "~/features/auth/components/VerifyEmailStep"
 import { passwordSchema } from "~/features/auth/lib/password"
 import { apiErrorMessage } from "~/i18n/error-message"
 import { applyApiError } from "~/lib/form-errors"
@@ -42,7 +49,10 @@ export function RegisterForm({ nextPath }: { nextPath: string }) {
   const register = useRegisterRegister({
     mutation: { meta: { skipAuthRedirect: true } },
   })
-  const [registered, setRegistered] = useState<string | null>(null)
+  const requestCode = useAuthEmailVerifyRequest({
+    mutation: { meta: { skipAuthRedirect: true } },
+  })
+  const [registered, setRegistered] = useState<VerificationRequest | null>(null)
   const registerSchema = useMemo(
     () => createRegisterSchema(t("passwordTooShort")),
     [t]
@@ -65,11 +75,19 @@ export function RegisterForm({ nextPath }: { nextPath: string }) {
       return
     }
     // The account exists but cannot sign in until the emailed code is entered.
-    setRegistered(values.email)
+    // Registration sent one already; asking again only surfaces a failed send, and
+    // otherwise answers with the cooldown left.
+    setRegistered(
+      await requestVerificationCode(
+        (email) => requestCode.mutateAsync({ data: { email } }),
+        values.email,
+        values.password
+      )
+    )
   }
 
   if (registered !== null) {
-    return <VerifyEmailStep email={registered} nextPath={nextPath} />
+    return <VerifyEmailStep request={registered} nextPath={nextPath} />
   }
 
   const serverError = form.formState.errors.root?.server?.message

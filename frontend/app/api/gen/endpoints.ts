@@ -36,6 +36,7 @@ import type {
   ConversationView,
   EmailBody,
   EmailCodeBody,
+  EmailVerifyBody,
   FeedbackRequest,
   FeedbackView,
   HealthResponse,
@@ -1322,7 +1323,7 @@ export const getAuthEmailVerifyUrl = () => {
  * @summary Auth:Email.Verify
  */
 export const authEmailVerify = async (
-  emailCodeBody: EmailCodeBody,
+  emailVerifyBody: EmailVerifyBody,
   options?: Parameters<typeof fetcher>[1]
 ): Promise<void> => {
   const getHeaders = (
@@ -1353,7 +1354,7 @@ export const authEmailVerify = async (
       "Content-Type": "application/json",
       ...getHeaders(options?.headers),
     },
-    body: JSON.stringify(emailCodeBody),
+    body: JSON.stringify(emailVerifyBody),
   })
 }
 
@@ -1400,9 +1401,9 @@ export const getAuthEmailVerifyMutationOptions = <
 export type AuthEmailVerifyMutationResult = NonNullable<
   Awaited<ReturnType<typeof authEmailVerify>>
 >
-export type AuthEmailVerifyMutationBody = EmailCodeBody
+export type AuthEmailVerifyMutationBody = EmailVerifyBody
 export type AuthEmailVerifyMutationError = Problem
-export type AuthEmailVerifyMutationVariables = { data: EmailCodeBody }
+export type AuthEmailVerifyMutationVariables = { data: EmailVerifyBody }
 
 /**
  * @summary Auth:Email.Verify

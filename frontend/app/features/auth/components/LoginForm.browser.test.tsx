@@ -91,6 +91,7 @@ describe("LoginForm", () => {
 
   test("an unverified email gets a code and the verification step", async () => {
     const requested: string[] = []
+    const verified: unknown[] = []
     worker.use(
       http.post("/api/v1/auth/cookie/login", () =>
         HttpResponse.json(
@@ -104,7 +105,14 @@ describe("LoginForm", () => {
       http.post("/api/v1/auth/email/verify/request", async ({ request }) => {
         requested.push(await request.text())
         return new HttpResponse(null, { status: 202 })
-      })
+      }),
+      http.post("/api/v1/auth/email/verify", async ({ request }) => {
+        verified.push(await request.json())
+        return new HttpResponse(null, { status: 204 })
+      }),
+      http.get("/api/v1/users/me", () =>
+        HttpResponse.json({ id: "u1", email: "an@example.com" })
+      )
     )
     await renderLogin()
     await submit("an@example.com", "mat-khau-dai")
@@ -112,6 +120,12 @@ describe("LoginForm", () => {
       .element(page.getByText(/Chúng tôi đã gửi mã 6 số tới an@example\.com/))
       .toBeVisible()
     expect(requested).toEqual(['{"email":"an@example.com"}'])
+    await page.getByLabelText("Mã xác minh").fill("123456")
+    await page.getByRole("button", { name: "Xác minh email" }).click()
+    await expect.element(page.getByText("chat-page")).toBeVisible()
+    expect(verified).toEqual([
+      { email: "an@example.com", code: "123456", password: "mat-khau-dai" },
+    ])
   })
 
   test("validates the email before calling the API", async () => {

@@ -6,24 +6,39 @@ import { Button } from "~/components/ui/button"
 import { useCountdown } from "~/hooks/use-countdown"
 import { apiErrorMessage } from "~/i18n/error-message"
 
+function isRateLimited(error: unknown): boolean {
+  return isApiError(error) && error.retryAfter !== undefined
+}
+
 /** The backend's minimum gap between two codes to the same address. */
 export const RESEND_COOLDOWN_SECONDS = 60
 
 export function ResendCodeButton({
   onResend,
+  sendError = null,
 }: {
   onResend: () => Promise<void>
+  /** Why the code asked for before this button appeared was not sent, if it was not. */
+  sendError?: unknown
 }) {
   const { t } = useTranslation("common")
   const { t: tErrors } = useTranslation("errors")
   const { secondsLeft, start } = useCountdown()
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(() =>
+    sendError === null || isRateLimited(sendError)
+      ? null
+      : apiErrorMessage(sendError, tErrors)
+  )
 
-  // A code was sent just before this button appeared.
   useEffect(() => {
-    start(RESEND_COOLDOWN_SECONDS)
-  }, [start])
+    if (sendError === null) {
+      start(RESEND_COOLDOWN_SECONDS)
+    } else if (isApiError(sendError) && sendError.retryAfter !== undefined) {
+      // An earlier code is still on its way; wait as long as the server asks.
+      start(sendError.retryAfter)
+    }
+  }, [sendError, start])
 
   async function resend() {
     setPending(true)

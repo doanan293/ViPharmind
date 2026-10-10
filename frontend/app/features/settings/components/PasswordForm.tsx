@@ -16,7 +16,14 @@ import { createPasswordSchema } from "../lib/account-schemas"
 
 const PASSWORD_FIELDS = ["password", "current_password"] as const
 
-export function PasswordForm({ passwordSet }: { passwordSet: boolean }) {
+export function PasswordForm({
+  passwordSet,
+  hasVerifiedEmail,
+}: {
+  passwordSet: boolean
+  /** Passwords sign in by email, so without a verified one they do nothing yet. */
+  hasVerifiedEmail: boolean
+}) {
   const { t } = useTranslation("settings")
   const { t: tErrors } = useTranslation("errors")
   const change = useAccountPasswordChange()
@@ -81,6 +88,11 @@ export function PasswordForm({ passwordSet }: { passwordSet: boolean }) {
         void onSubmit(event)
       }}
     >
+      {hasVerifiedEmail ? null : (
+        <p className="text-sm text-muted-foreground">
+          {t("password.needsEmail")}
+        </p>
+      )}
       {passwordSet ? (
         <Controller
           control={form.control}

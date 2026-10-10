@@ -18,7 +18,8 @@
     "tooLong": "Password must be at most 128 characters.",
     "mismatch": "The passwords do not match.",
     "current": "Current password",
-    "currentRequired": "Enter your current password."
+    "currentRequired": "Enter your current password.",
+    "needsEmail": "The password is for signing in with your email, so it only works once you add and verify an email."
   },
   "appearance": {
     "heading": "Language and appearance"
@@ -63,7 +64,10 @@
       "linked": "Google account linked",
       "notLinked": "Google not linked",
       "link": "Link Google",
-      "unlink": "Unlink"
+      "unlink": "Unlink",
+      "unlinkTitle": "Remove Google?",
+      "unlinkDescription": "You will no longer be able to sign in with Google. Your other sign-in methods keep working.",
+      "unlinkConfirm": "Remove Google"
     }
   },
   "sessions": {
@@ -71,6 +75,8 @@
     "current": "This device",
     "revoke": "Sign out",
     "revokeOne": "Sign out the session on {{device}}",
-    "revokeOthers": "Sign out all other devices"
+    "revokeOthers": "Sign out all other devices",
+    "loadFailed": "Could not load your sign-in sessions.",
+    "retry": "Try again"
   }
 }

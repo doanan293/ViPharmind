@@ -18,7 +18,8 @@
     "tooLong": "Mật khẩu tối đa 128 ký tự.",
     "mismatch": "Hai mật khẩu không khớp.",
     "current": "Mật khẩu hiện tại",
-    "currentRequired": "Nhập mật khẩu hiện tại."
+    "currentRequired": "Nhập mật khẩu hiện tại.",
+    "needsEmail": "Mật khẩu dùng để đăng nhập bằng email, nên chỉ có tác dụng sau khi bạn thêm và xác minh email."
   },
   "appearance": {
     "heading": "Ngôn ngữ và giao diện"
@@ -63,7 +64,10 @@
       "linked": "Đã liên kết tài khoản Google",
       "notLinked": "Chưa liên kết Google",
       "link": "Liên kết Google",
-      "unlink": "Gỡ liên kết"
+      "unlink": "Gỡ liên kết",
+      "unlinkTitle": "Gỡ liên kết Google?",
+      "unlinkDescription": "Bạn sẽ không thể đăng nhập bằng Google nữa. Bạn vẫn đăng nhập được bằng các cách còn lại.",
+      "unlinkConfirm": "Gỡ liên kết Google"
     }
   },
   "sessions": {
@@ -71,6 +75,8 @@
     "current": "Thiết bị này",
     "revoke": "Đăng xuất",
     "revokeOne": "Đăng xuất phiên trên {{device}}",
-    "revokeOthers": "Đăng xuất mọi thiết bị khác"
+    "revokeOthers": "Đăng xuất mọi thiết bị khác",
+    "loadFailed": "Không tải được danh sách phiên đăng nhập.",
+    "retry": "Thử lại"
   }
 }
