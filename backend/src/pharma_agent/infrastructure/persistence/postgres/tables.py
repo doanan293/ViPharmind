@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi_users_db_sqlalchemy import (
     SQLAlchemyBaseOAuthAccountTableUUID,
@@ -8,6 +8,7 @@ from fastapi_users_db_sqlalchemy import (
 )
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyBaseAccessTokenTableUUID
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -42,8 +43,32 @@ class OAuthAccountTable(SQLAlchemyBaseOAuthAccountTableUUID, Base):
 
 
 class UserTable(SQLAlchemyBaseUserTableUUID, Base):
-    """fastapi-users users (table name `user`) plus profile columns."""
+    """fastapi-users users (table name `user`) plus profile and sign-in columns."""
 
+    __table_args__ = (
+        CheckConstraint(
+            "email IS NOT NULL OR phone_number IS NOT NULL", name="email_or_phone"
+        ),
+    )
+
+    # fastapi-users types `email` as str. Phone-only accounts store NULL, so the column is
+    # redeclared nullable at runtime while type checkers keep the base declaration;
+    # code that reads it for any account converts with `row.email or None`.
+    if not TYPE_CHECKING:
+        email = mapped_column(String(320), unique=True, index=True, nullable=True)
+
+    phone_number: Mapped[str | None] = mapped_column(
+        String(16), unique=True, index=True, nullable=True
+    )
+    email_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    phone_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    password_set: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
     display_name: Mapped[str] = mapped_column(
         String(120), nullable=False, server_default=""
     )
@@ -52,11 +77,33 @@ class UserTable(SQLAlchemyBaseUserTableUUID, Base):
     )
     oauth_accounts: Mapped[list[OAuthAccountTable]] = relationship(lazy="joined")
 
+    @property
+    def email_verified(self) -> bool:
+        return self.email_verified_at is not None
+
+    @property
+    def phone_verified(self) -> bool:
+        return self.phone_verified_at is not None
+
+    @property
+    def google_linked(self) -> bool:
+        return any(account.oauth_name == "google" for account in self.oauth_accounts)
+
 
 class AccessTokenTable(SQLAlchemyBaseAccessTokenTableUUID, Base):
     """fastapi-users database sessions behind the `pharma_session` cookie."""
 
     __tablename__ = "access_tokens"
+
+    user_agent: Mapped[str] = mapped_column(
+        String(255), nullable=False, server_default=""
+    )
+    ip_address: Mapped[str] = mapped_column(
+        String(45), nullable=False, server_default=""
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class ConversationTable(Base):
@@ -162,3 +209,45 @@ class FeedbackTable(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+
+
+class OneTimeCodeTable(Base):
+    """Hashed one-time codes; see domain/account/codes.py."""
+
+    __tablename__ = "one_time_codes"
+    __table_args__ = (
+        Index("ix_one_time_codes_lookup", "purpose", "destination", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    purpose: Mapped[str] = mapped_column(String(32), nullable=False)
+    channel: Mapped[str] = mapped_column(String(8), nullable=False)
+    destination: Mapped[str] = mapped_column(String(320), nullable=False)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("user.id", ondelete="CASCADE"), nullable=True
+    )
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    consumed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RateLimitBucketTable(Base):
+    """Fixed-window counters behind domain/account/ports.RateLimiter."""
+
+    __tablename__ = "rate_limit_buckets"
+
+    key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    window_start: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), primary_key=True
+    )
+    count: Mapped[int] = mapped_column(Integer, nullable=False)

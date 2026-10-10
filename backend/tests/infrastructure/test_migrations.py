@@ -6,6 +6,7 @@ from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from sqlalchemy import inspect
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from pharma_agent.infrastructure.persistence.postgres.alembic_config import (
@@ -22,6 +23,8 @@ from pharma_agent.infrastructure.persistence.postgres.metadata import (
 pytestmark = pytest.mark.integration
 
 EXPECTED_TABLES = {
+    "one_time_codes",
+    "rate_limit_buckets",
     "user",
     "oauth_account",
     "access_tokens",
@@ -132,3 +135,33 @@ async def test_keyset_indexes_cover_the_sort_keys(migrated_dsn: str) -> None:
         "id",
     ]
     assert "ix_messages_conversation_created" not in messages
+
+
+def _columns(connection: Connection, table: str) -> dict[str, bool]:
+    return {
+        column["name"]: column["nullable"]
+        for column in inspect(connection).get_columns(table)
+    }
+
+
+async def test_account_columns_exist(migrated_dsn: str) -> None:
+    engine = create_async_engine(migrated_dsn)
+    async with engine.connect() as connection:
+        users = await connection.run_sync(_columns, "user")
+        tokens = await connection.run_sync(_columns, "access_tokens")
+    await engine.dispose()
+    assert users["email"] is True
+    assert {"phone_number", "email_verified_at", "phone_verified_at"} <= users.keys()
+    assert users["password_set"] is False
+    assert {"user_agent", "ip_address", "last_used_at"} <= tokens.keys()
+
+
+async def test_a_user_needs_an_email_or_a_phone(migrated_dsn: str) -> None:
+    engine = create_async_engine(migrated_dsn)
+    async with engine.begin() as connection:
+        with pytest.raises(IntegrityError, match="ck_user_email_or_phone"):
+            await connection.exec_driver_sql(
+                'INSERT INTO "user" (id, hashed_password, is_active, is_superuser, '
+                "is_verified) VALUES (gen_random_uuid(), 'x', true, false, false)"
+            )
+    await engine.dispose()
