@@ -44,7 +44,9 @@ class ReindexReport(BaseModel):
     skipped: list[uuid.UUID]
 
 
-class ReleaseService:
+class CorpusService:
+    """Release use cases of a collection: list, publish, rollback, gc and reindex."""
+
     def __init__(
         self,
         repository: CorpusRepository,

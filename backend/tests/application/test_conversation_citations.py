@@ -1,6 +1,6 @@
 import pytest
 
-from pharma_agent.application.conversation.queries import ConversationQueries
+from pharma_agent.application.conversation.service import ConversationService
 from pharma_agent.application.errors import CitationNotFound
 from pharma_agent.domain.conversation.models import CitationBlock, CitedChunk
 from pharma_agent.domain.shared.clock import FixedClock
@@ -31,14 +31,14 @@ async def test_get_citation_marks_the_matched_chunk_in_block_order() -> None:
         ],
         is_current=False,
     )
-    queries = ConversationQueries(
+    service = ConversationService(
         InMemoryConversationRepository(),
         FixedClock(NOW),
         feedback=InMemoryFeedbackRepository(),
         citations=reader,
     )
 
-    detail = await queries.get_citation(OWNER, MESSAGE_ID, 1)
+    detail = await service.get_citation(OWNER, MESSAGE_ID, 1)
 
     assert detail.model_dump(mode="json") == {
         "index": 1,
@@ -62,4 +62,4 @@ async def test_get_citation_marks_the_matched_chunk_in_block_order() -> None:
     }
     for user_id, index in ((STRANGER, 1), (OWNER, 2)):
         with pytest.raises(CitationNotFound):
-            await queries.get_citation(user_id, MESSAGE_ID, index)
+            await service.get_citation(user_id, MESSAGE_ID, index)

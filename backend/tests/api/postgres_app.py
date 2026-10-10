@@ -7,7 +7,7 @@ from uuid import uuid4
 import httpx
 
 from pharma_agent.api.app import create_app
-from pharma_agent.application.conversation.queries import ConversationQueries
+from pharma_agent.application.conversation.service import ConversationService
 from pharma_agent.domain.shared.clock import SystemClock
 from pharma_agent.infrastructure.container import Container
 from pharma_agent.infrastructure.persistence.postgres.database import Database
@@ -39,7 +39,7 @@ async def postgres_app(
     async def factory(resolved: Settings) -> AsyncGenerator[Container]:
         yield Container(
             sessions=database.sessions,
-            queries=ConversationQueries(
+            conversations=ConversationService(
                 InMemoryConversationRepository(),
                 SystemClock(),
                 feedback=InMemoryFeedbackRepository(),

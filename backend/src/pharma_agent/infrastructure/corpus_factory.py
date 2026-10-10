@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from qdrant_client import AsyncQdrantClient
 
 from pharma_agent.application.corpus.import_bundle import ImportKnowledgeBundle
-from pharma_agent.application.corpus.releases import ReleaseService
+from pharma_agent.application.corpus.service import CorpusService
 from pharma_agent.domain.corpus.ports import Embedder, VectorIndex
 from pharma_agent.domain.shared.clock import SystemClock
 from pharma_agent.infrastructure.openai_client import build_async_openai
@@ -33,7 +33,7 @@ CORPUS_POOL_SIZE = 2
 @dataclass
 class CorpusServices:
     importer: ImportKnowledgeBundle
-    releases: ReleaseService
+    releases: CorpusService
     index: VectorIndex
     embedder: Embedder
 
@@ -99,7 +99,7 @@ async def open_corpus_services(
                 embed_batch_size=corpus.embed_batch_size,
                 embed_max_concurrent=corpus.embed_max_concurrent,
             ),
-            releases=ReleaseService(
+            releases=CorpusService(
                 repository,
                 cache,
                 index,

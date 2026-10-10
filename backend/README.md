@@ -178,7 +178,14 @@ uv run pytest -q -m integration  # cần Docker (Qdrant thật)
 
 - `src/pharma_agent/domain`: Python thuần, không framework. Aggregate `AgentRun`, retrieval,
   guardrail, prompt.
-- `src/pharma_agent/application`: vòng lặp agentic RAG trên LangGraph và progress events.
-- `src/pharma_agent/infrastructure`: OpenAI, Qdrant, llama.cpp, settings, composition root.
+- `src/pharma_agent/application`: use case theo từng feature (`chat`, `conversation`,
+  `feedback`, `memory`, `corpus`), gồm cả vòng lặp agentic RAG trên LangGraph và progress events.
+- `src/pharma_agent/infrastructure`: OpenAI, Qdrant, llama.cpp, Postgres, settings, composition root.
+- `src/pharma_agent/api`: router FastAPI, chỉ gọi xuống `application`.
 
 Quy tắc phụ thuộc được kiểm tra bởi `tests/architecture/test_layering.py`.
+
+Mỗi feature trong `application/<feature>/` có một `service.py` với class `<Feature>Service`.
+Mỗi method công khai là một use case. Một use case chỉ tách thành class riêng trong file
+riêng khi nó lớn hoặc cần dependency riêng, như `ImportKnowledgeBundle` hay
+`SummarizeConversation`. Router gọi service qua `Container`, không gọi thẳng repository.

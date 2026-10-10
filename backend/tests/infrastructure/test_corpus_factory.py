@@ -1,7 +1,7 @@
 import pytest
 
 from pharma_agent.application.corpus.import_bundle import ImportKnowledgeBundle
-from pharma_agent.application.corpus.releases import ReleaseService
+from pharma_agent.application.corpus.service import CorpusService
 from pharma_agent.infrastructure.corpus_factory import open_corpus_services
 from pharma_agent.infrastructure.retrieval.qdrant_adapter import OpenAiEmbedder
 from pharma_agent.infrastructure.retrieval.qdrant_index import QdrantVectorIndex
@@ -19,7 +19,7 @@ async def test_open_corpus_services_wires_real_adapters(
 
     async with open_corpus_services(settings) as services:
         assert isinstance(services.importer, ImportKnowledgeBundle)
-        assert isinstance(services.releases, ReleaseService)
+        assert isinstance(services.releases, CorpusService)
         assert isinstance(services.index, QdrantVectorIndex)
         assert services.index.collection_name == "chunks_qwen3_embedding_0_6b"
         assert isinstance(services.embedder, OpenAiEmbedder)

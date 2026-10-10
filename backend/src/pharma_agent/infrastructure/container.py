@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharma_agent.application.chat.service import ChatService, MemoryPolicy
-from pharma_agent.application.conversation.queries import ConversationQueries
+from pharma_agent.application.conversation.service import ConversationService
 from pharma_agent.application.feedback.service import FeedbackService
 from pharma_agent.application.memory.summarize import SummarizeConversation
 from pharma_agent.application.tracing import NullTracing, Tracing
@@ -44,7 +44,7 @@ CORPUS_NOT_READY = "CORPUS_NOT_READY"
 @dataclass
 class Container:
     sessions: async_sessionmaker[AsyncSession] | None
-    queries: ConversationQueries
+    conversations: ConversationService
     chat: ChatService | None = None
     summarizer: SummarizeConversation | None = None
     feedback: FeedbackService | None = None
@@ -94,7 +94,7 @@ async def open_container(
     feedback_repository = PostgresFeedbackRepository(database.sessions)
     container = Container(
         sessions=database.sessions,
-        queries=ConversationQueries(
+        conversations=ConversationService(
             repository,
             clock,
             feedback=feedback_repository,
