@@ -40,7 +40,24 @@ class CollectionTable(Base):
     __tablename__ = "collections"
     __table_args__ = (
         UniqueConstraint("key", name="uq_collections_key"),
-        CheckConstraint("visibility IN ('private', 'public')", name="visibility"),
+        CheckConstraint(
+            "visibility IN ('private', 'organization', 'public')", name="visibility"
+        ),
+        CheckConstraint(
+            "owner_user_id IS NULL OR owner_organization_id IS NULL", name="one_owner"
+        ),
+        # A collection without an owner is the shared system corpus, always public.
+        CheckConstraint(
+            "owner_user_id IS NOT NULL OR owner_organization_id IS NOT NULL"
+            " OR visibility = 'public'",
+            name="system_is_public",
+        ),
+        CheckConstraint(
+            "visibility <> 'organization' OR owner_organization_id IS NOT NULL",
+            name="organization_needs_owner",
+        ),
+        Index("ix_collections_owner_user_id", "owner_user_id"),
+        Index("ix_collections_owner_organization_id", "owner_organization_id"),
         {"schema": CORPUS_SCHEMA},
     )
 
@@ -49,6 +66,9 @@ class CollectionTable(Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("user.id", ondelete="CASCADE"), nullable=True
+    )
+    owner_organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True
     )
     visibility: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="private"

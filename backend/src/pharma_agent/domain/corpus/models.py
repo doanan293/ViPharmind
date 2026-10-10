@@ -264,10 +264,14 @@ def build_snapshot(bundle: KnowledgeBundle) -> CorpusSnapshot:
         raise CorpusImportError("; ".join(problems))
 
     manifest_collection = bundle.manifest.collection
+    # Without an owner the collection is the public system corpus. A collection a user
+    # or organization created keeps its owner and visibility: the repository upserts
+    # on the key and never overwrites them.
     collection = Collection(
         id=collection_id_for(manifest_collection.key),
         key=manifest_collection.key,
         title=manifest_collection.title,
+        visibility=Visibility.PUBLIC,
     )
     documents = [
         Document(

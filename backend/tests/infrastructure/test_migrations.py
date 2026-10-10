@@ -248,3 +248,54 @@ async def test_quota_columns_exist(migrated_dsn: str) -> None:
     await engine.dispose()
     for columns in (users, organizations):
         assert columns["text_quota_bytes"] and columns["collection_quota"]
+
+
+async def test_collection_owner_and_visibility_constraints(migrated_dsn: str) -> None:
+    engine = create_async_engine(migrated_dsn)
+    user, org = uuid.uuid4(), uuid.uuid4()
+    insert = text(
+        "INSERT INTO corpus.collections (id, key, title, owner_user_id,"
+        " owner_organization_id, visibility) VALUES (gen_random_uuid(), :key, 't',"
+        " :u, :o, :v)"
+    )
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                'INSERT INTO "user" (id, email, hashed_password, is_active,'
+                " is_superuser, is_verified) VALUES (:id, :email, 'x', true, false,"
+                " true)"
+            ),
+            {"id": user, "email": f"{user.hex}@example.com"},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO organizations (id, name, created_at, updated_at)"
+                " VALUES (:id, 'Org', now(), now())"
+            ),
+            {"id": org},
+        )
+        suffix = user.hex[:8]
+        valid = [
+            (f"sys-{suffix}", None, None, "public"),
+            (f"mine-{suffix}", user, None, "private"),
+            (f"org-{suffix}", None, org, "organization"),
+        ]
+        for key, owner_user, owner_org, visibility in valid:
+            await connection.execute(
+                insert, {"key": key, "u": owner_user, "o": owner_org, "v": visibility}
+            )
+        invalid = [
+            (f"both-{suffix}", user, org, "private"),
+            (f"sys-private-{suffix}", None, None, "private"),
+            (f"user-org-{suffix}", user, None, "organization"),
+        ]
+        for key, owner_user, owner_org, visibility in invalid:
+            with pytest.raises(IntegrityError):
+                async with connection.begin_nested():
+                    await connection.execute(
+                        insert,
+                        {"key": key, "u": owner_user, "o": owner_org, "v": visibility},
+                    )
+        columns = await connection.run_sync(_columns, "conversations")
+    await engine.dispose()
+    assert columns["collection_ids"] is True

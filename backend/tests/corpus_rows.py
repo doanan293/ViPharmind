@@ -178,7 +178,7 @@ async def seed_release(
                 key=collection_key,
                 title=collection_key,
                 owner_user_id=None,
-                visibility="private",
+                visibility="public",
                 current_release_id=None,
                 created_at=NOW,
                 updated_at=NOW,
