@@ -228,21 +228,42 @@ class InMemoryCodes:
 class InMemoryLimiter:
     def __init__(self, clock: MutableClock) -> None:
         self._clock = clock
-        self.counts: dict[tuple[str, float], int] = {}
+        self.windows: dict[str, tuple[datetime, int]] = {}
 
-    def _slot(self, window_seconds: int) -> tuple[float, float]:
-        epoch = self._clock.now().timestamp()
-        start = epoch - epoch % window_seconds
-        return start, start + window_seconds - epoch
+    def _window(self, key: str, window_seconds: int) -> tuple[datetime, int] | None:
+        window = self.windows.get(key)
+        now = self._clock.now()
+        if window is None or now >= window[0] + timedelta(seconds=window_seconds):
+            return None
+        return window
+
+    def _left(self, start: datetime, window_seconds: int) -> float:
+        end = start + timedelta(seconds=window_seconds)
+        return (end - self._clock.now()).total_seconds()
 
     async def check(self, key: str, *, limit: int, window_seconds: int) -> float | None:
-        start, remaining = self._slot(window_seconds)
-        return remaining if self.counts.get((key, start), 0) >= limit else None
+        window = self._window(key, window_seconds)
+        if window is None or window[1] < limit:
+            return None
+        return self._left(window[0], window_seconds)
 
     async def hit(self, key: str, *, limit: int, window_seconds: int) -> float | None:
-        start, remaining = self._slot(window_seconds)
-        self.counts[(key, start)] = self.counts.get((key, start), 0) + 1
-        return remaining if self.counts[(key, start)] > limit else None
+        start, count = self._window(key, window_seconds) or (self._clock.now(), 0)
+        self.windows[key] = (start, count + 1)
+        return self._left(start, window_seconds) if count + 1 > limit else None
+
+    async def acquire(
+        self, key: str, *, limit: int, window_seconds: int
+    ) -> float | None:
+        refused = await self.check(key, limit=limit, window_seconds=window_seconds)
+        if refused is None:
+            await self.hit(key, limit=limit, window_seconds=window_seconds)
+        return refused
+
+    async def release(self, key: str, *, window_seconds: int) -> None:
+        window = self._window(key, window_seconds)
+        if window is not None:
+            self.windows[key] = (window[0], max(window[1] - 1, 0))
 
 
 @dataclass(frozen=True)

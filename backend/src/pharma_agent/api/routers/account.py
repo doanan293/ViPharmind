@@ -30,6 +30,11 @@ class EmailCodeBody(EmailBody):
     code: str = Field(pattern=CODE_PATTERN)
 
 
+class EmailVerifyBody(EmailCodeBody):
+    # Required whenever the account has a password; see AccountService.verify_email.
+    password: str | None = Field(default=None, max_length=1024)
+
+
 class PasswordResetBody(EmailCodeBody):
     password: str = Field(min_length=1, max_length=1024)
 
@@ -91,12 +96,14 @@ def build_account_router(
         name="auth:email.verify",
         tags=["auth"],
         response_class=Response,
-        responses=problem_responses(400, 403, 422),
+        responses=problem_responses(400, 403, 422, 429),
     )
     async def verify_email(
-        body: EmailCodeBody, container: ContainerDep, login: Login
+        body: EmailVerifyBody, container: ContainerDep, login: Login, ip: ClientIp
     ) -> Response:
-        user_id = await require_account(container).verify_email(body.email, body.code)
+        user_id = await require_account(container).verify_email(
+            body.email, body.code, body.password, client_ip=ip
+        )
         return await login(user_id)
 
     @router.post(

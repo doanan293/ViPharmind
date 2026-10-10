@@ -51,7 +51,11 @@ async def test_register_login_chat_and_open_a_citation(
         assert sent.status_code == 200, sent.text
         verified = await client.post(
             "/api/v1/auth/email/verify",
-            json={"email": email, "code": sent.json()["code"]},
+            json={
+                "email": email,
+                "code": sent.json()["code"],
+                "password": PASSWORD,
+            },
         )
         assert verified.status_code == 204, verified.text
         client.cookies.clear()

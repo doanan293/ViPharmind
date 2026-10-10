@@ -93,12 +93,32 @@ class OneTimeCodeStore(Protocol):
 
 
 class RateLimiter(Protocol):
+    """Counters over windows that open at the first counted action of a key.
+
+    A window lasts `window_seconds` from that action, so a burst cannot straddle a clock
+    boundary; the next action after it closes opens a new one.
+    """
+
     async def check(self, key: str, *, limit: int, window_seconds: int) -> float | None:
         """Seconds until `key` may act again, or None while it is under `limit`."""
         ...
 
     async def hit(self, key: str, *, limit: int, window_seconds: int) -> float | None:
         """Count one action; seconds to wait if this action went over `limit`."""
+        ...
+
+    async def acquire(
+        self, key: str, *, limit: int, window_seconds: int
+    ) -> float | None:
+        """Count one action only while under `limit`, atomically.
+
+        Returns None when the action was counted, or the seconds to wait when it was
+        refused; a refusal counts nothing, so parallel callers can never overshoot.
+        """
+        ...
+
+    async def release(self, key: str, *, window_seconds: int) -> None:
+        """Give back one action counted by `acquire` in the current window."""
         ...
 
 

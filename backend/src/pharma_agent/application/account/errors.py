@@ -13,6 +13,12 @@ class InvalidCode(ApplicationError):
     code = "OTP_INVALID"
 
 
+class InvalidCredentials(ApplicationError):
+    """Same code as a failed fastapi-users password sign-in."""
+
+    code = "LOGIN_BAD_CREDENTIALS"
+
+
 class RateLimited(ApplicationError):
     code = "RATE_LIMITED"
 

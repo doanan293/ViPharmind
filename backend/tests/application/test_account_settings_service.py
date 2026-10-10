@@ -163,3 +163,31 @@ async def test_probing_taken_addresses_is_rate_limited_per_ip() -> None:
         await service.request_email_change(
             user.id, "taken0@example.com", locale="vi", client_ip="9.9.9.9"
         )
+
+
+async def test_an_email_taken_meanwhile_keeps_the_change_code_unused() -> None:
+    service, fakes = build_account_service()
+    user = fakes.accounts.add(email="an@example.com", email_verified=True)
+    await service.request_email_change(
+        user.id, "new@example.com", locale="vi", client_ip=None
+    )
+    code = fakes.email.last_code("new@example.com")
+    fakes.accounts.add(email="new@example.com", email_verified=True)
+    with pytest.raises(EmailAlreadyUsed):
+        await service.confirm_email_change(
+            user.id, "new@example.com", code, locale="vi"
+        )
+    assert all(row.consumed_at is None for row in fakes.codes.rows)
+
+
+async def test_a_phone_taken_meanwhile_keeps_the_change_code_unused() -> None:
+    service, fakes = build_account_service()
+    user = fakes.accounts.add(email="an@example.com", email_verified=True)
+    await service.request_phone_change(
+        user.id, "0987654321", locale="vi", client_ip=None
+    )
+    code = fakes.sms.last_code("+84987654321")
+    fakes.accounts.add(email=None, phone="+84987654321", phone_verified=True)
+    with pytest.raises(PhoneAlreadyUsed):
+        await service.confirm_phone_change(user.id, "0987654321", code)
+    assert all(row.consumed_at is None for row in fakes.codes.rows)

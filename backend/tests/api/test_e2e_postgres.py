@@ -119,7 +119,11 @@ async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
         assert wrong_password.json()["code"] == "LOGIN_BAD_CREDENTIALS"
         verified = await client.post(
             "/api/v1/auth/email/verify",
-            json={"email": email, "code": outbox.email.last_code(email)},
+            json={
+                "email": email,
+                "code": outbox.email.last_code(email),
+                "password": password,
+            },
         )
         assert verified.status_code == 204, verified.text
         client.cookies.clear()
