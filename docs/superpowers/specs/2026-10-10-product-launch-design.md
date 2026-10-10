@@ -234,9 +234,9 @@ Lỗi:
 | Feature | Nội dung |
 | --- | --- |
 | `organizations` | Danh sách tổ chức, tạo tổ chức, trang chi tiết có tab Thành viên, Lời mời, Collection, Nhật ký. Tab không có quyền thì ẩn |
-| `collections` | Danh sách collection kèm thanh hạn mức. Trang collection có tab Tài liệu, Thuật ngữ, Tên gọi dân gian, Bản phát hành, cùng nút Xuất bản và hộp tiến độ job. Trang soạn tài liệu dùng Tiptap với nút tải lên. Lựa chọn "Công khai" chỉ hiện với superadmin. Collection hệ thống chỉ đọc |
+| `collections` | Danh sách collection (`item`) kèm thanh hạn mức (`progress`). Trang collection có tab Tài liệu, Thuật ngữ, Tên gọi dân gian, Bản phát hành, cùng nút Xuất bản và hộp tiến độ job. Thuật ngữ và tên gọi dân gian nhập bằng `combobox` chip; mục liên quan chọn bằng `combobox` có tìm. Trang soạn tài liệu dùng Tiptap với thanh công cụ `toggle` và nút tải lên. Lựa chọn "Công khai" chỉ hiện với superadmin. Collection hệ thống chỉ đọc |
 | `audit` | Component danh sách sự kiện dùng chung. Mỗi sự kiện là một câu dựng từ `action` và `details`. Thao tác của superadmin có nhãn "Quản trị viên" |
-| `admin` | Người dùng (tìm, khoá, mở, hạn mức, xem hội thoại), Tổ chức, Collection, Job, Nhật ký toàn hệ thống. Dùng lại component hiển thị tin nhắn của `chat` ở chế độ chỉ đọc, nên thêm hướng import `admin → chat` vào luật kiến trúc |
+| `admin` | Dashboard theo block `dashboard-01` của shadcn: đầu trang, thẻ số liệu (bộ tài liệu, tài liệu, điểm vector, tác vụ lỗi), rồi các tab Người dùng (tìm, khoá, mở, hạn mức, xem hội thoại), Tổ chức, Collection, Job, Nhật ký toàn hệ thống; mọi bảng là `data-table` của block. Dùng lại component hiển thị tin nhắn của `chat` ở chế độ chỉ đọc, nên thêm hướng import `admin → chat` (và `admin → auth` cho guard) vào luật kiến trúc |
 | `legal` | Trang Chính sách quyền riêng tư và Điều khoản sử dụng, hai ngôn ngữ, prerender |
 
 Route mới:
@@ -246,11 +246,31 @@ Route mới:
 3. `/invitations/:token` công khai. Hiện tên tổ chức, người mời, vai trò. Chưa đăng nhập thì có nút Đăng nhập và Đăng ký kèm `next=`. Đăng nhập sai email thì báo lời mời dành cho email nào, có che bớt ký tự.
 4. `/privacy` và `/terms` công khai, có link ở footer trang chủ, trang đăng ký và trang cài đặt.
 
-Chat có nút **Nguồn** cạnh ô nhập. Popover chứa checkbox nhóm theo Công khai, từng tổ chức, Của tôi, cùng lựa chọn mặc định "Tất cả nguồn tôi được thấy". Khi đang thu hẹp, nút hiện số nguồn đã chọn.
+Chat có nút **Nguồn** cạnh ô nhập, là `combobox` chọn nhiều, có ô tìm, nhóm theo Công khai, từng tổ chức, Của tôi, cùng nút "Tất cả nguồn tôi được thấy" trong popup. Khi đang thu hẹp, nút hiện số nguồn đã chọn. Lựa chọn hiện ngay (optimistic) rồi mới lưu.
 
 Thanh điều hướng thêm Tổ chức, Collection, Hoạt động, và Quản trị (chỉ superadmin). Tab Số điện thoại ở trang đăng nhập, đăng ký và mục Số điện thoại trong cài đặt ẩn khi `phone_sign_in_enabled` là false. Mọi chuỗi mới có tiếng Việt và tiếng Anh.
 
-Thư viện mới: `@tiptap/react`, `@tiptap/starter-kit`, phần mở rộng bảng và Markdown của Tiptap, chọn bản chính thức của Tiptap. `@vercel/react-router` cho deploy.
+### 8.1 Quy tắc giao diện: dùng hết hàng của shadcn
+
+Giao diện có đúng một nguồn component là shadcn core (style `base-nova`, trên Base UI). Mọi thứ shadcn đã có thì cài bằng CLI rồi dùng, không tự dựng lại, không kéo registry thứ hai (không dùng AI Elements) và không thêm thư viện UI mới khi shadcn hoặc thư viện đã cài đáp ứng được.
+
+| Việc | Hàng của shadcn (hoặc thư viện đã cài) |
+| --- | --- |
+| Khung ứng dụng đã đăng nhập (sidebar, đầu trang, menu người dùng) | Block `dashboard-01`: `app-sidebar`, `nav-main`, `nav-secondary`, `nav-user`, `site-header` trên primitive `sidebar`; danh sách hội thoại đặt trong `SidebarContent` |
+| Trang quản trị | Block `dashboard-01`: `section-cards` cho thẻ số liệu, `data-table` (TanStack Table) cho các bảng người dùng, tổ chức, bộ tài liệu, tác vụ; `chart` chỉ khi có endpoint thống kê theo thời gian |
+| Bảng dữ liệu ở mọi nơi khác | `data-table` của block, truyền cột và dữ liệu; `table` trần chỉ cho bảng tĩnh vài dòng |
+| Danh sách có tiêu đề, mô tả, nút | `item` (`ItemGroup`, `Item`, `ItemTitle`, `ItemDescription`, `ItemActions`); trạng thái rỗng là `empty` |
+| Form | react-hook-form + zod + `field` (`Field`, `FieldLabel`, `FieldError`); lỗi cấp form là `FieldError`, lỗi cấp trang là `alert` |
+| Chọn nhiều giá trị, nhập nhiều giá trị ngắn | `combobox` (nhiều lựa chọn, chip, nhóm, ô tìm). Dùng cho nút **Nguồn** trong chat, mục liên quan của tên gọi dân gian, các ô tên khác và mở rộng của thuật ngữ |
+| Chọn một giá trị trong form | `native-select` cho vai trò và loại tài liệu; `select` khi cần ô tìm hoặc nhóm |
+| Thanh công cụ soạn thảo | `toggle`, `toggle-group`, `button-group`, `tooltip` trên Tiptap; nội dung soạn thảo và Markdown hiển thị dùng plugin chính thức `@tailwindcss/typography` (`prose`) |
+| Màn chat | `message`, `bubble`, `marker`, `message-scroller`, `input-group` của shadcn core; trích dẫn dùng `hover-card`; nguồn và đoạn đã đọc dùng `collapsible` + `item`; cảnh báo dùng `alert`; hộp phản hồi dùng `toggle-group`, `textarea` |
+| Thông báo | `toast` của shadcn (không thêm sonner); theme giữ cookie hiện có (không thêm next-themes) |
+| Xác nhận, hộp thoại, ngăn kéo | `alert-dialog`, `dialog`, `sheet`, `drawer` |
+
+Những file trong `app/components/ui` khác bản registry chỉ vì lint (bỏ `role="group"`/`role="list"`, bỏ click-to-focus của `input-group`, `spinner` là `aria-hidden`) được ghi trong `frontend/README.md`; `shadcn add` đè lên thì khôi phục bản local.
+
+Thư viện mới: `@tiptap/react`, `@tiptap/starter-kit`, phần mở rộng bảng và Markdown của Tiptap, chọn bản chính thức của Tiptap. `@tanstack/react-table` và `avatar`, `breadcrumb` đi kèm block `dashboard-01`. `@tailwindcss/typography`. `@vercel/react-router` cho deploy. Không giữ `@dnd-kit` (kéo thả dòng của block không dùng), `sonner`, `next-themes`, `recharts` khi chưa có endpoint thống kê.
 
 ## 9. Triển khai và ra mắt
 

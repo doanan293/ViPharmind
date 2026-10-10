@@ -6,7 +6,7 @@
 
 **Architecture:** Backend giữ kiến trúc sạch hiện có: domain thuần (`access`, `organizations`, `audit`, `corpus` mở rộng), application theo feature (không import chéo), infrastructure ghép nối (Postgres, Qdrant, DeepInfra, Cloud Tasks), api chỉ chạm infrastructure qua `api/deps.py`. Quyền được tính trong Postgres ở mỗi lượt hỏi và truyền xuống Qdrant dưới dạng bộ lọc release. Frontend thêm các feature `organizations`, `collections`, `audit`, `admin`, `legal` theo luật import một chiều.
 
-**Tech Stack:** FastAPI, fastapi-users, SQLAlchemy 2 async, Alembic, Postgres, Qdrant, LangGraph, httpx, google-cloud-tasks, google-auth; React Router 8 SSR, TanStack Query, orval, Tiptap 3 (`@tiptap/markdown`), shadcn base-nova, Vitest browser + MSW, Playwright; Vercel (`@vercel/react-router`), Cloud Run, Cloud Tasks, Neon, Qdrant Cloud, DeepInfra.
+**Tech Stack:** FastAPI, fastapi-users, SQLAlchemy 2 async, Alembic, Postgres, Qdrant, LangGraph, httpx, google-cloud-tasks, google-auth; React Router 8 SSR, TanStack Query, orval, Tiptap 3 (`@tiptap/markdown`), shadcn base-nova (core + block `dashboard-01`, TanStack Table), react-hook-form + zod, `@tailwindcss/typography`, Vitest browser + MSW, Playwright; Vercel (`@vercel/react-router`), Cloud Run, Cloud Tasks, Neon, Qdrant Cloud, DeepInfra.
 
 **Spec:** `docs/superpowers/specs/2026-10-10-product-launch-design.md`
 
@@ -17,6 +17,7 @@
 - Lệnh test backend chạy từ `backend/`: unit `uv run pytest -q`; integration (cần Docker) `uv run pytest -q -m integration`. Frontend chạy từ `frontend/`: `npx vitest run`; e2e `npm run e2e`.
 - Luật kiến trúc (`backend/tests/architecture/test_layering.py`): domain không import framework; application không import infrastructure, api, sqlalchemy, fastapi, httpx; **các feature trong `application/` không import nhau**; routers chỉ chạm infrastructure qua `api/deps.py`; `api/` không import `domain` trực tiếp.
 - Luật kiến trúc frontend (`frontend/app/architecture.test.ts` và `.oxlintrc.json`): feature chỉ import feature khác theo bảng `ALLOWED_FEATURE_IMPORTS`; mỗi feature mới cần override oxlint riêng và phải được thêm vào danh sách cấm của mọi feature khác không được phép import nó.
+- **Giao diện dùng hết hàng của shadcn (spec §8.1):** trước khi viết bất kỳ widget nào, tra registry (`npx shadcn@latest view <tên>`); có component hay block thì `npx shadcn@latest add` rồi sửa file CLI tải về (dữ liệu từ API, nhãn tiếng Việt, bỏ phần không dùng). Không đọc block rồi gõ lại thành component riêng. Không thêm registry thứ hai hay thư viện UI mới khi shadcn hoặc thư viện đã cài đáp ứng được. Form dùng react-hook-form + zod + `field`; bảng dùng `data-table` của block `dashboard-01`; danh sách dùng `item`/`empty`; lỗi dùng `alert`/`FieldError`.
 - Mỗi chuỗi giao diện mới có cả `vi` và `en`. Mã lỗi mới của backend có khoá trong `errors.json` hai ngôn ngữ.
 - Tài nguyên không được phép thấy trả **404**; thấy được nhưng thiếu quyền trả **403 `FORBIDDEN_ROLE`**.
 - Hạn mức mặc định: 200.000 ký tự mỗi tài liệu, 100 tài liệu mỗi collection, 1.000.000 byte chữ và 5 collection mỗi người dùng, 5.000.000 byte chữ và 20 collection mỗi tổ chức.
@@ -2088,7 +2089,7 @@ class DeepInfraReranker:
 - Regenerate: `frontend/openapi.json`, `frontend/app/api/gen/**` (`npm run api:openapi && npm run api:generate`)
 - Create: `frontend/app/i18n/resources/{vi,en}/{organizations,collections,admin,audit,legal}.json`; modify `app/i18n/config.ts`, `resources/{vi,en}/common.json` (nav), `errors.json` (mã lỗi mới)
 - Modify: `frontend/app/architecture.test.ts` (`ALLOWED_FEATURE_IMPORTS`), `.oxlintrc.json`, `frontend/README.md`
-- Modify: `frontend/app/features/shell/components/AppSidebar.tsx`, `app/routes/auth/login.tsx`, `register.tsx`, `features/settings/components/AccountSection.tsx` (ẩn SĐT khi `phone_sign_in_enabled === false`), `tests/utils/account.ts` (`accountView` thêm `is_superadmin: false`, `memberships: []`, `phone_sign_in_enabled: true`)
+- Modify: `frontend/app/features/shell/components/AppSidebar.tsx` (ghép từ block `dashboard-01`: `app-sidebar` + `nav-main` + `nav-secondary` + `nav-user` với `avatar`; danh sách hội thoại trong `SidebarContent`; đầu trang là `site-header` của block), `app/routes/auth/login.tsx`, `register.tsx`, `features/settings/components/AccountSection.tsx` (ẩn SĐT khi `phone_sign_in_enabled === false`), `tests/utils/account.ts` (`accountView` thêm `is_superadmin: false`, `memberships: []`, `phone_sign_in_enabled: true`)
 - Modify: `frontend/app/features/conversations/components/RenameConversationDialog.tsx` (hook đổi tên `useUpdateConversation`, body `{title}`)
 
 `ALLOWED_FEATURE_IMPORTS` mới:
@@ -2117,14 +2118,14 @@ Mã lỗi mới trong `errors.json`: `FORBIDDEN_ROLE`, `ORGANIZATION_NOT_FOUND`,
 
 ### Task F2: Primitive shadcn còn thiếu
 
-- [ ] **Step 1:** `cd frontend && npx shadcn@latest add popover checkbox table progress` (style `base-nova` theo `components.json`). Kiểm tra file sinh ở `app/components/ui/{popover,checkbox,table,progress}.tsx`, bỏ phần không dùng như đã làm với `input-otp`.
+- [x] **Step 1:** `cd frontend && npx shadcn@latest add popover checkbox table progress native-select hover-card item toggle toggle-group button-group combobox` (style `base-nova` theo `components.json`), rồi `npx shadcn@latest add dashboard-01` để lấy block (`app-sidebar`, `nav-*`, `site-header`, `section-cards`, `data-table`, `avatar`, `breadcrumb`). Giữ bản local của file `ui` đã sửa vì lint. Bỏ demo `app/routes/dashboard.tsx`, `app/dashboard/data.json`, `chart-area-interactive`, `nav-documents`, `sonner`, `next-themes`, `@dnd-kit`, `recharts`; ghim phiên bản các gói còn lại.
 - [ ] **Step 2:** `npm run lint && npm run typecheck` → PASS.
 - [ ] **Step 3: Commit** — `git commit -m "chore(ui): add popover, checkbox, table and progress primitives"`.
 
 ### Task F3: Feature `audit`
 
 **Files:**
-- Create: `frontend/app/features/audit/components/AuditList.tsx`, `AuditList.browser.test.tsx`, `features/audit/lib/describe-event.ts`, `describe-event.test.ts`
+- Create: `frontend/app/features/audit/components/AuditList.tsx` (`item` cho mỗi sự kiện, `empty` khi rỗng, `alert` khi lỗi), `AuditList.browser.test.tsx`, `features/audit/lib/describe-event.ts`, `describe-event.test.ts`
 - Create: `frontend/app/routes/app/activity.tsx`; modify `app/routes.ts`
 
 ```ts
@@ -2147,10 +2148,10 @@ export function describeEvent(event: AuditEventView, t: TFunction<"audit">): str
 - Create: `frontend/app/routes/app/organizations.tsx`, `organization.tsx`; modify `app/routes.ts` (`route("organizations", ...)`, `route("organizations/:organizationId/:tab?", ...)`)
 
 Hành vi:
-- `OrganizationsPage`: danh sách `useOrganizationsList`, nút Tạo tổ chức mở dialog (form tên, zod 1–100).
+- `OrganizationsPage`: danh sách `useOrganizationsList` bằng `item`, form tạo tổ chức là `NameForm` dùng chung (react-hook-form + zod + `field`, `app/components/name-form.tsx`).
 - `OrganizationPage`: tiêu đề, vai trò của tôi, `Tabs` với giá trị từ `:tab` (mặc định `members`); tab `invitations` hiện với mọi thành viên (member chỉ thấy lời mời của mình, server lọc); tab `collections` hiện với mọi thành viên; tab `audit` chỉ `owner`/`editor`; nút Đổi tên và Xoá chỉ `owner`; nút Rời tổ chức cho mọi người (disabled kèm tooltip khi là owner cuối, server trả `LAST_OWNER` → toast).
-- `MembersTab`: `Table` tên, email, vai trò (Select đổi vai trò nếu owner), nút Xoá (AlertDialog).
-- `InvitationsTab`: bảng email, vai trò, trạng thái (Badge), người mời, hạn; nút Mời mở `InviteDialog` (email + Select vai trò chỉ gồm các vai trò được phép theo vai trò của tôi); với trạng thái `pending_approval` và tôi là owner/editor: nút Duyệt, Từ chối; `sent`: Gửi lại, Thu hồi; member thấy nút Thu hồi cho lời mời của mình.
+- `MembersTab`: `Table` tên, email, vai trò (`native-select` đổi vai trò nếu owner), nút Xoá (AlertDialog).
+- `InvitationsTab`: danh sách `item` email, vai trò, trạng thái (Badge), người mời, hạn; form Mời inline bằng react-hook-form + zod (`InvitationsCreateBody`) với email + `native-select` vai trò chỉ gồm các vai trò được phép theo vai trò của tôi; với trạng thái `pending_approval` và tôi là owner/editor: nút Duyệt, Từ chối; `sent`: Gửi lại, Thu hồi; member thấy nút Thu hồi cho lời mời của mình.
 - `OrgCollectionsTab`: lọc `CollectionGroups.organizations[organization_id]` và nút Tạo collection cho tổ chức (dùng component `CreateCollectionDialog` của feature `collections`, owner cố định).
 - `DeleteOrganizationDialog`: ô nhập tên, nút Xoá disabled tới khi khớp.
 
@@ -2179,9 +2180,9 @@ Hành vi:
 - `CollectionsPage`: ba nhóm theo `CollectionGroups`; `QuotaBar` (Progress) cho "Của tôi" và mỗi tổ chức từ `useCollectionsQuota`; nút Tạo collection (chọn chủ: tôi hoặc tổ chức tôi là editor/owner).
 - `CollectionPage`: tiêu đề (đổi tên inline nếu `can_edit`), `VisibilitySelect` (Riêng tư / Trong tổ chức khi chủ là tổ chức / Công khai chỉ khi `can_set_public`), tabs `documents | glossary | colloquial | releases`; collection hệ thống: chỉ tab releases, mọi nút ẩn, nhãn "Hệ thống".
 - `DocumentsTab`: bảng tiêu đề, loại, số ký tự, cập nhật; nút Thêm tài liệu → `/collections/:id/documents/new`; hàng bấm mở `/collections/:id/documents/:docId`; Xoá với AlertDialog.
-- `GlossaryTab`: bảng sửa tại chỗ (term, mở rộng tiếng Việt, tiếng Anh, tên khác, phân loại) với react-hook-form `useFieldArray`, nút Lưu gửi `PUT` cả danh sách.
+- `GlossaryTab`: mỗi mục một `item` có ô term và phân loại (`input`), còn mở rộng tiếng Việt, tiếng Anh, tên khác là `TagsInput` (`app/components/tags-input.tsx`, ghép từ `combobox` chip: gõ rồi Enter thành chip); nút Lưu gửi `PUT` cả danh sách. `ColloquialTab` tương tự, mục liên quan chọn bằng `SectionPicker` (`combobox` nhiều lựa chọn có ô tìm).
 - `ColloquialTab`: tương tự; cột "Mục" là multi-select từ `useCollectionsSections`; key không còn tồn tại hiện Badge cảnh báo.
-- `ReleasesTab`: bảng số, trạng thái, ngày, Badge "Đang dùng"; nút Quay lại bản trước (AlertDialog).
+- `ReleasesTab`: danh sách `item` số, ngày, Badge "Đang dùng"; nút Quay lại bản trước. `CollectionsPage` nhóm bằng `item`, hạn mức bằng `progress`, tạo bằng `NameForm`.
 - `PublishButton` + `JobProgress`: POST publish → lưu `job.id` trong state, poll `useJobsGet(jobId, { query: { refetchInterval: (q) => q.state.data?.status in ["queued","running"] ? 2000 : false } })`; hiện bước bằng Progress và nhãn `collections.job.step.{bundle|chunk|embed|index|publish}`; xong thì invalidate collection và releases; lỗi hiện `error`; `PUBLISH_IN_PROGRESS` → toast.
 
 - [ ] **Step 1: Test RED**: `CollectionPage` ẩn Công khai cho người thường, hiện cho superadmin; hệ thống chỉ có tab Bản phát hành; `GlossaryTab` PUT đúng body sau khi thêm dòng; `PublishButton` poll hai lần rồi hiện "Hoàn tất".
@@ -2196,7 +2197,7 @@ Hành vi:
 - Create: `frontend/app/routes/app/document.tsx` (`collections/:collectionId/documents/:documentId`, với `documentId === "new"` là tạo mới); modify `app/routes.ts`
 - Modify: `frontend/app/api/upload.ts` (mới): `uploadDocumentFile(collectionId, file): Promise<UploadResult>` dùng `fetch` multipart với CSRF header (fetcher hiện tại không gửi FormData)
 
-`MarkdownEditor({ value, onChange, id })`: `useEditor({ extensions: [StarterKit, Markdown, TableKit.configure({ table: { resizable: false } })], content: value, contentType: "markdown", onUpdate: ({ editor }) => onChange(editor.getMarkdown()) })`; toolbar: H1–H3, đậm, nghiêng, danh sách, chèn bảng 3×3, thêm hàng, xoá bảng. Vùng soạn có `role="textbox"` và `aria-labelledby` nhãn "Nội dung". SSR: component chỉ render editor sau `useEffect` mount (Tiptap cần DOM); trước đó hiện `Skeleton`.
+`MarkdownEditor({ value, onChange, id })`: `useEditor({ extensions: [StarterKit, Markdown, TableKit.configure({ table: { resizable: false } })], content: value, contentType: "markdown", onUpdate: ({ editor }) => onChange(editor.getMarkdown()) })`; toolbar là `toggle` cho H1–H3, đậm, nghiêng, danh sách và `button-group` cho chèn bảng 3×3, thêm hàng, xoá bảng, mỗi nút có `tooltip`; vùng soạn dùng `prose` của `@tailwindcss/typography`. Vùng soạn có `role="textbox"` và `aria-labelledby` nhãn "Nội dung". SSR: component chỉ render editor sau `useEffect` mount (Tiptap cần DOM); trước đó hiện `Skeleton`.
 
 `DocumentEditorPage`: form tiêu đề, loại (Select theo `DocumentKind`), nguồn, URL nguồn, nội dung (MarkdownEditor), đếm ký tự `/ 200.000`, nút Lưu; `UploadButton` nhận `.txt,.md`, gọi `uploadDocumentFile`, đổ `title` và `markdown` vào form (ghi đè sau khi confirm nếu form đã có nội dung). Lỗi `QUOTA_EXCEEDED` hiện câu với `used/limit`.
 
@@ -2210,7 +2211,7 @@ Hành vi:
 - Create: `frontend/app/features/chat/components/SourcesPopover.tsx` + `.browser.test.tsx`; `features/chat/lib/sources-scope.ts`
 - Modify: `Composer.tsx` (prop `leading?: ReactNode` để đặt nút trước ô nhập), `ChatSession.tsx`, `NewChat.tsx`, `lib/chat-transport.ts` (`prepareSendMessagesRequest` thêm `collection_ids` từ `body` option khi hội thoại mới), `features/conversations/lib/conversation-cache.ts`
 
-Hành vi: `SourcesPopover({ value: string[] | null, onChange, groups: CollectionGroups })`: nút "Nguồn" (hoặc "Nguồn: N"), Popover với checkbox "Tất cả nguồn tôi được thấy" (value null) và các nhóm Công khai / từng tổ chức / Của tôi; chọn ít nhất một khi không phải "Tất cả". Hội thoại có sẵn: `value` từ `conversation.collection_ids`, `onChange` gọi `useUpdateConversation` `{collection_ids}` và cập nhật cache. Hội thoại mới (`NewChat`): giữ lựa chọn trong state; khi gửi câu đầu, `createConversation` → nếu có lựa chọn thì `updateConversation({collection_ids})` → navigate kèm câu hỏi như hiện nay. Vì vậy `ChatRequest.collection_ids` ở backend chỉ dùng cho client API, giao diện không cần gửi nó.
+Hành vi: `SourcesPopover({ value: string[] | null, onChange })` là `combobox` nhiều lựa chọn (`ComboboxTrigger` là `Button`, popup có `ComboboxInput` tìm, nút "Tất cả nguồn tôi được thấy" đặt value null, `ComboboxGroup` theo Công khai / từng tổ chức / Của tôi). Nút hiện "Nguồn" hoặc "Nguồn: N". Danh sách bộ tài liệu chỉ tải khi mở. Lựa chọn hiện ngay rồi mới PATCH (optimistic). Hội thoại có sẵn: `value` từ `conversation.collection_ids`, `onChange` gọi `useUpdateConversation` `{collection_ids}` và cập nhật cache. Hội thoại mới (`NewChat`): giữ lựa chọn trong state; khi gửi câu đầu, `createConversation` → nếu có lựa chọn thì `updateConversation({collection_ids})` → navigate kèm câu hỏi như hiện nay. Vì vậy `ChatRequest.collection_ids` ở backend chỉ dùng cho client API, giao diện không cần gửi nó.
 
 - [ ] **Step 1: Test RED**: popover hiện ba nhóm; bỏ chọn tất cả rồi tick một collection → PATCH `{collection_ids: [id]}` và nút hiện "Nguồn: 1"; tick lại "Tất cả" → PATCH `{collection_ids: null}`.
 - [ ] **Step 2–4:** RED, implement, GREEN.
@@ -2219,10 +2220,10 @@ Hành vi: `SourcesPopover({ value: string[] | null, onChange, groups: Collection
 ### Task F9: Feature `admin`
 
 **Files:**
-- Create: `frontend/app/features/admin/components/{AdminLayout,UsersSection,UserQuotaDialog,UserConversationsSheet,ReadOnlyThread,OrganizationsSection,CollectionsSection,JobsSection,AuditSection}.tsx` + tests cho `UsersSection`, `ReadOnlyThread`
+- Create: `frontend/app/features/admin/components/{AdminPage,AdminOverview,UsersSection,QuotaDialog,QuotaValue,UserConversationsSheet,ReadOnlyThread,OrganizationsSection,CollectionsSection,JobsSection}.tsx` + tests cho `AdminPage`, `ReadOnlyThread`; `features/admin/lib/require-superadmin.ts`. Toàn trang ghép từ block `dashboard-01` đã cài ở F2: `site-header` (tiêu đề "Quản trị"), `section-cards` đổ số từ `useAdminCollectionsList` và `useAdminIngestJobsList` (bộ tài liệu, tài liệu, điểm vector, tác vụ lỗi), `data-table` của block cho bốn bảng (truyền cột; ô tìm người dùng đặt ở toolbar của bảng, nút Tải thêm ở footer). Không tự viết lại `DataTable`.
 - Create: `frontend/app/routes/app/admin.tsx` (`admin/:section?`), modify `app/routes.ts`
 
-Guard: `clientLoader` của route admin gọi `requireUser` rồi nếu `!user.is_superadmin` → `throw data(null, { status: 404 })` để `ErrorBoundary` hiện trang 404 hiện có. `AdminLayout`: Tabs Người dùng / Tổ chức / Collection / Job / Nhật ký. `UsersSection`: ô tìm, bảng, nút Khoá/Mở (AlertDialog), Hạn mức (dialog hai số), Hội thoại (Sheet liệt kê `useAdminUsersConversationsInfinite`, bấm mở `ReadOnlyThread`). `ReadOnlyThread` dùng `MessageParts` của chat với `renderActions` bỏ trống, `useAdminConversationsMessagesInfinite`. `AuditSection` dùng `AuditList` với `useAdminAuditInfinite`.
+Guard: `clientLoader` của route admin gọi `requireUser` rồi nếu `!user.is_superadmin` → `throw data(null, { status: 404 })` để `ErrorBoundary` hiện trang 404 hiện có. `AdminPage`: `site-header` + `section-cards` + Tabs Người dùng / Tổ chức / Collection / Job / Nhật ký. `UsersSection`: `data-table` của block với ô tìm trong toolbar, nút Khoá/Mở (AlertDialog), Hạn mức (`QuotaDialog`, react-hook-form + zod), Hội thoại (Sheet liệt kê `useAdminUsersConversationsInfinite`, bấm mở `ReadOnlyThread`). `ReadOnlyThread` dùng `MessageParts` của chat với `renderActions` bỏ trống, `useAdminConversationsMessagesInfinite`. `AuditSection` dùng `AuditList` với `useAdminAuditInfinite`.
 
 - [ ] **Step 1: Test RED**: người thường vào `/admin` thấy trang 404 (dùng `createRoutesStub` với loader); superadmin khoá người dùng → PATCH `{is_active:false}`; `ReadOnlyThread` render tin nhắn không có nút phản hồi.
 - [ ] **Step 2–4:** RED, implement, GREEN.
@@ -2255,6 +2256,22 @@ test("a superadmin disables a user, whose session ends", ...)
 
 - [ ] **Step 1:** viết spec; **Step 2:** `npm run e2e` → PASS 15/15 (11 cũ + 4 mới).
 - [ ] **Step 3: Commit** — `git commit -m "test(e2e): organizations, publishing and admin flows"`.
+
+---
+
+### Task F12: Chuẩn hoá giao diện theo shadcn (sau quy tắc của người dùng ngày 2026-10-10)
+
+Soát toàn bộ frontend và thay mọi chỗ tự ghép bằng hàng của shadcn (spec §8.1). Mỗi nhóm một commit refactor; test, lint, typecheck sạch sau mỗi nhóm.
+
+- [x] Element của chat: `surfaces.tsx` xoá; `guardrail-notice`, `error-state` → `alert`; `inline-citation` → `hover-card`; `sources`, `retrieval-chunks` → `collapsible` + `item`; `feedback-dialog` → `toggle-group`, `textarea`, `button` (commit 28fd1b0).
+- [x] Trình soạn bộ tài liệu: ô nhập cách dấu phẩy → `combobox` chip (`TagsInput`), chọn mục → `combobox` (`SectionPicker`), thanh công cụ → `toggle` + `button-group` + `tooltip`, class CSS tự viết → `prose` (commit f7803ac).
+- [x] Nút Nguồn trong chat → `combobox` nhiều lựa chọn có nhóm (commit eb6c5be).
+- [x] Danh sách `ul/li` → `item`, trạng thái rỗng → `empty`, 27 chỗ `<p role="alert">` → `alert`/`FieldError` (commit 9b03062).
+- [x] Form `useState` còn lại → react-hook-form + zod + `field` (`NameForm`, form mời, trình soạn tài liệu) (commit e300330).
+- [ ] Trang quản trị dựng lại từ block `dashboard-01` (`site-header`, `section-cards`, `data-table` của block cho bốn bảng); xoá bản `DataTable` tự viết.
+- [ ] Khung ứng dụng: `AppSidebar` và `UserMenu` ghép từ `app-sidebar`, `nav-main`, `nav-secondary`, `nav-user` (có `avatar`) của block; đầu trang trong `routes/app/layout.tsx` là `site-header`. Giữ `ConversationSidebar` trong `SidebarContent`; test `AppSidebar.browser.test.tsx` cập nhật nhãn.
+- [ ] Dọn phần block không dùng (`nav-documents`, `chart-area-interactive`, demo route và `data.json`, `sonner`, `next-themes`, `@dnd-kit`, `recharts`), ghim phiên bản gói, `frontend/README.md` ghi quy tắc và các file `ui` khác registry.
+- [ ] Commit — `git commit -m "refactor(frontend): admin dashboard and app shell from the shadcn dashboard-01 block"`.
 
 ---
 
