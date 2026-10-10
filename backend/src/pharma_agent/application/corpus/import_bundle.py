@@ -11,7 +11,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
-from pharma_agent.application.corpus.indexing import EmbeddingResolver, IndexWriter
+from pharma_agent.application.corpus.indexing import IndexWriter
 from pharma_agent.domain.corpus.bundle import KnowledgeBundle, model_slug
 from pharma_agent.domain.corpus.models import (
     CorpusImportError,
@@ -24,7 +24,6 @@ from pharma_agent.domain.corpus.models import (
 from pharma_agent.domain.corpus.ports import (
     CorpusRepository,
     Embedder,
-    EmbeddingCache,
     VectorIndex,
 )
 from pharma_agent.domain.shared.clock import Clock
@@ -72,7 +71,6 @@ class ImportKnowledgeBundle:
     def __init__(
         self,
         repository: CorpusRepository,
-        cache: EmbeddingCache,
         index: VectorIndex,
         embedder: Embedder,
         clock: Clock,
@@ -84,13 +82,12 @@ class ImportKnowledgeBundle:
         self._index = index
         self._embedder = embedder
         self._clock = clock
-        self._resolver = EmbeddingResolver(
-            cache,
+        self._writer = IndexWriter(
+            index,
             embedder,
             batch_size=embed_batch_size,
             max_concurrent=embed_max_concurrent,
         )
-        self._writer = IndexWriter(index, cache, model=embedder.model)
 
     async def __call__(
         self,
@@ -158,9 +155,8 @@ class ImportKnowledgeBundle:
         vectors: Mapping[str, Sequence[float]],
         release: Release,
     ) -> None:
-        embeddings = await self._resolver.ensure(snapshot.embedding_texts(), vectors)
         items = await self._repository.index_items([release.id])
-        written = await self._writer.write(items)
+        written = await self._writer.write(items, bundled=vectors)
         indexed = await self._index.count_release(release.id)
         expected = len(snapshot.release_chunks)
         if indexed != expected:
@@ -170,9 +166,8 @@ class ImportKnowledgeBundle:
             )
         stats = snapshot.stats().model_copy(
             update={
-                "embeddings_cached": embeddings.cached,
-                "embeddings_from_bundle": embeddings.from_bundle,
-                "embeddings_computed": embeddings.computed,
+                "embeddings_from_bundle": written.embeddings_from_bundle,
+                "embeddings_computed": written.embeddings_computed,
                 "points_upserted": written.upserted,
                 "points_updated": written.updated,
             }

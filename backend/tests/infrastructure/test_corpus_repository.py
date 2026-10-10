@@ -12,7 +12,7 @@ from pharma_agent.domain.corpus.models import (
     ReleaseStatus,
     build_snapshot,
 )
-from pharma_agent.domain.corpus.ports import CorpusRepository, EmbeddingCache
+from pharma_agent.domain.corpus.ports import CorpusRepository
 from pharma_agent.infrastructure.persistence.postgres.corpus_repository import (
     PostgresCorpusRepository,
 )
@@ -20,9 +20,6 @@ from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     ChunkVersionTable,
 )
 from pharma_agent.infrastructure.persistence.postgres.database import Database
-from pharma_agent.infrastructure.persistence.postgres.embedding_cache import (
-    PostgresEmbeddingCache,
-)
 from tests.corpus_fixtures import (
     DOSAGE_SECTION,
     LEAFLET_SECTION,
@@ -38,9 +35,7 @@ pytestmark = pytest.mark.integration
 async def database(migrated_dsn: str) -> AsyncGenerator[Database]:
     db = Database(migrated_dsn, pool_size=2)
     async with db.engine.begin() as connection:
-        await connection.execute(
-            text("TRUNCATE corpus.collections, corpus.embedding_cache CASCADE")
-        )
+        await connection.execute(text("TRUNCATE corpus.collections CASCADE"))
     yield db
     await db.dispose()
 
@@ -264,19 +259,3 @@ async def test_purge_keeps_chunk_versions_protected_by_restrict(
     assert summaries[r1.id].chunk_count == 0
     assert summaries[r2.id].chunk_count == len(new.release_chunks)
     assert again == PurgeResult(chunk_versions_kept=1)
-
-
-async def test_embedding_cache_round_trips_float32(database: Database) -> None:
-    cache: EmbeddingCache = PostgresEmbeddingCache(database.sessions)
-    a, b = "a" * 64, "b" * 64
-    await cache.put_many(FAKE_EMBEDDING_MODEL, 4, {a: [0.5, 0.25, 1.0, 0.0625]})
-    await cache.put_many(FAKE_EMBEDDING_MODEL, 4, {a: [1.0, 1.0, 1.0, 1.0]})
-
-    assert await cache.missing(FAKE_EMBEDDING_MODEL, [a, b]) == {b}
-    assert await cache.missing("other-model", [a]) == {a}
-    assert await cache.get_many(FAKE_EMBEDDING_MODEL, [a, b]) == {
-        a: [0.5, 0.25, 1.0, 0.0625]
-    }
-    assert await cache.missing(FAKE_EMBEDDING_MODEL, []) == set()
-    with pytest.raises(ValueError, match="dimension"):
-        await cache.put_many(FAKE_EMBEDDING_MODEL, 4, {b: [0.5]})

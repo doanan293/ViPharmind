@@ -76,20 +76,6 @@ class CorpusRepository(Protocol):
         ...
 
 
-class EmbeddingCache(Protocol):
-    async def missing(self, model: str, hashes: Sequence[str]) -> set[str]: ...
-
-    async def get_many(
-        self, model: str, hashes: Sequence[str]
-    ) -> dict[str, list[float]]: ...
-
-    async def put_many(
-        self, model: str, dimension: int, vectors: Mapping[str, Sequence[float]]
-    ) -> None:
-        """Insert missing entries; existing (model, hash) rows are left untouched."""
-        ...
-
-
 class Embedder(Protocol):
     @property
     def model(self) -> str: ...

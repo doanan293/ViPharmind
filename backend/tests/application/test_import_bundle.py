@@ -5,7 +5,7 @@ from functools import partial
 import pytest
 
 from pharma_agent.application.corpus.import_bundle import ImportOutcome
-from pharma_agent.application.corpus.indexing import EmbeddingCounts, EmbeddingResolver
+from pharma_agent.application.corpus.indexing import IndexCounts, IndexWriter
 from pharma_agent.domain.corpus.bundle import read_bundle_embeddings
 from pharma_agent.domain.corpus.models import (
     CorpusImportError,
@@ -23,16 +23,15 @@ from tests.corpus_fixtures import (
 )
 from tests.corpus_memory import (
     CorpusAdapters,
-    InMemoryEmbeddingCache,
     InMemoryVectorIndex,
     build_importer,
+    index_item,
 )
 from tests.fakes import (
     FAKE_EMBEDDING_DIMENSION,
     FAKE_EMBEDDING_MODEL,
     NOW,
     FakeEmbedder,
-    fake_vector,
 )
 
 
@@ -40,16 +39,13 @@ def unchanged_bundle_embeddings(model: str, dims: int) -> dict[str, list[float]]
     raise AssertionError("an unchanged bundle must not load its vectors")
 
 
-async def test_import_takes_vectors_from_cache_then_bundle_then_embedder() -> None:
+async def test_import_takes_vectors_from_the_bundle_then_the_embedder() -> None:
     adapters = CorpusAdapters()
     bundle = small_bundle()
     snapshot = build_snapshot(bundle)
     texts = snapshot.embedding_texts()
     hashes = sorted(texts)
-    cached, bundled = hashes[0], hashes[1:3]
-    await adapters.cache.put_many(
-        FAKE_EMBEDDING_MODEL, 4, {cached: fake_vector(texts[cached])}
-    )
+    bundled = hashes[:2]
     shipped = small_bundle_embeddings(FAKE_EMBEDDING_MODEL, FAKE_EMBEDDING_DIMENSION)
     embedder = FakeEmbedder()
 
@@ -72,24 +68,16 @@ async def test_import_takes_vectors_from_cache_then_bundle_then_embedder() -> No
         None,
     )
     assert release.stats is not None
-    assert (
-        release.stats.embeddings_cached,
-        release.stats.embeddings_from_bundle,
-        release.stats.embeddings_computed,
-    ) == (1, 2, len(hashes) - 3)
-    assert (release.stats.points_upserted, release.stats.points_updated) == (
-        len(snapshot.release_chunks),
-        0,
-    )
-    assert release.stats.chunks == len(snapshot.release_chunks)
+    points = len(snapshot.release_chunks)
+    assert release.stats.embeddings_from_bundle == len(bundled)
+    assert release.stats.embeddings_computed == points - len(bundled)
+    assert (release.stats.points_upserted, release.stats.points_updated) == (points, 0)
+    assert release.stats.chunks == points
     assert sorted(text for batch in embedder.batches for text in batch) == sorted(
-        texts[sha] for sha in hashes[3:]
+        texts[sha] for sha in hashes[2:]
     )
     assert all(len(batch) <= 2 for batch in embedder.batches)
-    assert set(adapters.cache.vectors) == {
-        (FAKE_EMBEDDING_MODEL, sha) for sha in hashes
-    }
-    assert len(adapters.index.points) == len(snapshot.release_chunks)
+    assert len(adapters.index.points) == points
     assert all(
         item.release_ids == [release.id] for item, _ in adapters.index.points.values()
     )
@@ -149,7 +137,8 @@ async def test_failed_embedding_leaves_building_release_and_rerun_resumes() -> N
 
     (summary,) = await adapters.repository.list_releases("formulary")
     assert summary.release.status is ReleaseStatus.BUILDING and not summary.current
-    assert len(adapters.cache.vectors) == 2
+    # The first batch reached Qdrant before the second one failed.
+    assert len(adapters.index.points) == 2
 
     retry = FakeEmbedder()
     report = await build_importer(adapters, retry, batch_size=2)(
@@ -161,7 +150,7 @@ async def test_failed_embedding_leaves_building_release_and_rerun_resumes() -> N
     assert report.release.status is ReleaseStatus.READY and report.published
     assert sum(len(batch) for batch in retry.batches) == len(texts) - 2
     assert report.release.stats is not None
-    assert report.release.stats.embeddings_cached == 2
+    assert report.release.stats.points_updated == 2
     assert len(await adapters.repository.list_releases("formulary")) == 1
 
 
@@ -264,15 +253,38 @@ class TrackingEmbedder(FakeEmbedder):
         return await super().embed(texts)
 
 
-async def test_embedding_resolver_respects_the_concurrency_limit() -> None:
+async def test_index_writer_respects_the_concurrency_limit() -> None:
     embedder = TrackingEmbedder()
-    resolver = EmbeddingResolver(
-        InMemoryEmbeddingCache(), embedder, batch_size=1, max_concurrent=2
+    index = InMemoryVectorIndex()
+    items = [index_item(f"text {i}") for i in range(6)]
+    writer = IndexWriter(index, embedder, batch_size=1, max_concurrent=2)
+    counts = await writer.write(items, bundled={})
+    assert counts == IndexCounts(
+        upserted=6, updated=0, embeddings_from_bundle=0, embeddings_computed=6
     )
-    counts = await resolver.ensure({f"h{i}": f"text {i}" for i in range(6)}, {})
-    assert counts == EmbeddingCounts(cached=0, from_bundle=0, computed=6)
     assert embedder.peak == 2 and len(embedder.batches) == 6
     with pytest.raises(ValueError, match="batch_size"):
-        EmbeddingResolver(
-            InMemoryEmbeddingCache(), embedder, batch_size=0, max_concurrent=1
-        )
+        IndexWriter(index, embedder, batch_size=0, max_concurrent=1)
+
+
+async def test_index_writer_embeds_a_repeated_text_once_per_batch() -> None:
+    embedder = FakeEmbedder()
+    index = InMemoryVectorIndex()
+    items = [index_item("same"), index_item("same"), index_item("other")]
+    counts = await IndexWriter(index, embedder, batch_size=3, max_concurrent=1).write(
+        items, bundled={}
+    )
+    assert embedder.batches == [["same", "other"]]
+    assert counts.embeddings_computed == 3 and len(index.points) == 3
+
+
+async def test_index_writer_rejects_a_wrong_dimension() -> None:
+    class ShortEmbedder(FakeEmbedder):
+        async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+            return [[0.0] for _ in texts]
+
+    writer = IndexWriter(
+        InMemoryVectorIndex(), ShortEmbedder(), batch_size=4, max_concurrent=1
+    )
+    with pytest.raises(CorpusImportError):
+        await writer.write([index_item("x")], bundled={})

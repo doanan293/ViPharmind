@@ -14,7 +14,6 @@ CORPUS_TABLES = {
     "chunk_versions",
     "releases",
     "release_chunks",
-    "embedding_cache",
 }
 
 

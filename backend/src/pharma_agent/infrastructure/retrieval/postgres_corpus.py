@@ -17,6 +17,9 @@ from pharma_agent.domain.retrieval.models import (
     TermAnnotation,
 )
 from pharma_agent.domain.retrieval.ports import ChunkKey, CorpusReader, RetrievalError
+from pharma_agent.infrastructure.persistence.postgres.corpus_repository import (
+    embedding_text_of,
+)
 from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     ChunkVersionTable,
     CollectionTable,
@@ -48,7 +51,12 @@ def _record(
         end_page=chunk.end_page,
         context_header=chunk.context_header,
         chunk_text=chunk.chunk_text,
-        embedding_text=chunk.embedding_text,
+        embedding_text=embedding_text_of(
+            context_header=chunk.context_header,
+            chunk_text=chunk.chunk_text,
+            colloquial=chunk.colloquial,
+            term_annotations=chunk.term_annotations,
+        ),
         kind=chunk.kind,
         table_key=chunk.table_key,
         colloquial_mapping=ColloquialMapping.model_validate(chunk.colloquial)

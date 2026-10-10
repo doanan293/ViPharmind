@@ -40,7 +40,6 @@ EXPECTED_CORPUS_TABLES = {
     "chunk_versions",
     "releases",
     "release_chunks",
-    "embedding_cache",
 }
 
 
@@ -137,10 +136,12 @@ async def test_keyset_indexes_cover_the_sort_keys(migrated_dsn: str) -> None:
     assert "ix_messages_conversation_created" not in messages
 
 
-def _columns(connection: Connection, table: str) -> dict[str, bool]:
+def _columns(
+    connection: Connection, table: str, schema: str | None = None
+) -> dict[str, bool]:
     return {
         column["name"]: column["nullable"]
-        for column in inspect(connection).get_columns(table)
+        for column in inspect(connection).get_columns(table, schema=schema)
     }
 
 
@@ -179,3 +180,18 @@ async def test_emails_are_unique_ignoring_case(migrated_dsn: str) -> None:
             await connection.exec_driver_sql(insert.format("case.dup@example.com"))
         await connection.rollback()
     await engine.dispose()
+
+
+async def test_corpus_cleanup_dropped_the_cache_and_the_embedding_text(
+    migrated_dsn: str,
+) -> None:
+    engine = create_async_engine(migrated_dsn)
+    async with engine.connect() as connection:
+        corpus_tables = await connection.run_sync(_tables, CORPUS_SCHEMA)
+        columns = await connection.run_sync(_columns, "chunk_versions", CORPUS_SCHEMA)
+        public_tables = await connection.run_sync(_tables)
+    await engine.dispose()
+    assert "embedding_cache" not in corpus_tables
+    assert "embedding_text" not in columns
+    assert "embedding_text_sha256" in columns
+    assert "skills" not in public_tables

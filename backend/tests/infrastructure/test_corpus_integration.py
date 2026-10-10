@@ -65,9 +65,7 @@ async def stack(
 ) -> AsyncGenerator[Stack]:
     database = Database(migrated_dsn, pool_size=2)
     async with database.engine.begin() as connection:
-        await connection.execute(
-            text("TRUNCATE corpus.collections, corpus.embedding_cache CASCADE")
-        )
+        await connection.execute(text("TRUNCATE corpus.collections CASCADE"))
     monkeypatch.setenv("PHARMA_POSTGRES__DSN", migrated_dsn)
     monkeypatch.setenv("PHARMA_QDRANT__URL", qdrant_url)
     monkeypatch.setenv("PHARMA_CORPUS__EMBED_BATCH_SIZE", "4")
@@ -267,7 +265,8 @@ async def test_reindex_rebuilds_a_deleted_qdrant_collection(stack: Stack) -> Non
     assert report.points_upserted == len(ids1 | ids2)
     assert report.release_points == {r1.id: len(ids1), r2.id: len(ids2)}
     assert report.skipped == []
-    assert stack.embedder.batches == []
+    # Without a vector cache, a rebuild embeds every point again.
+    assert sum(len(batch) for batch in stack.embedder.batches) == len(ids1 | ids2)
     assert await alias_target(stack.client) == PHYSICAL
     info = await stack.client.get_collection(PHYSICAL)
     assert info.config.metadata == {"embedding_model": "fake-embedding-4d", "dims": 4}

@@ -7,7 +7,12 @@ from datetime import datetime, timedelta
 
 from pharma_agent.application.corpus.import_bundle import ImportKnowledgeBundle
 from pharma_agent.application.corpus.service import CorpusService
-from pharma_agent.domain.corpus.bundle import ColloquialMappingRecord, GlossaryEntry
+from pharma_agent.domain.corpus.bundle import (
+    BlockKind,
+    ColloquialMappingRecord,
+    GlossaryEntry,
+)
+from pharma_agent.domain.corpus.identity import sha256_hex
 from pharma_agent.domain.corpus.models import (
     ChunkVersion,
     Collection,
@@ -277,29 +282,19 @@ class InMemoryCorpusRepository:
         )
 
 
-class InMemoryEmbeddingCache:
-    def __init__(self) -> None:
-        self.vectors: dict[tuple[str, str], list[float]] = {}
-
-    async def missing(self, model: str, hashes: Sequence[str]) -> set[str]:
-        return {sha for sha in hashes if (model, sha) not in self.vectors}
-
-    async def get_many(
-        self, model: str, hashes: Sequence[str]
-    ) -> dict[str, list[float]]:
-        return {
-            sha: list(self.vectors[(model, sha)])
-            for sha in hashes
-            if (model, sha) in self.vectors
-        }
-
-    async def put_many(
-        self, model: str, dimension: int, vectors: Mapping[str, Sequence[float]]
-    ) -> None:
-        for sha, vector in vectors.items():
-            if len(vector) != dimension:
-                raise ValueError(f"dimension {len(vector)} != {dimension}")
-            self.vectors.setdefault((model, sha), list(vector))
+def index_item(text: str) -> IndexItem:
+    """One index point for writer tests; ids are fresh, the hash follows the text."""
+    return IndexItem(
+        chunk_version_id=uuid.uuid4(),
+        collection_id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        section_id=uuid.uuid4(),
+        section_revision_id=uuid.uuid4(),
+        kind=BlockKind.PROSE,
+        embedding_text=text,
+        embedding_text_sha256=sha256_hex(text),
+        release_ids=[],
+    )
 
 
 class InMemoryVectorIndex:
@@ -350,7 +345,6 @@ class CorpusAdapters:
     repository: InMemoryCorpusRepository = field(
         default_factory=InMemoryCorpusRepository
     )
-    cache: InMemoryEmbeddingCache = field(default_factory=InMemoryEmbeddingCache)
     index: InMemoryVectorIndex = field(default_factory=InMemoryVectorIndex)
 
 
@@ -379,7 +373,6 @@ def build_importer(
 ) -> ImportKnowledgeBundle:
     return ImportKnowledgeBundle(
         adapters.repository,
-        adapters.cache,
         adapters.index,
         embedder,
         clock if clock is not None else FixedClock(NOW),
@@ -398,7 +391,6 @@ def build_release_service(
 ) -> CorpusService:
     return CorpusService(
         adapters.repository,
-        adapters.cache,
         adapters.index,
         embedder,
         clock if clock is not None else FixedClock(NOW),
