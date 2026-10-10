@@ -35,13 +35,6 @@ NAMING_CONVENTION = {
 }
 
 
-# Tables created and migrated by langgraph-checkpoint-postgres (AsyncPostgresSaver.setup),
-# not by Alembic. Autogenerate must never propose changes to them.
-EXTERNALLY_MANAGED_TABLES = frozenset(
-    {"checkpoints", "checkpoint_blobs", "checkpoint_writes", "checkpoint_migrations"}
-)
-
-
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 

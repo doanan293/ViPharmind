@@ -4,7 +4,6 @@ import os
 from dataclasses import dataclass
 
 from langfuse import get_client
-from langgraph.checkpoint.base import BaseCheckpointSaver
 from openai import AsyncOpenAI
 from qdrant_client import AsyncQdrantClient
 
@@ -177,7 +176,6 @@ def build_retrieval_service(
 def build_application(
     settings: Settings,
     *,
-    checkpointer: BaseCheckpointSaver | None = None,
     tracer: TurnTracer | None = None,
     database: Database | None = None,
     llm: LlmPort | None = None,
@@ -201,7 +199,7 @@ def build_application(
         clock=SystemClock(),
     )
     runner = ChatTurnRunner(
-        build_chat_graph(checkpointer=checkpointer),
+        build_chat_graph(),
         deps,
         settings.budget,
         tracer=tracer,

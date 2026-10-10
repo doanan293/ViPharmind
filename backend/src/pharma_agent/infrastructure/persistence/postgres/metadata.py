@@ -15,9 +15,8 @@ MANAGED_SCHEMAS = frozenset({corpus_tables.CORPUS_SCHEMA})
 def include_name(name: str | None, type_: str, parent_names: object) -> bool:
     """Alembic `include_name` hook.
 
-    Only the default schema and `corpus` are compared, and tables owned by the LangGraph
-    checkpointer are skipped.
+    Only the default schema and `corpus` are compared.
     """
     if type_ == "schema":
         return name is None or name in MANAGED_SCHEMAS
-    return not (type_ == "table" and name in tables.EXTERNALLY_MANAGED_TABLES)
+    return True

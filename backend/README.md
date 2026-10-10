@@ -136,13 +136,6 @@ Schema OpenAPI cho frontend: `uv run pharma-agent export-openapi --output ../fro
 và `user` là người dùng. Các bước của graph, mọi lời gọi LLM và embedding, cùng bước rerank đều nằm trong trace đó. Feedback
 của người dùng được ghi thành score `user_feedback` (1 là up, 0 là down) trên cùng trace.
 
-Checkpoint LangGraph cũ hơn `PHARMA_CHECKPOINTS__RETENTION_DAYS` ngày (mặc định 7) được xóa
-một lần khi service khởi động. Có thể chạy tay:
-
-```bash
-uv run pharma-agent cleanup-checkpoints --days 7
-```
-
 Phiên cookie hết hạn không tự bị xoá khỏi `access_tokens` (fastapi-users chỉ bỏ qua chúng).
 Chạy định kỳ:
 

@@ -88,6 +88,29 @@ async def test_downgrade_then_upgrade_round_trips(fresh_database_dsn: str) -> No
     await asyncio.to_thread(command.upgrade, config, "head")
 
 
+CHECKPOINT_TABLES = {
+    "checkpoints",
+    "checkpoint_blobs",
+    "checkpoint_writes",
+    "checkpoint_migrations",
+}
+
+
+async def test_upgrade_drops_leftover_langgraph_checkpoint_tables(
+    fresh_database_dsn: str,
+) -> None:
+    config = alembic_config(fresh_database_dsn)
+    await asyncio.to_thread(command.upgrade, config, "0009")
+    engine = create_async_engine(fresh_database_dsn)
+    async with engine.begin() as connection:
+        for table in CHECKPOINT_TABLES:
+            await connection.exec_driver_sql(f"CREATE TABLE {table} (id int)")
+    await asyncio.to_thread(command.upgrade, config, "head")
+    async with engine.connect() as connection:
+        assert not (CHECKPOINT_TABLES & await connection.run_sync(_tables))
+    await engine.dispose()
+
+
 def _audit_column_names(connection: Connection, table: str) -> set[str]:
     return {column["name"] for column in inspect(connection).get_columns(table)}
 

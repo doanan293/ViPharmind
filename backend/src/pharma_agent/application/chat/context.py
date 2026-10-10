@@ -27,7 +27,7 @@ class PipelineOptions:
 
 @dataclass(frozen=True)
 class TurnContext:
-    """LangGraph runtime context for one turn (not checkpointed)."""
+    """LangGraph runtime context for one turn (not part of the graph state)."""
 
     deps: TurnDeps
     conversation: ConversationContext

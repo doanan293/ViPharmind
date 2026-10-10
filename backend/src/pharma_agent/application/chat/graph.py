@@ -1,4 +1,3 @@
-from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -9,7 +8,7 @@ from pharma_agent.application.chat.state import ChatTurnState
 ChatGraph = CompiledStateGraph[ChatTurnState, TurnContext, ChatTurnState, ChatTurnState]
 
 
-def build_chat_graph(checkpointer: BaseCheckpointSaver | None = None) -> ChatGraph:
+def build_chat_graph() -> ChatGraph:
     """guard → rephrase → search ⇄ (judge → refine) → answer, with fallback."""
     builder = StateGraph(ChatTurnState, context_schema=TurnContext)
     builder.add_node("guard", nodes.guard_node)
@@ -28,4 +27,4 @@ def build_chat_graph(checkpointer: BaseCheckpointSaver | None = None) -> ChatGra
     builder.add_conditional_edges("refine", routing.route_after_refine)
     builder.add_conditional_edges("answer", routing.route_after_answer)
     builder.add_edge("fallback", END)
-    return builder.compile(checkpointer=checkpointer)
+    return builder.compile()
