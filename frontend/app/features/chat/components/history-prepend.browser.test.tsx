@@ -3,9 +3,9 @@ import { useParams } from "react-router"
 import { describe, expect, test, vi } from "vitest"
 import { page, userEvent } from "vitest/browser"
 
-import { conversationTurns, messagePage } from "../../../tests/chat/fixtures"
-import { renderRoutes } from "../../../tests/chat/render"
-import { worker } from "../../../tests/msw/browser"
+import { conversationTurns, messagePage } from "../../../../tests/chat/fixtures"
+import { renderRoutes } from "../../../../tests/chat/render"
+import { worker } from "../../../../tests/msw/browser"
 
 import { ChatThread } from "./ChatThread"
 

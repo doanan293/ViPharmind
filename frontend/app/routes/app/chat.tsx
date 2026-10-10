@@ -1,4 +1,7 @@
-import { ChatThread, ChatThreadFallback } from "~/features/chat/ChatThread"
+import {
+  ChatThread,
+  ChatThreadFallback,
+} from "~/features/chat/components/ChatThread"
 
 import type { Route } from "./+types/chat"
 

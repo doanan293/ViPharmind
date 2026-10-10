@@ -5,7 +5,7 @@ import {
   CONTRACT_SCENARIOS,
   fixtureMessage,
 } from "../../../../tests/chat/ui-stream-fixtures"
-import { MessageParts } from "../components/MessageParts"
+import { MessageParts } from "./MessageParts"
 import type { PharmaUIMessage } from "../lib/message-schema"
 import { describeMessage } from "../lib/message-view"
 

@@ -24,7 +24,7 @@ import { useIsMobile } from "~/hooks/use-mobile"
 import { apiErrorMessage } from "~/i18n/error-message"
 import { cn } from "~/lib/utils"
 
-import { usePageText } from "./lib/citation-format"
+import { usePageText } from "../lib/citation-format"
 
 export type CitationTarget = {
   messageId: string

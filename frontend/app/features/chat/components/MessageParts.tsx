@@ -10,7 +10,7 @@ import { Message, MessageContent, MessageFooter } from "~/components/ui/message"
 import {
   type MessageCitations,
   MessageCitationsProvider,
-} from "~/features/citations/citation-context"
+} from "~/features/chat/components/citation-context"
 
 import type { PharmaUIMessage } from "../lib/message-schema"
 import {

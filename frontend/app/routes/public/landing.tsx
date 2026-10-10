@@ -1,5 +1,5 @@
-import { LandingPage } from "~/features/landing/LandingPage"
-import { landingMeta } from "~/features/landing/meta"
+import { LandingPage } from "~/features/landing/components/LandingPage"
+import { landingMeta } from "~/features/landing/lib/meta"
 import { FALLBACK_LANGUAGE, isLanguage } from "~/i18n/config"
 import { getInstance, getLocale } from "~/i18n/middleware.server"
 

@@ -19,7 +19,7 @@ import { toast } from "~/components/ui/toast"
 import {
   type CitationTarget,
   CitationSheet,
-} from "~/features/citations/CitationSheet"
+} from "~/features/chat/components/CitationSheet"
 import {
   invalidateConversations,
   updateConversationTitle,

@@ -15,10 +15,10 @@ import { Spinner } from "~/components/ui/spinner"
 import { toast } from "~/components/ui/toast"
 import { apiErrorMessage } from "~/i18n/error-message"
 
-import { ChatSession } from "./components/ChatSession"
-import { NewChat } from "./components/NewChat"
-import { toPharmaMessage } from "./lib/chat-messages"
-import { readInitialQuestion } from "./lib/location-state"
+import { ChatSession } from "./ChatSession"
+import { NewChat } from "./NewChat"
+import { toPharmaMessage } from "../lib/chat-messages"
+import { readInitialQuestion } from "../lib/location-state"
 
 export const HISTORY_PAGE_SIZE = 30
 

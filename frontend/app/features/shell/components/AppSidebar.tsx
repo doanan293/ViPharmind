@@ -14,8 +14,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "~/components/ui/sidebar"
-import { UserMenu } from "~/features/shell/UserMenu"
-import { ConversationSidebar } from "~/features/conversations/ConversationSidebar"
+import { UserMenu } from "~/features/shell/components/UserMenu"
+import { ConversationSidebar } from "~/features/conversations/components/ConversationSidebar"
 
 const NAV_ITEMS = [
   { to: "/chat", label: "nav.chat", Icon: MessageSquareIcon },

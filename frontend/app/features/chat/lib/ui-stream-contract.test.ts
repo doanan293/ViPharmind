@@ -11,7 +11,7 @@ import {
 import {
   messageMetadataSchema,
   pharmaSourceMetadataSchema,
-} from "../lib/message-schema"
+} from "./message-schema"
 
 describe.each(CONTRACT_SCENARIOS)(
   "backend UI stream fixture %s",

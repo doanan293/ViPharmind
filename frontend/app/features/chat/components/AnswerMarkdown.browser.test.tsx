@@ -3,7 +3,7 @@ import { describe, expect, test, vi } from "vitest"
 import { page, userEvent } from "vitest/browser"
 
 import type { PharmaSourceMetadata } from "~/api/gen/schemas"
-import { MessageCitationsProvider } from "~/features/citations/citation-context"
+import { MessageCitationsProvider } from "~/features/chat/components/citation-context"
 
 import { pharmaSource } from "../../../../tests/chat/fixtures"
 import { renderWithProviders } from "../../../../tests/chat/render"

@@ -18,16 +18,16 @@ import {
   conversationPage,
   conversationView,
   messagePage,
-} from "../../../tests/chat/fixtures"
-import { renderRoutes } from "../../../tests/chat/render"
+} from "../../../../tests/chat/fixtures"
+import { renderRoutes } from "../../../../tests/chat/render"
 import {
   answerChat,
   chatStreamHandler,
   networkErrorHandler,
   problemHandler,
   type StreamRequest,
-} from "../../../tests/chat/stream-handler"
-import { worker } from "../../../tests/msw/browser"
+} from "../../../../tests/chat/stream-handler"
+import { worker } from "../../../../tests/msw/browser"
 
 import { ChatThread } from "./ChatThread"
 

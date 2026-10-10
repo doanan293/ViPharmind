@@ -13,7 +13,8 @@
   "rules": {
     "react/rules-of-hooks": "error",
     "react/exhaustive-deps": "error",
-    "react/react-in-jsx-scope": "off"
+    "react/react-in-jsx-scope": "off",
+    "import/no-cycle": "error"
   },
   "ignorePatterns": [
     "node_modules/**",
@@ -21,5 +22,214 @@
     ".react-router/**",
     "app/api/gen/**",
     "public/mockServiceWorker.js"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "app/api/**",
+        "app/components/**",
+        "app/hooks/**",
+        "app/i18n/**",
+        "app/lib/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "~/features",
+                  "~/features/**",
+                  "~/routes",
+                  "~/routes/**"
+                ],
+                "message": "Shared code (api, components, hooks, i18n, lib) must not depend on features or routes."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["app/features/auth/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["~/routes", "~/routes/**"],
+                "message": "Features must not import routes; routes compose features."
+              },
+              {
+                "group": [
+                  "~/features/chat",
+                  "~/features/chat/**",
+                  "~/features/conversations",
+                  "~/features/conversations/**",
+                  "~/features/landing",
+                  "~/features/landing/**",
+                  "~/features/settings",
+                  "~/features/settings/**",
+                  "~/features/shell",
+                  "~/features/shell/**"
+                ],
+                "message": "features/auth must not import other features; compose features in routes instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["app/features/chat/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["~/routes", "~/routes/**"],
+                "message": "Features must not import routes; routes compose features."
+              },
+              {
+                "group": [
+                  "~/features/auth",
+                  "~/features/auth/**",
+                  "~/features/landing",
+                  "~/features/landing/**",
+                  "~/features/settings",
+                  "~/features/settings/**",
+                  "~/features/shell",
+                  "~/features/shell/**"
+                ],
+                "message": "features/chat may only import features/conversations; compose features in routes instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["app/features/conversations/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["~/routes", "~/routes/**"],
+                "message": "Features must not import routes; routes compose features."
+              },
+              {
+                "group": [
+                  "~/features/auth",
+                  "~/features/auth/**",
+                  "~/features/chat",
+                  "~/features/chat/**",
+                  "~/features/landing",
+                  "~/features/landing/**",
+                  "~/features/settings",
+                  "~/features/settings/**",
+                  "~/features/shell",
+                  "~/features/shell/**"
+                ],
+                "message": "features/conversations must not import other features; compose features in routes instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["app/features/landing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["~/routes", "~/routes/**"],
+                "message": "Features must not import routes; routes compose features."
+              },
+              {
+                "group": [
+                  "~/features/auth",
+                  "~/features/auth/**",
+                  "~/features/chat",
+                  "~/features/chat/**",
+                  "~/features/conversations",
+                  "~/features/conversations/**",
+                  "~/features/settings",
+                  "~/features/settings/**",
+                  "~/features/shell",
+                  "~/features/shell/**"
+                ],
+                "message": "features/landing must not import other features; compose features in routes instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["app/features/settings/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["~/routes", "~/routes/**"],
+                "message": "Features must not import routes; routes compose features."
+              },
+              {
+                "group": [
+                  "~/features/auth",
+                  "~/features/auth/**",
+                  "~/features/chat",
+                  "~/features/chat/**",
+                  "~/features/conversations",
+                  "~/features/conversations/**",
+                  "~/features/landing",
+                  "~/features/landing/**",
+                  "~/features/shell",
+                  "~/features/shell/**"
+                ],
+                "message": "features/settings must not import other features; compose features in routes instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["app/features/shell/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["~/routes", "~/routes/**"],
+                "message": "Features must not import routes; routes compose features."
+              },
+              {
+                "group": [
+                  "~/features/chat",
+                  "~/features/chat/**",
+                  "~/features/landing",
+                  "~/features/landing/**",
+                  "~/features/settings",
+                  "~/features/settings/**"
+                ],
+                "message": "features/shell may only import features/auth, features/conversations; compose features in routes instead."
+              }
+            ]
+          }
+        ]
+      }
+    }
   ]
 }

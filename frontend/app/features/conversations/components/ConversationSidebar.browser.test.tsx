@@ -14,9 +14,9 @@ import { TooltipProvider } from "~/components/ui/tooltip"
 import {
   conversationPage,
   conversationView,
-} from "../../../tests/chat/fixtures"
-import { renderRoutes } from "../../../tests/chat/render"
-import { worker } from "../../../tests/msw/browser"
+} from "../../../../tests/chat/fixtures"
+import { renderRoutes } from "../../../../tests/chat/render"
+import { worker } from "../../../../tests/msw/browser"
 
 import { ConversationSidebar } from "./ConversationSidebar"
 

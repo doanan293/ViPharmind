@@ -3,10 +3,10 @@ import { I18nextProvider } from "react-i18next"
 import { MemoryRouter } from "react-router"
 import { describe, expect, test } from "vitest"
 
-import { LandingPage } from "~/features/landing/LandingPage"
+import { LandingPage } from "~/features/landing/components/LandingPage"
 import type { Language } from "~/i18n/config"
 
-import { createTestI18n } from "../../../tests/utils/i18n"
+import { createTestI18n } from "../../../../tests/utils/i18n"
 
 function renderLanding(locale: Language): string {
   return renderToString(

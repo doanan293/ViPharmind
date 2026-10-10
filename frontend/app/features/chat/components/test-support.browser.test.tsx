@@ -10,8 +10,8 @@ import {
   conversationView,
   messagePage,
   pharmaSource,
-} from "../../../tests/chat/fixtures"
-import { renderRoutes } from "../../../tests/chat/render"
+} from "../../../../tests/chat/fixtures"
+import { renderRoutes } from "../../../../tests/chat/render"
 
 function Probe() {
   const { t } = useTranslation("chat")

@@ -8,10 +8,10 @@ import type { UserRead } from "~/api/gen/schemas"
 import { getListConversationsMockHandler } from "~/api/gen/endpoints.msw"
 import { SidebarProvider } from "~/components/ui/sidebar"
 import { TooltipProvider } from "~/components/ui/tooltip"
-import { AppSidebar } from "~/features/shell/AppSidebar"
+import { AppSidebar } from "~/features/shell/components/AppSidebar"
 
-import { worker } from "../../../tests/msw/browser"
-import { TestProviders } from "../../../tests/utils/providers"
+import { worker } from "../../../../tests/msw/browser"
+import { TestProviders } from "../../../../tests/utils/providers"
 
 const USER: UserRead = {
   id: "u1",
