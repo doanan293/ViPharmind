@@ -1,14 +1,12 @@
 import { useTranslation } from "react-i18next"
+import type * as React from "react"
 import { Outlet } from "react-router"
 
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "~/components/ui/sidebar"
+import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar"
 import { Spinner } from "~/components/ui/spinner"
 import { requireUser } from "~/features/auth/lib/require-user"
 import { AppSidebar } from "~/features/shell/components/AppSidebar"
+import { SiteHeader } from "~/features/shell/components/SiteHeader"
 
 import type { Route } from "./+types/layout"
 
@@ -36,16 +34,18 @@ export function HydrateFallback() {
   )
 }
 
-export default function AppLayout({ loaderData }: Route.ComponentProps) {
-  const { t } = useTranslation("common")
+// The site header of the dashboard-01 block reads its height from this variable; the chat
+// page sizes itself as the viewport minus 3rem.
+const SHELL_STYLE: React.CSSProperties & { "--header-height": string } = {
+  "--header-height": "3rem",
+}
 
+export default function AppLayout({ loaderData }: Route.ComponentProps) {
   return (
-    <SidebarProvider>
+    <SidebarProvider style={SHELL_STYLE}>
       <AppSidebar user={loaderData.user} />
       <SidebarInset>
-        <header className="flex h-12 items-center gap-2 border-b px-3">
-          <SidebarTrigger aria-label={t("shell.toggleSidebar")} />
-        </header>
+        <SiteHeader />
         <Outlet />
       </SidebarInset>
     </SidebarProvider>

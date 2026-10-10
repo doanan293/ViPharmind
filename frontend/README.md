@@ -18,7 +18,13 @@ Dependency rules:
 
 ## UI components
 
-Every widget comes from shadcn (style `base-nova`, on Base UI), added with `npx shadcn@latest add <name>` into `app/components/ui/`. Before building anything by hand, check the registry with `npx shadcn@latest view <name>`. The chat screen uses shadcn's own `message`, `bubble`, `marker` and `message-scroller`. Multi-value fields and multi-selects use `combobox` with chips, toolbars use `toggle`, and rendered Markdown uses the Tailwind typography plugin (`prose`). Data comes from the TanStack Query hooks that orval generates, and forms use react-hook-form with zod and shadcn `field`. The few shared compositions on top of shadcn live in `app/components/` (`tags-input`, `name-form`, `code-step`).
+Every widget comes from shadcn (style `base-nova`, on Base UI). Before building anything, check the registry with `npx shadcn@latest view <name>`; when a component or a block exists, install it with `npx shadcn@latest add <name>` and adapt the files the CLI writes (API data, translated labels, unused parts removed). Never retype a block as a new component. No second registry (no AI Elements) and no other UI library while shadcn or an installed package covers the need. Spec §8.1 has the full table.
+
+- App shell and admin dashboard: the `dashboard-01` block. `features/shell/components/{AppSidebar,NavMain,NavSecondary,NavUser,SiteHeader}.tsx` are its `app-sidebar`, `nav-*` and `site-header`; `app/components/section-cards.tsx` and `app/components/data-table.tsx` are its cards and data table (TanStack Table), made generic. The block's row drag, row selection, chart, demo data, `sonner` and `next-themes` are not kept.
+- Chat: shadcn's own `message`, `bubble`, `marker`, `message-scroller`, `input-group`; citations `hover-card`; sources `collapsible` + `item`.
+- Lists `item` and `empty`; errors `alert` or `FieldError`; forms react-hook-form + zod + `field`; multi-value fields and multi-selects `combobox` with chips; editor toolbar `toggle`, `button-group`, `tooltip`; rendered Markdown the Tailwind typography plugin (`prose`).
+- The only UI that is not shadcn: Tiptap (the document editor) and Streamdown (renders answer Markdown); shadcn has neither.
+- Shared compositions on top of shadcn live in `app/components/` (`tags-input`, `name-form`, `code-step`, `otp-code-field`).
 
 A few files in `app/components/ui/` differ from the registry on purpose because `npm run lint` (jsx-a11y) forbids the registry's version. `role="group"`/`role="list"` are dropped from `input-group`, `field`, `item` and `button-group`, and the addon click-to-focus handler is dropped from `input-group`. `spinner` is `aria-hidden` (callers wrap it in `<output>`), and `toggle-group` builds its gap style without a type assertion. When `shadcn add` offers to overwrite these files, keep the local version.
 

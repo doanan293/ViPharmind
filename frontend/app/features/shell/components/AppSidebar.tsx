@@ -3,73 +3,74 @@ import {
   BuildingIcon,
   LibraryIcon,
   MessageSquareIcon,
+  PillIcon,
   SettingsIcon,
   ShieldIcon,
 } from "lucide-react"
+import type * as React from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useLocation } from "react-router"
+import { Link } from "react-router"
 
 import type { AccountView } from "~/api/gen/schemas"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "~/components/ui/sidebar"
-import { UserMenu } from "~/features/shell/components/UserMenu"
 import { ConversationSidebar } from "~/features/conversations/components/ConversationSidebar"
 
-const NAV_ITEMS = [
-  { to: "/chat", label: "nav.chat", Icon: MessageSquareIcon },
-  { to: "/organizations", label: "nav.organizations", Icon: BuildingIcon },
-  { to: "/collections", label: "nav.collections", Icon: LibraryIcon },
-  { to: "/activity", label: "nav.activity", Icon: ActivityIcon },
-  { to: "/settings", label: "nav.settings", Icon: SettingsIcon },
-] as const
-const ADMIN_ITEM = {
-  to: "/admin",
-  label: "nav.admin",
-  Icon: ShieldIcon,
-} as const
+import { NavMain } from "./NavMain"
+import { NavSecondary } from "./NavSecondary"
+import { NavUser } from "./NavUser"
 
-export function AppSidebar({ user }: { user: AccountView }) {
+/** The app-sidebar of shadcn's dashboard-01 block with this app's pages and conversations. */
+export function AppSidebar({
+  user,
+  ...props
+}: { user: AccountView } & React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation("common")
-  const { pathname } = useLocation()
-  const items = user.is_superadmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS
-
+  const main = [
+    { title: t("nav.chat"), url: "/chat", icon: <MessageSquareIcon /> },
+    {
+      title: t("nav.organizations"),
+      url: "/organizations",
+      icon: <BuildingIcon />,
+    },
+    { title: t("nav.collections"), url: "/collections", icon: <LibraryIcon /> },
+    { title: t("nav.activity"), url: "/activity", icon: <ActivityIcon /> },
+  ]
+  const secondary = [
+    { title: t("nav.settings"), url: "/settings", icon: <SettingsIcon /> },
+    ...(user.is_superadmin
+      ? [{ title: t("nav.admin"), url: "/admin", icon: <ShieldIcon /> }]
+      : []),
+  ]
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <span className="truncate px-2 font-semibold">{t("appName")}</span>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              className="data-[slot=sidebar-menu-button]:p-1.5!"
+              render={<Link to="/chat" />}
+            >
+              <PillIcon className="size-5!" />
+              <span className="text-base font-semibold">{t("appName")}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map(({ to, label, Icon }) => (
-                <SidebarMenuItem key={to}>
-                  <SidebarMenuButton
-                    render={<Link to={to} />}
-                    isActive={pathname === to || pathname.startsWith(`${to}/`)}
-                    tooltip={t(label)}
-                  >
-                    <Icon aria-hidden="true" />
-                    <span>{t(label)}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <NavMain items={main} />
         <ConversationSidebar />
+        <NavSecondary items={secondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <UserMenu user={user} />
+        <NavUser account={user} />
       </SidebarFooter>
     </Sidebar>
   )

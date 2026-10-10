@@ -31,12 +31,17 @@ function user(overrides: Partial<AdminUserView> = {}): AdminUserView {
   }
 }
 
-async function open(superadmin: boolean) {
+async function open(superadmin: boolean, collections: unknown[] = []) {
   queryClient.clear()
   worker.use(
     http.get("*/api/v1/users/me", () =>
       HttpResponse.json(accountView({ is_superadmin: superadmin }))
-    )
+    ),
+    // The overview cards of the dashboard.
+    http.get("*/api/v1/admin/collections", () =>
+      HttpResponse.json(collections)
+    ),
+    http.get("*/api/v1/admin/ingest-jobs", () => HttpResponse.json([]))
   )
   const Stub = createRoutesStub([
     {
@@ -89,5 +94,37 @@ describe("AdminPage", () => {
     await expect
       .element(page.getByText("Đã khoá", { exact: true }))
       .toBeVisible()
+  })
+
+  test("the overview cards add up the collections", async () => {
+    const stat = (id: string, documents: number, points: number) => ({
+      collection: {
+        id,
+        key: id,
+        title: id,
+        visibility: "private",
+        owner_user_id: null,
+        owner_organization_id: null,
+        owner_name: "",
+        is_system: false,
+        can_edit: false,
+        can_set_public: false,
+        current_release_id: null,
+        current_release_number: id === "a" ? 1 : null,
+      },
+      documents,
+      qdrant_points: points,
+    })
+    worker.use(
+      http.get("*/api/v1/admin/users", () =>
+        HttpResponse.json({ items: [], next_cursor: null })
+      )
+    )
+    await open(true, [stat("a", 3, 1200), stat("b", 4, 800)])
+    await expect.element(page.getByText("2.000")).toBeVisible()
+    await expect
+      .element(page.getByText("1 đang có bản phát hành"))
+      .toBeVisible()
+    await expect.element(page.getByText("7", { exact: true })).toBeVisible()
   })
 })

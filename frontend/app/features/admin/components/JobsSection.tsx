@@ -2,27 +2,100 @@ import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 
 import { useAdminIngestJobsList } from "~/api/gen/endpoints"
+import type { JobStatus, JobStep, JobView } from "~/api/gen/schemas"
+import { DataTable, dataTableColumns } from "~/components/data-table"
 import { Badge } from "~/components/ui/badge"
-import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { Progress } from "~/components/ui/progress"
 import { Spinner } from "~/components/ui/spinner"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table"
 
+import {
+  type AdminKey,
+  AdminHeader,
+  DateCell,
+  useColumnLabels,
+} from "./columns"
+
+export const RECENT_JOBS = 50
 const POLL_MS = 5000
+const column = dataTableColumns<JobView>()
+
+const LABELS = {
+  collection_id: "jobs.collection",
+  status: "jobs.status",
+  step: "jobs.step",
+  progress: "jobs.progress",
+  created_at: "jobs.created",
+  error: "jobs.error",
+} as const satisfies Record<string, AdminKey>
+
+function StatusCell({ value }: { value: JobStatus }) {
+  const { t } = useTranslation("admin")
+  return (
+    <Badge variant={value === "failed" ? "destructive" : "outline"}>
+      {t(`jobs.statusValue.${value}`)}
+    </Badge>
+  )
+}
+
+function StepCell({ value }: { value: JobStep }) {
+  const { t } = useTranslation("collections")
+  return t(`publish.step.${value}`)
+}
+
+function ProgressCell({ value }: { value: number }) {
+  const { t } = useTranslation("admin")
+  return (
+    <Progress value={value} aria-label={t("jobs.progress")} className="w-32" />
+  )
+}
+
+const COLUMNS = column.columns([
+  column.accessor("collection_id", {
+    header: () => <AdminHeader k={LABELS.collection_id} />,
+    enableHiding: false,
+    enableSorting: false,
+    cell: ({ getValue }) => (
+      <Link
+        to={`/collections/${getValue()}/releases`}
+        className="font-mono text-xs underline-offset-4 hover:underline"
+      >
+        {getValue().slice(0, 8)}
+      </Link>
+    ),
+  }),
+  column.accessor("status", {
+    header: () => <AdminHeader k={LABELS.status} />,
+    cell: ({ getValue }) => <StatusCell value={getValue()} />,
+  }),
+  column.accessor("step", {
+    header: () => <AdminHeader k={LABELS.step} />,
+    cell: ({ getValue }) => <StepCell value={getValue()} />,
+  }),
+  column.accessor("progress", {
+    header: () => <AdminHeader k={LABELS.progress} />,
+    cell: ({ getValue }) => <ProgressCell value={getValue()} />,
+  }),
+  column.accessor("created_at", {
+    header: () => <AdminHeader k={LABELS.created_at} />,
+    cell: ({ getValue }) => <DateCell value={getValue()} time />,
+  }),
+  column.accessor((row) => row.error ?? "", {
+    id: "error",
+    header: () => <AdminHeader k={LABELS.error} />,
+    enableSorting: false,
+    cell: ({ getValue }) => (
+      <span className="block max-w-64 truncate text-destructive">
+        {getValue()}
+      </span>
+    ),
+  }),
+])
 
 /** Recent publish jobs; refreshes while any of them is still queued or running. */
 export function JobsSection() {
-  const { t, i18n } = useTranslation("admin")
-  const { t: tCollections } = useTranslation("collections")
+  const labels = useColumnLabels(LABELS)
   const jobs = useAdminIngestJobsList(
-    { limit: 50 },
+    { limit: RECENT_JOBS },
     {
       query: {
         refetchInterval: (query) =>
@@ -34,61 +107,13 @@ export function JobsSection() {
       },
     }
   )
-  const dates = new Intl.DateTimeFormat(i18n.language, {
-    dateStyle: "short",
-    timeStyle: "short",
-  })
   if (jobs.data === undefined) return <Spinner />
-  if (jobs.data.length === 0) {
-    return (
-      <Empty className="border">
-        <EmptyHeader>
-          <EmptyDescription>{t("jobs.empty")}</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t("jobs.collection")}</TableHead>
-          <TableHead>{t("jobs.status")}</TableHead>
-          <TableHead>{t("jobs.step")}</TableHead>
-          <TableHead>{t("jobs.progress")}</TableHead>
-          <TableHead>{t("jobs.created")}</TableHead>
-          <TableHead>{t("jobs.error")}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {jobs.data.map((job) => (
-          <TableRow key={job.id}>
-            <TableCell>
-              <Link
-                to={`/collections/${job.collection_id}/releases`}
-                className="font-mono text-xs underline-offset-4 hover:underline"
-              >
-                {job.collection_id.slice(0, 8)}
-              </Link>
-            </TableCell>
-            <TableCell>
-              <Badge
-                variant={job.status === "failed" ? "destructive" : "outline"}
-              >
-                {t(`jobs.statusValue.${job.status}`)}
-              </Badge>
-            </TableCell>
-            <TableCell>{tCollections(`publish.step.${job.step}`)}</TableCell>
-            <TableCell className="w-40">
-              <Progress value={job.progress} aria-label={t("jobs.progress")} />
-            </TableCell>
-            <TableCell>{dates.format(new Date(job.created_at))}</TableCell>
-            <TableCell className="max-w-64 truncate text-destructive">
-              {job.error ?? ""}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <DataTable
+      data={jobs.data}
+      columns={COLUMNS}
+      columnLabels={labels}
+      getRowId={(job) => job.id}
+    />
   )
 }
