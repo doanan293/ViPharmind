@@ -1,20 +1,21 @@
 import { ChevronDownIcon, DatabaseIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { Button } from "~/components/ui/button"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "~/components/ui/collapsible"
-import { cn } from "~/lib/utils"
-
 import {
-  collapsePanel,
-  fieldInteractive,
-  mono,
-  paper,
-  ShimmerLabel,
-} from "./surfaces"
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemHeader,
+  ItemTitle,
+} from "~/components/ui/item"
+import { cn } from "~/lib/utils"
 
 export interface RetrievalChunk {
   id: string
@@ -47,48 +48,48 @@ export function RetrievalChunks({
       className={cn("flex w-full max-w-xl flex-col", className)}
     >
       <CollapsibleTrigger
-        className={cn(
-          fieldInteractive,
-          "group/trigger inline-flex w-fit items-center gap-1.5 rounded-full px-3.5 py-2 text-xs text-foreground/70 outline-none"
-        )}
+        render={
+          <Button
+            variant="secondary"
+            size="sm"
+            className="group/trigger w-fit rounded-full"
+          />
+        }
       >
-        <DatabaseIcon aria-hidden className="size-3 text-foreground/40" />
+        <DatabaseIcon aria-hidden data-icon="inline-start" />
         {searching ? (
-          <ShimmerLabel className="relative inline-block leading-none">
+          <span className="shimmer motion-reduce:animate-none">
             {t("evidence.searching")}
-          </ShimmerLabel>
+          </span>
         ) : (
           <span>{t("evidence.read", { count: chunks.length })}</span>
         )}
         <ChevronDownIcon
           aria-hidden
-          className="size-3 opacity-60 transition-transform duration-200 group-data-panel-open/trigger:rotate-180 motion-reduce:transition-none"
+          data-icon="inline-end"
+          className="transition-transform group-data-panel-open/trigger:rotate-180"
         />
       </CollapsibleTrigger>
-      <CollapsibleContent className={cn(collapsePanel, "outline-none")}>
-        <div className="flex flex-col gap-1.5 pt-2">
+      <CollapsibleContent>
+        <ItemGroup className="gap-1.5 pt-2">
           {chunks.map((chunk) => (
-            <div
-              key={chunk.id}
-              className={cn(
-                paper,
-                "flex animate-in flex-col gap-1.5 rounded-2xl px-3.5 py-2.5 duration-300 fill-mode-both fade-in slide-in-from-bottom-1"
-              )}
-            >
-              <div className="flex items-baseline gap-2">
-                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground/90">
+            <Item key={chunk.id} variant="outline" size="sm">
+              <ItemHeader>
+                <ItemTitle className="min-w-0 truncate">
                   {chunk.source}
-                </span>
-                <span className={cn(mono, "shrink-0 text-foreground/30")}>
+                </ItemTitle>
+                <span className="shrink-0 text-xs text-muted-foreground">
                   {chunk.locator}
                 </span>
-              </div>
-              <p className="line-clamp-2 text-xs leading-relaxed text-foreground/55">
-                {chunk.text}
-              </p>
-            </div>
+              </ItemHeader>
+              <ItemContent>
+                <ItemDescription className="text-xs">
+                  {chunk.text}
+                </ItemDescription>
+              </ItemContent>
+            </Item>
           ))}
-        </div>
+        </ItemGroup>
       </CollapsibleContent>
     </Collapsible>
   )

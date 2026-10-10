@@ -1,8 +1,9 @@
-import { PreviewCard } from "@base-ui/react/preview-card"
-
-import { cn } from "~/lib/utils"
-
-import { floating, mono } from "./surfaces"
+import { Badge } from "~/components/ui/badge"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "~/components/ui/hover-card"
 
 export interface CitationPreview {
   source: string
@@ -28,59 +29,37 @@ export function Citation({
   onSelect,
 }: CitationProps) {
   return (
-    <PreviewCard.Root open={open} onOpenChange={onOpenChange}>
-      <PreviewCard.Trigger
+    <HoverCard open={open} onOpenChange={onOpenChange}>
+      <HoverCardTrigger
         delay={0}
-        render={<button type="button">{index}</button>}
         onClick={onSelect}
-        className={cn(
-          "mx-0.5 inline-flex h-4 min-w-4 translate-y-[-2px] cursor-pointer items-center justify-center rounded-[5px] px-1 align-middle font-mono text-[10px] font-medium tabular-nums transition-colors",
-          open
-            ? "bg-foreground text-background"
-            : "bg-foreground/[0.06] text-foreground/45 hover:text-foreground/90"
-        )}
-      />
-      <PreviewCard.Portal>
-        <PreviewCard.Positioner side="top" sideOffset={8}>
-          <PreviewCard.Popup
-            className={cn(
-              floating,
-              "z-50 w-72 origin-(--transform-origin) rounded-2xl p-3.5 outline-none",
-              "transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none",
-              "data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0",
-              "data-[ending-style]:scale-[0.97] data-[ending-style]:opacity-0"
-            )}
+        render={
+          <Badge
+            render={(props) => <button type="button" {...props} />}
+            variant={open ? "default" : "secondary"}
+            className="mx-0.5 h-4 min-w-4 -translate-y-0.5 cursor-pointer px-1 align-middle text-[10px] tabular-nums"
           >
-            <div className="flex items-center gap-1.5">
-              <span
-                aria-hidden
-                className="flex h-4 min-w-4 items-center justify-center rounded bg-foreground/[0.06] px-1 text-[9px] font-medium text-foreground/45 tabular-nums"
-              >
-                {index}
-              </span>
-              <span className={cn(mono, "line-clamp-1 text-foreground/40")}>
-                {preview.source}
-              </span>
-            </div>
-            <p className="mt-2 text-[13px] leading-snug font-medium">
-              {preview.heading}
+            {index}
+          </Badge>
+        }
+      />
+      <HoverCardContent side="top" sideOffset={8} className="w-72">
+        <div className="flex flex-col gap-1">
+          <p className="line-clamp-1 text-xs text-muted-foreground">
+            {preview.source}
+          </p>
+          <p className="font-medium">{preview.heading}</p>
+          {preview.pages === null ? null : (
+            <p className="text-xs text-muted-foreground">{preview.pages}</p>
+          )}
+          <p className="text-muted-foreground">{preview.snippet}</p>
+          {preview.note === null ? null : (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              {preview.note}
             </p>
-            {preview.pages === null ? null : (
-              <p className={cn(mono, "mt-0.5 text-foreground/40")}>
-                {preview.pages}
-              </p>
-            )}
-            <p className="mt-1 text-[13px] leading-relaxed text-foreground/50">
-              {preview.snippet}
-            </p>
-            {preview.note === null ? null : (
-              <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
-                {preview.note}
-              </p>
-            )}
-          </PreviewCard.Popup>
-        </PreviewCard.Positioner>
-      </PreviewCard.Portal>
-    </PreviewCard.Root>
+          )}
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   )
 }
