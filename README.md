@@ -11,8 +11,10 @@
 ## Chạy toàn bộ bằng Docker
 
 Chạy từ repo root. Các service gọi nhau bằng tên service trong mạng mặc định của Compose; trình
-duyệt chỉ vào qua nginx ở `http://localhost:8080`. Port, file model và số luồng CPU đặt trong `.env`
-ở root, xem `.env.example`.
+duyệt chỉ vào qua nginx ở `http://localhost:8080`. Không có `.env` ở root: mọi biến của compose (port,
+file model, số luồng CPU) có giá trị mặc định ngay trong `compose.yaml`, muốn ghi đè thì đặt biến shell,
+ví dụ `WEB_PORT=8081 docker compose up -d`. Ba file cấu hình của repo là `backend/.env`, `frontend/.env`
+và `pharma-lab/.env`, mỗi file có `.env.example` bên cạnh.
 
 Chuẩn bị một lần:
 
@@ -45,7 +47,7 @@ docker compose exec backend pharma-agent ask "Paracetamol người lớn uống 
   embedding và reranker đã healthy.
 - `backend-migrate` chạy `pharma-agent migrate` một lần trước khi backend khởi động.
 - Cookie phiên có cờ `Secure`, trình duyệt chỉ nhận qua `http://localhost`; mở stack qua HTTP bằng
-  tên máy khác (ví dụ IP LAN) thì đặt `COOKIE_SECURE=false` trong `.env` ở root.
+  tên máy khác (ví dụ IP LAN) thì chạy với `COOKIE_SECURE=false`.
 - Đổi sang GGUF nhẹ hơn: đặt `LLAMA_EMBEDDING_MODEL` hoặc `LLAMA_RERANKER_MODEL` là tên file trong
   `ai-models/gguf`, rồi `docker compose up -d`. Embedding phải là model đã dùng khi import corpus;
   `/health` báo `CORPUS_NOT_READY` nếu metadata collection không khớp. Reranker chỉ chạy qua
@@ -54,13 +56,13 @@ docker compose exec backend pharma-agent ask "Paracetamol người lớn uống 
 - Reranker trên CPU: `LLAMA_RERANKER_PARALLEL` (`-np`), `LLAMA_RERANKER_UBATCH_SIZE` (dùng chung cho `-b`
   và `-ub`, tối thiểu 4096 và phải chứa được prompt dài nhất), `LLAMA_RERANKER_CONTEXT_SIZE` (`-c`, bằng
   `-ub` nhân số slot cộng một) và
-  `LLAMA_RERANKER_THREADS` trong `.env` ở root; `RERANK_TIMEOUT_SECONDS` là timeout của backend cho một
+  `LLAMA_RERANKER_THREADS`; `RERANK_TIMEOUT_SECONDS` là timeout của backend cho một
   request rerank.
   Đo lại cho máy khác trong `pharma-lab/`:
   `uv run pharma-lab rerank --run hybrid-qwen4b-p50-k30-rrf2 --backend local --benchmark --model qwen3-reranker:4b-fp16`,
-  rồi chép dòng `env=` lệnh in ra vào `.env` và đặt `RERANK_TIMEOUT_SECONDS` ít nhất gấp đôi `latency_p95_seconds`.
-- Dùng OpenAI cloud hoặc server OpenAI-compatible khác thay cho proxy: đặt `LLM_BASE_URL` trong
-  `.env` ở root.
+  rồi đặt các biến trong dòng `env=` lệnh in ra khi chạy compose, với `RERANK_TIMEOUT_SECONDS` ít nhất
+  gấp đôi `latency_p95_seconds`.
+- Dùng OpenAI cloud hoặc server OpenAI-compatible khác thay cho proxy: chạy với `LLM_BASE_URL=...`.
 - Lần đầu cần nạp corpus vào container: `docker compose cp pharma-lab/data/corpus/formulary backend:/tmp/bundle` rồi
   `docker compose exec backend pharma-agent corpus import /tmp/bundle --collection formulary --publish`.
 
