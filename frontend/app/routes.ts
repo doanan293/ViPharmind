@@ -21,6 +21,10 @@ export default [
     route("organizations", "routes/app/organizations.tsx"),
     route("organizations/:organizationId/:tab?", "routes/app/organization.tsx"),
     route("collections", "routes/app/collections.tsx"),
+    route(
+      "collections/:collectionId/documents/:documentId",
+      "routes/app/document.tsx"
+    ),
     route("collections/:collectionId/:tab?", "routes/app/collection.tsx"),
   ]),
   route("actions/locale", "routes/actions/locale.ts"),
