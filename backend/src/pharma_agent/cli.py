@@ -23,6 +23,7 @@ from pharma_agent.domain.retrieval.models import Hit, HydrateStrategy, page_labe
 from pharma_agent.domain.shared.errors import DomainError
 from pharma_agent.infrastructure.auth.session_cleanup import (
     delete_expired_access_tokens,
+    delete_stale_account_rows,
 )
 from pharma_agent.infrastructure.composition import (
     build_application,
@@ -245,7 +246,7 @@ def export_openapi(
 
 @app.command("cleanup-sessions")
 def cleanup_sessions() -> None:
-    """Xóa phiên đăng nhập bằng cookie đã hết hạn."""
+    """Xóa phiên đăng nhập hết hạn, mã OTP và bộ đếm giới hạn cũ."""
     settings = Settings()
     lifetime = settings.auth.session_lifetime_seconds
     deleted = asyncio.run(
@@ -254,6 +255,8 @@ def cleanup_sessions() -> None:
         )
     )
     typer.echo(f"deleted {deleted} sessions older than {lifetime} seconds")
+    codes, buckets = asyncio.run(delete_stale_account_rows(settings.postgres.conninfo))
+    typer.echo(f"deleted {codes} codes and {buckets} rate limit buckets")
 
 
 corpus_app = typer.Typer(
