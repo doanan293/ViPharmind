@@ -32,5 +32,45 @@
     "light": "Sáng",
     "dark": "Tối",
     "system": "Theo hệ thống"
+  },
+  "account": {
+    "heading": "Tài khoản",
+    "verified": "Đã xác minh",
+    "unverified": "Chưa xác minh",
+    "sendCode": "Gửi mã",
+    "confirm": "Xác nhận",
+    "cancel": "Huỷ",
+    "email": {
+      "heading": "Email",
+      "none": "Chưa có email",
+      "add": "Thêm email",
+      "change": "Đổi email",
+      "newLabel": "Email mới",
+      "sentTo": "Chúng tôi đã gửi mã 6 số tới {{value}}.",
+      "saved": "Đã cập nhật email."
+    },
+    "phone": {
+      "heading": "Số điện thoại",
+      "none": "Chưa có số điện thoại",
+      "add": "Thêm số điện thoại",
+      "change": "Đổi số điện thoại",
+      "newLabel": "Số điện thoại mới",
+      "sentTo": "Chúng tôi đã gửi mã 6 số qua SMS tới {{value}}.",
+      "saved": "Đã cập nhật số điện thoại."
+    },
+    "google": {
+      "heading": "Google",
+      "linked": "Đã liên kết tài khoản Google",
+      "notLinked": "Chưa liên kết Google",
+      "link": "Liên kết Google",
+      "unlink": "Gỡ liên kết"
+    }
+  },
+  "sessions": {
+    "heading": "Phiên đăng nhập",
+    "current": "Thiết bị này",
+    "revoke": "Đăng xuất",
+    "revokeOne": "Đăng xuất phiên trên {{device}}",
+    "revokeOthers": "Đăng xuất mọi thiết bị khác"
   }
 }

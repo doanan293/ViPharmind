@@ -12,6 +12,7 @@ export default [
   route("register", "routes/auth/register.tsx"),
   route("forgot-password", "routes/auth/forgot-password.tsx"),
   route("auth/google/callback", "routes/auth/google-callback.tsx"),
+  route("auth/google/link-callback", "routes/auth/google-link-callback.tsx"),
   layout("routes/app/layout.tsx", [
     route("chat/:conversationId?", "routes/app/chat.tsx"),
     route("settings", "routes/app/settings.tsx"),
