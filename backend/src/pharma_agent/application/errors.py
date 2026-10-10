@@ -2,6 +2,10 @@ class ApplicationError(Exception):
     code = "APPLICATION_ERROR"
 
 
+class AccountNotFound(ApplicationError):
+    code = "ACCOUNT_NOT_FOUND"
+
+
 class ConversationNotFound(ApplicationError):
     code = "CONVERSATION_NOT_FOUND"
 
