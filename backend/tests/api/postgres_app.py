@@ -13,6 +13,9 @@ from pharma_agent.application.conversation.service import ConversationService
 from pharma_agent.domain.shared.clock import SystemClock
 from pharma_agent.infrastructure.account_factory import build_account_service
 from pharma_agent.infrastructure.container import Container
+from pharma_agent.infrastructure.organizations_factory import (
+    build_organization_services,
+)
 from pharma_agent.infrastructure.persistence.postgres.database import Database
 from pharma_agent.infrastructure.settings import Settings
 from tests.account_fakes import RecordingEmailSender, RecordingSmsSender
@@ -80,6 +83,9 @@ async def postgres_app(
                 sms=outbox.sms,
             ),
             health_checks={"postgres": database.ping},
+            organizations=build_organization_services(
+                resolved, database.sessions, clock=SystemClock(), email=outbox.email
+            ),
         )
 
     try:

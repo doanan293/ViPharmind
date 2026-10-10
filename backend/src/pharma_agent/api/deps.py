@@ -1,9 +1,11 @@
+import uuid
 from collections.abc import Awaitable, Callable
 from typing import Annotated
 
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from pharma_agent.application.access.service import Actor
 from pharma_agent.application.account.messages import (
     Locale,
     locale_from_accept_language,
@@ -23,6 +25,7 @@ from pharma_agent.infrastructure.auth.users import (
     SessionLogin,
 )
 from pharma_agent.infrastructure.container import Container
+from pharma_agent.infrastructure.organizations_factory import OrganizationServices
 from pharma_agent.infrastructure.persistence.postgres.tables import UserTable
 
 UserIdDependency = Callable[..., Awaitable[str]]
@@ -66,6 +69,28 @@ def user_id_dependency(auth: Auth) -> UserIdDependency:
         return user.id.hex
 
     return current_user_id
+
+
+ActorDependency = Callable[..., Awaitable[Actor]]
+
+
+def require_organizations(container: Container) -> OrganizationServices:
+    if container.organizations is None:
+        raise ServiceNotConfigured("organizations are not configured")
+    return container.organizations
+
+
+def actor_dependency(current_user_id: UserIdDependency) -> ActorDependency:
+    """Who is acting, with memberships read fresh for this request."""
+
+    async def current_actor(
+        user_id: Annotated[str, Depends(current_user_id)], container: ContainerDep
+    ) -> Actor:
+        return await require_organizations(container).actors.resolve(
+            uuid.UUID(hex=user_id)
+        )
+
+    return current_actor
 
 
 def require_account(container: Container) -> AccountService:

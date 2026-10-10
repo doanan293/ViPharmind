@@ -25,6 +25,10 @@ from pharma_agent.domain.shared.clock import SystemClock
 from pharma_agent.infrastructure.account_factory import build_account_service
 from pharma_agent.infrastructure.composition import Application, build_application
 from pharma_agent.infrastructure.observability.langfuse_tracing import LangfuseTracing
+from pharma_agent.infrastructure.organizations_factory import (
+    OrganizationServices,
+    build_organization_services,
+)
 from pharma_agent.infrastructure.persistence.postgres.citation_reader import (
     PostgresCitationReader,
 )
@@ -49,6 +53,7 @@ class Container:
     sessions: async_sessionmaker[AsyncSession] | None
     conversations: ConversationService
     account: AccountService | None = None
+    organizations: OrganizationServices | None = None
     chat: ChatService | None = None
     summarizer: SummarizeConversation | None = None
     feedback: FeedbackService | None = None
@@ -108,6 +113,9 @@ async def open_container(
         ),
         feedback=FeedbackService(repository, feedback_repository, tracing, clock),
         health_checks={"postgres": database.ping},
+        organizations=build_organization_services(
+            settings, database.sessions, clock=clock, email=email_sender
+        ),
     )
     if settings.auth.otp_secret is None:
         logger.warning("PHARMA_AUTH__OTP_SECRET is not set: account flows are disabled")
