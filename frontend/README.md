@@ -11,7 +11,7 @@ The web frontend of the pharma AI agent: a React Router application with server 
 Dependency rules:
 
 - Shared code never imports features or routes, and features never import routes.
-- A feature imports another feature only in these one-way directions: `chat` → `conversations`, `shell` → `auth`, `conversations`, and `organizations` → `audit`. Everything else is composed in routes.
+- A feature imports another feature only in these one-way directions: `chat` → `conversations`, `shell` → `auth`, `conversations`, `organizations` → `audit`, and `admin` → `auth`, `chat`, `audit`. Everything else is composed in routes.
 - No import cycles.
 
 `npm run lint` enforces the rules with `import/no-cycle` and `no-restricted-imports` overrides in `.oxlintrc.json`. `app/architecture.test.ts` resolves every import, relative ones included, and checks the same rules plus the folder layout. It also checks that the lint overrides match its table of allowed directions, so a new direction is added to both.

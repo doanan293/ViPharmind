@@ -12,6 +12,7 @@ const ALLOWED_FEATURE_IMPORTS: Record<string, string[]> = {
   chat: ["conversations"],
   shell: ["auth", "conversations"],
   organizations: ["audit"],
+  admin: ["auth", "chat", "audit"],
 }
 const IMPORT = /(?:from|import|import\(|vi\.mock\()\s*["']([^"']+)["']/g
 const EXTENSIONS = [".ts", ".tsx", "/index.ts", "/index.tsx"]

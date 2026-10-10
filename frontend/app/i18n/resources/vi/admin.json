@@ -1,0 +1,81 @@
+{
+  "title": "Quản trị",
+  "tabs": {
+    "users": "Người dùng",
+    "organizations": "Tổ chức",
+    "collections": "Bộ tài liệu",
+    "jobs": "Tác vụ xuất bản",
+    "audit": "Nhật ký"
+  },
+  "users": {
+    "search": "Tìm theo tên, email hoặc số điện thoại",
+    "name": "Người dùng",
+    "status": "Trạng thái",
+    "active": "Đang hoạt động",
+    "disabled": "Đã khoá",
+    "superadmin": "Quản trị viên",
+    "quota": "Hạn mức",
+    "created": "Ngày tạo",
+    "disable": "Khoá",
+    "enable": "Mở khoá",
+    "disableTitle": "Khoá tài khoản {{name}}?",
+    "disableDescription": "Người dùng bị đăng xuất khỏi mọi thiết bị và không đăng nhập lại được cho tới khi được mở khoá.",
+    "enableTitle": "Mở khoá tài khoản {{name}}?",
+    "enableDescription": "Người dùng đăng nhập lại được như bình thường.",
+    "conversations": "Hội thoại",
+    "empty": "Không có người dùng nào.",
+    "more": "Tải thêm",
+    "disabledToast": "Đã khoá {{name}}.",
+    "enabledToast": "Đã mở khoá {{name}}."
+  },
+  "quota": {
+    "title": "Hạn mức của {{name}}",
+    "description": "Để trống để dùng hạn mức mặc định.",
+    "text": "Số ký tự nội dung",
+    "collections": "Số bộ tài liệu",
+    "save": "Lưu hạn mức",
+    "saved": "Đã lưu hạn mức.",
+    "default": "Mặc định",
+    "value": "{{text}} ký tự · {{collections}} bộ"
+  },
+  "conversations": {
+    "title": "Hội thoại của {{name}}",
+    "empty": "Người dùng chưa có hội thoại nào.",
+    "back": "Về danh sách",
+    "readOnly": "Chỉ xem",
+    "turns": "{{count}} lượt hỏi"
+  },
+  "organizations": {
+    "name": "Tổ chức",
+    "members": "Thành viên",
+    "quota": "Hạn mức",
+    "created": "Ngày tạo",
+    "empty": "Chưa có tổ chức nào."
+  },
+  "collections": {
+    "title": "Bộ tài liệu",
+    "owner": "Chủ sở hữu",
+    "visibility": "Ai được thấy",
+    "documents": "Tài liệu",
+    "points": "Điểm vector",
+    "release": "Bản phát hành",
+    "empty": "Chưa có bộ tài liệu nào."
+  },
+  "jobs": {
+    "collection": "Bộ tài liệu",
+    "status": "Trạng thái",
+    "step": "Bước",
+    "progress": "Tiến độ",
+    "created": "Bắt đầu",
+    "error": "Lỗi",
+    "empty": "Chưa có tác vụ nào.",
+    "statusValue": {
+      "queued": "Đang chờ",
+      "running": "Đang chạy",
+      "ready": "Hoàn tất",
+      "failed": "Thất bại"
+    }
+  },
+  "cancel": "Huỷ",
+  "confirm": "Xác nhận"
+}

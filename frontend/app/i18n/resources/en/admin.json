@@ -1,0 +1,81 @@
+{
+  "title": "Administration",
+  "tabs": {
+    "users": "Users",
+    "organizations": "Organizations",
+    "collections": "Collections",
+    "jobs": "Publish jobs",
+    "audit": "Audit log"
+  },
+  "users": {
+    "search": "Search by name, email or phone",
+    "name": "User",
+    "status": "Status",
+    "active": "Active",
+    "disabled": "Disabled",
+    "superadmin": "Superadmin",
+    "quota": "Quota",
+    "created": "Created",
+    "disable": "Disable",
+    "enable": "Enable",
+    "disableTitle": "Disable {{name}}?",
+    "disableDescription": "The user is signed out everywhere and cannot sign in until enabled again.",
+    "enableTitle": "Enable {{name}}?",
+    "enableDescription": "The user can sign in again.",
+    "conversations": "Conversations",
+    "empty": "No users.",
+    "more": "Load more",
+    "disabledToast": "{{name}} is disabled.",
+    "enabledToast": "{{name}} is enabled."
+  },
+  "quota": {
+    "title": "Quota for {{name}}",
+    "description": "Leave empty to use the default quota.",
+    "text": "Content characters",
+    "collections": "Collections",
+    "save": "Save quota",
+    "saved": "Quota saved.",
+    "default": "Default",
+    "value": "{{text}} characters · {{collections}} collections"
+  },
+  "conversations": {
+    "title": "Conversations of {{name}}",
+    "empty": "This user has no conversations.",
+    "back": "Back to the list",
+    "readOnly": "Read only",
+    "turns": "{{count}} questions"
+  },
+  "organizations": {
+    "name": "Organization",
+    "members": "Members",
+    "quota": "Quota",
+    "created": "Created",
+    "empty": "No organizations."
+  },
+  "collections": {
+    "title": "Collection",
+    "owner": "Owner",
+    "visibility": "Visibility",
+    "documents": "Documents",
+    "points": "Vector points",
+    "release": "Release",
+    "empty": "No collections."
+  },
+  "jobs": {
+    "collection": "Collection",
+    "status": "Status",
+    "step": "Step",
+    "progress": "Progress",
+    "created": "Started",
+    "error": "Error",
+    "empty": "No jobs yet.",
+    "statusValue": {
+      "queued": "Queued",
+      "running": "Running",
+      "ready": "Done",
+      "failed": "Failed"
+    }
+  },
+  "cancel": "Cancel",
+  "confirm": "Confirm"
+}

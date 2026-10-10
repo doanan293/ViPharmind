@@ -9,6 +9,7 @@ import enLanding from "./resources/en/landing.json"
 import enAudit from "./resources/en/audit.json"
 import enOrganizations from "./resources/en/organizations.json"
 import enCollections from "./resources/en/collections.json"
+import enAdmin from "./resources/en/admin.json"
 import enSettings from "./resources/en/settings.json"
 import viAuth from "./resources/vi/auth.json"
 import viChat from "./resources/vi/chat.json"
@@ -19,6 +20,7 @@ import viLanding from "./resources/vi/landing.json"
 import viAudit from "./resources/vi/audit.json"
 import viOrganizations from "./resources/vi/organizations.json"
 import viCollections from "./resources/vi/collections.json"
+import viAdmin from "./resources/vi/admin.json"
 import viSettings from "./resources/vi/settings.json"
 
 export const SUPPORTED_LANGUAGES = ["vi", "en"] as const
@@ -36,6 +38,7 @@ export const NAMESPACES = [
   "audit",
   "organizations",
   "collections",
+  "admin",
 ] as const
 export type Namespace = (typeof NAMESPACES)[number]
 
@@ -48,6 +51,7 @@ export const resources = {
     settings: viSettings,
     landing: viLanding,
     errors: viErrors,
+    admin: viAdmin,
     collections: viCollections,
     organizations: viOrganizations,
     audit: viAudit,
@@ -60,6 +64,7 @@ export const resources = {
     settings: enSettings,
     landing: enLanding,
     errors: enErrors,
+    admin: enAdmin,
     collections: enCollections,
     organizations: enOrganizations,
     audit: enAudit,
