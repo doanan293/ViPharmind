@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Protocol
 
 from pharma_lab.cache.jsonl_records import merge_records
-from pharma_lab.config.paths import COMPOSE_FILE, GGUF_ROOT, WORK_DIR
+from pharma_lab.config.paths import GGUF_ROOT, LOCAL_MODELS_COMPOSE_FILES, WORK_DIR
 from pharma_lab.embeddings.text_cache import (
     TextEmbeddingCache,
     cache_record_key,
@@ -60,12 +60,12 @@ class LocalTextEmbeddingBackend:
     def __init__(
         self,
         *,
-        compose_file: Path = COMPOSE_FILE,
+        compose_files: Sequence[Path] = LOCAL_MODELS_COMPOSE_FILES,
         gguf_root: Path = GGUF_ROOT,
         server_mode: str = "compose",
         server_urls: Sequence[str] = (),
     ) -> None:
-        self.compose_file = compose_file
+        self.compose_files = compose_files
         self.gguf_root = gguf_root
         self.server_mode = server_mode
         self.server_urls = list(server_urls)
@@ -85,7 +85,7 @@ class LocalTextEmbeddingBackend:
             self.server_mode,
             self.server_urls,
             spec,
-            LlamaCppComposeManager(self.compose_file),
+            LlamaCppComposeManager(self.compose_files),
             self.gguf_root,
         )
         run = embed_missing(

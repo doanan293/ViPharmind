@@ -1,6 +1,6 @@
 # Local-only workflow
 
-Mọi model chạy local qua llama.cpp trong `../compose.yaml`; không dùng Kaggle.
+Mọi model chạy local qua llama.cpp trong `../compose.local-models.yaml` (override của `../compose.yaml`); không dùng Kaggle.
 
 ## 1. Kiểm tra môi trường
 

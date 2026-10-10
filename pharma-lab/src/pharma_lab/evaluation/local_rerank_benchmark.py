@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Protocol
 
 from pharma_lab.artifacts.jsonl import iter_jsonl_objects
-from pharma_lab.config.paths import COMPOSE_FILE, LOCAL_PROFILE_DIR
+from pharma_lab.config.paths import LOCAL_MODELS_COMPOSE_FILE, LOCAL_PROFILE_DIR
 from pharma_lab.runtime.benchmarking import (
     LOCAL_RERANK_BENCHMARK_GROUPS,
     BenchmarkMeasurement,
@@ -108,7 +108,7 @@ def local_rerank_search_space(spec: ModelSpec) -> RuntimeSearchSpace:
 def local_rerank_profile_identity(
     spec: ModelSpec,
     *,
-    compose_file: Path = COMPOSE_FILE,
+    compose_file: Path = LOCAL_MODELS_COMPOSE_FILE,
     cpuinfo_path: Path = CPUINFO_PATH,
 ) -> RuntimeProfileIdentity:
     return RuntimeProfileIdentity.create(
@@ -129,7 +129,7 @@ def load_local_rerank_profile(
     spec: ModelSpec,
     *,
     profile_root: Path = LOCAL_PROFILE_DIR,
-    compose_file: Path = COMPOSE_FILE,
+    compose_file: Path = LOCAL_MODELS_COMPOSE_FILE,
     cpuinfo_path: Path = CPUINFO_PATH,
 ) -> RuntimeProfile | None:
     identity = local_rerank_profile_identity(
@@ -145,7 +145,7 @@ def run_local_rerank_benchmark(
     server: RerankServer,
     client_factory: Callable[[str], NativeRerankClient],
     profile_root: Path = LOCAL_PROFILE_DIR,
-    compose_file: Path = COMPOSE_FILE,
+    compose_file: Path = LOCAL_MODELS_COMPOSE_FILE,
     cpuinfo_path: Path = CPUINFO_PATH,
     clock: Callable[[], float] = time.monotonic,
 ) -> LocalRerankBenchmarkResult:

@@ -77,6 +77,9 @@ BUNDLE_EMBED_WORK_DIR = WORK_DIR / "bundle-embed"
 EVALUATION_CHUNKS_PATH = WORK_DIR / "evaluation-chunks" / "chunks.jsonl"
 
 COMPOSE_FILE = PROJECT_ROOT.parent / "compose.yaml"
+# The llama.cpp embedding and reranker servers live in this override of compose.yaml.
+LOCAL_MODELS_COMPOSE_FILE = PROJECT_ROOT.parent / "compose.local-models.yaml"
+LOCAL_MODELS_COMPOSE_FILES = (COMPOSE_FILE, LOCAL_MODELS_COMPOSE_FILE)
 GGUF_ROOT = PROJECT_ROOT.parent / "ai-models" / "gguf"
 BACKEND_ENV_FILE = PROJECT_ROOT.parent / "backend" / ".env"
 

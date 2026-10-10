@@ -8,7 +8,7 @@ from collections.abc import Iterator
 import pytest
 import requests
 
-from pharma_lab.config.paths import COMPOSE_FILE, GGUF_ROOT
+from pharma_lab.config.paths import GGUF_ROOT, LOCAL_MODELS_COMPOSE_FILES
 from pharma_lab.runtime.catalog import require_model
 from pharma_lab.runtime.client import LlamaCppClient, LlamaCppRequestError
 from pharma_lab.runtime.compose import LlamaCppComposeManager, SubprocessRunner
@@ -58,13 +58,23 @@ def reranker_endpoint() -> Iterator[str]:
         "LLAMA_RERANKER_PORT": PORT,
     }
     manager = LlamaCppComposeManager(
-        COMPOSE_FILE, environment=environment, startup_timeout=600
+        LOCAL_MODELS_COMPOSE_FILES, environment=environment, startup_timeout=600
     )
     try:
         yield manager.ensure("reranker", spec, GGUF_ROOT, runtime=LEVEL)
     finally:
         SubprocessRunner().run(
-            ["docker", "compose", "-f", str(COMPOSE_FILE), "down"], env=environment
+            [
+                "docker",
+                "compose",
+                *(
+                    arg
+                    for path in LOCAL_MODELS_COMPOSE_FILES
+                    for arg in ("-f", str(path))
+                ),
+                "down",
+            ],
+            env=environment,
         )
 
 

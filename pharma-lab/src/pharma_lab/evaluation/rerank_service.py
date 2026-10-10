@@ -10,8 +10,8 @@ from typing import Any
 from pharma_lab.artifacts.bundle import ArtifactBundle, load_bundle
 from pharma_lab.cache.jsonl_records import ValidatedSubset, merge_records
 from pharma_lab.config.paths import (
-    COMPOSE_FILE,
     GGUF_ROOT,
+    LOCAL_MODELS_COMPOSE_FILES,
     WORK_DIR,
     rerank_score_cache_path,
 )
@@ -228,7 +228,7 @@ class LocalRerankBackend:
         # A stored local benchmark profile sets the llama-reranker level; without one
         # compose defaults (or the root .env) apply.
         profile = load_local_rerank_profile(spec)
-        manager = LlamaCppComposeManager(COMPOSE_FILE)
+        manager = LlamaCppComposeManager(LOCAL_MODELS_COMPOSE_FILES)
         endpoint = manager.ensure(
             "reranker",
             spec,
@@ -241,7 +241,7 @@ class LocalRerankBackend:
     def _default_benchmark(
         spec: ModelSpec, candidate_data_path: Path, timeout: float
     ) -> LocalRerankBenchmarkResult:
-        manager = LlamaCppComposeManager(COMPOSE_FILE)
+        manager = LlamaCppComposeManager(LOCAL_MODELS_COMPOSE_FILES)
         return run_local_rerank_benchmark(
             spec=spec,
             candidate_data_path=candidate_data_path,
