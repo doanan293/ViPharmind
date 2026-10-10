@@ -8,14 +8,25 @@ import type { Route } from "./+types/api-proxy"
 
 const DEFAULT_API_INTERNAL_URL = "http://127.0.0.1:8000"
 
-// Hop-by-hop or recomputed by fetch. Without accept-encoding the backend answers
-// uncompressed, so the body passes through with its own headers intact.
+// Proves to the backend that a request came through this proxy (one more trusted hop for
+// the client IP). A browser's own copy is never forwarded.
+const PROXY_HEADER = "x-vipharmind-proxy"
+
+// Hop-by-hop or recomputed by fetch.
 const DROPPED_REQUEST_HEADERS = [
   "host",
   "connection",
   "content-length",
-  "accept-encoding",
   "transfer-encoding",
+  PROXY_HEADER,
+]
+
+// fetch decodes a compressed body, so these would describe bytes the browser never gets.
+const DROPPED_RESPONSE_HEADERS = [
+  "content-encoding",
+  "content-length",
+  "transfer-encoding",
+  "connection",
 ]
 
 function backendUrl(request: Request): string {
@@ -31,6 +42,12 @@ async function forward(request: Request): Promise<Response> {
   for (const name of DROPPED_REQUEST_HEADERS) {
     headers.delete(name)
   }
+  // Ask for an uncompressed body so streamed answers pass through as they arrive.
+  headers.set("accept-encoding", "identity")
+  const secret = process.env.API_PROXY_SECRET
+  if (secret !== undefined && secret !== "") {
+    headers.set(PROXY_HEADER, secret)
+  }
   const hasBody = request.method !== "GET" && request.method !== "HEAD"
   const upstream = await fetch(backendUrl(request), {
     method: request.method,
@@ -41,10 +58,14 @@ async function forward(request: Request): Promise<Response> {
     redirect: "manual",
     signal: request.signal,
   })
+  const responseHeaders = new Headers(upstream.headers)
+  for (const name of DROPPED_RESPONSE_HEADERS) {
+    responseHeaders.delete(name)
+  }
   return new Response(upstream.body, {
     status: upstream.status,
     statusText: upstream.statusText,
-    headers: upstream.headers,
+    headers: responseHeaders,
   })
 }
 

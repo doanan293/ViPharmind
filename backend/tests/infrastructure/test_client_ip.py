@@ -43,3 +43,37 @@ def test_a_short_or_missing_header_falls_back_to_the_peer() -> None:
 def test_no_client_at_all_gives_none() -> None:
     bare = Request({"type": "http", "headers": [], "method": "GET", "path": "/"})
     assert client_ip_of(bare, trusted_hops=1) is None
+
+
+def proxied(forwarded: str, secret: str | None) -> Request:
+    headers = [(b"x-forwarded-for", forwarded.encode())]
+    if secret is not None:
+        headers.append((b"x-vipharmind-proxy", secret.encode()))
+    return Request(
+        {
+            "type": "http",
+            "headers": headers,
+            "client": ("10.0.0.7", 5000),
+            "method": "GET",
+            "path": "/",
+        }
+    )
+
+
+def test_our_own_proxy_adds_one_trusted_hop() -> None:
+    # Browser → Vercel (sets the client) → Cloud Run (appends Vercel's egress IP).
+    header = "198.51.100.1, 76.76.21.9"
+    assert (
+        client_ip_of(proxied(header, "s3cret"), trusted_hops=1, proxy_secret="s3cret")
+        == "198.51.100.1"
+    )
+
+
+def test_a_caller_without_the_secret_cannot_choose_its_ip() -> None:
+    # Someone calling run.app directly with a forged header: Cloud Run appends the real IP.
+    header = "1.2.3.4, 203.0.113.50"
+    for secret in (None, "guess"):
+        assert (
+            client_ip_of(proxied(header, secret), trusted_hops=1, proxy_secret="s3cret")
+            == "203.0.113.50"
+        )

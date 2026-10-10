@@ -1,7 +1,8 @@
 # Cloud Run service of the API. Create or update it with:
 #   gcloud run services replace devops/cloud-run/service.yaml --region asia-southeast1
-# after replacing PROJECT_ID, the image tag and the URLs below. The deploy workflow only
-# swaps the image afterwards; settings changes go through this file.
+# after replacing PROJECT_ID and the URLs below. The deploy workflow pushes every build as
+# both :<sha> and :latest, so a later `replace` for a settings change runs the image that is
+# already deployed.
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
@@ -32,16 +33,18 @@ spec:
             limits:
               cpu: "1"
               memory: 1Gi
+          # TCP, not /api/v1/health: health answers 503 while the corpus is empty or Qdrant
+          # is down, and the API must still start (the uptime check watches /health).
           startupProbe:
-            httpGet:
-              path: /api/v1/health
+            tcpSocket:
+              port: 8080
             periodSeconds: 5
             failureThreshold: 24
           env:
             - name: PHARMA_API__HOST
               value: 0.0.0.0
-            # Cloud Run's front end appends one X-Forwarded-For hop; measure again behind
-            # Vercel (docs/launch-checklist.md).
+            # Cloud Run's front end appends one X-Forwarded-For hop. Requests from the Vercel
+            # /api proxy carry PHARMA_API__PROXY_SECRET and count one hop more.
             - name: PHARMA_API__TRUSTED_PROXY_HOPS
               value: "1"
             - name: PHARMA_AUTH__FRONTEND_URL
@@ -105,3 +108,5 @@ spec:
               valueFrom: {secretKeyRef: {name: PHARMA_AUTH__GOOGLE_CLIENT_SECRET, key: latest}}
             - name: PHARMA_EMAIL__SMTP_PASSWORD
               valueFrom: {secretKeyRef: {name: PHARMA_EMAIL__SMTP_PASSWORD, key: latest}}
+            - name: PHARMA_API__PROXY_SECRET
+              valueFrom: {secretKeyRef: {name: PHARMA_API__PROXY_SECRET, key: latest}}

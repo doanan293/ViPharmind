@@ -101,10 +101,12 @@ class PostgresInvitationRepository:
                 f"an invitation for {invitation.email} is already open"
             ) from exc
 
-    async def update(self, invitation: Invitation, tx: Transaction) -> None:
-        await session_of(tx).execute(
+    async def update(
+        self, invitation: Invitation, tx: Transaction, *, expected: InvitationStatus
+    ) -> bool:
+        result = await session_of(tx).execute(
             update(OrganizationInvitationTable)
-            .where(_inv.id == invitation.id)
+            .where(_inv.id == invitation.id, _inv.status == expected.value)
             .values(
                 role=invitation.role.value,
                 status=invitation.status.value,
@@ -113,4 +115,6 @@ class PostgresInvitationRepository:
                 decided_by=invitation.decided_by,
                 decided_at=invitation.decided_at,
             )
+            .returning(_inv.id)
         )
+        return result.scalar_one_or_none() is not None

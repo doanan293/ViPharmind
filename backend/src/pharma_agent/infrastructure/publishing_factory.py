@@ -2,6 +2,7 @@
 
 import uuid
 from dataclasses import dataclass
+from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -88,6 +89,11 @@ def build_publishing(
         tx=PostgresTransactionFactory(sessions),
         clock=clock,
         max_attempts=settings.jobs.max_attempts,
+        # Every attempt may run to the dispatch deadline, plus time for queue backoff.
+        stale_after=timedelta(
+            seconds=settings.jobs.dispatch_deadline_seconds * settings.jobs.max_attempts
+            + 600
+        ),
     )
     bound.append(service)
     return Publishing(service=service, dispatcher=dispatcher)

@@ -27,7 +27,8 @@ A few files in `app/components/ui/` differ from the registry on purpose because 
 Production serves the app from Vercel (Hobby, non-commercial) and the API from Google Cloud Run
 (`devops/cloud-run/README.md`). The browser only talks to the Vercel origin, so cookies stay
 first-party: `app/routes/api-proxy.ts` forwards `/api/*` to `API_INTERNAL_URL` with the method,
-headers (minus `host` and `accept-encoding`), body and response untouched, streams included.
+headers (minus `host` and hop-by-hop ones), body and response, streams included; it asks for an
+uncompressed body and adds the shared `X-Vipharmind-Proxy` secret.
 Locally that route never runs, because Vite's dev proxy, nginx and the E2E proxy answer `/api`
 first.
 
@@ -35,7 +36,9 @@ first.
    detects React Router; `react-router.config.ts` adds `vercelPreset()` only when the build runs
    with `VERCEL=1`, so `npm start`, the Dockerfile and the E2E run keep the plain server build.
 2. Environment Variables (Production): `API_INTERNAL_URL` (the Cloud Run URL),
-   `PUBLIC_SITE_URL` (`https://<project>.vercel.app`) and `THEME_COOKIE_SECRET`.
+   `PUBLIC_SITE_URL` (`https://<project>.vercel.app`), `THEME_COOKIE_SECRET` and
+   `API_PROXY_SECRET` (the same value as the backend's `PHARMA_API__PROXY_SECRET`; the proxy
+   sends it in `X-Vipharmind-Proxy` so the backend trusts the client IP it forwards).
 3. Settings → Functions: keep Fluid compute on and set Max Duration to 300 s, because a streamed
    answer can take 90 s. Settings → Git: turn preview deployments off; `main` deploys production.
 4. Add `https://<project>.vercel.app/auth/google/callback` and `/auth/google/link-callback` to the

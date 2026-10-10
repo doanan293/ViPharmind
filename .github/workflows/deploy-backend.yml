@@ -41,8 +41,11 @@ jobs:
       - name: Build and push the image
         run: |
           gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
-          docker build -f backend/Dockerfile -t "${IMAGE}:${GITHUB_SHA}" .
+          docker build -f backend/Dockerfile -t "${IMAGE}:${GITHUB_SHA}" -t "${IMAGE}:latest" .
           docker push "${IMAGE}:${GITHUB_SHA}"
+          # service.yaml and migrate-job.yaml name :latest, so a manual `replace` keeps
+          # the deployed code.
+          docker push "${IMAGE}:latest"
 
       - name: Migrate the database
         run: |

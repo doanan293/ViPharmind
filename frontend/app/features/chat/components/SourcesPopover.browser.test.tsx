@@ -107,4 +107,54 @@ describe("ConversationSources", () => {
       .element(page.getByRole("combobox", { name: "Nguồn", exact: true }))
       .toBeVisible()
   })
+
+  test("two quick picks keep both", async () => {
+    const patches: unknown[] = []
+    worker.use(
+      http.get(`*/api/v1/conversations/${CONVERSATION}`, () =>
+        HttpResponse.json(conversation(null))
+      ),
+      http.get("*/api/v1/collections", () =>
+        HttpResponse.json({
+          public: [],
+          organizations: [],
+          mine: [collection("c-1", "Một"), collection("c-2", "Hai")],
+          others: [],
+        })
+      ),
+      http.patch(
+        `*/api/v1/conversations/${CONVERSATION}`,
+        async ({ request }) => {
+          const body = await request.json()
+          patches.push(body)
+          await new Promise((resolve) => setTimeout(resolve, 200))
+          return HttpResponse.json(
+            conversation(
+              typeof body === "object" &&
+                body !== null &&
+                "collection_ids" in body &&
+                Array.isArray(body.collection_ids)
+                ? body.collection_ids.map(String)
+                : null
+            )
+          )
+        }
+      )
+    )
+    await render(
+      <TestProviders>
+        <Toaster>
+          <ConversationSources conversationId={CONVERSATION} />
+        </Toaster>
+      </TestProviders>
+    )
+    await page.getByRole("combobox", { name: "Nguồn" }).click()
+    await page.getByRole("option", { name: "Một" }).click()
+    await page.getByRole("option", { name: "Hai" }).click()
+    await expect.poll(() => patches).toHaveLength(2)
+    expect(patches[1]).toEqual({ collection_ids: ["c-1", "c-2"] })
+    await expect
+      .element(page.getByRole("combobox", { name: "Nguồn: 2" }))
+      .toBeVisible()
+  })
 })

@@ -14,15 +14,17 @@ from pharma_agent.application.corpus.errors import (
 from pharma_agent.application.errors import ForbiddenRole
 from pharma_agent.domain.access.models import Actor, Role
 from pharma_agent.domain.audit.models import AuditAction
+from pharma_agent.domain.corpus.bundle import GlossaryEntry
 from pharma_agent.domain.corpus.models import (
     Collection,
     CollectionOwner,
     Visibility,
     collection_id_for,
 )
+from pharma_agent.domain.corpus.source import DocumentKind, SourceDocument
 from pharma_agent.domain.organizations.models import Organization
 from tests.account_fakes import START, InMemoryAccounts, MutableClock
-from tests.collection_fakes import InMemoryCollections
+from tests.collection_fakes import InMemoryCollections, InMemorySources
 from tests.corpus_fixtures import small_bundle, small_bundle_embeddings
 from tests.corpus_memory import CorpusAdapters, build_importer
 from tests.fakes import FakeEmbedder
@@ -42,6 +44,7 @@ class World:
         self.adapters = CorpusAdapters()
         self.collections = InMemoryCollections(self.adapters.repository)
         self.audit = InMemoryAuditLog()
+        self.sources = InMemorySources(self.collections)
         self.me = self.accounts.add(email="me@example.com").id
         self.org = Organization(uuid.uuid4(), "Khoa Dược", None, None, START, START)
         self.organizations.organizations[self.org.id] = self.org
@@ -56,6 +59,7 @@ class World:
             tx=InMemoryTransactions(),
             clock=self.clock,
             quotas=QuotaPolicy(user_collections=2, org_collections=3),
+            sources=self.sources,
         )
 
     def owner(self) -> Actor:
@@ -181,3 +185,32 @@ async def test_purge_deleted_cleans_collections_of_a_deleted_organization() -> N
     assert await w.service.purge_deleted() == 1
     assert w.adapters.index.points == {}
     assert await w.service.purge_deleted() == 0
+
+
+async def test_delete_drops_the_authored_content_so_quotas_stay_honest() -> None:
+    w = World()
+    created = await w.service.create(w.owner(), title="x", owner_organization_id=None)
+    tx = InMemoryTransactions()
+    async with tx.begin() as t:
+        await w.sources.create_document(
+            SourceDocument(
+                id=uuid.uuid4(),
+                collection_id=created.id,
+                key=f"{created.key}:a",
+                title="A",
+                kind=DocumentKind.LEAFLET,
+                source_title="",
+                source_url=None,
+                markdown="x" * 10,
+                char_count=10,
+                created_by=None,
+                created_at=START,
+                updated_by=None,
+                updated_at=START,
+            ),
+            t,
+        )
+        await w.sources.replace_glossary(created.id, [GlossaryEntry(term="IV")], t)
+    await w.service.delete(w.owner(), created.id)
+    assert await w.sources.count_documents(created.id) == 0
+    assert await w.sources.glossary(created.id) == []

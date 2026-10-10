@@ -14,7 +14,7 @@ from pharma_agent.infrastructure.jobs.internal_auth import (
 from pharma_agent.infrastructure.settings import JobsSettings
 
 
-async def test_in_process_dispatcher_runs_jobs_and_swallows_their_errors() -> None:
+async def test_in_process_dispatcher_runs_jobs_and_retries_a_failed_run() -> None:
     ran: list[uuid.UUID] = []
 
     async def run(job_id: uuid.UUID) -> None:
@@ -23,12 +23,12 @@ async def test_in_process_dispatcher_runs_jobs_and_swallows_their_errors() -> No
         if len(ran) == 2:
             raise RuntimeError("boom")
 
-    dispatcher = InProcessDispatcher(run)
+    dispatcher = InProcessDispatcher(run, retry_delay_seconds=0)
     first, second = uuid.uuid4(), uuid.uuid4()
     await dispatcher.enqueue(first)
     await dispatcher.enqueue(second)
     await dispatcher.drain()
-    assert ran == [first, second]
+    assert ran == [first, second, second]
 
 
 def test_in_process_requests_need_the_shared_token() -> None:

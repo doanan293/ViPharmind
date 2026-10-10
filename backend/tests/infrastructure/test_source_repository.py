@@ -158,3 +158,28 @@ async def test_one_open_job_per_collection(database: Database) -> None:
     assert await jobs.get(job.id) == done
     assert await jobs.open_for(collection.id) is None
     assert await jobs.list_recent(limit=5) == [done]
+
+
+async def test_purging_a_deleted_collection_removes_its_content(
+    database: Database,
+) -> None:
+    user, collection = await setup(database)
+    repo = PostgresSourceRepository(database.sessions)
+    collections = PostgresCollectionRepository(database.sessions)
+    tx = PostgresTransactionFactory(database.sessions)
+    async with tx.begin() as t:
+        await repo.create_document(document(collection, "a", "xxxx"), t)
+        await repo.replace_glossary(collection.id, [GlossaryEntry(term="IV")], t)
+        await repo.replace_colloquial(
+            collection.id, [ColloquialMappingRecord(key="hạ sốt")], t
+        )
+        await collections.mark_deleted(collection.id, NOW, t)
+    # An organization's deletion leaves content behind; the purge finds it.
+    assert await collections.deleted_with_releases() == [collection.id]
+    async with tx.begin() as t:
+        await repo.purge_content(collection.id, t)
+    assert await repo.count_documents(collection.id) == 0
+    assert await repo.glossary(collection.id) == []
+    assert await repo.colloquial(collection.id) == []
+    assert await collections.deleted_with_releases() == []
+    assert await repo.text_usage(CollectionOwner(user_id=user)) == 0

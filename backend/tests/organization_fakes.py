@@ -17,6 +17,7 @@ from pharma_agent.domain.audit.ports import Cursor
 from pharma_agent.domain.organizations.models import (
     OPEN_STATUSES,
     Invitation,
+    InvitationStatus,
     Membership,
     MemberView,
     Organization,
@@ -259,8 +260,16 @@ class InMemoryInvitations:
             raise InvitationConflict("already open")
         _tx(tx).later(lambda: self.rows.__setitem__(invitation.id, invitation))
 
-    async def update(self, invitation: Invitation, tx: Transaction) -> None:
+    async def update(
+        self, invitation: Invitation, tx: Transaction, *, expected: InvitationStatus
+    ) -> bool:
+        stored = self.rows.get(invitation.id)
+        # A row created earlier in the same transaction is not applied yet here; Postgres
+        # sees it, so it counts as matching.
+        if stored is not None and stored.status is not expected:
+            return False
         _tx(tx).later(lambda: self.rows.__setitem__(invitation.id, invitation))
+        return True
 
 
 class InMemoryAuditLog:

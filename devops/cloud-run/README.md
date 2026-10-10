@@ -80,16 +80,22 @@ printf '%s' 'giá trị' | gcloud secrets create TÊN --data-file=-
 | `PHARMA_AUTH__JWT_SECRET`, `PHARMA_AUTH__CSRF_SECRET`, `PHARMA_AUTH__OTP_SECRET` | `python -c "import secrets; print(secrets.token_urlsafe(48))"` cho mỗi cái |
 | `PHARMA_AUTH__GOOGLE_CLIENT_ID`, `PHARMA_AUTH__GOOGLE_CLIENT_SECRET` | OAuth client Google đã có |
 | `PHARMA_EMAIL__SMTP_PASSWORD` | App password Gmail của tài khoản gửi thư |
+| `PHARMA_API__PROXY_SECRET` | Chuỗi ngẫu nhiên, đặt cùng giá trị cho `API_PROXY_SECRET` trên Vercel |
 
 Biến thường (model, URL, Cloud Tasks) nằm ngay trong `service.yaml`.
 
 ## Service và job migration
 
-Thay `PROJECT_ID`, `SENDER@gmail.com` và hai URL trong `service.yaml` rồi tạo lần đầu. Image đầu
-tiên phải có sẵn, nên chạy workflow một lần bằng *Run workflow* sau khi tạo job, hoặc build tay.
+Thay `PROJECT_ID`, `SENDER@gmail.com` và hai URL trong `service.yaml` rồi tạo lần đầu theo đúng
+thứ tự: workflow cần job và service đã tồn tại, còn job và service cần một image `:latest` có sẵn.
+Vì vậy build và đẩy image đầu tiên bằng tay từ repo root:
 
 ```bash
+IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/vipharmind/pharma-agent"
+gcloud auth configure-docker "$REGION-docker.pkg.dev"
+docker build -f backend/Dockerfile -t "$IMAGE:latest" . && docker push "$IMAGE:latest"
 gcloud run jobs replace devops/cloud-run/migrate-job.yaml --region "$REGION"
+gcloud run jobs execute vipharmind-migrate --region "$REGION" --wait
 gcloud run services replace devops/cloud-run/service.yaml --region "$REGION"
 gcloud run services add-iam-policy-binding vipharmind-api --region "$REGION" \
   --member allUsers --role roles/run.invoker
@@ -97,7 +103,9 @@ gcloud run services add-iam-policy-binding vipharmind-api --region "$REGION" \
 
 `PHARMA_JOBS__BACKEND_URL` là URL `run.app` của service (xem bằng
 `gcloud run services describe vipharmind-api --region $REGION --format 'value(status.url)'`), sau khi
-có URL thì sửa `service.yaml` và `replace` lại. Đổi biến thường về sau cũng làm như vậy.
+có URL thì sửa `service.yaml` và `replace` lại. Đổi biến thường về sau cũng làm như vậy: workflow
+luôn đẩy cả tag `:latest`, nên `replace` chạy đúng image đang deploy. Từ đó mỗi push lên `main`
+build, migrate và deploy tự động.
 
 ## Chi phí
 

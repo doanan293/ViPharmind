@@ -117,6 +117,7 @@ class InMemoryCollections:
         ]
 
     async def deleted_with_releases(self) -> list[uuid.UUID]:
+        # The in-memory sources are not linked here; releases decide, as before.
         return [cid for cid in self.deleted if await self.live_release_ids(cid)]
 
 
@@ -171,6 +172,16 @@ class InMemorySources:
 
     async def count_documents(self, collection_id: uuid.UUID) -> int:
         return len(await self.list_documents(collection_id))
+
+    async def purge_content(self, collection_id: uuid.UUID, tx: Transaction) -> None:
+        def purge() -> None:
+            for document in list(self.documents.values()):
+                if document.collection_id == collection_id:
+                    del self.documents[document.id]
+            self.glossaries.pop(collection_id, None)
+            self.mappings.pop(collection_id, None)
+
+        _tx(tx).later(purge)
 
     async def text_usage(self, owner: CollectionOwner) -> int:
         owned = {

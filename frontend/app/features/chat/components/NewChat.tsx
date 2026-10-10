@@ -25,22 +25,26 @@ export function NewChat() {
   const [sources, setSources] = useState<SourceScope>(null)
   const createConversation = useCreateConversation()
 
-  function start(question: string) {
-    createConversation.mutate(undefined, {
-      onSuccess: async (conversation) => {
-        // The scope must be saved before the first question streams.
-        if (sources !== null) {
-          await updateConversation(conversation.id, {
-            collection_ids: sources,
-          })
-        }
-        const state: ChatLocationState = { initialQuestion: question }
-        await navigate(`/chat/${conversation.id}`, { replace: true, state })
-      },
-      onError: () => {
-        toast.add({ title: t("newChat.createFailed"), type: "error" })
-      },
-    })
+  async function start(question: string) {
+    let conversationId: string
+    try {
+      conversationId = (await createConversation.mutateAsync(undefined)).id
+    } catch {
+      toast.add({ title: t("newChat.createFailed"), type: "error" })
+      return
+    }
+    if (sources !== null) {
+      // The scope must be saved before the first question streams; without it the question
+      // would search more than the user picked, so stop and keep the draft.
+      try {
+        await updateConversation(conversationId, { collection_ids: sources })
+      } catch {
+        toast.add({ title: t("scope.saveFailed"), type: "error" })
+        return
+      }
+    }
+    const state: ChatLocationState = { initialQuestion: question }
+    await navigate(`/chat/${conversationId}`, { replace: true, state })
   }
 
   return (
@@ -60,7 +64,7 @@ export function NewChat() {
         busy={false}
         disabled={createConversation.isPending}
         error={null}
-        onSubmit={start}
+        onSubmit={(question) => void start(question)}
         onStop={() => undefined}
         leading={<SourcesPopover value={sources} onChange={setSources} />}
       />

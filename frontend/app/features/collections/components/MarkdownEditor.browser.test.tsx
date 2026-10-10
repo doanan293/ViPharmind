@@ -38,4 +38,14 @@ describe("MarkdownEditor", () => {
     await page.getByRole("button", { name: "Chèn bảng" }).click()
     await expect.poll(() => changes.at(-1)).toContain("|")
   })
+
+  test("opening a document does not rewrite its Markdown", async () => {
+    // `*` bullets come back as `-`: the stored text must stay as written until edited.
+    const changes = await open("* một\n* hai")
+    await expect
+      .element(page.getByRole("textbox", { name: "Nội dung" }))
+      .toBeVisible()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(changes).toEqual([])
+  })
 })

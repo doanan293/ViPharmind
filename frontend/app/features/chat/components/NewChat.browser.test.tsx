@@ -221,4 +221,63 @@ describe("new conversation", () => {
       .element(page.getByRole("button", { name: "1", exact: true }))
       .toBeVisible()
   })
+
+  test("keeps the draft when the chosen sources cannot be saved", async () => {
+    worker.use(
+      http.get("*/api/v1/collections", () =>
+        HttpResponse.json({
+          public: [],
+          organizations: [],
+          mine: [
+            {
+              id: "c-mine",
+              key: "u-1",
+              title: "Ghi chú",
+              visibility: "private",
+              owner_user_id: "u1",
+              owner_organization_id: null,
+              owner_name: "An",
+              is_system: false,
+              can_edit: true,
+              can_set_public: false,
+              current_release_id: null,
+              current_release_number: null,
+            },
+          ],
+          others: [],
+        })
+      ),
+      http.post("*/api/v1/conversations", () =>
+        HttpResponse.json(
+          conversationView("c-new", "Cuộc trò chuyện mới", { turn_count: 0 }),
+          { status: 201 }
+        )
+      ),
+      http.patch("*/api/v1/conversations/c-new", () =>
+        HttpResponse.json(
+          { status: 500, code: "UNKNOWN", title: "boom" },
+          {
+            status: 500,
+            headers: { "Content-Type": "application/problem+json" },
+          }
+        )
+      )
+    )
+    await renderRoutes(ChatPage, { initialEntry: "/chat" })
+    await page.getByRole("combobox", { name: "Nguồn" }).click()
+    await page.getByRole("option", { name: "Ghi chú" }).click()
+    await userEvent.keyboard("{Escape}")
+    await userEvent.fill(
+      page.getByRole("textbox", { name: "Tin nhắn" }),
+      QUESTION
+    )
+    await page.getByRole("button", { name: "Gửi" }).click()
+    await expect.element(page.getByText("Không lưu được nguồn")).toBeVisible()
+    await expect
+      .element(page.getByTestId("location"))
+      .toMatchTextContent(/^\/chat$/)
+    await expect
+      .element(page.getByRole("textbox", { name: "Tin nhắn" }))
+      .toHaveValue(QUESTION)
+  })
 })
