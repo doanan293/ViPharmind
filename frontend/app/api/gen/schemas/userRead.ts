@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Registration and Google association responses; /users/me returns AccountView.
+ */
 export interface UserRead {
   display_name?: string
   email: string

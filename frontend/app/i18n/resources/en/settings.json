@@ -16,7 +16,9 @@
     "saved": "Password changed.",
     "tooShort": "Password must be at least 8 characters.",
     "tooLong": "Password must be at most 128 characters.",
-    "mismatch": "The passwords do not match."
+    "mismatch": "The passwords do not match.",
+    "current": "Current password",
+    "currentRequired": "Enter your current password."
   },
   "appearance": {
     "heading": "Language and appearance"

@@ -116,6 +116,24 @@ describe("toApiError", () => {
       errors: [],
     })
   })
+
+  test("keeps Retry-After in seconds", async () => {
+    const response = new Response(
+      JSON.stringify({ code: "RATE_LIMITED", title: "Too Many Requests" }),
+      {
+        status: 429,
+        headers: {
+          "Retry-After": "42",
+          "Content-Type": "application/problem+json",
+        },
+      }
+    )
+    const error = await toApiError(response)
+    expect(error.retryAfter).toBe(42)
+    expect(
+      (await toApiError(new Response(null, { status: 500 }))).retryAfter
+    ).toBeUndefined()
+  })
 })
 
 describe("isApiError", () => {

@@ -8,7 +8,7 @@ import {
   getUsersCurrentUserQueryKey,
   useUsersPatchCurrentUser,
 } from "~/api/gen/endpoints"
-import type { UserRead } from "~/api/gen/schemas"
+import type { AccountView } from "~/api/gen/schemas"
 import { Button } from "~/components/ui/button"
 import { Field, FieldError, FieldLabel } from "~/components/ui/field"
 import { Input } from "~/components/ui/input"
@@ -20,7 +20,7 @@ import { createProfileSchema } from "../lib/account-schemas"
 
 const PROFILE_FIELDS = ["display_name"] as const
 
-export function ProfileForm({ user }: { user: UserRead }) {
+export function ProfileForm({ user }: { user: AccountView }) {
   const { t } = useTranslation("settings")
   const { t: tErrors } = useTranslation("errors")
   const queryClient = useQueryClient()
@@ -44,7 +44,10 @@ export function ProfileForm({ user }: { user: UserRead }) {
       const updated = await patch.mutateAsync({
         data: { display_name: values.display_name },
       })
-      queryClient.setQueryData<UserRead>(getUsersCurrentUserQueryKey(), updated)
+      queryClient.setQueryData<AccountView>(
+        getUsersCurrentUserQueryKey(),
+        updated
+      )
       form.reset({ display_name: updated.display_name ?? "" })
       toast.add({ type: "success", title: t("profile.saved") })
     } catch (error: unknown) {

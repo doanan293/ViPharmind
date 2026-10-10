@@ -5,6 +5,7 @@ import { getUsersCurrentUserMockHandler } from "~/api/gen/endpoints.msw"
 import { queryClient } from "~/api/query-client"
 import { requireUser } from "~/features/auth/lib/require-user"
 
+import { accountView } from "../../../../tests/utils/account"
 import { worker } from "../../../../tests/msw/browser"
 
 describe("requireUser", () => {
@@ -13,13 +14,12 @@ describe("requireUser", () => {
   })
 
   test("returns the signed-in user", async () => {
-    worker.use(
-      getUsersCurrentUserMockHandler({ id: "u1", email: "an@example.com" })
-    )
+    const user = accountView({ id: "u1" })
+    worker.use(getUsersCurrentUserMockHandler(user))
 
     await expect(
       requireUser(new Request("http://localhost/chat"))
-    ).resolves.toEqual({ id: "u1", email: "an@example.com" })
+    ).resolves.toEqual(user)
   })
 
   test("throws a redirect to /login with the requested path on 401", async () => {

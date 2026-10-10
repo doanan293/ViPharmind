@@ -6,11 +6,14 @@ const profile = createProfileSchema({
   required: "required",
   tooLong: "too-long",
 })
-const password = createPasswordSchema({
+const passwordMessages = {
   tooShort: "too-short",
   tooLong: "too-long",
   mismatch: "mismatch",
-})
+  currentRequired: "current-required",
+}
+const password = createPasswordSchema(passwordMessages, true)
+const firstPassword = createPasswordSchema(passwordMessages, false)
 
 function messagesOf(result: { error?: { issues: { message: string }[] } }) {
   return result.error?.issues.map((issue) => issue.message) ?? []
@@ -36,25 +39,45 @@ describe("createProfileSchema", () => {
 describe("createPasswordSchema", () => {
   test("accepts matching passwords of valid length", () => {
     expect(
-      password.safeParse({ password: "dai-hon-tam", confirm: "dai-hon-tam" })
-        .success
+      password.safeParse({
+        current_password: "mat-khau-cu",
+        password: "dai-hon-tam",
+        confirm: "dai-hon-tam",
+      }).success
     ).toBe(true)
   })
 
   test("rejects passwords shorter than 8 characters", () => {
     expect(
       messagesOf(
-        password.safeParse({ password: "1234567", confirm: "1234567" })
+        password.safeParse({
+          current_password: "mat-khau-cu",
+          password: "1234567",
+          confirm: "1234567",
+        })
       )
     ).toEqual(["too-short"])
   })
 
   test("reports a mismatch on the confirm field", () => {
-    const issues =
-      password.safeParse({ password: "dai-hon-tam", confirm: "khac-hon-tam" })
-        .error?.issues ?? []
-    expect(
-      issues.map((issue) => ({ message: issue.message, path: issue.path }))
-    ).toEqual([{ message: "mismatch", path: ["confirm"] }])
+    const result = password.safeParse({
+      current_password: "mat-khau-cu",
+      password: "dai-hon-tam",
+      confirm: "khac-hon-tam",
+    })
+    expect(messagesOf(result)).toEqual(["mismatch"])
+    expect(result.error?.issues[0]?.path).toEqual(["confirm"])
+  })
+
+  test("needs the current password only when one is set", () => {
+    const withoutCurrent = {
+      current_password: "",
+      password: "dai-hon-tam",
+      confirm: "dai-hon-tam",
+    }
+    expect(messagesOf(password.safeParse(withoutCurrent))).toEqual([
+      "current-required",
+    ])
+    expect(firstPassword.safeParse(withoutCurrent).success).toBe(true)
   })
 })

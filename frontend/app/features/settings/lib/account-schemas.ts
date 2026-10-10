@@ -25,10 +25,16 @@ export function createProfileSchema(messages: ProfileMessages) {
   })
 }
 
-/** `PATCH /users/me` body restricted to `password`, plus a confirmation that is never sent. */
-export function createPasswordSchema(messages: PasswordMessages) {
-  return UsersPatchCurrentUserBody.pick({ password: true })
-    .extend({
+/** `PUT /account/password`; `current_password` is required only once a password is set. */
+export function createPasswordSchema(
+  messages: PasswordMessages & { currentRequired: string },
+  passwordSet: boolean
+) {
+  return z
+    .object({
+      current_password: passwordSet
+        ? z.string().min(1, { error: messages.currentRequired })
+        : z.string(),
       password: z
         .string()
         .min(PASSWORD_MIN_LENGTH, { error: messages.tooShort })
