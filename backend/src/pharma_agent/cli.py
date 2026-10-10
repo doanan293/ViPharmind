@@ -41,6 +41,28 @@ from pharma_agent.infrastructure.settings import Settings
 
 app = typer.Typer(help="Pharma agent developer CLI", no_args_is_help=True)
 
+# Set by the --env-file option before any command runs.
+_env_file: Path | None = None
+
+
+@app.callback()
+def main(
+    env_file: Path | None = typer.Option(
+        None,
+        "--env-file",
+        exists=True,
+        dir_okay=False,
+        help="Đọc PHARMA_* từ file này thay cho backend/.env (ví dụ .env.production)",
+    ),
+) -> None:
+    global _env_file
+    _env_file = env_file
+
+
+def load_settings() -> Settings:
+    """Settings from --env-file when given, otherwise from the environment and .env."""
+    return Settings() if _env_file is None else Settings(_env_file=_env_file)
+
 
 @app.command()
 def ask(
@@ -50,7 +72,7 @@ def ask(
     ),
 ) -> None:
     """Chạy một lượt hỏi đáp với cấu hình trong .env."""
-    settings = Settings()
+    settings = load_settings()
     asyncio.run(_ask(settings, question, json_output))
 
 
@@ -115,7 +137,7 @@ def _render(event: ProgressEvent, evidence: list[dict[str, Any]]) -> None:
 @app.command()
 def check() -> None:
     """Kiểm tra cấu hình LLM, corpus (Qdrant + release hiện hành), embedding và reranker."""
-    settings = Settings()
+    settings = load_settings()
     failures = asyncio.run(_check(settings))
     for name, ok, detail in failures:
         typer.echo(f"{'OK ' if ok else 'ERR'} {name}: {detail}")
@@ -207,7 +229,7 @@ def serve(
     """Chạy HTTP API (FastAPI + SSE)."""
     import uvicorn
 
-    settings = Settings()
+    settings = load_settings()
     uvicorn.run(
         "pharma_agent.api.app:create_app",
         factory=True,
@@ -226,7 +248,7 @@ def migrate(revision: str = typer.Argument("head", help="Alembic revision")) -> 
         alembic_config,
     )
 
-    command.upgrade(alembic_config(), revision)
+    command.upgrade(alembic_config(load_settings().postgres.dsn), revision)
 
 
 @app.command("export-openapi")
@@ -251,7 +273,7 @@ def export_openapi(
 @app.command("cleanup-sessions")
 def cleanup_sessions() -> None:
     """Xóa phiên đăng nhập hết hạn, mã OTP và bộ đếm giới hạn cũ."""
-    settings = Settings()
+    settings = load_settings()
     lifetime = settings.auth.session_lifetime_seconds
     deleted = asyncio.run(
         delete_expired_access_tokens(
@@ -270,7 +292,7 @@ app.add_typer(superadmin_app, name="superadmin")
 
 
 def _set_superadmin(email: str, value: bool) -> None:
-    settings = Settings()
+    settings = load_settings()
     if not asyncio.run(set_superadmin(settings.postgres.conninfo, email, value)):
         typer.echo(f"!! no account with email {email}", err=True)
         raise typer.Exit(code=1)
@@ -292,7 +314,7 @@ def superadmin_revoke(email: str = typer.Argument(..., help="Email tài khoản"
 @superadmin_app.command("list")
 def superadmin_list() -> None:
     """Liệt kê các tài khoản superadmin."""
-    for email in asyncio.run(list_superadmins(Settings().postgres.conninfo)):
+    for email in asyncio.run(list_superadmins(load_settings().postgres.conninfo)):
         typer.echo(email)
 
 
@@ -306,7 +328,7 @@ CorpusAction = Callable[[CorpusServices], Awaitable[None]]
 
 def _run_corpus(action: CorpusAction, settings: Settings | None = None) -> None:
     try:
-        asyncio.run(_with_corpus_services(settings or Settings(), action))
+        asyncio.run(_with_corpus_services(settings or load_settings(), action))
     except DomainError as exc:
         typer.echo(f"!! {exc.code}: {exc}", err=True)
         raise typer.Exit(code=1) from exc
@@ -451,7 +473,7 @@ def corpus_gc(
     ),
 ) -> None:
     """Retire release cũ, dọn point Qdrant và chunk version không còn dùng."""
-    settings = Settings()
+    settings = load_settings()
     retained = keep if keep is not None else settings.corpus.gc_keep
 
     async def action(services: CorpusServices) -> None:

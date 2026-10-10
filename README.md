@@ -93,6 +93,20 @@ Backend chạy trên máy thì đổi các biến embedding và rerank trong `ba
 3. `docker compose -f compose.yaml -f compose.gemini-proxy.yaml up -d`. Hai override dùng chung
    được: thêm cả `-f compose.local-models.yaml`.
 
+## Production
+
+Frontend chạy trên Vercel, backend trên Google Cloud Run (một instance, tác vụ xuất bản qua Cloud
+Tasks), Postgres trên Neon (Singapore), vector trên Qdrant Cloud, LLM, embedding và reranker trên
+DeepInfra, thư qua Gmail SMTP. Trình duyệt chỉ gọi origin Vercel; route `/api/*` của frontend chuyển
+tiếp sang Cloud Run nên cookie là first-party.
+
+- Các bước dựng lần đầu và đường scale: `docs/launch-checklist.md`.
+- Backend: `devops/cloud-run/README.md` và workflow `.github/workflows/deploy-backend.yml`
+  (push `main` → build, migrate, deploy).
+- Frontend: mục *Deploy to Vercel* trong `frontend/README.md`.
+- CLI trỏ vào production từ máy mình: `uv run pharma-agent --env-file .env.production <lệnh>`
+  (mẫu ở `backend/.env.production.example`).
+
 ## Môi trường Python
 
 `backend` và `pharma-lab` là member của một uv workspace (`pyproject.toml` ở root): chung một
