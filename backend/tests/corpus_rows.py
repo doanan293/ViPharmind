@@ -26,7 +26,7 @@ from pharma_agent.domain.corpus.chunking import (
     ChunkDraft,
     chunk_section,
 )
-from pharma_agent.domain.corpus.hydrate import hydrate_strategy_for, section_char_count
+from pharma_agent.domain.corpus.hydrate import hydrate_strategy_for
 from pharma_agent.domain.corpus.identity import section_revision_id
 from pharma_agent.domain.retrieval.models import Hit, HydrateStrategy
 from pharma_agent.domain.shared.text import make_snippet
@@ -192,11 +192,8 @@ async def seed_release(
                 id=document_id,
                 collection_id=collection_id,
                 key=document.key,
-                kind=document.kind.value,
                 title=document.title,
                 source_title=document.source.title,
-                source_url=document.source.url,
-                attributes=dict(document.attributes),
             )
         )
         session.add(
@@ -227,22 +224,10 @@ async def seed_release(
                     document_id=document_id,
                     key=section.key,
                     heading=section.heading,
-                    context_path=list(section.context_path),
-                    ordinal=section.ordinal,
-                    retrieval_mode=section.retrieval.value,
                 )
             )
             await session.flush()
-            session.add(
-                SectionRevisionTable(
-                    id=revision_id,
-                    section_id=section_id,
-                    blocks=[block.model_dump(mode="json") for block in section.blocks],
-                    start_page=section.start_page,
-                    end_page=section.end_page,
-                    char_count=section_char_count(section),
-                )
-            )
+            session.add(SectionRevisionTable(id=revision_id, section_id=section_id))
             await session.flush()
             session.add_all(
                 ChunkVersionTable(

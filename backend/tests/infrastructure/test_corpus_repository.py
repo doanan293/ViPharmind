@@ -84,8 +84,6 @@ async def test_stage_release_writes_every_row_once(database: Database) -> None:
     assert await count(database, "section_revisions") == 5
     assert await count(database, "chunk_versions") == len(snapshot.chunks)
     assert await count(database, "release_chunks") == len(snapshot.release_chunks)
-    assert await count(database, "glossary_entries") == 2
-    assert await count(database, "colloquial_mappings") == 1
     assert await count(database, "chunk_versions", "colloquial IS NULL") == sum(
         chunk.colloquial is None for chunk in snapshot.chunks
     )
@@ -260,7 +258,6 @@ async def test_purge_keeps_chunk_versions_protected_by_restrict(
         section_revisions_deleted=len(all_revisions - referenced),
     )
     assert await count(database, "chunk_versions", f"id = '{protected}'") == 1
-    assert await count(database, "glossary_entries", f"release_id = '{r1.id}'") == 0
     summaries = {s.release.id: s for s in await repository.list_releases("formulary")}
     assert summaries[r1.id].release.status is ReleaseStatus.RETIRED
     assert summaries[r1.id].release.retired_at == NOW

@@ -1,8 +1,7 @@
 """Tables of the Postgres schema `corpus` (spec 2026-09-13 corpus platform §6.2).
 
-`section_revisions`, `chunk_versions`, `release_chunks`, `glossary_entries`,
-`colloquial_mappings` and `embedding_cache` rows are immutable once written; releases only
-change status. Chunk versions are protected by `RESTRICT` foreign keys so a citation can never
+`section_revisions`, `chunk_versions`, `release_chunks` and `embedding_cache` rows are
+immutable once written; releases only change status. Chunk versions are protected by `RESTRICT` foreign keys so a citation can never
 lose the text it points to.
 """
 
@@ -24,7 +23,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from pharma_agent.infrastructure.persistence.postgres.tables import Base
@@ -81,13 +80,8 @@ class DocumentTable(Base):
         Uuid, ForeignKey("corpus.collections.id", ondelete="CASCADE"), nullable=False
     )
     key: Mapped[str] = mapped_column(String(300), nullable=False)
-    kind: Mapped[str] = mapped_column(String(32), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     source_title: Mapped[str] = mapped_column(Text, nullable=False)
-    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    attributes: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, nullable=False, server_default=text("'{}'::jsonb")
-    )
 
 
 class SectionTable(Base):
@@ -103,14 +97,11 @@ class SectionTable(Base):
     )
     key: Mapped[str] = mapped_column(String(400), nullable=False)
     heading: Mapped[str] = mapped_column(Text, nullable=False)
-    context_path: Mapped[list[str]] = mapped_column(
-        ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")
-    )
-    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
-    retrieval_mode: Mapped[str] = mapped_column(String(16), nullable=False)
 
 
 class SectionRevisionTable(Base):
+    """A section's content-addressed revision id; chunk versions and citations join through it."""
+
     __tablename__ = "section_revisions"
     __table_args__ = ({"schema": CORPUS_SCHEMA},)
 
@@ -118,10 +109,6 @@ class SectionRevisionTable(Base):
     section_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("corpus.sections.id", ondelete="CASCADE"), nullable=False
     )
-    blocks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
-    start_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    end_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    char_count: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class ChunkVersionTable(Base):
@@ -223,31 +210,6 @@ class ReleaseChunkTable(Base):
     )
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
     hydrate_strategy: Mapped[str] = mapped_column(String(32), nullable=False)
-
-
-class GlossaryEntryTable(Base):
-    __tablename__ = "glossary_entries"
-    __table_args__ = ({"schema": CORPUS_SCHEMA},)
-
-    release_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("corpus.releases.id", ondelete="CASCADE"), primary_key=True
-    )
-    # P1's bundle validation rejects case-insensitive duplicate terms.
-    term: Mapped[str] = mapped_column(Text, primary_key=True)
-    data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-
-
-class ColloquialMappingTable(Base):
-    __tablename__ = "colloquial_mappings"
-    __table_args__ = ({"schema": CORPUS_SCHEMA},)
-
-    release_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("corpus.releases.id", ondelete="CASCADE"), primary_key=True
-    )
-    # Bundle order; `key` is not unique (P1 allows "" for title-only leaflet mappings).
-    position: Mapped[int] = mapped_column(Integer, primary_key=True)
-    key: Mapped[str] = mapped_column(String(300), nullable=False)
-    data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
 
 class EmbeddingCacheTable(Base):
