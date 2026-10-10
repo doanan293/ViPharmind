@@ -123,6 +123,7 @@ async def search_node(
         queries,
         rerank_query=run.standalone_query,
         known_scores=run.evidence.rerank_scores(),
+        scope=runtime.context.scope,
     )
     run.record_search(queries, result, now=deps.clock.now())
     if result.items:

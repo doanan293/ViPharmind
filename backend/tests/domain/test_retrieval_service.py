@@ -7,6 +7,7 @@ from pharma_agent.domain.retrieval.models import (
     HydrateStrategy,
     Query,
     QueryOrigin,
+    ReleaseScope,
 )
 from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
@@ -29,11 +30,13 @@ class FakeRetriever:
     def __init__(self, results: list[list[Hit]] | Exception) -> None:
         self.results = results
         self.calls: list[tuple[list[Query], int]] = []
+        self.scopes: list[ReleaseScope | None] = []
 
     async def search_many(
-        self, queries: Sequence[Query], top_k: int
+        self, queries: Sequence[Query], top_k: int, scope: ReleaseScope | None = None
     ) -> list[list[Hit]]:
         self.calls.append((list(queries), top_k))
+        self.scopes.append(scope)
         if isinstance(self.results, Exception):
             raise self.results
         return [
@@ -193,3 +196,38 @@ async def test_reranker_is_not_called_when_every_candidate_is_known() -> None:
 
     assert reranker.calls == 0 and result.rerank_failed is False
     assert [i.hit.chunk_version_id for i in result.items] == ids("b", "a")
+
+
+SCOPE = {uuid.uuid4(): uuid.uuid4()}
+
+
+def scoped_service(retriever: FakeRetriever) -> RetrievalService:
+    return RetrievalService(
+        retriever,
+        FakeReranker(),
+        FakeHydrator(),
+        RetrievalConfig(candidate_k=5, rerank_top_n=2),
+    )
+
+
+async def test_an_explicit_scope_reaches_the_retriever() -> None:
+    retriever = FakeRetriever([[hit("a", 0.9)]])
+    result = await scoped_service(retriever).search(
+        queries("q"), rerank_query="q", scope=SCOPE
+    )
+    assert retriever.scopes == [SCOPE] and len(result.items) == 1
+
+
+async def test_an_empty_scope_searches_nothing_and_is_not_an_error() -> None:
+    retriever = FakeRetriever([[hit("a", 0.9)]])
+    result = await scoped_service(retriever).search(
+        queries("q"), rerank_query="q", scope={}
+    )
+    assert retriever.calls == []
+    assert result.items == [] and result.error is None
+
+
+async def test_without_a_scope_the_retriever_uses_its_default() -> None:
+    retriever = FakeRetriever([[hit("a", 0.9)]])
+    await scoped_service(retriever).search(queries("q"), rerank_query="q")
+    assert retriever.scopes == [None]

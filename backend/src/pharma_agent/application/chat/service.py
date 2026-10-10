@@ -1,7 +1,8 @@
 """Chat use case: run one agent turn inside a conversation and persist it atomically."""
 
 import logging
-from collections.abc import AsyncGenerator
+import uuid
+from collections.abc import AsyncGenerator, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -18,6 +19,7 @@ from pharma_agent.domain.conversation.models import (
 )
 from pharma_agent.domain.conversation.ports import ConversationRepository
 from pharma_agent.domain.conversation.turns import build_turn_messages
+from pharma_agent.domain.retrieval.ports import ScopeResolver
 from pharma_agent.domain.shared.clock import Clock
 from pharma_agent.domain.shared.ids import new_id
 
@@ -152,19 +154,33 @@ class ChatService:
         conversations: ConversationRepository,
         clock: Clock,
         policy: MemoryPolicy,
+        *,
+        scopes: ScopeResolver | None = None,
     ) -> None:
         self._runner = runner
         self._conversations = conversations
         self._clock = clock
         self._policy = policy
+        self._scopes = scopes
 
     async def open_turn(
-        self, *, user_id: str, message: str, conversation_id: str | None
+        self,
+        *,
+        user_id: str,
+        message: str,
+        conversation_id: str | None,
+        collection_ids: Sequence[uuid.UUID] | None = None,
     ) -> ChatSession:
+        """`collection_ids` narrows a new conversation's sources; a follow-up uses the
+        sources stored on the conversation."""
         if conversation_id is None:
             conversation = Conversation.start(
                 user_id=user_id, first_message=message, now=self._clock.now()
             )
+            if collection_ids:
+                conversation = conversation.model_copy(
+                    update={"collection_ids": tuple(dict.fromkeys(collection_ids))}
+                )
             await self._conversations.create(conversation)
             context = ConversationContext()
             created = True
@@ -187,11 +203,19 @@ class ChatService:
                 max_chars=self._policy.context_chars,
             )
             created = False
+        scope = (
+            None
+            if self._scopes is None
+            else await self._scopes.resolve(
+                user_id=user_id, requested=conversation.collection_ids
+            )
+        )
         execution = self._runner.start(
             user_id=user_id,
             message=message,
             conversation=context,
             conversation_id=conversation.conversation_id,
+            scope=scope,
         )
         return ChatSession(
             execution,

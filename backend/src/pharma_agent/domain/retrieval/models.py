@@ -1,7 +1,12 @@
+from collections.abc import Mapping
 from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+type ReleaseScope = Mapping[UUID, UUID]
+"""collection_id -> its current release_id: exactly what one search may read. Empty means
+there is nothing the user may search."""
 
 
 class HydrateStrategy(StrEnum):

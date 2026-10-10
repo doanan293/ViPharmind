@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pharma_agent.domain.conversation.models import ConversationContext
 from pharma_agent.domain.guardrail.service import GuardrailService
 from pharma_agent.domain.llm.port import LlmPort
+from pharma_agent.domain.retrieval.models import ReleaseScope
 from pharma_agent.domain.retrieval.service import RetrievalService
 from pharma_agent.domain.shared.clock import Clock
 
@@ -32,3 +33,6 @@ class TurnContext:
     deps: TurnDeps
     conversation: ConversationContext
     pipeline: PipelineOptions = PipelineOptions()
+    # What this turn may search; None uses the retrieval service's default scope
+    # (runs without a user, such as the evaluation harness).
+    scope: ReleaseScope | None = None

@@ -7,6 +7,7 @@ from pharma_agent.domain.retrieval.models import (
     Hit,
     HydrateStrategy,
     Query,
+    ReleaseScope,
     RetrievedItem,
 )
 from pharma_agent.domain.retrieval.ports import (
@@ -58,6 +59,8 @@ class RetrievalService:
         queries: Sequence[Query],
         rerank_query: str,
         known_scores: Mapping[UUID, float] | None = None,
+        *,
+        scope: ReleaseScope | None = None,
     ) -> SearchResult:
         """Search every query, keep a capped candidate pool, rerank it and hydrate the top hits.
 
@@ -65,8 +68,11 @@ class RetrievalService:
         `rerank_query` (an earlier round of the same run); those chunks are not scored again.
         """
         try:
+            if scope is not None and not scope:
+                # Nothing the user may search: an empty result, not a failure.
+                return SearchResult(queries=list(queries))
             per_query = await self._retriever.search_many(
-                queries, self._config.candidate_k
+                queries, self._config.candidate_k, scope
             )
         except RetrievalError as exc:
             return SearchResult(queries=list(queries), error=str(exc))

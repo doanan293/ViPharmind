@@ -11,7 +11,13 @@ from pharma_agent.application.chat.context import TurnDeps
 from pharma_agent.domain.guardrail.service import GuardrailService
 from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
 from pharma_agent.domain.llm.port import LlmError
-from pharma_agent.domain.retrieval.models import Chunk, Hit, HydrateStrategy, Query
+from pharma_agent.domain.retrieval.models import (
+    Chunk,
+    Hit,
+    HydrateStrategy,
+    Query,
+    ReleaseScope,
+)
 from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
 from pharma_agent.domain.shared.clock import FixedClock
@@ -73,11 +79,13 @@ class FakeRetriever:
     def __init__(self, *rounds: list[Hit] | Exception) -> None:
         self.rounds = list(rounds)
         self.calls: list[list[Query]] = []
+        self.scopes: list[ReleaseScope | None] = []
 
     async def search_many(
-        self, queries: Sequence[Query], top_k: int
+        self, queries: Sequence[Query], top_k: int, scope: ReleaseScope | None = None
     ) -> list[list[Hit]]:
         self.calls.append(list(queries))
+        self.scopes.append(scope)
         if not self.rounds:
             return [[] for _ in queries]
         current = self.rounds.pop(0)

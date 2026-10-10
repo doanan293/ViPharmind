@@ -8,6 +8,7 @@ from pharma_agent.domain.retrieval.models import (
     Hit,
     HydrateStrategy,
     Query,
+    ReleaseScope,
 )
 from pharma_agent.domain.shared.errors import DomainError
 
@@ -18,9 +19,19 @@ class RetrievalError(DomainError):
 
 class Retriever(Protocol):
     async def search_many(
-        self, queries: Sequence[Query], top_k: int
+        self, queries: Sequence[Query], top_k: int, scope: ReleaseScope | None = None
     ) -> list[list[Hit]]:
-        """One ranked hit list per query, same order as `queries`. Raises RetrievalError."""
+        """One ranked hit list per query, same order as `queries`, reading only the
+        releases in `scope`. None means the configured default collections, for runs
+        without a user (evaluation, CLI). Raises RetrievalError."""
+        ...
+
+
+class ScopeResolver(Protocol):
+    async def resolve(
+        self, *, user_id: str, requested: Sequence[UUID] | None
+    ) -> ReleaseScope:
+        """What `user_id` may search now, narrowed to `requested` when given."""
         ...
 
 

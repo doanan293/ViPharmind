@@ -101,6 +101,8 @@ class Conversation(BaseModel):
     summarized_turns: int = 0
     created_at: datetime
     updated_at: datetime
+    # Sources chosen for this conversation; None searches everything the user may see.
+    collection_ids: tuple[UUID, ...] | None = None
 
     @classmethod
     def create_empty(

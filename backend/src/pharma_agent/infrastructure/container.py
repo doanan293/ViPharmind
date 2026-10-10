@@ -32,6 +32,9 @@ from pharma_agent.infrastructure.organizations_factory import (
 from pharma_agent.infrastructure.persistence.postgres.citation_reader import (
     PostgresCitationReader,
 )
+from pharma_agent.infrastructure.persistence.postgres.collection_repository import (
+    PostgresCollectionRepository,
+)
 from pharma_agent.infrastructure.persistence.postgres.conversation_repository import (
     PostgresConversationRepository,
 )
@@ -39,6 +42,7 @@ from pharma_agent.infrastructure.persistence.postgres.database import Database
 from pharma_agent.infrastructure.persistence.postgres.feedback_repository import (
     PostgresFeedbackRepository,
 )
+from pharma_agent.infrastructure.retrieval.scope_resolver import PostgresScopeResolver
 from pharma_agent.infrastructure.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -103,6 +107,9 @@ async def open_container(
         else NullTracing()
     )
     feedback_repository = PostgresFeedbackRepository(database.sessions)
+    organization_services = build_organization_services(
+        settings, database.sessions, clock=clock, email=email_sender
+    )
     container = Container(
         sessions=database.sessions,
         conversations=ConversationService(
@@ -113,9 +120,7 @@ async def open_container(
         ),
         feedback=FeedbackService(repository, feedback_repository, tracing, clock),
         health_checks={"postgres": database.ping},
-        organizations=build_organization_services(
-            settings, database.sessions, clock=clock, email=email_sender
-        ),
+        organizations=organization_services,
     )
     if settings.auth.otp_secret is None:
         logger.warning("PHARMA_AUTH__OTP_SECRET is not set: account flows are disabled")
@@ -143,6 +148,10 @@ async def open_container(
                     MemoryPolicy(
                         context_turns=settings.memory.context_turns,
                         context_chars=settings.memory.context_chars,
+                    ),
+                    scopes=PostgresScopeResolver(
+                        organization_services.actors,
+                        PostgresCollectionRepository(database.sessions),
                     ),
                 )
                 container.summarizer = SummarizeConversation(

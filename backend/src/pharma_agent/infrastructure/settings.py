@@ -115,7 +115,8 @@ class RerankSettings(BaseModel):
 class RetrievalSettings(BaseModel):
     # Alias of the physical collection chunks_<embedding model slug> (spec C §8.3).
     qdrant_collection: str = "chunks_current"
-    # Corpus collections the agent searches; each one needs a current release.
+    # Scope of runs without a user (evaluation harness, CLI ask/check); each needs a
+    # current release. Chat over the API searches what the signed-in user may see.
     collections: list[str] = Field(default_factory=lambda: ["formulary"])
     # bm25 = sparse only with no query embedding (evaluation baseline).
     mode: Literal["hybrid", "dense", "bm25"] = "hybrid"
