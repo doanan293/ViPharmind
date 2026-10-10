@@ -72,6 +72,8 @@
                   "~/features/conversations/**",
                   "~/features/landing",
                   "~/features/landing/**",
+                  "~/features/organizations",
+                  "~/features/organizations/**",
                   "~/features/settings",
                   "~/features/settings/**",
                   "~/features/shell",
@@ -105,6 +107,8 @@
                   "~/features/conversations/**",
                   "~/features/landing",
                   "~/features/landing/**",
+                  "~/features/organizations",
+                  "~/features/organizations/**",
                   "~/features/settings",
                   "~/features/settings/**",
                   "~/features/shell",
@@ -136,6 +140,8 @@
                   "~/features/auth/**",
                   "~/features/landing",
                   "~/features/landing/**",
+                  "~/features/organizations",
+                  "~/features/organizations/**",
                   "~/features/settings",
                   "~/features/settings/**",
                   "~/features/shell",
@@ -169,6 +175,8 @@
                   "~/features/chat/**",
                   "~/features/landing",
                   "~/features/landing/**",
+                  "~/features/organizations",
+                  "~/features/organizations/**",
                   "~/features/settings",
                   "~/features/settings/**",
                   "~/features/shell",
@@ -202,12 +210,47 @@
                   "~/features/chat/**",
                   "~/features/conversations",
                   "~/features/conversations/**",
+                  "~/features/organizations",
+                  "~/features/organizations/**",
                   "~/features/settings",
                   "~/features/settings/**",
                   "~/features/shell",
                   "~/features/shell/**"
                 ],
                 "message": "features/landing must not import other features; compose features in routes instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["app/features/organizations/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["~/routes", "~/routes/**"],
+                "message": "Features must not import routes; routes compose features."
+              },
+              {
+                "group": [
+                  "~/features/auth",
+                  "~/features/auth/**",
+                  "~/features/chat",
+                  "~/features/chat/**",
+                  "~/features/conversations",
+                  "~/features/conversations/**",
+                  "~/features/landing",
+                  "~/features/landing/**",
+                  "~/features/settings",
+                  "~/features/settings/**",
+                  "~/features/shell",
+                  "~/features/shell/**"
+                ],
+                "message": "features/organizations may only import features/audit; compose features in routes instead."
               }
             ]
           }
@@ -237,6 +280,8 @@
                   "~/features/conversations/**",
                   "~/features/landing",
                   "~/features/landing/**",
+                  "~/features/organizations",
+                  "~/features/organizations/**",
                   "~/features/shell",
                   "~/features/shell/**"
                 ],
@@ -266,6 +311,8 @@
                   "~/features/chat/**",
                   "~/features/landing",
                   "~/features/landing/**",
+                  "~/features/organizations",
+                  "~/features/organizations/**",
                   "~/features/settings",
                   "~/features/settings/**"
                 ],

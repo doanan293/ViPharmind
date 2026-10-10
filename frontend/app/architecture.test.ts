@@ -11,6 +11,7 @@ const SHARED = ["api", "components", "hooks", "i18n", "lib"]
 const ALLOWED_FEATURE_IMPORTS: Record<string, string[]> = {
   chat: ["conversations"],
   shell: ["auth", "conversations"],
+  organizations: ["audit"],
 }
 const IMPORT = /(?:from|import|import\(|vi\.mock\()\s*["']([^"']+)["']/g
 const EXTENSIONS = [".ts", ".tsx", "/index.ts", "/index.tsx"]
