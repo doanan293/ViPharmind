@@ -8,6 +8,7 @@ from fastapi_users_db_sqlalchemy import (
 )
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyBaseAccessTokenTableUUID
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -77,6 +78,9 @@ class UserTable(SQLAlchemyBaseUserTableUUID, Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    # Overrides of the default quotas (spec §5.4); NULL uses the configured default.
+    text_quota_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    collection_quota: Mapped[int | None] = mapped_column(Integer, nullable=True)
     oauth_accounts: Mapped[list[OAuthAccountTable]] = relationship(lazy="joined")
 
     @property
@@ -256,3 +260,115 @@ class RateLimitBucketTable(Base):
         DateTime(timezone=True), nullable=False
     )
     count: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class OrganizationTable(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    text_quota_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    collection_quota: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+
+class OrganizationMemberTable(Base):
+    __tablename__ = "organization_members"
+    __table_args__ = (
+        CheckConstraint("role IN ('owner', 'editor', 'member')", name="role"),
+        Index("ix_organization_members_user_id", "user_id"),
+    )
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("organizations.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class OrganizationInvitationTable(Base):
+    __tablename__ = "organization_invitations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending_approval', 'sent', 'accepted', 'declined',"
+            " 'rejected', 'revoked', 'expired')",
+            name="status",
+        ),
+        CheckConstraint("role IN ('owner', 'editor', 'member')", name="role"),
+        Index(
+            "uq_organization_invitations_open",
+            "organization_id",
+            "email",
+            unique=True,
+            postgresql_where=text("status IN ('pending_approval', 'sent')"),
+        ),
+        Index("ix_organization_invitations_token_hash", "token_hash", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    # SET NULL: an invitation outlives the account of whoever sent it.
+    invited_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class AuditEventTable(Base):
+    """Append-only. The subject columns carry no foreign keys, so an event outlives the
+    organization, user or collection it describes."""
+
+    __tablename__ = "audit_events"
+    __table_args__ = (
+        Index(
+            "ix_audit_events_organization_occurred",
+            "organization_id",
+            "occurred_at",
+            "id",
+        ),
+        Index(
+            "ix_audit_events_subject_occurred", "subject_user_id", "occurred_at", "id"
+        ),
+        Index("ix_audit_events_occurred", "occurred_at", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+    actor_was_superadmin: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    action: Mapped[str] = mapped_column(String(64), nullable=False)
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    subject_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    collection_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    details: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )

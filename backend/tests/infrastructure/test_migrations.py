@@ -1,10 +1,11 @@
 import asyncio
+import uuid
 
 import pytest
 from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -31,6 +32,10 @@ EXPECTED_TABLES = {
     "conversations",
     "messages",
     "message_citations",
+    "organizations",
+    "organization_members",
+    "organization_invitations",
+    "audit_events",
 }
 EXPECTED_CORPUS_TABLES = {
     "collections",
@@ -195,3 +200,51 @@ async def test_corpus_cleanup_dropped_the_cache_and_the_embedding_text(
     assert "embedding_text" not in columns
     assert "embedding_text_sha256" in columns
     assert "skills" not in public_tables
+
+
+async def test_one_open_invitation_per_email_and_organization(
+    migrated_dsn: str,
+) -> None:
+    engine = create_async_engine(migrated_dsn)
+    org, user = uuid.uuid4(), uuid.uuid4()
+    insert = text(
+        "INSERT INTO organization_invitations (id, organization_id, email, role,"
+        " invited_by, status, token_hash, created_at) VALUES (gen_random_uuid(),"
+        " :org, 'a@b.c', 'member', :user, :status, md5(random()::text), now())"
+    )
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                'INSERT INTO "user" (id, email, hashed_password, is_active,'
+                " is_superuser, is_verified) VALUES (:id, :email, 'x', true, false,"
+                " true)"
+            ),
+            {"id": user, "email": f"{user.hex}@example.com"},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO organizations (id, name, created_at, updated_at)"
+                " VALUES (:id, 'Org', now(), now())"
+            ),
+            {"id": org},
+        )
+        await connection.execute(insert, {"org": org, "user": user, "status": "sent"})
+        await connection.execute(
+            insert, {"org": org, "user": user, "status": "declined"}
+        )
+        with pytest.raises(IntegrityError):
+            async with connection.begin_nested():
+                await connection.execute(
+                    insert, {"org": org, "user": user, "status": "pending_approval"}
+                )
+    await engine.dispose()
+
+
+async def test_quota_columns_exist(migrated_dsn: str) -> None:
+    engine = create_async_engine(migrated_dsn)
+    async with engine.connect() as connection:
+        users = await connection.run_sync(_columns, "user")
+        organizations = await connection.run_sync(_columns, "organizations")
+    await engine.dispose()
+    for columns in (users, organizations):
+        assert columns["text_quota_bytes"] and columns["collection_quota"]
