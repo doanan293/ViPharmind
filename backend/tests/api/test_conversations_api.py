@@ -154,7 +154,15 @@ async def test_create_conversation_then_first_message_names_it() -> None:
         created = await client.post("/api/v1/conversations")
         assert created.status_code == 201, created.text
         body = created.json()
-        assert set(body) == {"id", "title", "turn_count", "created_at", "updated_at"}
+        assert set(body) == {
+            "id",
+            "title",
+            "turn_count",
+            "created_at",
+            "updated_at",
+            "collection_ids",
+        }
+        assert body["collection_ids"] is None
         assert body["title"] == "Cuộc trò chuyện mới" and body["turn_count"] == 0
         conversation_id = body["id"]
         assert harness.repo.rows[conversation_id].user_id == OWNER.hex

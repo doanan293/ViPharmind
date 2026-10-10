@@ -17,7 +17,7 @@ EXPECTED_OPERATION_IDS = {
     "list_conversations",
     "get_conversation",
     "list_messages",
-    "rename_conversation",
+    "update_conversation",
     "delete_conversation",
     "get_message_citation",
     "submit_feedback",
@@ -67,6 +67,12 @@ EXPECTED_OPERATION_IDS = {
     "invitations:decline",
     "audit:organization",
     "audit:mine",
+    "collections:list",
+    "collections:create",
+    "collections:quota",
+    "collections:get",
+    "collections:update",
+    "collections:delete",
 }
 
 

@@ -228,10 +228,18 @@ class ChatService:
         )
 
     async def ask(
-        self, *, user_id: str, message: str, conversation_id: str | None
+        self,
+        *,
+        user_id: str,
+        message: str,
+        conversation_id: str | None,
+        collection_ids: Sequence[uuid.UUID] | None = None,
     ) -> ChatTurnResult:
         session = await self.open_turn(
-            user_id=user_id, message=message, conversation_id=conversation_id
+            user_id=user_id,
+            message=message,
+            conversation_id=conversation_id,
+            collection_ids=collection_ids,
         )
         async for _ in session.events():
             pass

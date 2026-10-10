@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 import pytest
@@ -175,3 +176,25 @@ async def test_create_starts_an_empty_unlisted_conversation() -> None:
     assert repo.rows[view.id].user_id == OWNER
     assert (await service.get_conversation(OWNER, view.id)).id == view.id
     assert (await service.list_conversations(OWNER, limit=10)).items == []
+
+
+async def test_update_sets_the_sources_and_null_restores_everything() -> None:
+    repo = InMemoryConversationRepository()
+    service = service_for(repo, FixedClock(NOW))
+    created = await service.create(OWNER)
+    chosen = [uuid.uuid4(), uuid.uuid4()]
+
+    narrowed = await service.update(OWNER, created.id, collection_ids=chosen)
+    assert narrowed.collection_ids == chosen and narrowed.title == created.title
+    stored = await repo.get(OWNER, created.id)
+    assert stored is not None and stored.collection_ids == tuple(chosen)
+
+    both = await service.update(
+        OWNER, created.id, title="Tim mạch", collection_ids=None
+    )
+    assert both.title == "Tim mạch" and both.collection_ids is None
+
+    with pytest.raises(InvalidInput):
+        await service.update(OWNER, created.id, collection_ids=[])
+    with pytest.raises(ConversationNotFound):
+        await service.update(STRANGER, created.id, collection_ids=chosen)

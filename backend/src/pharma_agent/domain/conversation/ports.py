@@ -35,6 +35,10 @@ class ConversationRepository(Protocol):
         """Persist only title and updated_at."""
         ...
 
+    async def update_scope(self, conversation: Conversation) -> None:
+        """Store the conversation's chosen sources (collection_ids)."""
+        ...
+
     async def update_summary(self, conversation: Conversation) -> None:
         """Persist only summary, summarized_turns and updated_at."""
         ...

@@ -151,6 +151,14 @@ class PostgresConversationRepository:
             conversation, title=conversation.title, updated_at=conversation.updated_at
         )
 
+    async def update_scope(self, conversation: Conversation) -> None:
+        await self._update(
+            conversation,
+            collection_ids=None
+            if conversation.collection_ids is None
+            else list(conversation.collection_ids),
+        )
+
     async def update_summary(self, conversation: Conversation) -> None:
         await self._update(
             conversation,

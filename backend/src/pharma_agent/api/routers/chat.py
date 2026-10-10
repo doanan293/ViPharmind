@@ -45,7 +45,10 @@ def build_chat_router(current_user_id: UserIdDependency) -> APIRouter:
     ) -> ChatTurnResult:
         service = require_chat(container)
         result = await service.ask(
-            user_id=user_id, message=body.message, conversation_id=body.conversation_id
+            user_id=user_id,
+            message=body.message,
+            conversation_id=body.conversation_id,
+            collection_ids=body.collection_ids,
         )
         background.add_task(
             summarize_quietly, container.summarizer, user_id, result.conversation_id
@@ -65,7 +68,10 @@ def build_chat_router(current_user_id: UserIdDependency) -> APIRouter:
         """
         service = require_chat(container)
         session = await service.open_turn(
-            user_id=user_id, message=body.message, conversation_id=body.conversation_id
+            user_id=user_id,
+            message=body.message,
+            conversation_id=body.conversation_id,
+            collection_ids=body.collection_ids,
         )
         response.headers.update(UI_MESSAGE_STREAM_HEADERS)
         background.add_task(

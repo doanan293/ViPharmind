@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, Path, Query, Response
 
 from pharma_agent.api.deps import ContainerDep, UserIdDependency
 from pharma_agent.api.problems import problem_responses
-from pharma_agent.api.schemas import CONVERSATION_ID_PATTERN, RenameConversationRequest
+from pharma_agent.api.schemas import CONVERSATION_ID_PATTERN, UpdateConversationRequest
 from pharma_agent.application.conversation.service import (
+    KEEP,
     ConversationPage,
     ConversationView,
     MessagePage,
@@ -68,14 +69,18 @@ def build_conversations_router(current_user_id: UserIdDependency) -> APIRouter:
         )
 
     @router.patch("/{conversation_id}", response_model=ConversationView)
-    async def rename_conversation(
+    async def update_conversation(
         conversation_id: ConversationId,
-        body: RenameConversationRequest,
+        body: UpdateConversationRequest,
         user_id: UserId,
         container: ContainerDep,
     ) -> ConversationView:
-        return await container.conversations.rename(
-            user_id, conversation_id, body.title
+        sent = body.model_fields_set
+        return await container.conversations.update(
+            user_id,
+            conversation_id,
+            title=body.title if "title" in sent and body.title is not None else KEEP,
+            collection_ids=body.collection_ids if "collection_ids" in sent else KEEP,
         )
 
     @router.delete("/{conversation_id}", status_code=204)
