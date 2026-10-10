@@ -99,5 +99,16 @@
     "deleteConfirm": "Delete",
     "renameFailed": "Could not rename",
     "deleteFailed": "Could not delete"
+  },
+  "scope": {
+    "button": "Sources",
+    "buttonCount": "Sources: {{count}}",
+    "all": "Everything I can see",
+    "public": "Public",
+    "mine": "Mine",
+    "others": "Others",
+    "empty": "No collections yet.",
+    "saveFailed": "Could not save the sources",
+    "search": "Search collections"
   }
 }
