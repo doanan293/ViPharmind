@@ -9,30 +9,26 @@ import {
   useCollectionsSections,
 } from "~/api/gen/endpoints"
 import type { ColloquialMappingRecord, SectionChoice } from "~/api/gen/schemas"
-import { Button, buttonVariants } from "~/components/ui/button"
-import { Checkbox } from "~/components/ui/checkbox"
+import { TagsInput } from "~/components/tags-input"
+import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "~/components/ui/popover"
 import { Spinner } from "~/components/ui/spinner"
 import { toast } from "~/components/ui/toast"
 import { apiErrorMessage } from "~/i18n/error-message"
 
-import { formatList, parseList } from "../lib/lists"
+import { SectionPicker } from "./SectionPicker"
 
 interface Row {
   id: number
   key: string
-  aliases: string
+  aliases: string[]
   visualSign: string
-  products: string
+  products: string[]
   sections: string[]
 }
 
-const TEXT_FIELDS = ["key", "aliases", "visualSign", "products"] as const
+const TEXT_FIELDS = ["key", "visualSign"] as const
+const LIST_FIELDS = ["aliases", "products"] as const
 
 let nextId = 0
 
@@ -41,9 +37,9 @@ function toRow(record: ColloquialMappingRecord): Row {
   return {
     id: nextId,
     key: record.key,
-    aliases: formatList(record.aliases),
+    aliases: [...(record.aliases ?? [])],
     visualSign: record.visual_sign ?? "",
-    products: formatList(record.product_names),
+    products: [...(record.product_names ?? [])],
     sections: [...(record.section_keys ?? [])],
   }
 }
@@ -51,56 +47,11 @@ function toRow(record: ColloquialMappingRecord): Row {
 function toRecord(row: Row): ColloquialMappingRecord {
   return {
     key: row.key.trim(),
-    aliases: parseList(row.aliases),
+    aliases: row.aliases,
     visual_sign: row.visualSign.trim(),
-    product_names: parseList(row.products),
+    product_names: row.products,
     section_keys: row.sections,
   }
-}
-
-function SectionPicker({
-  choices,
-  selected,
-  editable,
-  onChange,
-}: {
-  choices: SectionChoice[]
-  selected: string[]
-  editable: boolean
-  onChange: (sections: string[]) => void
-}) {
-  const { t } = useTranslation("collections")
-  return (
-    <Popover>
-      <PopoverTrigger
-        className={buttonVariants({ variant: "outline", size: "sm" })}
-      >
-        {t("colloquial.sections")} ({selected.length})
-      </PopoverTrigger>
-      <PopoverContent className="max-h-80 w-80 overflow-y-auto">
-        <ul className="flex flex-col gap-2">
-          {choices.map((choice) => (
-            <li key={choice.key}>
-              <label className="flex items-start gap-2 text-sm">
-                <Checkbox
-                  checked={selected.includes(choice.key)}
-                  disabled={!editable}
-                  onCheckedChange={(checked) =>
-                    onChange(
-                      checked
-                        ? [...selected, choice.key]
-                        : selected.filter((key) => key !== choice.key)
-                    )
-                  }
-                />
-                {choice.label}
-              </label>
-            </li>
-          ))}
-        </ul>
-      </PopoverContent>
-    </Popover>
-  )
 }
 
 function ColloquialEditor({
@@ -134,7 +85,6 @@ function ColloquialEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">{t("glossary.hint")}</p>
       <ul className="flex flex-col gap-3">
         {rows.map((row) => (
           <li
@@ -153,13 +103,27 @@ function ColloquialEditor({
                 }
               />
             ))}
-            <div className="flex gap-2 sm:col-span-4">
-              <SectionPicker
-                choices={choices}
-                selected={row.sections}
-                editable={editable}
-                onChange={(sections) => change(row.id, { sections })}
+            {LIST_FIELDS.map((field) => (
+              <TagsInput
+                key={field}
+                label={labels[field]}
+                placeholder={labels[field]}
+                value={row[field]}
+                disabled={!editable}
+                onValueChange={(value) => change(row.id, { [field]: value })}
               />
+            ))}
+            <div className="flex items-start gap-2 sm:col-span-4">
+              <div className="flex-1">
+                <SectionPicker
+                  choices={choices}
+                  value={row.sections}
+                  label={t("colloquial.sections")}
+                  empty={t("colloquial.noSections")}
+                  disabled={!editable}
+                  onValueChange={(sections) => change(row.id, { sections })}
+                />
+              </div>
               {editable ? (
                 <Button
                   variant="ghost"

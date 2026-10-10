@@ -13,16 +13,8 @@ import { Skeleton } from "~/components/ui/skeleton"
 
 import { EditorToolbar } from "./EditorToolbar"
 
-// No typography plugin in the app, so the editable area styles its own blocks.
-const CONTENT_CLASS = [
-  "min-h-80 p-3 text-sm outline-none [&_p]:my-2",
-  "[&_h1]:my-3 [&_h1]:text-2xl [&_h1]:font-semibold",
-  "[&_h2]:my-3 [&_h2]:text-xl [&_h2]:font-semibold",
-  "[&_h3]:my-2 [&_h3]:text-lg [&_h3]:font-semibold",
-  "[&_ul]:list-disc [&_ol]:list-decimal [&_ol,&_ul]:my-2 [&_ol,&_ul]:pl-6",
-  "[&_table]:my-3 [&_table]:w-full [&_table]:border-collapse",
-  "[&_td,&_th]:border [&_td,&_th]:px-2 [&_td,&_th]:py-1 [&_th]:bg-muted",
-].join(" ")
+const CONTENT_CLASS =
+  "prose prose-sm dark:prose-invert min-h-80 max-w-none p-3 outline-none"
 
 /** StarterKit keeps an empty paragraph at the end, which is not part of the document. */
 function markdownOf(editor: Editor): string {

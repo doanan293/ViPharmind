@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw"
 import { createRoutesStub } from "react-router"
 import { describe, expect, test } from "vitest"
-import { page } from "vitest/browser"
+import { page, userEvent } from "vitest/browser"
 import { render } from "vitest-browser-react"
 
 import type { CollectionView, JobView } from "~/api/gen/schemas"
@@ -146,9 +146,15 @@ describe("CollectionPage", () => {
       .nth(1)
       .fill("IV")
     await page
-      .getByRole("textbox", { name: "Tên khác", exact: true })
+      .getByRole("combobox", { name: "Tên khác", exact: true })
       .nth(1)
-      .fill("tiêm tĩnh mạch, truyền")
+      .fill("tiêm tĩnh mạch")
+    await userEvent.keyboard("{Enter}")
+    await page
+      .getByRole("combobox", { name: "Tên khác", exact: true })
+      .nth(1)
+      .fill("truyền")
+    await userEvent.keyboard("{Enter}")
     await page.getByRole("button", { name: "Lưu thuật ngữ" }).click()
     await expect.poll(() => saved).toHaveLength(1)
     expect(saved[0]).toEqual([
