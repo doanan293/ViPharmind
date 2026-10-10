@@ -54,6 +54,7 @@ DEFAULT_QDRANT_URL = "http://localhost:6333"
 E2E_QDRANT_ALIAS = "e2e_chunks_current"
 E2E_JWT_SECRET = "e2e-jwt-secret-for-tests-only-0123456789"
 E2E_CSRF_SECRET = "e2e-csrf-secret-for-tests-only-0123456789"
+E2E_OTP_SECRET = "e2e-otp-secret-for-tests-only-0123456789"
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,7 @@ def e2e_settings(config: E2EConfig) -> Settings:
         auth={
             "jwt_secret": E2E_JWT_SECRET,
             "csrf_secret": E2E_CSRF_SECRET,
+            "otp_secret": E2E_OTP_SECRET,
             "cookie_secure": False,
         },
     )

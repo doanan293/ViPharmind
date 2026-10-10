@@ -21,6 +21,7 @@ from tests.memory_repository import (
 
 JWT_SECRET = "s" * 40
 CSRF_SECRET = "c" * 40
+OTP_SECRET = "o" * 40
 PASSWORD = "S3cure-password!"
 
 
@@ -31,7 +32,12 @@ async def postgres_app(
     database = Database(dsn, pool_size=2)
     settings = Settings(
         _env_file=None,
-        auth={"jwt_secret": JWT_SECRET, "csrf_secret": CSRF_SECRET, **(auth or {})},
+        auth={
+            "jwt_secret": JWT_SECRET,
+            "csrf_secret": CSRF_SECRET,
+            "otp_secret": OTP_SECRET,
+            **(auth or {}),
+        },
         postgres={"dsn": dsn},
     )
 
