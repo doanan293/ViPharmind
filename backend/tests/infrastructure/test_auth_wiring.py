@@ -35,7 +35,8 @@ def test_routes_without_google() -> None:
     assert router.url_path_for("auth:jwt.login") == "/auth/jwt/login"
     assert router.url_path_for("auth:jwt.logout") == "/auth/jwt/logout"
     assert router.url_path_for("register:register") == "/auth/register"
-    assert router.url_path_for("users:current_user") == "/users/me"
+    with pytest.raises(NoMatchFound):
+        router.url_path_for("users:current_user")
     for name in ("oauth:google.cookie.authorize", "oauth:google.cookie.callback"):
         with pytest.raises(NoMatchFound):
             router.url_path_for(name)
@@ -120,4 +121,20 @@ async def test_google_authorize_state_cookie_follows_cookie_secure(
     assert (
         authorization_url.params["redirect_uri"]
         == "https://app.example/auth/google/callback"
+    )
+
+
+def test_google_adds_login_and_associate_routes() -> None:
+    settings = AuthSettings(
+        jwt_secret=SecretStr(SECRET),
+        google_client_id="id",
+        google_client_secret=SecretStr("secret"),
+    )
+    router = auth_router(settings)
+    assert (
+        router.url_path_for("oauth:google.cookie.callback") == "/auth/google/callback"
+    )
+    assert (
+        router.url_path_for("oauth-associate:google.callback")
+        == "/auth/google/associate/callback"
     )

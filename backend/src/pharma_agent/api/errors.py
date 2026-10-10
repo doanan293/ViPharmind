@@ -1,5 +1,6 @@
 """FastAPI exception handlers: every error leaves the API as application/problem+json."""
 
+import math
 import re
 from enum import Enum
 from http import HTTPStatus
@@ -11,6 +12,15 @@ from starlette.responses import Response
 
 from pharma_agent.api.problems import problem_response
 from pharma_agent.api.schemas import ProblemItem
+from pharma_agent.application.account.errors import (
+    AccountDisabled,
+    AccountNotFound,
+    EmailAlreadyUsed,
+    LastSignInMethod,
+    PhoneAlreadyUsed,
+    RateLimited,
+    SessionNotFound,
+)
 from pharma_agent.application.errors import (
     ApplicationError,
     CitationNotFound,
@@ -30,6 +40,13 @@ ERROR_CODE_PATTERN = re.compile(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*")
 
 # Subclasses must come before their base class: the first isinstance match wins.
 STATUS_BY_ERROR: dict[type[ApplicationError], int] = {
+    RateLimited: 429,
+    AccountNotFound: 404,
+    SessionNotFound: 404,
+    AccountDisabled: 403,
+    EmailAlreadyUsed: 409,
+    PhoneAlreadyUsed: 409,
+    LastSignInMethod: 409,
     ConversationNotFound: 404,
     MessageNotFound: 404,
     CitationNotFound: 404,
@@ -81,7 +98,12 @@ async def application_error_handler(request: Request, exc: Exception) -> Respons
     status = next(
         (code for kind, code in STATUS_BY_ERROR.items() if isinstance(exc, kind)), 400
     )
-    return problem_response(status, exc.code, detail=str(exc))
+    headers = (
+        {"Retry-After": str(math.ceil(exc.retry_after))}
+        if isinstance(exc, RateLimited)
+        else None
+    )
+    return problem_response(status, exc.code, detail=str(exc), headers=headers)
 
 
 async def http_exception_handler(request: Request, exc: Exception) -> Response:

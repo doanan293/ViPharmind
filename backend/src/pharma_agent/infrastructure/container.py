@@ -11,15 +11,18 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from pharma_agent.application.account.service import AccountService
 from pharma_agent.application.chat.service import ChatService, MemoryPolicy
 from pharma_agent.application.conversation.service import ConversationService
 from pharma_agent.application.feedback.service import FeedbackService
 from pharma_agent.application.memory.summarize import SummarizeConversation
 from pharma_agent.application.tracing import NullTracing, Tracing
+from pharma_agent.domain.account.ports import EmailSender, SmsSender
 from pharma_agent.domain.corpus.ports import Embedder
 from pharma_agent.domain.llm.port import LlmPort
 from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.domain.shared.clock import SystemClock
+from pharma_agent.infrastructure.account_factory import build_account_service
 from pharma_agent.infrastructure.composition import Application, build_application
 from pharma_agent.infrastructure.observability.langfuse_tracing import LangfuseTracing
 from pharma_agent.infrastructure.persistence.postgres.citation_reader import (
@@ -45,6 +48,7 @@ CORPUS_NOT_READY = "CORPUS_NOT_READY"
 class Container:
     sessions: async_sessionmaker[AsyncSession] | None
     conversations: ConversationService
+    account: AccountService | None = None
     chat: ChatService | None = None
     summarizer: SummarizeConversation | None = None
     feedback: FeedbackService | None = None
@@ -77,6 +81,8 @@ async def open_container(
     *,
     llm: LlmPort | None = None,
     embedder: Embedder | None = None,
+    email_sender: EmailSender | None = None,
+    sms_sender: SmsSender | None = None,
 ) -> AsyncGenerator[Container]:
     """Open every long-lived resource; `llm` and `embedder` replace the settings-built adapters."""
     database = Database(
@@ -103,6 +109,12 @@ async def open_container(
         feedback=FeedbackService(repository, feedback_repository, tracing, clock),
         health_checks={"postgres": database.ping},
     )
+    if settings.auth.otp_secret is None:
+        logger.warning("PHARMA_AUTH__OTP_SECRET is not set: account flows are disabled")
+    else:
+        container.account = build_account_service(
+            settings, database.sessions, clock=clock, email=email_sender, sms=sms_sender
+        )
     try:
         async with AsyncExitStack() as stack:
             if isinstance(tracing, LangfuseTracing):
