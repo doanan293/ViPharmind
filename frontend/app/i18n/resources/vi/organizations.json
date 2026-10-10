@@ -82,7 +82,8 @@
     "create": "Tạo bộ tài liệu",
     "title": "Tên bộ tài liệu",
     "private": "Nháp (chỉ chủ sở hữu và biên tập viên)",
-    "shared": "Cả tổ chức"
+    "shared": "Cả tổ chức",
+    "titleRequired": "Nhập tên bộ tài liệu."
   },
   "landing": {
     "title": "Lời mời tham gia tổ chức",

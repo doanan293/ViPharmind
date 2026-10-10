@@ -20,9 +20,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog"
+import { NameForm } from "~/components/name-form"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { Spinner } from "~/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
@@ -64,7 +64,7 @@ export function CollectionPage({
   const query = useCollectionsGet(collectionId)
   const update = useCollectionsUpdate()
   const remove = useCollectionsDelete()
-  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
   if (query.isError) {
@@ -88,29 +88,24 @@ export function CollectionPage({
     (collection.is_system ? "releases" : "documents")
   const fail = (error: unknown) =>
     toast.add({ type: "error", title: apiErrorMessage(error, tErrors) })
-  const save = (data: { title?: string; visibility?: Visibility }) =>
-    update.mutate(
-      { collectionId, data },
-      {
-        onSuccess: (updated) => {
-          queryClient.setQueryData(
-            getCollectionsGetQueryKey(collectionId),
-            updated
-          )
-          void queryClient.invalidateQueries({
-            queryKey: getCollectionsListQueryKey(),
-          })
-          setRenaming(null)
-        },
-        onError: fail,
-      }
-    )
+  const saveAsync = async (data: {
+    title?: string
+    visibility?: Visibility
+  }) => {
+    const updated = await update.mutateAsync({ collectionId, data })
+    queryClient.setQueryData(getCollectionsGetQueryKey(collectionId), updated)
+    await queryClient.invalidateQueries({
+      queryKey: getCollectionsListQueryKey(),
+    })
+  }
+  const save = (data: { visibility: Visibility }) =>
+    void saveAsync(data).catch(fail)
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:p-8">
       <title>{collection.title}</title>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        {renaming === null ? (
+        {!renaming ? (
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-semibold">{collection.title}</h1>
@@ -123,32 +118,24 @@ export function CollectionPage({
             </p>
           </div>
         ) : (
-          <form
-            className="flex items-center gap-2"
-            onSubmit={(event) => {
-              event.preventDefault()
-              save({ title: renaming.trim() })
+          <NameForm
+            id="collection-rename"
+            field="title"
+            label={t("list.titleLabel")}
+            hideLabel
+            defaultValue={collection.title}
+            submitLabel={t("actions.save")}
+            cancelLabel={t("actions.cancel")}
+            requiredMessage={t("list.titleRequired")}
+            maxLength={200}
+            onCancel={() => setRenaming(false)}
+            onSubmit={async (title) => {
+              await saveAsync({ title })
+              setRenaming(false)
             }}
-          >
-            <Input
-              aria-label={t("list.titleLabel")}
-              value={renaming}
-              maxLength={200}
-              onChange={(event) => setRenaming(event.target.value)}
-            />
-            <Button type="submit" disabled={renaming.trim() === ""}>
-              {t("actions.save")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setRenaming(null)}
-            >
-              {t("actions.cancel")}
-            </Button>
-          </form>
+          />
         )}
-        {editable && renaming === null ? (
+        {editable && !renaming ? (
           <div className="flex flex-wrap items-center gap-2">
             <NativeSelect
               aria-label={t("visibility.label")}
@@ -167,10 +154,7 @@ export function CollectionPage({
                 </NativeSelectOption>
               ))}
             </NativeSelect>
-            <Button
-              variant="outline"
-              onClick={() => setRenaming(collection.title)}
-            >
+            <Button variant="outline" onClick={() => setRenaming(true)}>
               {t("actions.rename")}
             </Button>
             <Button variant="destructive" onClick={() => setConfirming(true)}>

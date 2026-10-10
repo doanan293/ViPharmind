@@ -1,7 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { type FormEvent, useState } from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Controller, useForm, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router"
+import { z } from "zod"
 
 import {
   getDocumentsGetQueryKey,
@@ -19,19 +21,34 @@ import {
   DocumentKind,
 } from "~/api/gen/schemas"
 import { Button, buttonVariants } from "~/components/ui/button"
-import { Field, FieldLabel } from "~/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "~/components/ui/field"
 import { Input } from "~/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { Spinner } from "~/components/ui/spinner"
 import { toast } from "~/components/ui/toast"
 import { Alert, AlertDescription } from "~/components/ui/alert"
 import { apiErrorMessage } from "~/i18n/error-message"
+import { applyApiError } from "~/lib/form-errors"
 
 import { MarkdownEditor } from "./MarkdownEditor"
 import { UploadButton } from "./UploadButton"
 
 /** The backend refuses longer documents (MAX_DOCUMENT_CHARS). */
 const MAX_CHARS = 200_000
+
+const DOCUMENT_FIELDS = [
+  "title",
+  "kind",
+  "source_title",
+  "source_url",
+  "markdown",
+] as const
 
 const EMPTY: DocumentInput = {
   title: "",
@@ -72,6 +89,24 @@ function TextQuota({ collection }: { collection: CollectionView }) {
   )
 }
 
+type DocumentValues = {
+  title: string
+  kind: DocumentKind
+  source_title: string
+  source_url: string
+  markdown: string
+}
+
+function valuesOf(input: DocumentInput): DocumentValues {
+  return {
+    title: input.title,
+    kind: input.kind ?? "drug_monograph",
+    source_title: input.source_title ?? "",
+    source_url: input.source_url ?? "",
+    markdown: input.markdown,
+  }
+}
+
 function DocumentForm({
   collection,
   documentId,
@@ -87,143 +122,194 @@ function DocumentForm({
   const queryClient = useQueryClient()
   const create = useDocumentsCreate()
   const update = useDocumentsUpdate()
-  const [form, setForm] = useState(initial)
   const numbers = new Intl.NumberFormat(i18n.language)
-  const chars = form.markdown.length
   const collectionId = collection.id
-  const pending = create.isPending || update.isPending
-  const set = (patch: Partial<DocumentInput>) =>
-    setForm((current) => ({ ...current, ...patch }))
+  const schema = z.object({
+    title: z.string().trim().min(1, t("editor.titleRequired")).max(200),
+    kind: z.enum(DocumentKind),
+    source_title: z.string().trim().max(500),
+    source_url: z.union([
+      z.literal(""),
+      z.url(t("editor.invalidUrl")).max(2000),
+    ]),
+    markdown: z
+      .string()
+      .refine((text) => text.trim() !== "", t("editor.contentRequired"))
+      .refine((text) => text.length <= MAX_CHARS, {
+        message: t("editor.tooLong", { max: numbers.format(MAX_CHARS) }),
+      }),
+  })
+  const form = useForm<DocumentValues>({
+    resolver: zodResolver(schema),
+    defaultValues: valuesOf(initial),
+  })
+  const markdown = useWatch({ control: form.control, name: "markdown" })
+  const title = useWatch({ control: form.control, name: "title" })
+  const chars = markdown.length
+  const serverError = form.formState.errors.root?.server?.message
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function onSubmit(values: DocumentValues) {
     const data: DocumentInput = {
-      title: form.title.trim(),
-      kind: form.kind,
-      source_title: (form.source_title ?? "").trim(),
-      source_url: form.source_url?.trim() || null,
-      markdown: form.markdown,
+      ...values,
+      source_url: values.source_url === "" ? null : values.source_url,
     }
-    const done = {
-      onSuccess: () => {
-        void queryClient.invalidateQueries({
-          queryKey: getDocumentsListQueryKey(collectionId),
+    try {
+      if (documentId === null) {
+        await create.mutateAsync({ collectionId, data })
+      } else {
+        await update.mutateAsync({ collectionId, documentId, data })
+        await queryClient.invalidateQueries({
+          queryKey: getDocumentsGetQueryKey(collectionId, documentId),
         })
-        if (documentId !== null) {
-          void queryClient.invalidateQueries({
-            queryKey: getDocumentsGetQueryKey(collectionId, documentId),
-          })
-        }
-        toast.add({ type: "success", title: t("editor.saved") })
-        void navigate(`/collections/${collectionId}/documents`)
-      },
-      onError: (error: unknown) =>
-        toast.add({ type: "error", title: apiErrorMessage(error, tErrors) }),
+      }
+    } catch (error) {
+      applyApiError(
+        error,
+        form.setError,
+        DOCUMENT_FIELDS,
+        apiErrorMessage(error, tErrors)
+      )
+      return
     }
-    if (documentId === null) {
-      create.mutate({ collectionId, data }, done)
-    } else {
-      update.mutate({ collectionId, documentId, data }, done)
-    }
+    await queryClient.invalidateQueries({
+      queryKey: getDocumentsListQueryKey(collectionId),
+    })
+    toast.add({ type: "success", title: t("editor.saved") })
+    await navigate(`/collections/${collectionId}/documents`)
   }
 
   return (
-    <form noValidate onSubmit={submit} className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field>
-          <FieldLabel htmlFor="document-title">{t("editor.title")}</FieldLabel>
-          <Input
-            id="document-title"
-            value={form.title}
-            maxLength={200}
-            required
-            onChange={(event) => set({ title: event.target.value })}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="document-kind">{t("editor.kind")}</FieldLabel>
-          <NativeSelect
-            id="document-kind"
-            value={form.kind}
-            onChange={(event) => {
-              const kind = Object.values(DocumentKind).find(
-                (value) => value === event.target.value
-              )
-              if (kind !== undefined) set({ kind })
-            }}
-          >
-            {Object.values(DocumentKind).map((kind) => (
-              <NativeSelectOption key={kind} value={kind}>
-                {t(`editor.kindValue.${kind}`)}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="document-source">
-            {t("editor.source")}
-          </FieldLabel>
-          <Input
-            id="document-source"
-            value={form.source_title ?? ""}
-            maxLength={500}
-            onChange={(event) => set({ source_title: event.target.value })}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="document-source-url">
-            {t("editor.sourceUrl")}
-          </FieldLabel>
-          <Input
-            id="document-source-url"
-            type="url"
-            value={form.source_url ?? ""}
-            onChange={(event) => set({ source_url: event.target.value })}
-          />
-        </Field>
-      </div>
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span id="document-content-label" className="text-sm font-medium">
-            {t("editor.content")}
-          </span>
-          <UploadButton
-            collectionId={collectionId}
-            hasContent={form.title !== "" || form.markdown !== ""}
-            onLoaded={(result) =>
-              set({ title: result.title, markdown: result.markdown })
-            }
-          />
-        </div>
-        <MarkdownEditor
-          labelledBy="document-content-label"
-          value={form.markdown}
-          onChange={(markdown) => set({ markdown })}
+    <form
+      noValidate
+      onSubmit={form.handleSubmit(onSubmit)}
+      className="flex flex-col gap-4"
+    >
+      <FieldGroup className="grid gap-4 sm:grid-cols-2">
+        <Controller
+          name="title"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor="document-title">
+                {t("editor.title")}
+              </FieldLabel>
+              <Input
+                {...field}
+                id="document-title"
+                maxLength={200}
+                aria-invalid={fieldState.invalid}
+              />
+              <FieldError errors={[fieldState.error]} />
+            </Field>
+          )}
         />
-        <span
-          className={
-            chars > MAX_CHARS
-              ? "text-sm text-destructive"
-              : "text-sm text-muted-foreground"
-          }
-        >
-          {t("editor.chars", {
-            count: numbers.format(chars),
-            max: numbers.format(MAX_CHARS),
-          })}
-        </span>
-        <TextQuota collection={collection} />
-      </div>
+        <Controller
+          name="kind"
+          control={form.control}
+          render={({ field }) => (
+            <Field>
+              <FieldLabel htmlFor="document-kind">
+                {t("editor.kind")}
+              </FieldLabel>
+              <NativeSelect
+                id="document-kind"
+                value={field.value}
+                onBlur={field.onBlur}
+                onChange={(event) => {
+                  const kind = Object.values(DocumentKind).find(
+                    (value) => value === event.target.value
+                  )
+                  if (kind !== undefined) field.onChange(kind)
+                }}
+              >
+                {Object.values(DocumentKind).map((kind) => (
+                  <NativeSelectOption key={kind} value={kind}>
+                    {t(`editor.kindValue.${kind}`)}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </Field>
+          )}
+        />
+        <Controller
+          name="source_title"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor="document-source">
+                {t("editor.source")}
+              </FieldLabel>
+              <Input
+                {...field}
+                id="document-source"
+                maxLength={500}
+                aria-invalid={fieldState.invalid}
+              />
+              <FieldError errors={[fieldState.error]} />
+            </Field>
+          )}
+        />
+        <Controller
+          name="source_url"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor="document-source-url">
+                {t("editor.sourceUrl")}
+              </FieldLabel>
+              <Input
+                {...field}
+                id="document-source-url"
+                type="url"
+                aria-invalid={fieldState.invalid}
+              />
+              <FieldError errors={[fieldState.error]} />
+            </Field>
+          )}
+        />
+      </FieldGroup>
+      <Controller
+        name="markdown"
+        control={form.control}
+        render={({ field, fieldState }) => (
+          <Field data-invalid={fieldState.invalid}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span id="document-content-label" className="text-sm font-medium">
+                {t("editor.content")}
+              </span>
+              <UploadButton
+                collectionId={collectionId}
+                hasContent={title !== "" || markdown !== ""}
+                onLoaded={(result) => {
+                  form.setValue("title", result.title, { shouldDirty: true })
+                  field.onChange(result.markdown)
+                }}
+              />
+            </div>
+            <MarkdownEditor
+              labelledBy="document-content-label"
+              value={field.value}
+              onChange={field.onChange}
+            />
+            <FieldDescription
+              className={chars > MAX_CHARS ? "text-destructive" : undefined}
+            >
+              {t("editor.chars", {
+                count: numbers.format(chars),
+                max: numbers.format(MAX_CHARS),
+              })}
+            </FieldDescription>
+            <FieldError errors={[fieldState.error]} />
+            <TextQuota collection={collection} />
+          </Field>
+        )}
+      />
+      {serverError === undefined ? null : (
+        <FieldError>{serverError}</FieldError>
+      )}
       <div className="flex gap-2">
-        <Button
-          type="submit"
-          disabled={
-            pending ||
-            form.title.trim() === "" ||
-            form.markdown.trim() === "" ||
-            chars > MAX_CHARS
-          }
-        >
+        <Button type="submit" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting ? <Spinner /> : null}
           {t("editor.save")}
         </Button>
         <Link
