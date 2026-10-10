@@ -23,6 +23,3 @@ class DigestCache:
         value = digest.hexdigest()
         self._entries[key] = value
         return value
-
-
-process_digest_cache = DigestCache()

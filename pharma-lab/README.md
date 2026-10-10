@@ -63,7 +63,7 @@ Chính sách bàn giao và artifact: [Downstream](docs/guides/downstream.md).
 ## Cấu trúc project
 
 - `src/pharma_lab/orchestration/`: build và atomic publish `rag-final`.
-- `src/pharma_lab/corpus/`: trích xuất PDF, crawl tờ hướng dẫn, canonical blocks, bảng Docling, validation.
+- `src/pharma_lab/corpus/`: trích xuất PDF, crawl tờ hướng dẫn, canonical blocks (ghép các bảng đã curate sẵn trong `data/sources/curation/docling_tables.jsonl`), validation.
 - `src/pharma_lab/bundle/`: export, embed và evaluation chunks dựa trên `pharma_agent.domain.corpus`.
 - `src/pharma_lab/embeddings/`: cache embedding theo hash và backend local/Kaggle.
 - `src/pharma_lab/integrations/kaggle/`: reconciliation, checkpoint và worker trên Kaggle (worker không import backend).

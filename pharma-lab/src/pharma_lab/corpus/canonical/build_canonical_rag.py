@@ -12,10 +12,10 @@ from typing import Any
 from pharma_lab.config.chunking import DEFAULT_CHUNK_MAX_CHARS
 from pharma_lab.config.paths import (
     CANONICAL_INTERIM_DIR,
-    DOCLING_INTERIM_DIR,
     PROJECT_ROOT,
     RAG_FINAL_DIR,
     RAG_INTERIM_DIR,
+    SOURCES_CURATION_DIR,
 )
 from pharma_lab.corpus.processing.preprocess_rag_corpus import (
     SectionRecord,
@@ -26,8 +26,8 @@ from pharma_lab.corpus.processing.preprocess_rag_corpus import (
 
 DEFAULT_SECTIONS = RAG_INTERIM_DIR / "sections.jsonl"
 DEFAULT_CHUNKS = RAG_INTERIM_DIR / "chunks.jsonl"
-DEFAULT_TABLES = DOCLING_INTERIM_DIR / "tables.curated.jsonl"
-DEFAULT_TABLE_OVERRIDES = DOCLING_INTERIM_DIR / "table_duplicate_overrides.json"
+DEFAULT_TABLES = SOURCES_CURATION_DIR / "docling_tables.jsonl"
+DEFAULT_TABLE_OVERRIDES = SOURCES_CURATION_DIR / "table_duplicate_overrides.json"
 DEFAULT_CANONICAL_DIR = CANONICAL_INTERIM_DIR
 DEFAULT_FINAL_DIR = RAG_FINAL_DIR
 FULL_SECTION_MAX_CHARS = 16000
@@ -43,7 +43,6 @@ IV_INFUSION_SECTION_ID = (
 )
 APPENDIX_LIST_SECTION_IDS = {ATC_SECTION_ID, IV_INFUSION_SECTION_ID}
 CHUNK_ROLES = {"prose", "table", "index_entry", "appendix_list"}
-BRAND_INDEX_ENTRY_RE = re.compile(r"^- \*\*[^*]+\*\*: .+")
 TARGETED_SHORT_PART_MERGE_PAIRS = {
     (
         "drug:acid-boric:thoi-ky-cho-con-bu",
@@ -1070,24 +1069,6 @@ def matching_token_count(text: str, tokens: list[str]) -> int:
     )
 
 
-def preview_text(value: str, limit: int = 600) -> str:
-    return re.sub(r"\s+", " ", value.strip())[:limit]
-
-
-def duplicate_overlap_metrics(
-    section_text: str, table: dict[str, Any]
-) -> dict[str, int]:
-    markdown = str(table.get("markdown") or "")
-    headers = table_header_cells(markdown)
-    cells = table_cells(markdown)[len(headers) :]
-    return {
-        "header_matches": matching_token_count(section_text, headers),
-        "cell_matches": matching_token_count(section_text, cells[:12]),
-        "header_count": len(headers),
-        "sampled_cell_count": len(cells[:12]),
-    }
-
-
 def table_section_overlap_score(section: SectionRecord, table: dict[str, Any]) -> int:
     markdown = str(table.get("markdown") or "")
     headers = table_header_cells(markdown)
@@ -1095,34 +1076,6 @@ def table_section_overlap_score(section: SectionRecord, table: dict[str, Any]) -
     return matching_token_count(section.text, headers) * 2 + matching_token_count(
         section.text, cells[:20]
     )
-
-
-def has_meaningful_flattened_evidence(metrics: dict[str, int]) -> bool:
-    return (
-        metrics["cell_matches"] >= 2
-        or metrics["header_matches"] >= 2
-        or (metrics["header_matches"] >= 1 and metrics["cell_matches"] >= 1)
-    )
-
-
-def header_like_line_exists(section_text: str, table: dict[str, Any]) -> bool:
-    headers = table_header_cells(str(table.get("markdown") or ""))
-    return any(
-        matching_token_count(line, headers) >= 2
-        and len(line) <= 140
-        and "." not in line
-        for line in section_text.splitlines()
-    )
-
-
-def duplicate_review_reason(
-    skip_reason: str, section_text: str, table: dict[str, Any]
-) -> str:
-    if skip_reason == "low_overlap_confidence" and not header_like_line_exists(
-        section_text, table
-    ):
-        return "partial_overlap_without_header_line"
-    return skip_reason
 
 
 def resolve_duplicate_skip(
@@ -1659,27 +1612,6 @@ def build_canonical_sections(
             )
         )
     return canonical_sections
-
-
-def canonical_sections_to_section_records(
-    sections: list[CanonicalSection],
-) -> list[SectionRecord]:
-    return [
-        SectionRecord(
-            id=section.id,
-            content_type=section.content_type,
-            title=section.title,
-            section=section.section,
-            text=section.text,
-            source=section.source,
-            context_path=list(section.context_path),
-            context_header=section.context_header,
-            start_page=section.start_page,
-            end_page=section.end_page,
-            warnings=list(section.warnings),
-        )
-        for section in sections
-    ]
 
 
 def is_markdown_separator_line(line: str) -> bool:

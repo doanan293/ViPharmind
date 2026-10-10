@@ -107,7 +107,6 @@ ALLOWED_RETRIEVAL_GRANULARITIES = {
     "multi_section",
 }
 ALLOWED_DIFFICULTIES = {"easy", "medium", "hard"}
-RETRIEVAL_AFFINITY_TAGS = {"hybrid_favored", "bm25_favored", "dense_favored"}
 
 FORMULARY_CATEGORY_MAP = {
     "indication": ("indication", "formulary_indication"),
@@ -136,20 +135,6 @@ LEAFLET_CATEGORY_MAP = {
     "brand_manufacturer": ("manufacturer", "leaflet_manufacturer"),
     "brand_product": ("general_info", "leaflet_product"),
 }
-
-LEAFLET_SOURCE_SUBCATEGORY_PRIORITY = [
-    "leaflet_dosage",
-    "leaflet_indication",
-    "leaflet_ingredient",
-    "leaflet_contraindication",
-    "leaflet_adr",
-    "leaflet_precaution",
-    "leaflet_interaction",
-    "leaflet_storage",
-    "leaflet_pharmacology",
-    "leaflet_manufacturer",
-    "leaflet_product",
-]
 
 
 @dataclass(frozen=True)
@@ -222,104 +207,3 @@ def clean_query_label(value: str, max_chars: int = 72) -> str:
     if len(truncated) < 24:
         return ""
     return f"{truncated}..."
-
-
-def expected_sections_for_eval_row(row: dict) -> list[str]:
-    raw_expected_ids = row.get("expected_section_ids")
-    if isinstance(raw_expected_ids, list):
-        return [str(section_id) for section_id in raw_expected_ids if section_id]
-    if raw_expected_ids:
-        return [
-            section_id for section_id in str(raw_expected_ids).split("|") if section_id
-        ]
-    expected_id = str(row.get("expected_section_id") or "")
-    return [expected_id] if expected_id else []
-
-
-def validate_query_rows(rows: list[dict], headers: list[str] | None = None) -> None:
-    if headers is not None:
-        header_list = list(headers)
-        duplicate_columns = sorted(
-            {field for field in header_list if header_list.count(field) > 1}
-        )
-        if duplicate_columns:
-            raise ValueError(f"duplicate eval column(s): {duplicate_columns}")
-
-        missing_columns = [
-            column for column in EVAL_HEADER if column not in header_list
-        ]
-        if missing_columns:
-            raise ValueError(f"missing required eval column(s): {missing_columns}")
-
-    for index, row in enumerate(rows, start=1):
-        query_id = str(row.get("query_id") or f"row-{index}")
-
-        expected_section_ids = row.get("expected_section_ids")
-        if not isinstance(expected_section_ids, list):
-            raise ValueError(
-                f"row {index} {query_id} expected_section_ids must be a list"
-            )
-
-        eval_tags = row.get("eval_tags")
-        if not isinstance(eval_tags, list):
-            raise ValueError(f"row {index} {query_id} eval_tags must be a list")
-
-        query_intent_count = row.get("query_intent_count")
-        if not isinstance(query_intent_count, int) or isinstance(
-            query_intent_count, bool
-        ):
-            raise ValueError(
-                f"row {index} {query_id} query_intent_count must be an integer"
-            )
-
-        expected_chunk_index = row.get("expected_chunk_index")
-        if expected_chunk_index is not None and (
-            not isinstance(expected_chunk_index, int)
-            or isinstance(expected_chunk_index, bool)
-        ):
-            raise ValueError(
-                f"row {index} {query_id} expected_chunk_index must be an integer or None"
-            )
-
-        answer_mode = str(row.get("answer_mode") or "")
-        query_form = str(row.get("query_form") or "")
-        retrieval_granularity = str(row.get("retrieval_granularity") or "")
-        expected_ids = expected_sections_for_eval_row(row)
-
-        if answer_mode not in ALLOWED_ANSWER_MODES:
-            raise ValueError(
-                f"row {index} {query_id} has unknown answer_mode: {answer_mode}"
-            )
-        if query_form not in ALLOWED_QUERY_FORMS:
-            raise ValueError(
-                f"row {index} {query_id} has unknown query_form: {query_form}"
-            )
-        if retrieval_granularity not in ALLOWED_RETRIEVAL_GRANULARITIES:
-            raise ValueError(
-                f"row {index} {query_id} has unknown retrieval_granularity: {retrieval_granularity}"
-            )
-        if query_intent_count != len(expected_ids):
-            raise ValueError(
-                f"row {index} {query_id} query_intent_count {query_intent_count} "
-                f"does not match {len(expected_ids)} expected sections"
-            )
-        if answer_mode == "single" and len(expected_ids) != 1:
-            raise ValueError(
-                f"row {index} {query_id} single answer_mode requires exactly one expected section"
-            )
-        if answer_mode == "any_acceptable" and len(expected_ids) < 2:
-            raise ValueError(
-                f"row {index} {query_id} any_acceptable answer_mode requires multiple expected sections"
-            )
-        if answer_mode == "multi_required" and len(expected_ids) < 2:
-            raise ValueError(
-                f"row {index} {query_id} multi_required answer_mode requires multiple expected sections"
-            )
-        if answer_mode == "multi_required" and retrieval_granularity != "multi_section":
-            raise ValueError(
-                f"row {index} {query_id} multi_required answer_mode requires multi_section retrieval"
-            )
-        if retrieval_granularity == "multi_section" and answer_mode != "multi_required":
-            raise ValueError(
-                f"row {index} {query_id} multi_section retrieval requires multi_required answer_mode"
-            )

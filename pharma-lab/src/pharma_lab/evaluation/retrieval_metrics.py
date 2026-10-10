@@ -224,8 +224,3 @@ def accumulate_metrics(
         target[key] += value
     if query_row.get("answer_mode") == "multi_required":
         target["multi_count"] += 1
-
-
-def metric_average(metrics: dict, key: str, count_key: str = "count") -> float:
-    count = metrics.get(count_key, 0)
-    return 0.0 if count == 0 else metrics.get(key, 0.0) / count

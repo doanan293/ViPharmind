@@ -3,9 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-import os
-import shutil
-import tempfile
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -244,28 +241,3 @@ def require_finite_number(value: Any, field: str) -> float:
     if not math.isfinite(number):
         raise ArtifactContractError(f"{field} must be finite")
     return number
-
-
-def atomic_promote(source: Path, destination: Path) -> Path:
-    source = Path(source)
-    destination = Path(destination)
-    if not source.is_file():
-        raise ArtifactContractError(f"Cannot promote missing artifact: {source}")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(
-        prefix=f".{destination.name}.",
-        suffix=".tmp",
-        dir=destination.parent,
-    )
-    os.close(fd)
-    temporary = Path(temporary_name)
-    try:
-        shutil.copy2(source, temporary)
-        temporary.replace(destination)
-    except OSError as exc:
-        raise ArtifactContractError(
-            f"Unable to atomically promote {source} to {destination}"
-        ) from exc
-    finally:
-        temporary.unlink(missing_ok=True)
-    return destination

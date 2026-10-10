@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -68,21 +67,6 @@ def load_bundle(
             f"missing={completion.missing}"
         )
     return ArtifactBundle(root, data_path, manifest_path, manifest, completion)
-
-
-def _atomic_copy(source_path: Path, destination_path: Path) -> None:
-    fd, temporary_name = tempfile.mkstemp(
-        prefix=f".{destination_path.name}.",
-        suffix=".tmp",
-        dir=destination_path.parent,
-    )
-    os.close(fd)
-    temporary_path = Path(temporary_name)
-    try:
-        shutil.copy2(source_path, temporary_path)
-        os.replace(temporary_path, destination_path)
-    finally:
-        temporary_path.unlink(missing_ok=True)
 
 
 def publish_bundle(

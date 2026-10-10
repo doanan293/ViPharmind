@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from pharma_lab.config.chunking import DEFAULT_CHUNK_MAX_CHARS
-from pharma_lab.config.paths import RAG_INTERIM_DIR, TEXT_INTERIM_DIR
+from pharma_lab.config.paths import TEXT_INTERIM_DIR
 from pharma_lab.corpus.processing.clean_markdown_corpus import SPLIT_WORDS_REPAIRS
 
 SOURCE_NAME = (
@@ -18,7 +18,6 @@ SOURCE_NAME = (
 
 
 DEFAULT_INPUT = TEXT_INTERIM_DIR / "full.cleaned.md"
-DEFAULT_OUTPUT_DIR = RAG_INTERIM_DIR
 
 
 @dataclass

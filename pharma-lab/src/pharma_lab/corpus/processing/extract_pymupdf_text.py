@@ -54,28 +54,6 @@ def normalize_line_text(text: str) -> str:
     return text
 
 
-def parse_page_selection(value: str | None, page_count: int) -> list[int]:
-    if value is None:
-        return list(range(1, page_count + 1))
-    pages: set[int] = set()
-    for part in value.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        if "-" in part:
-            start_text, end_text = part.split("-", 1)
-            start, end = int(start_text), int(end_text)
-            pages.update(range(start, end + 1))
-        else:
-            pages.add(int(part))
-    ordered = sorted(pages)
-    if not ordered or ordered[0] < 1 or ordered[-1] > page_count:
-        raise ValueError(
-            f"Page selection {value!r} outside PDF page range 1-{page_count}"
-        )
-    return ordered
-
-
 def is_running_header(record: LineRecord) -> bool:
     text = record.text
     if record.y0 >= 50:

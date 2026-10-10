@@ -130,116 +130,6 @@ def normalize_heading(value: str) -> str:
     return cleaned.strip()
 
 
-BRAND_MATCH_STOPWORDS = {
-    "thuoc",
-    "vien",
-    "bot",
-    "dung",
-    "dich",
-    "siro",
-    "sirup",
-    "goi",
-    "chai",
-    "kem",
-    "gel",
-    "nuoc",
-    "ong",
-    "hop",
-    "lo",
-    "vi",
-    "bao",
-    "dang",
-    "loai",
-}
-
-
-def normalize_match_text(value: str) -> str:
-    normalized = unicodedata.normalize("NFD", (value or "").lower())
-    without_marks = "".join(
-        char for char in normalized if unicodedata.category(char) != "Mn"
-    )
-    without_marks = without_marks.replace("đ", "d").replace("Đ", "D")
-    cleaned = re.sub(r"[^a-z0-9]+", " ", without_marks)
-    return normalize_spaces(cleaned)
-
-
-def brand_match_terms(value: str) -> list[str]:
-    normalized = normalize_match_text(value)
-    parts = [
-        part
-        for part in normalized.split()
-        if part and part not in BRAND_MATCH_STOPWORDS
-    ]
-    terms = []
-    if normalized and normalized not in BRAND_MATCH_STOPWORDS:
-        terms.append(normalized)
-    if parts:
-        first = parts[0]
-        if len(first) >= 4:
-            terms.append(first)
-        if len(parts) >= 2:
-            phrase = " ".join(parts[:2])
-            if len(phrase) >= 4:
-                terms.append(phrase)
-        for part in parts:
-            if len(part) >= 4 and re.search(r"[a-z]", part):
-                terms.append(part)
-    deduped = []
-    for term in terms:
-        if term and term not in deduped:
-            deduped.append(term)
-    return deduped
-
-
-def build_brand_overlap_index(
-    sections: list[dict], chunks: list[dict]
-) -> dict[str, list[str]]:
-    section_terms: dict[str, set[str]] = defaultdict(set)
-    for section in sections:
-        section_id = section.get("id", "")
-        if not is_leaflet_section(section):
-            continue
-        mapping = colloquial_mapping_for_record(section)
-        values = [
-            section.get("title", ""),
-            *(mapping.get("product_names") or []),
-            *(mapping.get("aliases") or []),
-        ]
-        for value in values:
-            for term in brand_match_terms(value):
-                section_terms[term].add(section_id)
-
-    for chunk in chunks:
-        section_id = chunk.get("section_id", "")
-        if not section_id.startswith("leaflet:"):
-            continue
-        mapping = colloquial_mapping_for_record(chunk)
-        values = [
-            chunk.get("title", ""),
-            *(mapping.get("product_names") or []),
-            *(mapping.get("aliases") or []),
-        ]
-        for value in values:
-            for term in brand_match_terms(value):
-                section_terms[term].add(section_id)
-
-    return {term: sorted(section_ids) for term, section_ids in section_terms.items()}
-
-
-def find_leaflet_alternative_sections(
-    query: str,
-    brand_names: list[str],
-    overlap_index: dict[str, list[str]],
-) -> list[str]:
-    query_text = f" {normalize_match_text(query)} "
-    matched: set[str] = set()
-    for brand_name in brand_names:
-        for term in brand_match_terms(brand_name):
-            if f" {term} " in query_text:
-                matched.update(overlap_index.get(term, []))
-    return sorted(matched)
-
-
 def markdown_headings(text: str) -> list[str]:
     headings = []
     for match in re.finditer(r"(?m)^#{2,4}\s+(.+?)\s*$", text or ""):
@@ -1104,27 +994,6 @@ def auto_candidate_chunks(
                 if len(candidates) >= candidate_target * 3:
                     return candidates
     return candidates
-
-
-def style_targets_for_total(total: int) -> dict[str, int]:
-    targets = {**FORMULARY_QUERY_FORM_TARGETS, **NOISY_CONFUSER_QUERY_FORM_TARGETS}
-    default_total = sum(targets.values())
-    if total == default_total:
-        return dict(targets)
-
-    raw_targets = {
-        style: (target / default_total) * total for style, target in targets.items()
-    }
-    scaled_targets = {style: int(value) for style, value in raw_targets.items()}
-    remainder = total - sum(scaled_targets.values())
-    by_fraction = sorted(
-        raw_targets,
-        key=lambda style: (raw_targets[style] - scaled_targets[style], targets[style]),
-        reverse=True,
-    )
-    for style in by_fraction[:remainder]:
-        scaled_targets[style] += 1
-    return scaled_targets
 
 
 def weighted_targets(weights: dict[str, int], total: int) -> dict[str, int]:
@@ -2311,10 +2180,6 @@ def save_jsonl(path: Path, rows: list[dict]) -> None:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-def write_csv(path: Path, rows: list[dict]) -> None:
-    save_jsonl(path, rows)
-
-
 def distribution_summary(
     rows: list[dict], sections: list[dict], chunks: list[dict]
 ) -> str:
@@ -2491,7 +2356,3 @@ def build_jsonl(
     save_jsonl(output_path, rows)
     print(distribution_summary(rows, sections, chunks))
     return rows
-
-
-build_eval_dataset = build_jsonl
-build_csv = build_jsonl

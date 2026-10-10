@@ -5,7 +5,6 @@ from typing import Annotated, cast
 
 import typer
 
-from pharma_lab.cli.options import Backend
 from pharma_lab.cli.runtime import (
     CommandResult,
     CommandStatus,
@@ -17,6 +16,7 @@ from pharma_lab.config.defaults import (
     DEFAULT_REQUEST_TIMEOUT_SECONDS,
     DEFAULT_RERANKER_MODEL,
 )
+from pharma_lab.config.enums import Backend
 from pharma_lab.config.paths import run_dir
 from pharma_lab.evaluation.rerank_log import open_rerank_log
 from pharma_lab.evaluation.rerank_service import (

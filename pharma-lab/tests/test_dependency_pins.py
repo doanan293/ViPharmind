@@ -46,6 +46,5 @@ def test_backend_is_the_only_runtime_dependency() -> None:
 
     # pharma-lab never ships, so its own libraries live in the dev group.
     assert config["project"]["dependencies"] == ["pharma-agent"]
-    assert "qdrant-client>=1.19,<2" in config["dependency-groups"]["dev"]
     assert config["tool"]["uv"]["sources"]["pharma-agent"] == {"workspace": True}
     assert {"backend", "pharma-lab"} <= set(workspace["members"])

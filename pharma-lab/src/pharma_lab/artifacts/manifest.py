@@ -24,6 +24,3 @@ class Completion:
     @property
     def is_complete(self) -> bool:
         return self.complete == self.total and self.missing == 0
-
-
-ArtifactManifestError = ArtifactContractError

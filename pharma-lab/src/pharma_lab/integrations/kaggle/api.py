@@ -120,27 +120,6 @@ def config_view_command() -> list[str]:
     return ["kaggle", "config", "view"]
 
 
-def dataset_metadata_update_command(reference: str, path: Path) -> list[str]:
-    return ["kaggle", "datasets", "metadata", reference, "--update", "-p", str(path)]
-
-
-def dataset_metadata_download_command(reference: str, path: Path) -> list[str]:
-    return ["kaggle", "datasets", "metadata", reference, "-p", str(path)]
-
-
-def dataset_download_command(reference: str, path: Path) -> list[str]:
-    return [
-        "kaggle",
-        "datasets",
-        "download",
-        reference,
-        "-p",
-        str(path),
-        "--unzip",
-        "-o",
-    ]
-
-
 def dataset_files_command(reference: str) -> list[str]:
     return ["kaggle", "datasets", "files", reference, "-v", "--page-size", "100"]
 
@@ -217,34 +196,6 @@ def kernel_output_command(reference: str, path: Path) -> list[str]:
         "-o",
         "--file-pattern",
         ".*(jsonl|json|zip|md|log)$",
-    ]
-
-
-def kernel_manifest_output_command(reference: str, path: Path) -> list[str]:
-    return [
-        "kaggle",
-        "kernels",
-        "output",
-        reference,
-        "-p",
-        str(path),
-        "-o",
-        "--file-pattern",
-        r".*checkpoint_manifest\.json$",
-    ]
-
-
-def kernel_output_all_command(reference: str, path: Path) -> list[str]:
-    return [
-        "kaggle",
-        "kernels",
-        "output",
-        reference,
-        "-p",
-        str(path),
-        "-o",
-        "--file-pattern",
-        ".*llama-cpp-runtime/.*",
     ]
 
 
