@@ -16,6 +16,9 @@ from pharma_agent.infrastructure.persistence.postgres.account_repository import 
 from pharma_agent.infrastructure.persistence.postgres.one_time_codes import (
     PostgresOneTimeCodeStore,
 )
+from pharma_agent.infrastructure.persistence.postgres.organization_repository import (
+    PostgresOrganizationRepository,
+)
 from pharma_agent.infrastructure.persistence.postgres.rate_limiter import (
     PostgresRateLimiter,
 )
@@ -49,5 +52,7 @@ def build_account_service(
         policy=AccountPolicy(
             otp_secret=settings.auth.require_otp_secret(),
             allowed_sms_regions=frozenset(settings.sms.allowed_country_codes),
+            sms_enabled=settings.sms.provider != "none",
         ),
+        memberships=PostgresOrganizationRepository(sessions),
     )

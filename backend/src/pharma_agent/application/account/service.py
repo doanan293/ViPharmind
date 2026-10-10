@@ -4,6 +4,7 @@ import hmac
 import logging
 import secrets
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -22,6 +23,7 @@ from pharma_agent.application.account.errors import (
     PhoneAlreadyUsed,
     PhoneCountryNotAllowed,
     PhoneNumberInvalid,
+    PhoneSignInDisabled,
     RateLimited,
     SessionNotFound,
 )
@@ -32,6 +34,7 @@ from pharma_agent.application.account.messages import (
     email_changed_notice,
 )
 from pharma_agent.application.errors import InvalidInput
+from pharma_agent.domain.access.models import Role
 from pharma_agent.domain.account.codes import (
     CODE_TTL,
     code_digest,
@@ -61,10 +64,18 @@ from pharma_agent.domain.account.ports import (
     SessionStore,
     SmsSender,
 )
+from pharma_agent.domain.organizations.models import Organization
+from pharma_agent.domain.organizations.ports import MembershipLookup
 from pharma_agent.domain.shared.clock import Clock
 
 logger = logging.getLogger(__name__)
 HOUR = 3600
+
+
+class MembershipView(BaseModel):
+    organization_id: uuid.UUID
+    name: str
+    role: Role
 
 
 class AccountView(BaseModel):
@@ -73,27 +84,42 @@ class AccountView(BaseModel):
     phone_number: str | None
     display_name: str
     is_active: bool
-    is_superuser: bool
+    is_superadmin: bool
     is_verified: bool
     email_verified: bool
     phone_verified: bool
     password_set: bool
     google_linked: bool
+    memberships: list[MembershipView] = []
+    phone_sign_in_enabled: bool = True
 
     @classmethod
-    def of(cls, user: AccountUser) -> "AccountView":
+    def of(
+        cls,
+        user: AccountUser,
+        *,
+        memberships: Sequence[tuple[Organization, Role]] = (),
+        phone_sign_in_enabled: bool = True,
+    ) -> "AccountView":
         return cls(
             id=user.id,
             email=user.email,
             phone_number=user.phone_number,
             display_name=user.display_name,
             is_active=user.is_active,
-            is_superuser=user.is_superuser,
+            is_superadmin=user.is_superuser,
             is_verified=user.email_verified or user.phone_verified,
             email_verified=user.email_verified,
             phone_verified=user.phone_verified,
             password_set=user.password_set,
             google_linked=user.google_linked,
+            memberships=[
+                MembershipView(
+                    organization_id=organization.id, name=organization.name, role=role
+                )
+                for organization, role in memberships
+            ],
+            phone_sign_in_enabled=phone_sign_in_enabled,
         )
 
 
@@ -115,6 +141,8 @@ class AccountPolicy:
     sends_per_ip_per_hour: int = 20
     login_failures_per_window: int = 10
     login_window_seconds: int = 15 * 60
+    # False when PHARMA_SMS__PROVIDER=none: phone codes are refused before any send.
+    sms_enabled: bool = True
 
 
 class AccountService:
@@ -130,6 +158,7 @@ class AccountService:
         sessions: SessionStore,
         clock: Clock,
         policy: AccountPolicy,
+        memberships: MembershipLookup | None = None,
     ) -> None:
         self._accounts = accounts
         self._codes = codes
@@ -140,6 +169,7 @@ class AccountService:
         self._sessions = sessions
         self._clock = clock
         self._policy = policy
+        self._memberships = memberships
 
     # Codes -------------------------------------------------------------------------
 
@@ -330,6 +360,7 @@ class AccountService:
     async def request_phone_login(
         self, phone: str, *, locale: Locale, client_ip: str | None
     ) -> None:
+        self._require_sms()
         number = self._phone(phone)
         await self._limit_send(OtpPurpose.PHONE_LOGIN, number, client_ip)
         user = await self._accounts.get_by_phone(number)
@@ -392,7 +423,21 @@ class AccountService:
         return user
 
     async def get_account(self, user_id: uuid.UUID) -> AccountView:
-        return AccountView.of(await self._require(user_id))
+        user = await self._require(user_id)
+        memberships = (
+            []
+            if self._memberships is None
+            else await self._memberships.list_for_user(user_id)
+        )
+        return AccountView.of(
+            user,
+            memberships=memberships,
+            phone_sign_in_enabled=self._policy.sms_enabled,
+        )
+
+    def _require_sms(self) -> None:
+        if not self._policy.sms_enabled:
+            raise PhoneSignInDisabled("phone sign-in is turned off")
 
     async def update_profile(
         self, user_id: uuid.UUID, display_name: str
@@ -448,6 +493,7 @@ class AccountService:
         self, user_id: uuid.UUID, phone: str, *, locale: Locale, client_ip: str | None
     ) -> None:
         await self._require(user_id)
+        self._require_sms()
         number = self._phone(phone)
         await self._limit_send(OtpPurpose.CHANGE_PHONE, number, client_ip)
         owner = await self._accounts.get_by_phone(number)

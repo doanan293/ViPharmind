@@ -19,6 +19,14 @@ class InvitationConflict(DomainError):
     code = "INVITATION_CONFLICT"
 
 
+class MembershipLookup(Protocol):
+    """The part of OrganizationRepository the account page needs."""
+
+    async def list_for_user(
+        self, user_id: uuid.UUID
+    ) -> list[tuple[Organization, Role]]: ...
+
+
 class OrganizationRepository(Protocol):
     async def get(self, organization_id: uuid.UUID) -> Organization | None: ...
 

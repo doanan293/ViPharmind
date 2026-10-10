@@ -10,6 +10,7 @@ from pharma_agent.application.errors import (
     DeliveryFailed,
     InvalidInput,
     RateLimited,
+    ServiceUnavailable,
 )
 
 __all__ = ["AccountNotFound", "DeliveryFailed", "RateLimited"]
@@ -59,3 +60,9 @@ class PhoneNumberInvalid(InvalidInput):
 
 class PhoneCountryNotAllowed(InvalidInput):
     code = "PHONE_COUNTRY_NOT_ALLOWED"
+
+
+class PhoneSignInDisabled(ServiceUnavailable):
+    """SMS is switched off (PHARMA_SMS__PROVIDER=none), so no phone codes are sent."""
+
+    code = "PHONE_SIGN_IN_DISABLED"

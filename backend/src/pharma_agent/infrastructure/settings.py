@@ -236,9 +236,12 @@ class EmailSettings(BaseModel):
 
 
 class SmsSettings(BaseModel):
-    """`log` writes SMS to the log; a real provider is chosen before launch."""
+    """`log` writes SMS to the log; `none` turns phone sign-in off (spec §2).
 
-    provider: Literal["log"] = "log"
+    A real provider is plugged in later; until then production runs with `none`.
+    """
+
+    provider: Literal["log", "none"] = "log"
     # ISO 3166 regions SMS may go to; anything else is rejected before sending.
     allowed_country_codes: list[str] = Field(default_factory=lambda: ["VN"])
 

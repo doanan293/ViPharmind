@@ -16,6 +16,7 @@ from pharma_agent.domain.account.models import (
     SessionRecord,
 )
 from pharma_agent.domain.account.ports import DeliveryError
+from pharma_agent.domain.organizations.ports import MembershipLookup
 
 START = datetime(2026, 10, 10, 9, 0, tzinfo=UTC)
 OTP_SECRET = "o" * 40
@@ -344,7 +345,9 @@ class AccountFakes:
 
 
 def build_account_service(
-    clock: MutableClock | None = None, policy: AccountPolicy | None = None
+    clock: MutableClock | None = None,
+    policy: AccountPolicy | None = None,
+    memberships: MembershipLookup | None = None,
 ) -> tuple[AccountService, AccountFakes]:
     fakes = AccountFakes(clock=clock or MutableClock())
     service = AccountService(
@@ -357,5 +360,6 @@ def build_account_service(
         sessions=fakes.sessions,
         clock=fakes.clock,
         policy=policy or AccountPolicy(otp_secret=OTP_SECRET),
+        memberships=memberships,
     )
     return service, fakes
