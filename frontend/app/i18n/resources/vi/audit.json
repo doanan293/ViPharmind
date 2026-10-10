@@ -1,0 +1,70 @@
+{
+  "actor": {
+    "unknown": "Một người dùng",
+    "superadmin": "{{name}} (Quản trị viên)"
+  },
+  "role": {
+    "owner": "chủ sở hữu",
+    "editor": "biên tập viên",
+    "member": "thành viên"
+  },
+  "visibility": {
+    "private": "riêng tư",
+    "organization": "trong tổ chức",
+    "public": "công khai"
+  },
+  "action": {
+    "organization": {
+      "created": "{{actor}} đã tạo tổ chức {{name}}",
+      "renamed": "{{actor}} đã đổi tên tổ chức từ {{from}} thành {{to}}",
+      "deleted": "{{actor}} đã xoá tổ chức {{name}}"
+    },
+    "member": {
+      "joined": "{{actor}} đã tham gia với vai trò {{role}}",
+      "left": "{{actor}} đã rời tổ chức",
+      "removed": "{{actor}} đã xoá một thành viên khỏi tổ chức",
+      "role_changed": "{{actor}} đã đổi vai trò một thành viên từ {{from}} thành {{to}}"
+    },
+    "invitation": {
+      "created": "{{actor}} đã mời {{email}} với vai trò {{role}}",
+      "approved": "{{actor}} đã duyệt lời mời gửi {{email}}",
+      "rejected": "{{actor}} đã từ chối lời mời gửi {{email}}",
+      "revoked": "{{actor}} đã thu hồi lời mời gửi {{email}}",
+      "declined": "{{actor}} đã từ chối lời mời vào tổ chức",
+      "resent": "{{actor}} đã gửi lại lời mời tới {{email}}"
+    },
+    "collection": {
+      "created": "{{actor}} đã tạo bộ tài liệu {{title}}",
+      "renamed": "{{actor}} đã đổi tên bộ tài liệu từ {{from}} thành {{to}}",
+      "deleted": "{{actor}} đã xoá bộ tài liệu {{title}}",
+      "visibility_changed": "{{actor}} đã chuyển {{title}} từ {{from}} sang {{to}}",
+      "published": "{{actor}} đã xuất bản {{title}} (bản {{release}})",
+      "rolled_back": "{{actor}} đã đưa {{title}} về bản {{release}}"
+    },
+    "document": {
+      "created": "{{actor}} đã thêm tài liệu {{document}} vào {{title}}",
+      "updated": "{{actor}} đã sửa tài liệu {{document}} trong {{title}}",
+      "deleted": "{{actor}} đã xoá tài liệu {{document}} khỏi {{title}}"
+    },
+    "glossary": {
+      "updated": "{{actor}} đã cập nhật thuật ngữ của {{title}}"
+    },
+    "colloquial": {
+      "updated": "{{actor}} đã cập nhật tên gọi dân gian của {{title}}"
+    },
+    "user": {
+      "disabled": "{{actor}} đã khoá một tài khoản",
+      "enabled": "{{actor}} đã mở khoá một tài khoản"
+    },
+    "quota": {
+      "changed": "{{actor}} đã đổi hạn mức"
+    }
+  },
+  "page": {
+    "title": "Hoạt động của tôi",
+    "description": "Những thay đổi liên quan đến tài khoản và bộ tài liệu riêng của bạn.",
+    "empty": "Chưa có hoạt động nào.",
+    "loadMore": "Xem thêm",
+    "failed": "Không tải được nhật ký."
+  }
+}

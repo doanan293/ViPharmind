@@ -16,6 +16,7 @@ export default [
   layout("routes/app/layout.tsx", [
     route("chat/:conversationId?", "routes/app/chat.tsx"),
     route("settings", "routes/app/settings.tsx"),
+    route("activity", "routes/app/activity.tsx"),
   ]),
   route("actions/locale", "routes/actions/locale.ts"),
   route("actions/theme", "routes/actions/theme.ts"),
