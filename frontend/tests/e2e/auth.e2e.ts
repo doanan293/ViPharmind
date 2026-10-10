@@ -4,6 +4,9 @@ import { type TestUser, latestCode, newUser } from "./support/api"
 import { expect, test } from "./support/fixtures"
 
 async function logIn(page: Page, user: TestUser): Promise<void> {
+  // The form renders again once hydration and the session check settle; typing earlier
+  // can be wiped.
+  await page.waitForLoadState("networkidle")
   await page
     .getByRole("textbox", { name: "Email", exact: true })
     .fill(user.email)
@@ -24,6 +27,7 @@ test("register, verify the email, log out, log in and log out again", async ({
   const user = newUser()
 
   await page.goto("/register")
+  await page.waitForLoadState("networkidle")
   await page.getByLabel("Tên hiển thị", { exact: true }).fill(user.displayName)
   await page
     .getByRole("textbox", { name: "Email", exact: true })

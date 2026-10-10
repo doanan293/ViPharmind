@@ -32,37 +32,47 @@ def of_type(chunks: list[dict[str, Any]], kind: str) -> list[dict[str, Any]]:
     return [chunk for chunk in chunks if chunk["type"] == kind]
 
 
-async def test_register_login_chat_and_open_a_citation(
-    postgres_dsn: str, qdrant_url: str
-) -> None:
-    dsn = (
+async def sign_in(client: httpx.AsyncClient, email: str) -> None:
+    """Register, verify with the code from the outbox and log in with a cookie."""
+    registered = await client.post(
+        "/api/v1/auth/register", json={"email": email, "password": PASSWORD}
+    )
+    assert registered.status_code == 201, registered.text
+    sent = await client.get("/api/v1/__e2e/outbox/code", params={"to": email})
+    assert sent.status_code == 200, sent.text
+    verified = await client.post(
+        "/api/v1/auth/email/verify",
+        json={
+            "email": email,
+            "code": sent.json()["code"],
+            "password": PASSWORD,
+        },
+    )
+    assert verified.status_code == 204, verified.text
+    client.cookies.clear()
+    login = await client.post(
+        "/api/v1/auth/cookie/login", data={"username": email, "password": PASSWORD}
+    )
+    assert login.status_code == 204, login.text
+
+
+def e2e_dsn(postgres_dsn: str) -> str:
+    return (
         make_url(postgres_dsn)
         .set(database=f"e2e_{uuid4().hex[:8]}")
         .render_as_string(hide_password=False)
     )
-    app = build_e2e_app(E2EConfig(postgres_dsn=dsn, qdrant_url=qdrant_url))
+
+
+async def test_register_login_chat_and_open_a_citation(
+    postgres_dsn: str, qdrant_url: str
+) -> None:
+    app = build_e2e_app(
+        E2EConfig(postgres_dsn=e2e_dsn(postgres_dsn), qdrant_url=qdrant_url)
+    )
     email = new_email()
     async with running(app) as client:
-        registered = await client.post(
-            "/api/v1/auth/register", json={"email": email, "password": PASSWORD}
-        )
-        assert registered.status_code == 201, registered.text
-        sent = await client.get("/api/v1/__e2e/outbox/code", params={"to": email})
-        assert sent.status_code == 200, sent.text
-        verified = await client.post(
-            "/api/v1/auth/email/verify",
-            json={
-                "email": email,
-                "code": sent.json()["code"],
-                "password": PASSWORD,
-            },
-        )
-        assert verified.status_code == 204, verified.text
-        client.cookies.clear()
-        login = await client.post(
-            "/api/v1/auth/cookie/login", data={"username": email, "password": PASSWORD}
-        )
-        assert login.status_code == 204, login.text
+        await sign_in(client, email)
         me = await client.get("/api/v1/users/me")
         assert me.status_code == 200 and me.json()["email"] == email
 
@@ -108,3 +118,47 @@ async def test_register_login_chat_and_open_a_citation(
         )
         assert timed_out[-1]["finishReason"] == "error"
         assert timed_out[-1]["messageMetadata"]["status"] == "timeout"
+
+
+async def test_a_superadmin_and_a_published_collection(
+    postgres_dsn: str, qdrant_url: str
+) -> None:
+    app = build_e2e_app(
+        E2EConfig(postgres_dsn=e2e_dsn(postgres_dsn), qdrant_url=qdrant_url)
+    )
+    email = new_email()
+    async with running(app) as client:
+        await sign_in(client, email)
+        granted = await client.post(
+            "/api/v1/__e2e/superadmin",
+            headers=csrf_header(client),
+            json={"email": email},
+        )
+        assert granted.status_code == 204, granted.text
+        me = await client.get("/api/v1/users/me")
+        assert me.json()["is_superadmin"] is True
+
+        created = await client.post(
+            "/api/v1/collections",
+            headers=csrf_header(client),
+            json={"title": "Ghi chú E2E"},
+        )
+        assert created.status_code == 201, created.text
+        collection_id = created.json()["id"]
+        document = await client.post(
+            f"/api/v1/collections/{collection_id}/documents",
+            headers=csrf_header(client),
+            json={"title": "Ibuprofen", "markdown": "# Liều dùng\n\nNgười lớn 400 mg."},
+        )
+        assert document.status_code == 201, document.text
+        published = await client.post(
+            f"/api/v1/collections/{collection_id}/publish", headers=csrf_header(client)
+        )
+        assert published.status_code == 202, published.text
+
+        drained = await client.post(
+            "/api/v1/__e2e/jobs/drain", headers=csrf_header(client)
+        )
+        assert drained.status_code == 204, drained.text
+        job = await client.get(f"/api/v1/ingest-jobs/{published.json()['id']}")
+        assert job.json()["status"] == "ready", job.text
