@@ -14,15 +14,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from pharma_agent.domain.corpus.bundle import (
     BlockKind,
-    BlockRecord,
     ColloquialMappingRecord,
-    DocumentKind,
     GlossaryEntry,
     KnowledgeBundle,
-    RetrievalMode,
 )
 from pharma_agent.domain.corpus.chunking import CHUNKER_VERSION, chunk_section
-from pharma_agent.domain.corpus.hydrate import hydrate_strategy_for, section_char_count
+from pharma_agent.domain.corpus.hydrate import hydrate_strategy_for
 from pharma_agent.domain.corpus.identity import (
     CORPUS_NAMESPACE,
     canonical_json,
@@ -129,11 +126,8 @@ class Document(_Frozen):
     id: uuid.UUID
     collection_id: uuid.UUID
     key: str
-    kind: DocumentKind
     title: str
     source_title: str
-    source_url: str | None
-    attributes: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
 
 
 class Section(_Frozen):
@@ -141,18 +135,11 @@ class Section(_Frozen):
     document_id: uuid.UUID
     key: str
     heading: str
-    context_path: list[str]
-    ordinal: int
-    retrieval_mode: RetrievalMode
 
 
 class SectionRevision(_Frozen):
     id: uuid.UUID
     section_id: uuid.UUID
-    blocks: list[BlockRecord]
-    start_page: int | None
-    end_page: int | None
-    char_count: int
 
 
 class ChunkVersion(_Frozen):
@@ -281,11 +268,8 @@ def build_snapshot(bundle: KnowledgeBundle) -> CorpusSnapshot:
             id=document_id_for(collection.id, record.key),
             collection_id=collection.id,
             key=record.key,
-            kind=record.kind,
             title=record.title,
             source_title=record.source.title,
-            source_url=record.source.url,
-            attributes=dict(record.attributes),
         )
         for record in bundle.documents
     ]
@@ -303,22 +287,10 @@ def build_snapshot(bundle: KnowledgeBundle) -> CorpusSnapshot:
                 document_id=document_ids[record.document_key],
                 key=record.key,
                 heading=record.heading,
-                context_path=list(record.context_path),
-                ordinal=record.ordinal,
-                retrieval_mode=record.retrieval,
             )
         )
         revision_id = section_revision_id(record.key, record.blocks)
-        revisions.append(
-            SectionRevision(
-                id=revision_id,
-                section_id=section_id,
-                blocks=list(record.blocks),
-                start_page=record.start_page,
-                end_page=record.end_page,
-                char_count=section_char_count(record),
-            )
-        )
+        revisions.append(SectionRevision(id=revision_id, section_id=section_id))
         strategy = hydrate_strategy_for(record)
         drafts = chunk_section(
             records[record.document_key],

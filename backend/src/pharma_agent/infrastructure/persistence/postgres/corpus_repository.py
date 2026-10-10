@@ -32,9 +32,7 @@ from pharma_agent.domain.corpus.models import (
 from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     ChunkVersionTable,
     CollectionTable,
-    ColloquialMappingTable,
     DocumentTable,
-    GlossaryEntryTable,
     ReleaseChunkTable,
     ReleaseTable,
     SectionRevisionTable,
@@ -78,11 +76,8 @@ def _document_row(document: Document) -> dict[str, Any]:
         "id": document.id,
         "collection_id": document.collection_id,
         "key": document.key,
-        "kind": document.kind.value,
         "title": document.title,
         "source_title": document.source_title,
-        "source_url": document.source_url,
-        "attributes": dict(document.attributes),
     }
 
 
@@ -92,9 +87,6 @@ def _section_row(section: Section) -> dict[str, Any]:
         "document_id": section.document_id,
         "key": section.key,
         "heading": section.heading,
-        "context_path": list(section.context_path),
-        "ordinal": section.ordinal,
-        "retrieval_mode": section.retrieval_mode.value,
     }
 
 
@@ -102,10 +94,6 @@ def _revision_row(revision: SectionRevision) -> dict[str, Any]:
     return {
         "id": revision.id,
         "section_id": revision.section_id,
-        "blocks": [block.model_dump(mode="json") for block in revision.blocks],
-        "start_page": revision.start_page,
-        "end_page": revision.end_page,
-        "char_count": revision.char_count,
     }
 
 
@@ -294,20 +282,14 @@ class PostgresCorpusRepository:
                 DocumentTable,
                 [_document_row(document) for document in snapshot.documents],
                 conflict=["collection_id", "key"],
-                update_columns=[
-                    "kind",
-                    "title",
-                    "source_title",
-                    "source_url",
-                    "attributes",
-                ],
+                update_columns=["title", "source_title"],
             )
             await _insert(
                 session,
                 SectionTable,
                 [_section_row(section) for section in snapshot.sections],
                 conflict=["document_id", "key"],
-                update_columns=["heading", "context_path", "ordinal", "retrieval_mode"],
+                update_columns=["heading"],
             )
             await _insert(
                 session,
@@ -350,27 +332,6 @@ class PostgresCorpusRepository:
                         for placement in snapshot.release_chunks
                     ],
                     conflict=["release_id", "chunk_version_id"],
-                )
-                session.add_all(
-                    [
-                        GlossaryEntryTable(
-                            release_id=release_id,
-                            term=entry.term,
-                            data=entry.model_dump(mode="json"),
-                        )
-                        for entry in snapshot.glossary
-                    ]
-                )
-                session.add_all(
-                    [
-                        ColloquialMappingTable(
-                            release_id=release_id,
-                            position=position,
-                            key=mapping.key,
-                            data=mapping.model_dump(mode="json"),
-                        )
-                        for position, mapping in enumerate(snapshot.colloquial_mappings)
-                    ]
                 )
             return _release(row)
 
@@ -506,16 +467,6 @@ class PostgresCorpusRepository:
                     .returning(ReleaseChunkTable.chunk_version_id)
                 )
             ).all()
-            await session.execute(
-                delete(GlossaryEntryTable).where(
-                    GlossaryEntryTable.release_id.in_(retired)
-                )
-            )
-            await session.execute(
-                delete(ColloquialMappingTable).where(
-                    ColloquialMappingTable.release_id.in_(retired)
-                )
-            )
             orphan_chunks = (
                 (
                     await session.execute(

@@ -48,8 +48,7 @@ class CorpusRepository(Protocol):
 
         Upserts collection, documents and sections, inserts missing section revisions and
         chunk versions, and creates the release (status `building`, next number) with its
-        `release_chunks`, `glossary_entries` and `colloquial_mappings` unless `release_id`
-        already exists. Returns the stored release.
+        `release_chunks` unless `release_id` already exists. Returns the stored release.
         """
         ...
 
