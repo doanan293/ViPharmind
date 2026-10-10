@@ -31,7 +31,7 @@ export default function RegisterPage() {
           <RegisterForm nextPath={nextPath} />
         </TabsContent>
         <TabsContent value="phone">
-          <PhoneLoginForm nextPath={nextPath} />
+          <PhoneLoginForm nextPath={nextPath} intent="register" />
         </TabsContent>
       </Tabs>
       <FieldSeparator>{t("or")}</FieldSeparator>

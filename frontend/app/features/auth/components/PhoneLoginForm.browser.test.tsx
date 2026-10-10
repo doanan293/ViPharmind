@@ -13,6 +13,10 @@ import { TestProviders } from "../../../../tests/utils/providers"
 const Stub = createRoutesStub([
   { path: "/login", Component: () => <PhoneLoginForm nextPath="/chat" /> },
   { path: "/chat", Component: () => <p>chat-page</p> },
+  {
+    path: "/register",
+    Component: () => <PhoneLoginForm nextPath="/chat" intent="register" />,
+  },
 ])
 
 describe("PhoneLoginForm", () => {
@@ -59,5 +63,27 @@ describe("PhoneLoginForm", () => {
     await expect
       .element(page.getByText("Số điện thoại không hợp lệ."))
       .toBeVisible()
+  })
+
+  test("on the register page the code step continues instead of signing in", async () => {
+    worker.use(
+      http.post(
+        "/api/v1/auth/phone/request",
+        () => new HttpResponse(null, { status: 202 })
+      )
+    )
+    await render(
+      <TestProviders>
+        <Stub initialEntries={["/register"]} />
+      </TestProviders>
+    )
+    await page.getByLabelText("Số điện thoại").fill("0912 345 678")
+    await page.getByRole("button", { name: "Gửi mã" }).click()
+    await expect
+      .element(page.getByRole("button", { name: "Tiếp tục" }))
+      .toBeVisible()
+    await expect
+      .element(page.getByRole("button", { name: "Đăng nhập" }))
+      .not.toBeInTheDocument()
   })
 })

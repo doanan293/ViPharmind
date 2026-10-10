@@ -9,11 +9,17 @@ import { worker } from "../../../../tests/msw/browser"
 import { TestProviders } from "../../../../tests/utils/providers"
 import { PasswordForm } from "./PasswordForm"
 
-async function renderForm(passwordSet = true): Promise<void> {
+async function renderForm(
+  passwordSet = true,
+  hasVerifiedEmail = true
+): Promise<void> {
   await render(
     <TestProviders>
       <Toaster>
-        <PasswordForm passwordSet={passwordSet} />
+        <PasswordForm
+          passwordSet={passwordSet}
+          hasVerifiedEmail={hasVerifiedEmail}
+        />
       </Toaster>
     </TestProviders>
   )
@@ -148,5 +154,23 @@ describe("PasswordForm", () => {
     await expect
       .element(page.getByRole("alert"))
       .toHaveTextContent("Mật khẩu cần từ 8 đến 128 ký tự.")
+  })
+
+  test("tells an account without a verified email when the password starts to work", async () => {
+    await renderForm(false, false)
+    await expect
+      .element(
+        page.getByText(
+          "Mật khẩu dùng để đăng nhập bằng email, nên chỉ có tác dụng sau khi bạn thêm và xác minh email."
+        )
+      )
+      .toBeVisible()
+  })
+
+  test("says nothing extra when the email is verified", async () => {
+    await renderForm(false, true)
+    await expect
+      .element(page.getByText(/chỉ có tác dụng sau khi/))
+      .not.toBeInTheDocument()
   })
 })

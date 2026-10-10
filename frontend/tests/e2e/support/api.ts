@@ -50,7 +50,11 @@ export async function registerUser(
   })
   await assertStatus(response, 201)
   const verify = await request.post(`${API}/auth/email/verify`, {
-    data: { email: user.email, code: await latestCode(request, user.email) },
+    data: {
+      email: user.email,
+      code: await latestCode(request, user.email),
+      password: user.password,
+    },
   })
   await assertStatus(verify, 204)
 }

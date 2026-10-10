@@ -23,7 +23,14 @@ import { phoneSchema } from "~/lib/phone"
 const SKIP_AUTH_REDIRECT = { mutation: { meta: { skipAuthRedirect: true } } }
 
 /** Phone sign-in; a number without an account gets one, so this also registers. */
-export function PhoneLoginForm({ nextPath }: { nextPath: string }) {
+export function PhoneLoginForm({
+  nextPath,
+  intent = "login",
+}: {
+  nextPath: string
+  /** On the register page the code step reads as continuing, not signing in. */
+  intent?: "login" | "register"
+}) {
   const { t } = useTranslation("auth")
   const { t: tErrors } = useTranslation("errors")
   const navigate = useNavigate()
@@ -63,7 +70,9 @@ export function PhoneLoginForm({ nextPath }: { nextPath: string }) {
       <CodeStep
         id="phone-login-code"
         description={t("phone.sentTo", { phone })}
-        submitLabel={t("login.submit")}
+        submitLabel={
+          intent === "register" ? t("phone.continue") : t("login.submit")
+        }
         onSubmit={async (code) => {
           await login.mutateAsync({ data: { phone, code } })
           await queryClient.invalidateQueries({

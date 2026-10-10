@@ -175,10 +175,14 @@ export const AuthCookieLogoutResponse = zod.unknown()
  * @summary Auth:Email.Verify
  */
 export const authEmailVerifyBodyCodeRegExp = new RegExp("^\\d{6}$")
+export const authEmailVerifyBodyPasswordOneMax = 1024
 
 export const AuthEmailVerifyBody = zod.object({
   code: zod.string().regex(authEmailVerifyBodyCodeRegExp),
   email: zod.email(),
+  password: zod
+    .union([zod.string().max(authEmailVerifyBodyPasswordOneMax), zod.null()])
+    .optional(),
 })
 
 export const AuthEmailVerifyResponse = zod.void()

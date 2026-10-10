@@ -48,4 +48,33 @@ describe("SessionsList", () => {
       .click()
     await expect.poll(() => deleted).toEqual(["b".repeat(32)])
   })
+
+  test("says so when the sessions cannot be loaded, and retries", async () => {
+    // A flag, not a call count: a refetch left over from the previous test may land here.
+    let failing = true
+    worker.use(
+      http.get("/api/v1/account/sessions", () => {
+        return failing
+          ? HttpResponse.json(
+              { code: "INTERNAL_ERROR", title: "Internal Server Error" },
+              {
+                status: 500,
+                headers: { "Content-Type": "application/problem+json" },
+              }
+            )
+          : HttpResponse.json(SESSIONS)
+      })
+    )
+    await render(
+      <TestProviders>
+        <SessionsList />
+      </TestProviders>
+    )
+    await expect
+      .element(page.getByRole("alert"))
+      .toHaveTextContent("Không tải được danh sách phiên đăng nhập.")
+    failing = false
+    await page.getByRole("button", { name: "Thử lại" }).click()
+    await expect.element(page.getByText("Thiết bị này")).toBeVisible()
+  })
 })

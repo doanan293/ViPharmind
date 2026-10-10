@@ -22,7 +22,11 @@ import {
 } from "~/components/ui/field"
 import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
-import { VerifyEmailStep } from "~/features/auth/components/VerifyEmailStep"
+import {
+  type VerificationRequest,
+  VerifyEmailStep,
+  requestVerificationCode,
+} from "~/features/auth/components/VerifyEmailStep"
 import { apiErrorMessage } from "~/i18n/error-message"
 import { applyApiError } from "~/lib/form-errors"
 
@@ -49,7 +53,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
   const requestCode = useAuthEmailVerifyRequest({
     mutation: { meta: { skipAuthRedirect: true } },
   })
-  const [unverified, setUnverified] = useState<string | null>(null)
+  const [unverified, setUnverified] = useState<VerificationRequest | null>(null)
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { username: "", password: "" },
@@ -60,11 +64,13 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
       await login.mutateAsync({ data: values })
     } catch (error) {
       if (isApiError(error) && error.code === "EMAIL_NOT_VERIFIED") {
-        // A code may already be on its way; a 429 here changes nothing for the user.
-        await requestCode
-          .mutateAsync({ data: { email: values.username } })
-          .catch(() => undefined)
-        setUnverified(values.username)
+        setUnverified(
+          await requestVerificationCode(
+            (email) => requestCode.mutateAsync({ data: { email } }),
+            values.username,
+            values.password
+          )
+        )
         return
       }
       applyApiError(
@@ -82,7 +88,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
   }
 
   if (unverified !== null) {
-    return <VerifyEmailStep email={unverified} nextPath={nextPath} />
+    return <VerifyEmailStep request={unverified} nextPath={nextPath} />
   }
 
   const serverError = form.formState.errors.root?.server?.message

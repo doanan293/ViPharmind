@@ -15,12 +15,15 @@ export function CodeStep({
   submitLabel,
   onSubmit,
   onResend,
+  sendError = null,
 }: {
   id: string
   description: string
   submitLabel: string
   onSubmit: (code: string) => Promise<void>
   onResend: () => Promise<void>
+  /** Why the first code was not sent, if it was not; see ResendCodeButton. */
+  sendError?: unknown
 }) {
   const { t } = useTranslation("common")
   const { t: tErrors } = useTranslation("errors")
@@ -71,7 +74,7 @@ export function CodeStep({
         {pending ? <Spinner /> : null}
         {submitLabel}
       </Button>
-      <ResendCodeButton onResend={onResend} />
+      <ResendCodeButton onResend={onResend} sendError={sendError} />
     </form>
   )
 }
