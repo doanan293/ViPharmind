@@ -35,6 +35,8 @@ def test_target_metadata_holds_app_and_corpus_tables() -> None:
         "message_citations",
         "messages",
         "oauth_account",
+        "one_time_codes",
+        "rate_limit_buckets",
         "user",
     }
     assert "skills" not in target_metadata.tables
