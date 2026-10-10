@@ -39,8 +39,13 @@ async function renderSettings(): Promise<{
 }> {
   const locales: string[] = []
   const themes: ThemeActionBody[] = []
+  let sessionRequests = 0
   worker.use(
     getUsersCurrentUserMockHandler(USER),
+    http.get("*/api/v1/account/sessions", () => {
+      sessionRequests += 1
+      return HttpResponse.json([])
+    }),
     http.post("*/actions/theme", async ({ request }) => {
       themes.push(ThemeActionBody.parse(await request.json()))
       return HttpResponse.json({ success: true })
@@ -66,6 +71,8 @@ async function renderSettings(): Promise<{
       </ThemeProvider>
     </TestProviders>
   )
+  // The sessions list loads once the user has; a test must not end before that request.
+  await expect.poll(() => sessionRequests).toBeGreaterThan(0)
   return { locales, themes }
 }
 

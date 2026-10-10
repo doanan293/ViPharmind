@@ -32,5 +32,45 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "account": {
+    "heading": "Account",
+    "verified": "Verified",
+    "unverified": "Not verified",
+    "sendCode": "Send code",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "email": {
+      "heading": "Email",
+      "none": "No email yet",
+      "add": "Add email",
+      "change": "Change email",
+      "newLabel": "New email",
+      "sentTo": "We sent a 6-digit code to {{value}}.",
+      "saved": "Email updated."
+    },
+    "phone": {
+      "heading": "Phone number",
+      "none": "No phone number yet",
+      "add": "Add phone number",
+      "change": "Change phone number",
+      "newLabel": "New phone number",
+      "sentTo": "We sent a 6-digit code by SMS to {{value}}.",
+      "saved": "Phone number updated."
+    },
+    "google": {
+      "heading": "Google",
+      "linked": "Google account linked",
+      "notLinked": "Google not linked",
+      "link": "Link Google",
+      "unlink": "Unlink"
+    }
+  },
+  "sessions": {
+    "heading": "Signed-in sessions",
+    "current": "This device",
+    "revoke": "Sign out",
+    "revokeOne": "Sign out the session on {{device}}",
+    "revokeOthers": "Sign out all other devices"
   }
 }
