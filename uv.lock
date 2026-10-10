@@ -908,6 +908,44 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e0/78/4e57bdda64c6c68372e1ab6d032e2677e77913c8afa12a9e5abee53469e3/docling_slim-2.102.1-py3-none-any.whl", hash = "sha256:f6dd21dc84b5c0c62da8eb2f043788ba938be6ded2dcb91b23d27f39ef20fe48", size = 542248, upload-time = "2026-06-12T15:53:59.721Z" },
 ]
 
+[package.optional-dependencies]
+convert-core = [
+    { name = "numpy" },
+    { name = "pillow" },
+    { name = "rtree" },
+    { name = "scipy" },
+]
+format-email = [
+    { name = "beautifulsoup4" },
+    { name = "lxml" },
+    { name = "mail-parser" },
+]
+format-latex = [
+    { name = "pylatexenc" },
+]
+format-markdown = [
+    { name = "marko" },
+]
+format-office = [
+    { name = "openpyxl" },
+    { name = "python-docx" },
+    { name = "python-pptx" },
+]
+format-pdf = [
+    { name = "docling-parse" },
+    { name = "pypdfium2" },
+]
+models-local = [
+    { name = "accelerate" },
+    { name = "defusedxml" },
+    { name = "docling-ibm-models" },
+    { name = "huggingface-hub" },
+    { name = "torch", version = "2.12.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.12.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "torchvision", version = "0.27.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torchvision", version = "0.27.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+]
+
 [[package]]
 name = "docstring-parser"
 version = "0.18.0"
@@ -2754,7 +2792,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "fastapi-users", extra = ["oauth", "sqlalchemy"] },
     { name = "httpx" },
-    { name = "langchain" },
+    { name = "langchain-core" },
     { name = "langfuse" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-postgres" },
@@ -2762,10 +2800,8 @@ dependencies = [
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "pyyaml" },
     { name = "qdrant-client" },
     { name = "sqlalchemy", extra = ["asyncio"] },
-    { name = "sse-starlette" },
     { name = "starlette-csrf" },
     { name = "typer" },
     { name = "uvicorn" },
@@ -2775,7 +2811,6 @@ dependencies = [
 dev = [
     { name = "respx" },
     { name = "testcontainers" },
-    { name = "types-pyyaml" },
 ]
 
 [package.metadata]
@@ -2784,7 +2819,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.141,<1" },
     { name = "fastapi-users", extras = ["oauth", "sqlalchemy"], specifier = ">=15.0,<16" },
     { name = "httpx", specifier = ">=0.27,<1" },
-    { name = "langchain", specifier = ">=1.4,<2" },
+    { name = "langchain-core", specifier = ">=1.4,<2" },
     { name = "langfuse", specifier = ">=4.0,<5" },
     { name = "langgraph", specifier = ">=1.2,<2" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=3.1,<4" },
@@ -2792,10 +2827,8 @@ requires-dist = [
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.3,<4" },
     { name = "pydantic", specifier = ">=2.11,<3" },
     { name = "pydantic-settings", specifier = ">=2.6,<3" },
-    { name = "pyyaml", specifier = ">=6.0" },
     { name = "qdrant-client", specifier = ">=1.19,<2" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.52,<2.1" },
-    { name = "sse-starlette", specifier = ">=3.4,<4" },
     { name = "starlette-csrf", specifier = ">=3.0,<4" },
     { name = "typer", specifier = ">=0.21" },
     { name = "uvicorn", specifier = ">=0.52,<1" },
@@ -2805,7 +2838,6 @@ requires-dist = [
 dev = [
     { name = "respx", specifier = "==0.23.1" },
     { name = "testcontainers", specifier = "==4.15.0" },
-    { name = "types-pyyaml", specifier = "==6.0.12.20260906" },
 ]
 
 [[package]]
@@ -2819,21 +2851,10 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "beautifulsoup4" },
-    { name = "docling-ibm-models" },
-    { name = "docling-parse" },
-    { name = "docling-slim" },
+    { name = "docling-slim", extra = ["convert-core", "format-email", "format-latex", "format-markdown", "format-office", "format-pdf", "models-local"] },
     { name = "kaggle" },
-    { name = "langchain-community" },
-    { name = "lxml" },
-    { name = "mail-parser" },
-    { name = "marko" },
     { name = "numpy" },
-    { name = "openpyxl" },
-    { name = "pylatexenc" },
     { name = "pymupdf" },
-    { name = "pypdfium2" },
-    { name = "python-docx" },
-    { name = "python-pptx" },
     { name = "qdrant-client" },
     { name = "ragas" },
     { name = "requests" },
@@ -2853,21 +2874,10 @@ requires-dist = [{ name = "pharma-agent", editable = "backend" }]
 [package.metadata.requires-dev]
 dev = [
     { name = "beautifulsoup4", specifier = "==4.15.0" },
-    { name = "docling-ibm-models", specifier = "==3.13.3" },
-    { name = "docling-parse", specifier = "==6.2.0" },
-    { name = "docling-slim", specifier = "==2.102.1" },
+    { name = "docling-slim", extras = ["convert-core", "format-email", "format-latex", "format-markdown", "format-office", "format-pdf", "models-local"], specifier = "==2.102.1" },
     { name = "kaggle", specifier = "==2.2.3" },
-    { name = "langchain-community", specifier = "==0.4.1" },
-    { name = "lxml", specifier = "==6.1.1" },
-    { name = "mail-parser", specifier = "==4.4.0" },
-    { name = "marko", specifier = "==2.2.3" },
     { name = "numpy", specifier = "==2.5.3" },
-    { name = "openpyxl", specifier = "==3.1.5" },
-    { name = "pylatexenc", specifier = "==2.10" },
     { name = "pymupdf", specifier = "==1.27.2.3" },
-    { name = "pypdfium2", specifier = "==5.10.1" },
-    { name = "python-docx", specifier = "==1.2.0" },
-    { name = "python-pptx", specifier = "==1.0.2" },
     { name = "qdrant-client", specifier = ">=1.19,<2" },
     { name = "ragas", specifier = "==0.4.3" },
     { name = "requests", specifier = "==2.34.2" },
@@ -4231,19 +4241,6 @@ asyncio = [
 ]
 
 [[package]]
-name = "sse-starlette"
-version = "3.4.11"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "anyio" },
-    { name = "starlette" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/2b/54/6767bb789b2f2fed6e0f953df949cd39dc263a384c1b65a95232598621d6/sse_starlette-3.4.11.tar.gz", hash = "sha256:1bae716c02f3e6f294be41ff333220692dae7c3cbab077c900f159676719dade", size = 34972, upload-time = "2026-09-05T12:11:04.607Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/98/6a/2ba3ed4a69babf3afdddf7d8314a48d87562c0a442206bbc2a1b50d5efc0/sse_starlette-3.4.11-py3-none-any.whl", hash = "sha256:c7b2244bdff016fe7f64e10075e89a3e6bbf899649cc89b0fe884b5545042453", size = 17122, upload-time = "2026-09-05T12:11:03.195Z" },
-]
-
-[[package]]
 name = "starlette"
 version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4591,15 +4588,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7c/f7/68adc395201b20b872d68e975386832e8005ffeacedd43a1d837a32815be/typer-0.26.8.tar.gz", hash = "sha256:c244a6bd558886fe3f8780efb6bdd28bb9aff005a94eedebaa5cb32926fe2f7e", size = 202097, upload-time = "2026-06-26T09:22:45.705Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/80/87/b9fd69c92c6102a066e1b86a35243f53e70bd4c709f2a26d9f4fee4f4dc0/typer-0.26.8-py3-none-any.whl", hash = "sha256:3512ca79ac5c11113414b36e80281b872884477722440691c89d1112e321a49c", size = 122564, upload-time = "2026-06-26T09:22:44.72Z" },
-]
-
-[[package]]
-name = "types-pyyaml"
-version = "6.0.12.20260906"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/90/6e/abec85b9013db5b934b0280a6dd104904d84f7bcbaab2e2f3def87ac7463/types_pyyaml-6.0.12.20260906.tar.gz", hash = "sha256:f59c1cc05010b833d2d72287bbaa72610106b28d42d89a907313117faba85212", size = 18649, upload-time = "2026-09-06T06:35:35.362Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/c0/fc0644b7ddcfb969e95845837143cb5173ddd6e06ee4ba5fc493cd9329b7/types_pyyaml-6.0.12.20260906-py3-none-any.whl", hash = "sha256:bca893ff0d51df5c9053137d5d0e6ccd36e939a196356f1d5c16372422f5137b", size = 21282, upload-time = "2026-09-06T06:35:34.372Z" },
 ]
 
 [[package]]

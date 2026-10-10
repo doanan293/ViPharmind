@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
+from fastapi.sse import format_sse_event
 
 from pharma_agent.api.ui_stream import UIMessageStreamEncoder, ui_message_stream
 from pharma_agent.application.conversation.ui_message import source_document_part
@@ -245,10 +246,15 @@ async def test_sse_frames_are_data_only_and_end_with_done() -> None:
         yield ProgressEvent.token("Liều [1]")
         yield done_event("completed")
 
-    body = b"".join([frame.encode() async for frame in ui_message_stream(events())])
-    blocks = [block for block in body.decode().split("\r\n\r\n") if block]
+    body = b"".join(
+        [
+            format_sse_event(data_str=frame.raw_data)
+            async for frame in ui_message_stream(events())
+        ]
+    )
+    blocks = [block for block in body.decode().split("\n\n") if block]
 
-    assert all(block.startswith("data: ") and "\r\n" not in block for block in blocks)
+    assert all(block.startswith("data: ") and "\n" not in block for block in blocks)
     assert blocks[-1] == "data: [DONE]"
     assert json.loads(blocks[0].removeprefix("data: ")) == {
         "type": "start",

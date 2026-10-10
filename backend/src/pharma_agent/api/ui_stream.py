@@ -1,15 +1,16 @@
 """AI SDK UI Message Stream v1 over SSE (spec A §3.2).
 
 `UIMessageStreamEncoder` is a pure mapping from chat `ProgressEvent`s to chunk dicts; the domain
-event contract is unchanged. SSE framing is sse-starlette's: one `data:` line per chunk, then
+event contract is unchanged. SSE framing is FastAPI's: one `data:` line per chunk, then
 `data: [DONE]`.
 """
 
+import json
 from collections.abc import AsyncIterable, AsyncIterator
 from datetime import datetime
 from typing import Any, assert_never
 
-from sse_starlette import EventSourceResponse, JSONServerSentEvent, ServerSentEvent
+from fastapi.sse import ServerSentEvent
 
 from pharma_agent.application.conversation.ui_message import (
     MessageMetadata,
@@ -20,11 +21,7 @@ from pharma_agent.application.conversation.ui_message import (
 )
 from pharma_agent.application.progress import EventType, ProgressEvent
 
-UI_MESSAGE_STREAM_HEADERS = {
-    "x-vercel-ai-ui-message-stream": "v1",
-    "Cache-Control": "no-cache",
-    "X-Accel-Buffering": "no",
-}
+UI_MESSAGE_STREAM_HEADERS = {"x-vercel-ai-ui-message-stream": "v1"}
 DONE_SENTINEL = "[DONE]"
 PHASE_PART_ID = "phase"
 EVIDENCE_PART_ID = "evidence"
@@ -32,16 +29,6 @@ TEXT_PART_ID = "text"
 _ERROR_STATUSES = frozenset({MessageStatus.ERROR, MessageStatus.TIMEOUT})
 
 Chunk = dict[str, Any]
-
-
-class UIMessageStreamResponse(EventSourceResponse):
-    """sse-starlette's response with its media type on the class.
-
-    sse-starlette sets `media_type` per instance, while FastAPI documents a route's
-    `response_class` from the class attribute; without it the stream is filed as JSON.
-    """
-
-    media_type = "text/event-stream"
 
 
 class UIMessageStreamEncoder:
@@ -140,5 +127,7 @@ async def ui_message_stream(
     events: AsyncIterable[ProgressEvent],
 ) -> AsyncIterator[ServerSentEvent]:
     async for chunk in ui_message_chunks(events):
-        yield JSONServerSentEvent(data=chunk)
-    yield ServerSentEvent(data=DONE_SENTINEL)
+        yield ServerSentEvent(
+            raw_data=json.dumps(chunk, ensure_ascii=False, separators=(",", ":"))
+        )
+    yield ServerSentEvent(raw_data=DONE_SENTINEL)

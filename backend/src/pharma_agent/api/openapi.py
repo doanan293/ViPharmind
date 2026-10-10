@@ -45,7 +45,8 @@ def _keep_event_stream_refs(document: dict[str, Any]) -> None:
     """Keep only the model reference of an event-stream response schema.
 
     FastAPI merges a `responses` model into the `{"type": "string"}` it writes for
-    non-JSON response classes, which would describe a string that is also an object.
+    non-JSON response classes, which would describe a string that is also an object,
+    and adds an `itemSchema` of the generic SSE frame that says nothing about the payload.
     """
     for path_item in document.get("paths", {}).values():
         for operation in path_item.values():
@@ -55,7 +56,9 @@ def _keep_event_stream_refs(document: dict[str, Any]) -> None:
                     continue
                 schema = stream.get("schema")
                 if isinstance(schema, dict) and "$ref" in schema:
-                    stream["schema"] = {"$ref": schema["$ref"]}
+                    response["content"][EVENT_STREAM_MEDIA_TYPE] = {
+                        "schema": {"$ref": schema["$ref"]}
+                    }
 
 
 def _replace_refs(node: object, renames: dict[str, str]) -> None:
