@@ -32,6 +32,7 @@ from pharma_agent.domain.corpus.ports import (
     CorpusRepository,
     VectorIndex,
 )
+from pharma_agent.domain.corpus.source import SourceRepository
 from pharma_agent.domain.organizations.ports import OrganizationRepository
 from pharma_agent.domain.shared.clock import Clock
 from pharma_agent.domain.shared.transaction import TransactionFactory
@@ -52,6 +53,31 @@ class QuotaPolicy:
     user_collections: int = 5
     org_text_bytes: int = 5_000_000
     org_collections: int = 20
+
+
+async def owner_limits(
+    owner: CollectionOwner,
+    *,
+    organizations: OrganizationRepository,
+    accounts: AccountRepository,
+    quotas: QuotaPolicy,
+) -> tuple[int, int]:
+    """(text characters, collections) for the owner, its overrides first."""
+    if owner.organization_id is not None:
+        organization = await organizations.get(owner.organization_id)
+        text = organization.text_quota_bytes if organization else None
+        count = organization.collection_quota if organization else None
+        return (
+            text if text is not None else quotas.org_text_bytes,
+            count if count is not None else quotas.org_collections,
+        )
+    user = None if owner.user_id is None else await accounts.get(owner.user_id)
+    text = None if user is None else user.text_quota_bytes
+    count = None if user is None else user.collection_quota
+    return (
+        text if text is not None else quotas.user_text_bytes,
+        count if count is not None else quotas.user_collections,
+    )
 
 
 class CollectionView(BaseModel):
@@ -104,7 +130,9 @@ class CollectionService:
         tx: TransactionFactory,
         clock: Clock,
         quotas: QuotaPolicy,
+        sources: SourceRepository | None = None,
     ) -> None:
+        self._sources = sources
         self._collections = collections
         self._organizations = organizations
         self._accounts = accounts
@@ -199,23 +227,11 @@ class CollectionService:
     # Quotas --------------------------------------------------------------------------
 
     async def _limits(self, owner: CollectionOwner) -> tuple[int, int]:
-        """(text bytes, collections) for the owner, overrides first."""
-        if owner.organization_id is not None:
-            organization = await self._organizations.get(owner.organization_id)
-            text = organization.text_quota_bytes if organization else None
-            count = organization.collection_quota if organization else None
-            return (
-                text if text is not None else self._quotas.org_text_bytes,
-                count if count is not None else self._quotas.org_collections,
-            )
-        user = (
-            None if owner.user_id is None else await self._accounts.get(owner.user_id)
-        )
-        text = None if user is None else user.text_quota_bytes
-        count = None if user is None else user.collection_quota
-        return (
-            text if text is not None else self._quotas.user_text_bytes,
-            count if count is not None else self._quotas.user_collections,
+        return await owner_limits(
+            owner,
+            organizations=self._organizations,
+            accounts=self._accounts,
+            quotas=self._quotas,
         )
 
     def _owner_for(
@@ -233,8 +249,9 @@ class CollectionService:
         owner = self._owner_for(actor, owner_organization_id)
         text_limit, count_limit = await self._limits(owner)
         return QuotaUsage(
-            # Authored text is counted once documents exist (spec §5.4).
-            text_used=0,
+            text_used=0
+            if self._sources is None
+            else await self._sources.text_usage(owner),
             text_limit=text_limit,
             collections_used=await self._collections.count_owned(owner),
             collections_limit=count_limit,

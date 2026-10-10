@@ -12,7 +12,10 @@ from pharma_agent.api.app import create_app
 from pharma_agent.application.conversation.service import ConversationService
 from pharma_agent.domain.shared.clock import SystemClock
 from pharma_agent.infrastructure.account_factory import build_account_service
-from pharma_agent.infrastructure.collections_factory import build_collection_service
+from pharma_agent.infrastructure.collections_factory import (
+    build_collection_service,
+    build_content_service,
+)
 from pharma_agent.infrastructure.container import Container
 from pharma_agent.infrastructure.organizations_factory import (
     build_organization_services,
@@ -87,6 +90,9 @@ async def postgres_app(
             health_checks={"postgres": database.ping},
             organizations=build_organization_services(
                 resolved, database.sessions, clock=SystemClock(), email=outbox.email
+            ),
+            content=build_content_service(
+                resolved, database.sessions, clock=SystemClock()
             ),
             collections=build_collection_service(
                 resolved,

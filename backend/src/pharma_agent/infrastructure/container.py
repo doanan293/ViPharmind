@@ -16,6 +16,7 @@ from pharma_agent.application.account.service import AccountService
 from pharma_agent.application.chat.service import ChatService, MemoryPolicy
 from pharma_agent.application.conversation.service import ConversationService
 from pharma_agent.application.corpus.collections import CollectionService
+from pharma_agent.application.corpus.content import ContentService
 from pharma_agent.application.feedback.service import FeedbackService
 from pharma_agent.application.memory.summarize import SummarizeConversation
 from pharma_agent.application.tracing import NullTracing, Tracing
@@ -25,7 +26,10 @@ from pharma_agent.domain.llm.port import LlmPort
 from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.domain.shared.clock import SystemClock
 from pharma_agent.infrastructure.account_factory import build_account_service
-from pharma_agent.infrastructure.collections_factory import build_collection_service
+from pharma_agent.infrastructure.collections_factory import (
+    build_collection_service,
+    build_content_service,
+)
 from pharma_agent.infrastructure.composition import Application, build_application
 from pharma_agent.infrastructure.observability.langfuse_tracing import LangfuseTracing
 from pharma_agent.infrastructure.organizations_factory import (
@@ -63,6 +67,7 @@ class Container:
     account: AccountService | None = None
     organizations: OrganizationServices | None = None
     collections: CollectionService | None = None
+    content: ContentService | None = None
     chat: ChatService | None = None
     summarizer: SummarizeConversation | None = None
     feedback: FeedbackService | None = None
@@ -126,6 +131,7 @@ async def open_container(
         feedback=FeedbackService(repository, feedback_repository, tracing, clock),
         health_checks={"postgres": database.ping},
         organizations=organization_services,
+        content=build_content_service(settings, database.sessions, clock=clock),
     )
     if settings.auth.otp_secret is None:
         logger.warning("PHARMA_AUTH__OTP_SECRET is not set: account flows are disabled")
