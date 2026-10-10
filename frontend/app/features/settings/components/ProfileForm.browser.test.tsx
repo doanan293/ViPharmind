@@ -4,7 +4,7 @@ import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
 
 import { getUsersPatchCurrentUserMockHandler } from "~/api/gen/endpoints.msw"
-import type { UserRead, UserUpdate } from "~/api/gen/schemas"
+import type { AccountView, ProfileUpdate } from "~/api/gen/schemas"
 import { UsersPatchCurrentUserBody } from "~/api/gen/zod"
 import { Toaster } from "~/components/ui/toast"
 
@@ -12,12 +12,17 @@ import { worker } from "../../../../tests/msw/browser"
 import { TestProviders } from "../../../../tests/utils/providers"
 import { ProfileForm } from "./ProfileForm"
 
-const USER: UserRead = {
+const USER: AccountView = {
   id: "0b7c3f5e-4a53-4f5e-9a51-7d1e2f3a4b5c",
   email: "an@example.com",
   is_active: true,
   is_superuser: false,
   is_verified: false,
+  phone_number: null,
+  email_verified: true,
+  phone_verified: false,
+  password_set: true,
+  google_linked: false,
   display_name: "Nguyễn An",
 }
 
@@ -33,12 +38,12 @@ async function renderForm(): Promise<void> {
 
 describe("ProfileForm", () => {
   test("saves the trimmed display name", async () => {
-    const bodies: UserUpdate[] = []
+    const bodies: ProfileUpdate[] = []
     worker.use(
       getUsersPatchCurrentUserMockHandler(async ({ request }) => {
         const body = UsersPatchCurrentUserBody.parse(await request.json())
         bodies.push(body)
-        return { ...USER, display_name: body.display_name ?? "" }
+        return { ...USER, display_name: body.display_name }
       })
     )
     await renderForm()

@@ -11,6 +11,7 @@ import type { RequestHandlerOptions } from "msw"
 
 import { HydrateStrategy, MessageStatus, Rating } from "./schemas"
 import type {
+  AccountView,
   BearerResponse,
   ChatTurnResult,
   CitationDetail,
@@ -21,10 +22,115 @@ import type {
   MessagePage,
   OAuth2AuthorizeResponse,
   PharmaDataParts,
+  SessionView,
   SourceDocumentUIPart,
   TextUIPart,
   UserRead,
 } from "./schemas"
+
+export const getAccountEmailConfirmResponseMock = (
+  overrideResponse: Partial<Extract<AccountView, object>> = {}
+): AccountView => ({
+  display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  email: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  email_verified: faker.datatype.boolean(),
+  google_linked: faker.datatype.boolean(),
+  id: faker.string.uuid(),
+  is_active: faker.datatype.boolean(),
+  is_superuser: faker.datatype.boolean(),
+  is_verified: faker.datatype.boolean(),
+  password_set: faker.datatype.boolean(),
+  phone_number: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  phone_verified: faker.datatype.boolean(),
+  ...overrideResponse,
+})
+
+export const getAccountGoogleUnlinkResponseMock = (
+  overrideResponse: Partial<Extract<AccountView, object>> = {}
+): AccountView => ({
+  display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  email: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  email_verified: faker.datatype.boolean(),
+  google_linked: faker.datatype.boolean(),
+  id: faker.string.uuid(),
+  is_active: faker.datatype.boolean(),
+  is_superuser: faker.datatype.boolean(),
+  is_verified: faker.datatype.boolean(),
+  password_set: faker.datatype.boolean(),
+  phone_number: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  phone_verified: faker.datatype.boolean(),
+  ...overrideResponse,
+})
+
+export const getAccountPhoneConfirmResponseMock = (
+  overrideResponse: Partial<Extract<AccountView, object>> = {}
+): AccountView => ({
+  display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  email: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  email_verified: faker.datatype.boolean(),
+  google_linked: faker.datatype.boolean(),
+  id: faker.string.uuid(),
+  is_active: faker.datatype.boolean(),
+  is_superuser: faker.datatype.boolean(),
+  is_verified: faker.datatype.boolean(),
+  password_set: faker.datatype.boolean(),
+  phone_number: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  phone_verified: faker.datatype.boolean(),
+  ...overrideResponse,
+})
+
+export const getAccountSessionsListResponseMock = (): SessionView[] =>
+  Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+    current: faker.datatype.boolean(),
+    id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ip_address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    last_used_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    user_agent: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  }))
+
+export const getOauthAssociateGoogleAuthorizeResponseMock = (
+  overrideResponse: Partial<Extract<OAuth2AuthorizeResponse, object>> = {}
+): OAuth2AuthorizeResponse => ({
+  authorization_url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+})
+
+export const getOauthAssociateGoogleCallbackResponseMock = (
+  overrideResponse: Partial<Extract<UserRead, object>> = {}
+): UserRead => ({
+  display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  email: faker.internet.email(),
+  id: faker.string.uuid(),
+  is_active: faker.datatype.boolean(),
+  is_superuser: faker.datatype.boolean(),
+  is_verified: faker.datatype.boolean(),
+  ...overrideResponse,
+})
 
 export const getOauthGoogleCookieAuthorizeResponseMock = (
   overrideResponse: Partial<Extract<OAuth2AuthorizeResponse, object>> = {}
@@ -347,52 +453,251 @@ export const getSubmitFeedbackResponseMock = (
 })
 
 export const getUsersCurrentUserResponseMock = (
-  overrideResponse: Partial<Extract<UserRead, object>> = {}
-): UserRead => ({
+  overrideResponse: Partial<Extract<AccountView, object>> = {}
+): AccountView => ({
   display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  email: faker.internet.email(),
+  email: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  email_verified: faker.datatype.boolean(),
+  google_linked: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
   is_superuser: faker.datatype.boolean(),
   is_verified: faker.datatype.boolean(),
+  password_set: faker.datatype.boolean(),
+  phone_number: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  phone_verified: faker.datatype.boolean(),
   ...overrideResponse,
 })
 
 export const getUsersPatchCurrentUserResponseMock = (
-  overrideResponse: Partial<Extract<UserRead, object>> = {}
-): UserRead => ({
+  overrideResponse: Partial<Extract<AccountView, object>> = {}
+): AccountView => ({
   display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  email: faker.internet.email(),
+  email: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  email_verified: faker.datatype.boolean(),
+  google_linked: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
   is_superuser: faker.datatype.boolean(),
   is_verified: faker.datatype.boolean(),
+  password_set: faker.datatype.boolean(),
+  phone_number: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  phone_verified: faker.datatype.boolean(),
   ...overrideResponse,
 })
 
-export const getUsersUserResponseMock = (
-  overrideResponse: Partial<Extract<UserRead, object>> = {}
-): UserRead => ({
-  display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  email: faker.internet.email(),
-  id: faker.string.uuid(),
-  is_active: faker.datatype.boolean(),
-  is_superuser: faker.datatype.boolean(),
-  is_verified: faker.datatype.boolean(),
-  ...overrideResponse,
-})
+export const getAccountEmailRequestMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/account/email",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
 
-export const getUsersPatchUserResponseMock = (
-  overrideResponse: Partial<Extract<UserRead, object>> = {}
-): UserRead => ({
-  display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  email: faker.internet.email(),
-  id: faker.string.uuid(),
-  is_active: faker.datatype.boolean(),
-  is_superuser: faker.datatype.boolean(),
-  is_verified: faker.datatype.boolean(),
-  ...overrideResponse,
-})
+      return new HttpResponse(null, { status: 202 })
+    },
+    options
+  )
+}
+
+export const getAccountEmailConfirmMockHandler = (
+  overrideResponse?:
+    | AccountView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<AccountView> | AccountView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/account/email/confirm",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAccountEmailConfirmResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAccountGoogleUnlinkMockHandler = (
+  overrideResponse?:
+    | AccountView
+    | ((
+        info: Parameters<Parameters<typeof http.delete>[1]>[0]
+      ) => Promise<AccountView> | AccountView),
+  options?: RequestHandlerOptions
+) => {
+  return http.delete(
+    "*/api/v1/account/oauth/google",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAccountGoogleUnlinkResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAccountPasswordChangeMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.put(
+    "*/api/v1/account/password",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
+export const getAccountPhoneRequestMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/account/phone",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 202 })
+    },
+    options
+  )
+}
+
+export const getAccountPhoneConfirmMockHandler = (
+  overrideResponse?:
+    | AccountView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<AccountView> | AccountView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/account/phone/confirm",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAccountPhoneConfirmResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAccountSessionsRevokeOthersMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.delete>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.delete(
+    "*/api/v1/account/sessions",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
+export const getAccountSessionsListMockHandler = (
+  overrideResponse?:
+    | SessionView[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<SessionView[]> | SessionView[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/account/sessions",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAccountSessionsListResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAccountSessionsRevokeMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.delete>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.delete(
+    "*/api/v1/account/sessions/:sessionId",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
 
 export const getAuthCookieLoginMockHandler = (
   overrideResponse?:
@@ -433,6 +738,96 @@ export const getAuthCookieLogoutMockHandler = (
       }
 
       return new HttpResponse(null, { status: 200 })
+    },
+    options
+  )
+}
+
+export const getAuthEmailVerifyMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/auth/email/verify",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
+export const getAuthEmailVerifyRequestMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/auth/email/verify/request",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 202 })
+    },
+    options
+  )
+}
+
+export const getOauthAssociateGoogleAuthorizeMockHandler = (
+  overrideResponse?:
+    | OAuth2AuthorizeResponse
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<OAuth2AuthorizeResponse> | OAuth2AuthorizeResponse),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/auth/google/associate/authorize",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getOauthAssociateGoogleAuthorizeResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getOauthAssociateGoogleCallbackMockHandler = (
+  overrideResponse?:
+    | UserRead
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<UserRead> | UserRead),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/auth/google/associate/callback",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getOauthAssociateGoogleCallbackResponseMock(),
+        { status: 200 }
+      )
     },
     options
   )
@@ -523,6 +918,90 @@ export const getAuthJwtLogoutMockHandler = (
       }
 
       return new HttpResponse(null, { status: 200 })
+    },
+    options
+  )
+}
+
+export const getAuthPasswordForgotMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/auth/password/forgot",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 202 })
+    },
+    options
+  )
+}
+
+export const getAuthPasswordResetMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/auth/password/reset",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
+export const getAuthPhoneLoginMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/auth/phone/login",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
+export const getAuthPhoneRequestMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/auth/phone/request",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 202 })
     },
     options
   )
@@ -815,10 +1294,10 @@ export const getSubmitFeedbackMockHandler = (
 
 export const getUsersCurrentUserMockHandler = (
   overrideResponse?:
-    | UserRead
+    | AccountView
     | ((
         info: Parameters<Parameters<typeof http.get>[1]>[0]
-      ) => Promise<UserRead> | UserRead),
+      ) => Promise<AccountView> | AccountView),
   options?: RequestHandlerOptions
 ) => {
   return http.get(
@@ -839,10 +1318,10 @@ export const getUsersCurrentUserMockHandler = (
 
 export const getUsersPatchCurrentUserMockHandler = (
   overrideResponse?:
-    | UserRead
+    | AccountView
     | ((
         info: Parameters<Parameters<typeof http.patch>[1]>[0]
-      ) => Promise<UserRead> | UserRead),
+      ) => Promise<AccountView> | AccountView),
   options?: RequestHandlerOptions
 ) => {
   return http.patch(
@@ -860,82 +1339,30 @@ export const getUsersPatchCurrentUserMockHandler = (
     options
   )
 }
-
-export const getUsersDeleteUserMockHandler = (
-  overrideResponse?:
-    | void
-    | ((
-        info: Parameters<Parameters<typeof http.delete>[1]>[0]
-      ) => Promise<void> | void),
-  options?: RequestHandlerOptions
-) => {
-  return http.delete(
-    "*/api/v1/users/:id",
-    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
-      if (typeof overrideResponse === "function") {
-        await overrideResponse(info)
-      }
-
-      return new HttpResponse(null, { status: 204 })
-    },
-    options
-  )
-}
-
-export const getUsersUserMockHandler = (
-  overrideResponse?:
-    | UserRead
-    | ((
-        info: Parameters<Parameters<typeof http.get>[1]>[0]
-      ) => Promise<UserRead> | UserRead),
-  options?: RequestHandlerOptions
-) => {
-  return http.get(
-    "*/api/v1/users/:id",
-    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
-      return HttpResponse.json(
-        overrideResponse !== undefined
-          ? typeof overrideResponse === "function"
-            ? await overrideResponse(info)
-            : overrideResponse
-          : getUsersUserResponseMock(),
-        { status: 200 }
-      )
-    },
-    options
-  )
-}
-
-export const getUsersPatchUserMockHandler = (
-  overrideResponse?:
-    | UserRead
-    | ((
-        info: Parameters<Parameters<typeof http.patch>[1]>[0]
-      ) => Promise<UserRead> | UserRead),
-  options?: RequestHandlerOptions
-) => {
-  return http.patch(
-    "*/api/v1/users/:id",
-    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
-      return HttpResponse.json(
-        overrideResponse !== undefined
-          ? typeof overrideResponse === "function"
-            ? await overrideResponse(info)
-            : overrideResponse
-          : getUsersPatchUserResponseMock(),
-        { status: 200 }
-      )
-    },
-    options
-  )
-}
 export const getPharmaAgentAPIMock = () => [
+  getAccountEmailRequestMockHandler(),
+  getAccountEmailConfirmMockHandler(),
+  getAccountGoogleUnlinkMockHandler(),
+  getAccountPasswordChangeMockHandler(),
+  getAccountPhoneRequestMockHandler(),
+  getAccountPhoneConfirmMockHandler(),
+  getAccountSessionsRevokeOthersMockHandler(),
+  getAccountSessionsListMockHandler(),
+  getAccountSessionsRevokeMockHandler(),
   getAuthCookieLoginMockHandler(),
   getAuthCookieLogoutMockHandler(),
+  getAuthEmailVerifyMockHandler(),
+  getAuthEmailVerifyRequestMockHandler(),
+  getOauthAssociateGoogleAuthorizeMockHandler(),
+  getOauthAssociateGoogleCallbackMockHandler(),
   getOauthGoogleCookieAuthorizeMockHandler(),
   getOauthGoogleCookieCallbackMockHandler(),
   getAuthJwtLoginMockHandler(),
   getAuthJwtLogoutMockHandler(),
+  getAuthPasswordForgotMockHandler(),
+  getAuthPasswordResetMockHandler(),
+  getAuthPhoneLoginMockHandler(),
+  getAuthPhoneRequestMockHandler(),
   getRegisterRegisterMockHandler(),
   getChatMockHandler(),
   getChatStreamMockHandler(),
@@ -950,7 +1377,4 @@ export const getPharmaAgentAPIMock = () => [
   getSubmitFeedbackMockHandler(),
   getUsersCurrentUserMockHandler(),
   getUsersPatchCurrentUserMockHandler(),
-  getUsersDeleteUserMockHandler(),
-  getUsersUserMockHandler(),
-  getUsersPatchUserMockHandler(),
 ]

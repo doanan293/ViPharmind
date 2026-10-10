@@ -7,19 +7,24 @@ import { render } from "vitest-browser-react"
 import { z } from "zod"
 
 import { getUsersCurrentUserMockHandler } from "~/api/gen/endpoints.msw"
-import type { UserRead } from "~/api/gen/schemas"
+import type { AccountView } from "~/api/gen/schemas"
 import { Toaster } from "~/components/ui/toast"
 
 import { worker } from "../../../../tests/msw/browser"
 import { TestProviders } from "../../../../tests/utils/providers"
 import { SettingsPage } from "./SettingsPage"
 
-const USER: UserRead = {
+const USER: AccountView = {
   id: "0b7c3f5e-4a53-4f5e-9a51-7d1e2f3a4b5c",
   email: "an@example.com",
   is_active: true,
   is_superuser: false,
   is_verified: false,
+  phone_number: null,
+  email_verified: true,
+  phone_verified: false,
+  password_set: true,
+  google_linked: false,
   display_name: "Nguyễn An",
 }
 

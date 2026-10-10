@@ -23,5 +23,11 @@
     "notFoundTitle": "Page not found",
     "notFoundDescription": "The page you are looking for does not exist or was removed.",
     "backHome": "Back to home"
+  },
+  "code": {
+    "label": "Verification code",
+    "incomplete": "Enter all 6 digits.",
+    "resend": "Resend code",
+    "resendIn": "Resend in {{seconds}} seconds"
   }
 }

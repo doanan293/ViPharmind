@@ -33,7 +33,11 @@ export function SettingsPage() {
           <CardTitle>{t("password.heading")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <PasswordForm />
+          {user.data === undefined ? (
+            <Spinner />
+          ) : (
+            <PasswordForm passwordSet={user.data.password_set} />
+          )}
         </CardContent>
       </Card>
       <Card>

@@ -42,4 +42,17 @@ describe("fetcher in the browser", () => {
 
     await expect(fetcher("/api/v1/users/me")).resolves.toEqual({ csrf: null })
   })
+
+  test("sends the UI language so emails and SMS match it", async () => {
+    let language: string | null = null
+    worker.use(
+      http.get("/api/v1/probe", ({ request }) => {
+        language = request.headers.get("accept-language")
+        return HttpResponse.json({})
+      })
+    )
+    document.documentElement.lang = "en"
+    await fetcher("/api/v1/probe")
+    expect(language).toBe("en")
+  })
 })

@@ -1,11 +1,11 @@
 import { redirect } from "react-router"
 
-import type { UserRead } from "~/api/gen/schemas"
+import type { AccountView } from "~/api/gen/schemas"
 import { isApiError } from "~/api/problem"
 import { queryClient } from "~/api/query-client"
 import { currentUserQueryOptions } from "~/features/auth/lib/current-user"
 
-export async function requireUser(request: Request): Promise<UserRead> {
+export async function requireUser(request: Request): Promise<AccountView> {
   try {
     return await queryClient.ensureQueryData(currentUserQueryOptions())
   } catch (error) {

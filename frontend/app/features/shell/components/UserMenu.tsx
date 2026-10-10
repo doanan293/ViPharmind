@@ -1,7 +1,7 @@
 import { LogOutIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import type { UserRead } from "~/api/gen/schemas"
+import type { AccountView } from "~/api/gen/schemas"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,14 +17,12 @@ import {
   SidebarMenuItem,
 } from "~/components/ui/sidebar"
 import { useLogout } from "~/features/auth/hooks/use-logout"
+import { accountLabel } from "~/features/auth/lib/account-label"
 
-export function UserMenu({ user }: { user: UserRead }) {
+export function UserMenu({ user }: { user: AccountView }) {
   const { t } = useTranslation("common")
   const logout = useLogout()
-  const displayName =
-    user.display_name !== undefined && user.display_name !== ""
-      ? user.display_name
-      : user.email
+  const displayName = accountLabel(user)
 
   return (
     <SidebarMenu>
@@ -39,7 +37,9 @@ export function UserMenu({ user }: { user: UserRead }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start">
             <DropdownMenuGroup>
-              <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                {user.email ?? user.phone_number}
+              </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem

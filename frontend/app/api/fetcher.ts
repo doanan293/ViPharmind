@@ -12,12 +12,24 @@ export function apiBaseUrl(): string {
   return process.env.API_INTERNAL_URL ?? DEFAULT_API_INTERNAL_URL
 }
 
+/** The UI language, so codes and notices arrive in it. Loaders on the server send none. */
+function uiLanguage(): string | undefined {
+  if (typeof document === "undefined") {
+    return undefined
+  }
+  return document.documentElement.lang || undefined
+}
+
 /** orval mutator for every generated request. */
 export async function fetcher<T>(url: string, init?: RequestInit): Promise<T> {
   const method = (init?.method ?? "GET").toUpperCase()
   const headers = new Headers(init?.headers)
   if (!headers.has("Accept")) {
     headers.set("Accept", "application/json, application/problem+json")
+  }
+  const language = uiLanguage()
+  if (language !== undefined && !headers.has("Accept-Language")) {
+    headers.set("Accept-Language", language)
   }
   if (UNSAFE_METHODS.has(method)) {
     const token = readCsrfToken()

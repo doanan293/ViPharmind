@@ -23,5 +23,11 @@
     "notFoundTitle": "Không tìm thấy trang",
     "notFoundDescription": "Trang bạn tìm không tồn tại hoặc đã bị xoá.",
     "backHome": "Về trang chủ"
+  },
+  "code": {
+    "label": "Mã xác minh",
+    "incomplete": "Nhập đủ 6 chữ số.",
+    "resend": "Gửi lại mã",
+    "resendIn": "Gửi lại sau {{seconds}} giây"
   }
 }

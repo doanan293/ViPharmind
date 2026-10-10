@@ -3,7 +3,7 @@ import { useMemo } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 
-import { useUsersPatchCurrentUser } from "~/api/gen/endpoints"
+import { useAccountPasswordChange } from "~/api/gen/endpoints"
 import { isApiError } from "~/api/problem"
 import { Button } from "~/components/ui/button"
 import { Field, FieldError, FieldLabel } from "~/components/ui/field"
@@ -14,34 +14,50 @@ import { applyApiError } from "~/lib/form-errors"
 
 import { createPasswordSchema } from "../lib/account-schemas"
 
-const PASSWORD_FIELDS = ["password"] as const
+const PASSWORD_FIELDS = ["password", "current_password"] as const
 
-export function PasswordForm() {
+export function PasswordForm({ passwordSet }: { passwordSet: boolean }) {
   const { t } = useTranslation("settings")
   const { t: tErrors } = useTranslation("errors")
-  const patch = useUsersPatchCurrentUser()
+  const change = useAccountPasswordChange()
   const schema = useMemo(
     () =>
-      createPasswordSchema({
-        tooShort: t("password.tooShort"),
-        tooLong: t("password.tooLong"),
-        mismatch: t("password.mismatch"),
-      }),
-    [t]
+      createPasswordSchema(
+        {
+          tooShort: t("password.tooShort"),
+          tooLong: t("password.tooLong"),
+          mismatch: t("password.mismatch"),
+          currentRequired: t("password.currentRequired"),
+        },
+        passwordSet
+      ),
+    [t, passwordSet]
   )
   const form = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { password: "", confirm: "" },
+    defaultValues: { current_password: "", password: "", confirm: "" },
   })
   const rootError = form.formState.errors.root?.server?.message
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await patch.mutateAsync({ data: { password: values.password } })
-      form.reset({ password: "", confirm: "" })
+      await change.mutateAsync({
+        data: {
+          current_password: passwordSet ? values.current_password : null,
+          new_password: values.password,
+        },
+      })
+      form.reset({ current_password: "", password: "", confirm: "" })
       toast.add({ type: "success", title: t("password.saved") })
     } catch (error: unknown) {
-      if (isApiError(error) && error.code === "UPDATE_USER_INVALID_PASSWORD") {
+      if (isApiError(error) && error.code === "CURRENT_PASSWORD_INVALID") {
+        form.setError("current_password", {
+          type: "server",
+          message: apiErrorMessage(error, tErrors),
+        })
+        return
+      }
+      if (isApiError(error) && error.code === "PASSWORD_INVALID") {
         form.setError("password", {
           type: "server",
           message: apiErrorMessage(error, tErrors),
@@ -65,6 +81,27 @@ export function PasswordForm() {
         void onSubmit(event)
       }}
     >
+      {passwordSet ? (
+        <Controller
+          control={form.control}
+          name="current_password"
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor="settings-current-password">
+                {t("password.current")}
+              </FieldLabel>
+              <Input
+                {...field}
+                id="settings-current-password"
+                type="password"
+                autoComplete="current-password"
+                aria-invalid={fieldState.invalid}
+              />
+              <FieldError errors={[fieldState.error]} />
+            </Field>
+          )}
+        />
+      ) : null}
       <Controller
         control={form.control}
         name="password"
@@ -108,7 +145,7 @@ export function PasswordForm() {
           {rootError}
         </p>
       )}
-      <Button type="submit" className="self-start" disabled={patch.isPending}>
+      <Button type="submit" className="self-start" disabled={change.isPending}>
         {t("password.submit")}
       </Button>
     </form>

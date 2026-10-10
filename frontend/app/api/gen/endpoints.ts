@@ -25,6 +25,7 @@ import type {
 } from "@tanstack/react-query"
 
 import type {
+  AccountView,
   BearerResponse,
   BodyAuthCookieLogin,
   BodyAuthJwtLogin,
@@ -33,6 +34,8 @@ import type {
   CitationDetail,
   ConversationPage,
   ConversationView,
+  EmailBody,
+  EmailCodeBody,
   FeedbackRequest,
   FeedbackView,
   HealthResponse,
@@ -40,14 +43,21 @@ import type {
   ListMessagesParams,
   MessagePage,
   OAuth2AuthorizeResponse,
+  OauthAssociateGoogleAuthorizeParams,
+  OauthAssociateGoogleCallbackParams,
   OauthGoogleCookieAuthorizeParams,
   OauthGoogleCookieCallbackParams,
+  PasswordChangeBody,
+  PasswordResetBody,
   PharmaDataParts,
+  PhoneBody,
+  PhoneCodeBody,
   Problem,
+  ProfileUpdate,
   RenameConversationRequest,
+  SessionView,
   UserCreate,
   UserRead,
-  UserUpdate,
 } from "./schemas"
 
 import { fetcher } from "../fetcher"
@@ -70,6 +80,1016 @@ const withQueryKey = <T extends object, K>(
     })
   }
   return result
+}
+
+export const getAccountEmailRequestUrl = () => {
+  return `/api/v1/account/email`
+}
+
+/**
+ * @summary Account:Email.Request
+ */
+export const accountEmailRequest = async (
+  emailBody: EmailBody,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string]
+        )
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return fetcher<void>(getAccountEmailRequestUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(emailBody),
+  })
+}
+
+export const getAccountEmailRequestMutationKey = () =>
+  ["accountEmailRequest"] as const
+
+export const getAccountEmailRequestMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof accountEmailRequest>>,
+    TError,
+    AccountEmailRequestMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof accountEmailRequest>>,
+  TError,
+  AccountEmailRequestMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAccountEmailRequestMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof accountEmailRequest>>,
+    AccountEmailRequestMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return accountEmailRequest(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AccountEmailRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountEmailRequest>>
+>
+export type AccountEmailRequestMutationBody = EmailBody
+export type AccountEmailRequestMutationError = Problem
+export type AccountEmailRequestMutationVariables = { data: EmailBody }
+
+/**
+ * @summary Account:Email.Request
+ */
+export const useAccountEmailRequest = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof accountEmailRequest>>,
+      TError,
+      AccountEmailRequestMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof accountEmailRequest>>,
+  TError,
+  AccountEmailRequestMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getAccountEmailRequestMutationOptions(options),
+    queryClient
+  )
+}
+
+export const getAccountEmailConfirmUrl = () => {
+  return `/api/v1/account/email/confirm`
+}
+
+/**
+ * @summary Account:Email.Confirm
+ */
+export const accountEmailConfirm = async (
+  emailCodeBody: EmailCodeBody,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<AccountView> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string]
+        )
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return fetcher<AccountView>(getAccountEmailConfirmUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(emailCodeBody),
+  })
+}
+
+export const getAccountEmailConfirmMutationKey = () =>
+  ["accountEmailConfirm"] as const
+
+export const getAccountEmailConfirmMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof accountEmailConfirm>>,
+    TError,
+    AccountEmailConfirmMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof accountEmailConfirm>>,
+  TError,
+  AccountEmailConfirmMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAccountEmailConfirmMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof accountEmailConfirm>>,
+    AccountEmailConfirmMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return accountEmailConfirm(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AccountEmailConfirmMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountEmailConfirm>>
+>
+export type AccountEmailConfirmMutationBody = EmailCodeBody
+export type AccountEmailConfirmMutationError = Problem
+export type AccountEmailConfirmMutationVariables = { data: EmailCodeBody }
+
+/**
+ * @summary Account:Email.Confirm
+ */
+export const useAccountEmailConfirm = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof accountEmailConfirm>>,
+      TError,
+      AccountEmailConfirmMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof accountEmailConfirm>>,
+  TError,
+  AccountEmailConfirmMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getAccountEmailConfirmMutationOptions(options),
+    queryClient
+  )
+}
+
+export const getAccountGoogleUnlinkUrl = () => {
+  return `/api/v1/account/oauth/google`
+}
+
+/**
+ * @summary Account:Google.Unlink
+ */
+export const accountGoogleUnlink = async (
+  options?: Parameters<typeof fetcher>[1]
+): Promise<AccountView> => {
+  return fetcher<AccountView>(getAccountGoogleUnlinkUrl(), {
+    ...options,
+    method: "DELETE",
+  })
+}
+
+export const getAccountGoogleUnlinkMutationKey = () =>
+  ["accountGoogleUnlink"] as const
+
+export const getAccountGoogleUnlinkMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof accountGoogleUnlink>>,
+    TError,
+    void,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof accountGoogleUnlink>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getAccountGoogleUnlinkMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof accountGoogleUnlink>>,
+    void
+  > = () => {
+    return accountGoogleUnlink(requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AccountGoogleUnlinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountGoogleUnlink>>
+>
+
+export type AccountGoogleUnlinkMutationError = Problem
+
+/**
+ * @summary Account:Google.Unlink
+ */
+export const useAccountGoogleUnlink = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof accountGoogleUnlink>>,
+      TError,
+      void,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof accountGoogleUnlink>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getAccountGoogleUnlinkMutationOptions(options),
+    queryClient
+  )
+}
+
+export const getAccountPasswordChangeUrl = () => {
+  return `/api/v1/account/password`
+}
+
+/**
+ * @summary Account:Password.Change
+ */
+export const accountPasswordChange = async (
+  passwordChangeBody: PasswordChangeBody,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string]
+        )
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return fetcher<void>(getAccountPasswordChangeUrl(), {
+    ...options,
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(passwordChangeBody),
+  })
+}
+
+export const getAccountPasswordChangeMutationKey = () =>
+  ["accountPasswordChange"] as const
+
+export const getAccountPasswordChangeMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof accountPasswordChange>>,
+    TError,
+    AccountPasswordChangeMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof accountPasswordChange>>,
+  TError,
+  AccountPasswordChangeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAccountPasswordChangeMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof accountPasswordChange>>,
+    AccountPasswordChangeMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return accountPasswordChange(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AccountPasswordChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountPasswordChange>>
+>
+export type AccountPasswordChangeMutationBody = PasswordChangeBody
+export type AccountPasswordChangeMutationError = Problem
+export type AccountPasswordChangeMutationVariables = {
+  data: PasswordChangeBody
+}
+
+/**
+ * @summary Account:Password.Change
+ */
+export const useAccountPasswordChange = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof accountPasswordChange>>,
+      TError,
+      AccountPasswordChangeMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof accountPasswordChange>>,
+  TError,
+  AccountPasswordChangeMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getAccountPasswordChangeMutationOptions(options),
+    queryClient
+  )
+}
+
+export const getAccountPhoneRequestUrl = () => {
+  return `/api/v1/account/phone`
+}
+
+/**
+ * @summary Account:Phone.Request
+ */
+export const accountPhoneRequest = async (
+  phoneBody: PhoneBody,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string]
+        )
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return fetcher<void>(getAccountPhoneRequestUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(phoneBody),
+  })
+}
+
+export const getAccountPhoneRequestMutationKey = () =>
+  ["accountPhoneRequest"] as const
+
+export const getAccountPhoneRequestMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof accountPhoneRequest>>,
+    TError,
+    AccountPhoneRequestMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof accountPhoneRequest>>,
+  TError,
+  AccountPhoneRequestMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAccountPhoneRequestMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof accountPhoneRequest>>,
+    AccountPhoneRequestMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return accountPhoneRequest(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AccountPhoneRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountPhoneRequest>>
+>
+export type AccountPhoneRequestMutationBody = PhoneBody
+export type AccountPhoneRequestMutationError = Problem
+export type AccountPhoneRequestMutationVariables = { data: PhoneBody }
+
+/**
+ * @summary Account:Phone.Request
+ */
+export const useAccountPhoneRequest = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof accountPhoneRequest>>,
+      TError,
+      AccountPhoneRequestMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof accountPhoneRequest>>,
+  TError,
+  AccountPhoneRequestMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getAccountPhoneRequestMutationOptions(options),
+    queryClient
+  )
+}
+
+export const getAccountPhoneConfirmUrl = () => {
+  return `/api/v1/account/phone/confirm`
+}
+
+/**
+ * @summary Account:Phone.Confirm
+ */
+export const accountPhoneConfirm = async (
+  phoneCodeBody: PhoneCodeBody,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<AccountView> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string]
+        )
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return fetcher<AccountView>(getAccountPhoneConfirmUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(phoneCodeBody),
+  })
+}
+
+export const getAccountPhoneConfirmMutationKey = () =>
+  ["accountPhoneConfirm"] as const
+
+export const getAccountPhoneConfirmMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof accountPhoneConfirm>>,
+    TError,
+    AccountPhoneConfirmMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof accountPhoneConfirm>>,
+  TError,
+  AccountPhoneConfirmMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAccountPhoneConfirmMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof accountPhoneConfirm>>,
+    AccountPhoneConfirmMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return accountPhoneConfirm(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AccountPhoneConfirmMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountPhoneConfirm>>
+>
+export type AccountPhoneConfirmMutationBody = PhoneCodeBody
+export type AccountPhoneConfirmMutationError = Problem
+export type AccountPhoneConfirmMutationVariables = { data: PhoneCodeBody }
+
+/**
+ * @summary Account:Phone.Confirm
+ */
+export const useAccountPhoneConfirm = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof accountPhoneConfirm>>,
+      TError,
+      AccountPhoneConfirmMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof accountPhoneConfirm>>,
+  TError,
+  AccountPhoneConfirmMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getAccountPhoneConfirmMutationOptions(options),
+    queryClient
+  )
+}
+
+export const getAccountSessionsRevokeOthersUrl = () => {
+  return `/api/v1/account/sessions`
+}
+
+/**
+ * @summary Account:Sessions.Revoke Others
+ */
+export const accountSessionsRevokeOthers = async (
+  options?: Parameters<typeof fetcher>[1]
+): Promise<void> => {
+  return fetcher<void>(getAccountSessionsRevokeOthersUrl(), {
+    ...options,
+    method: "DELETE",
+  })
+}
+
+export const getAccountSessionsRevokeOthersMutationKey = () =>
+  ["accountSessionsRevokeOthers"] as const
+
+export const getAccountSessionsRevokeOthersMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof accountSessionsRevokeOthers>>,
+    TError,
+    void,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof accountSessionsRevokeOthers>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getAccountSessionsRevokeOthersMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof accountSessionsRevokeOthers>>,
+    void
+  > = () => {
+    return accountSessionsRevokeOthers(requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AccountSessionsRevokeOthersMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountSessionsRevokeOthers>>
+>
+
+export type AccountSessionsRevokeOthersMutationError = Problem
+
+/**
+ * @summary Account:Sessions.Revoke Others
+ */
+export const useAccountSessionsRevokeOthers = <
+  TError = Problem,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof accountSessionsRevokeOthers>>,
+      TError,
+      void,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof accountSessionsRevokeOthers>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getAccountSessionsRevokeOthersMutationOptions(options),
+    queryClient
+  )
+}
+
+export const getAccountSessionsListUrl = () => {
+  return `/api/v1/account/sessions`
+}
+
+/**
+ * @summary Account:Sessions.List
+ */
+export const accountSessionsList = async (
+  options?: Parameters<typeof fetcher>[1]
+): Promise<SessionView[]> => {
+  return fetcher<SessionView[]>(getAccountSessionsListUrl(), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getAccountSessionsListQueryKey = () => {
+  return [`/api/v1/account/sessions`] as const
+}
+
+export const getAccountSessionsListQueryOptions = <
+  TData = Awaited<ReturnType<typeof accountSessionsList>>,
+  TError = Problem,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof accountSessionsList>>,
+      TError,
+      TData
+    >
+  >
+  request?: SecondParameter<typeof fetcher>
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getAccountSessionsListQueryKey()
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof accountSessionsList>>
+  > = ({ signal }) => accountSessionsList({ signal, ...requestOptions })
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof accountSessionsList>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AccountSessionsListQueryResult = NonNullable<
+  Awaited<ReturnType<typeof accountSessionsList>>
+>
+export type AccountSessionsListQueryError = Problem
+
+export function useAccountSessionsList<
+  TData = Awaited<ReturnType<typeof accountSessionsList>>,
+  TError = Problem,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof accountSessionsList>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof accountSessionsList>>,
+          TError,
+          Awaited<ReturnType<typeof accountSessionsList>>
+        >,
+        "initialData"
+      >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useAccountSessionsList<
+  TData = Awaited<ReturnType<typeof accountSessionsList>>,
+  TError = Problem,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof accountSessionsList>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof accountSessionsList>>,
+          TError,
+          Awaited<ReturnType<typeof accountSessionsList>>
+        >,
+        "initialData"
+      >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useAccountSessionsList<
+  TData = Awaited<ReturnType<typeof accountSessionsList>>,
+  TError = Problem,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof accountSessionsList>>,
+        TError,
+        TData
+      >
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+/**
+ * @summary Account:Sessions.List
+ */
+
+export function useAccountSessionsList<
+  TData = Awaited<ReturnType<typeof accountSessionsList>>,
+  TError = Problem,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof accountSessionsList>>,
+        TError,
+        TData
+      >
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+} {
+  const queryOptions = getAccountSessionsListQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getAccountSessionsRevokeUrl = (sessionId: string) => {
+  return `/api/v1/account/sessions/${sessionId}`
+}
+
+/**
+ * @summary Account:Sessions.Revoke
+ */
+export const accountSessionsRevoke = async (
+  sessionId: string,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<void> => {
+  return fetcher<void>(getAccountSessionsRevokeUrl(sessionId), {
+    ...options,
+    method: "DELETE",
+  })
+}
+
+export const getAccountSessionsRevokeMutationKey = () =>
+  ["accountSessionsRevoke"] as const
+
+export const getAccountSessionsRevokeMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof accountSessionsRevoke>>,
+    TError,
+    AccountSessionsRevokeMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof accountSessionsRevoke>>,
+  TError,
+  AccountSessionsRevokeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAccountSessionsRevokeMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof accountSessionsRevoke>>,
+    AccountSessionsRevokeMutationVariables
+  > = (props) => {
+    const { sessionId } = props ?? {}
+
+    return accountSessionsRevoke(sessionId, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AccountSessionsRevokeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountSessionsRevoke>>
+>
+
+export type AccountSessionsRevokeMutationError = Problem
+export type AccountSessionsRevokeMutationVariables = { sessionId: string }
+
+/**
+ * @summary Account:Sessions.Revoke
+ */
+export const useAccountSessionsRevoke = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof accountSessionsRevoke>>,
+      TError,
+      AccountSessionsRevokeMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof accountSessionsRevoke>>,
+  TError,
+  AccountSessionsRevokeMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getAccountSessionsRevokeMutationOptions(options),
+    queryClient
+  )
 }
 
 export const getAuthCookieLoginUrl = () => {
@@ -292,6 +1312,619 @@ export const useAuthCookieLogout = <TError = Problem, TContext = unknown>(
   TContext
 > => {
   return useMutation(getAuthCookieLogoutMutationOptions(options), queryClient)
+}
+
+export const getAuthEmailVerifyUrl = () => {
+  return `/api/v1/auth/email/verify`
+}
+
+/**
+ * @summary Auth:Email.Verify
+ */
+export const authEmailVerify = async (
+  emailCodeBody: EmailCodeBody,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string]
+        )
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return fetcher<void>(getAuthEmailVerifyUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(emailCodeBody),
+  })
+}
+
+export const getAuthEmailVerifyMutationKey = () => ["authEmailVerify"] as const
+
+export const getAuthEmailVerifyMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authEmailVerify>>,
+    TError,
+    AuthEmailVerifyMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof authEmailVerify>>,
+  TError,
+  AuthEmailVerifyMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAuthEmailVerifyMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof authEmailVerify>>,
+    AuthEmailVerifyMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return authEmailVerify(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AuthEmailVerifyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof authEmailVerify>>
+>
+export type AuthEmailVerifyMutationBody = EmailCodeBody
+export type AuthEmailVerifyMutationError = Problem
+export type AuthEmailVerifyMutationVariables = { data: EmailCodeBody }
+
+/**
+ * @summary Auth:Email.Verify
+ */
+export const useAuthEmailVerify = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof authEmailVerify>>,
+      TError,
+      AuthEmailVerifyMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof authEmailVerify>>,
+  TError,
+  AuthEmailVerifyMutationVariables,
+  TContext
+> => {
+  return useMutation(getAuthEmailVerifyMutationOptions(options), queryClient)
+}
+
+export const getAuthEmailVerifyRequestUrl = () => {
+  return `/api/v1/auth/email/verify/request`
+}
+
+/**
+ * @summary Auth:Email.Verify Request
+ */
+export const authEmailVerifyRequest = async (
+  emailBody: EmailBody,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string]
+        )
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return fetcher<void>(getAuthEmailVerifyRequestUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(emailBody),
+  })
+}
+
+export const getAuthEmailVerifyRequestMutationKey = () =>
+  ["authEmailVerifyRequest"] as const
+
+export const getAuthEmailVerifyRequestMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authEmailVerifyRequest>>,
+    TError,
+    AuthEmailVerifyRequestMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof authEmailVerifyRequest>>,
+  TError,
+  AuthEmailVerifyRequestMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAuthEmailVerifyRequestMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof authEmailVerifyRequest>>,
+    AuthEmailVerifyRequestMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return authEmailVerifyRequest(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AuthEmailVerifyRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof authEmailVerifyRequest>>
+>
+export type AuthEmailVerifyRequestMutationBody = EmailBody
+export type AuthEmailVerifyRequestMutationError = Problem
+export type AuthEmailVerifyRequestMutationVariables = { data: EmailBody }
+
+/**
+ * @summary Auth:Email.Verify Request
+ */
+export const useAuthEmailVerifyRequest = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof authEmailVerifyRequest>>,
+      TError,
+      AuthEmailVerifyRequestMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof authEmailVerifyRequest>>,
+  TError,
+  AuthEmailVerifyRequestMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getAuthEmailVerifyRequestMutationOptions(options),
+    queryClient
+  )
+}
+
+export const getOauthAssociateGoogleAuthorizeUrl = (
+  params?: OauthAssociateGoogleAuthorizeParams
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["scopes"]
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? "null" : String(v))
+      })
+      return
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/auth/google/associate/authorize?${stringifiedParams}`
+    : `/api/v1/auth/google/associate/authorize`
+}
+
+/**
+ * @summary Oauth-Associate:Google.Authorize
+ */
+export const oauthAssociateGoogleAuthorize = async (
+  params?: OauthAssociateGoogleAuthorizeParams,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<OAuth2AuthorizeResponse> => {
+  return fetcher<OAuth2AuthorizeResponse>(
+    getOauthAssociateGoogleAuthorizeUrl(params),
+    {
+      ...options,
+      method: "GET",
+    }
+  )
+}
+
+export const getOauthAssociateGoogleAuthorizeQueryKey = (
+  params?: OauthAssociateGoogleAuthorizeParams
+) => {
+  return [
+    `/api/v1/auth/google/associate/authorize`,
+    ...(params ? [params] : []),
+  ] as const
+}
+
+export const getOauthAssociateGoogleAuthorizeQueryOptions = <
+  TData = Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+  TError = Problem,
+>(
+  params?: OauthAssociateGoogleAuthorizeParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+        TError,
+        TData
+      >
+    >
+    request?: SecondParameter<typeof fetcher>
+  }
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey =
+    queryOptions?.queryKey ?? getOauthAssociateGoogleAuthorizeQueryKey(params)
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>
+  > = ({ signal }) =>
+    oauthAssociateGoogleAuthorize(params, { signal, ...requestOptions })
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type OauthAssociateGoogleAuthorizeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>
+>
+export type OauthAssociateGoogleAuthorizeQueryError = Problem
+
+export function useOauthAssociateGoogleAuthorize<
+  TData = Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+  TError = Problem,
+>(
+  params: undefined | OauthAssociateGoogleAuthorizeParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+          TError,
+          Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>
+        >,
+        "initialData"
+      >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useOauthAssociateGoogleAuthorize<
+  TData = Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+  TError = Problem,
+>(
+  params?: OauthAssociateGoogleAuthorizeParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+          TError,
+          Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>
+        >,
+        "initialData"
+      >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useOauthAssociateGoogleAuthorize<
+  TData = Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+  TError = Problem,
+>(
+  params?: OauthAssociateGoogleAuthorizeParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+        TError,
+        TData
+      >
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+/**
+ * @summary Oauth-Associate:Google.Authorize
+ */
+
+export function useOauthAssociateGoogleAuthorize<
+  TData = Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+  TError = Problem,
+>(
+  params?: OauthAssociateGoogleAuthorizeParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof oauthAssociateGoogleAuthorize>>,
+        TError,
+        TData
+      >
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+} {
+  const queryOptions = getOauthAssociateGoogleAuthorizeQueryOptions(
+    params,
+    options
+  )
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getOauthAssociateGoogleCallbackUrl = (
+  params?: OauthAssociateGoogleCallbackParams
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/auth/google/associate/callback?${stringifiedParams}`
+    : `/api/v1/auth/google/associate/callback`
+}
+
+/**
+ * The response varies based on the authentication backend used.
+ * @summary Oauth-Associate:Google.Callback
+ */
+export const oauthAssociateGoogleCallback = async (
+  params?: OauthAssociateGoogleCallbackParams,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<UserRead> => {
+  return fetcher<UserRead>(getOauthAssociateGoogleCallbackUrl(params), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getOauthAssociateGoogleCallbackQueryKey = (
+  params?: OauthAssociateGoogleCallbackParams
+) => {
+  return [
+    `/api/v1/auth/google/associate/callback`,
+    ...(params ? [params] : []),
+  ] as const
+}
+
+export const getOauthAssociateGoogleCallbackQueryOptions = <
+  TData = Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+  TError = Problem,
+>(
+  params?: OauthAssociateGoogleCallbackParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+        TError,
+        TData
+      >
+    >
+    request?: SecondParameter<typeof fetcher>
+  }
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey =
+    queryOptions?.queryKey ?? getOauthAssociateGoogleCallbackQueryKey(params)
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>
+  > = ({ signal }) =>
+    oauthAssociateGoogleCallback(params, { signal, ...requestOptions })
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type OauthAssociateGoogleCallbackQueryResult = NonNullable<
+  Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>
+>
+export type OauthAssociateGoogleCallbackQueryError = Problem
+
+export function useOauthAssociateGoogleCallback<
+  TData = Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+  TError = Problem,
+>(
+  params: undefined | OauthAssociateGoogleCallbackParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+          TError,
+          Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>
+        >,
+        "initialData"
+      >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useOauthAssociateGoogleCallback<
+  TData = Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+  TError = Problem,
+>(
+  params?: OauthAssociateGoogleCallbackParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+          TError,
+          Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>
+        >,
+        "initialData"
+      >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+export function useOauthAssociateGoogleCallback<
+  TData = Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+  TError = Problem,
+>(
+  params?: OauthAssociateGoogleCallbackParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+        TError,
+        TData
+      >
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+}
+/**
+ * @summary Oauth-Associate:Google.Callback
+ */
+
+export function useOauthAssociateGoogleCallback<
+  TData = Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+  TError = Problem,
+>(
+  params?: OauthAssociateGoogleCallbackParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof oauthAssociateGoogleCallback>>,
+        TError,
+        TData
+      >
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>
+} {
+  const queryOptions = getOauthAssociateGoogleCallbackQueryOptions(
+    params,
+    options
+  )
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+
+  return withQueryKey(query, queryOptions.queryKey)
 }
 
 export const getOauthGoogleCookieAuthorizeUrl = (
@@ -887,6 +2520,461 @@ export const useAuthJwtLogout = <TError = Problem, TContext = unknown>(
   TContext
 > => {
   return useMutation(getAuthJwtLogoutMutationOptions(options), queryClient)
+}
+
+export const getAuthPasswordForgotUrl = () => {
+  return `/api/v1/auth/password/forgot`
+}
+
+/**
+ * @summary Auth:Password.Forgot
+ */
+export const authPasswordForgot = async (
+  emailBody: EmailBody,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string]
+        )
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return fetcher<void>(getAuthPasswordForgotUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(emailBody),
+  })
+}
+
+export const getAuthPasswordForgotMutationKey = () =>
+  ["authPasswordForgot"] as const
+
+export const getAuthPasswordForgotMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authPasswordForgot>>,
+    TError,
+    AuthPasswordForgotMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof authPasswordForgot>>,
+  TError,
+  AuthPasswordForgotMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAuthPasswordForgotMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof authPasswordForgot>>,
+    AuthPasswordForgotMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return authPasswordForgot(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AuthPasswordForgotMutationResult = NonNullable<
+  Awaited<ReturnType<typeof authPasswordForgot>>
+>
+export type AuthPasswordForgotMutationBody = EmailBody
+export type AuthPasswordForgotMutationError = Problem
+export type AuthPasswordForgotMutationVariables = { data: EmailBody }
+
+/**
+ * @summary Auth:Password.Forgot
+ */
+export const useAuthPasswordForgot = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof authPasswordForgot>>,
+      TError,
+      AuthPasswordForgotMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof authPasswordForgot>>,
+  TError,
+  AuthPasswordForgotMutationVariables,
+  TContext
+> => {
+  return useMutation(getAuthPasswordForgotMutationOptions(options), queryClient)
+}
+
+export const getAuthPasswordResetUrl = () => {
+  return `/api/v1/auth/password/reset`
+}
+
+/**
+ * @summary Auth:Password.Reset
+ */
+export const authPasswordReset = async (
+  passwordResetBody: PasswordResetBody,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string]
+        )
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return fetcher<void>(getAuthPasswordResetUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(passwordResetBody),
+  })
+}
+
+export const getAuthPasswordResetMutationKey = () =>
+  ["authPasswordReset"] as const
+
+export const getAuthPasswordResetMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authPasswordReset>>,
+    TError,
+    AuthPasswordResetMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof authPasswordReset>>,
+  TError,
+  AuthPasswordResetMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAuthPasswordResetMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof authPasswordReset>>,
+    AuthPasswordResetMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return authPasswordReset(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AuthPasswordResetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof authPasswordReset>>
+>
+export type AuthPasswordResetMutationBody = PasswordResetBody
+export type AuthPasswordResetMutationError = Problem
+export type AuthPasswordResetMutationVariables = { data: PasswordResetBody }
+
+/**
+ * @summary Auth:Password.Reset
+ */
+export const useAuthPasswordReset = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof authPasswordReset>>,
+      TError,
+      AuthPasswordResetMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof authPasswordReset>>,
+  TError,
+  AuthPasswordResetMutationVariables,
+  TContext
+> => {
+  return useMutation(getAuthPasswordResetMutationOptions(options), queryClient)
+}
+
+export const getAuthPhoneLoginUrl = () => {
+  return `/api/v1/auth/phone/login`
+}
+
+/**
+ * @summary Auth:Phone.Login
+ */
+export const authPhoneLogin = async (
+  phoneCodeBody: PhoneCodeBody,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string]
+        )
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return fetcher<void>(getAuthPhoneLoginUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(phoneCodeBody),
+  })
+}
+
+export const getAuthPhoneLoginMutationKey = () => ["authPhoneLogin"] as const
+
+export const getAuthPhoneLoginMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authPhoneLogin>>,
+    TError,
+    AuthPhoneLoginMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof authPhoneLogin>>,
+  TError,
+  AuthPhoneLoginMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAuthPhoneLoginMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof authPhoneLogin>>,
+    AuthPhoneLoginMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return authPhoneLogin(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AuthPhoneLoginMutationResult = NonNullable<
+  Awaited<ReturnType<typeof authPhoneLogin>>
+>
+export type AuthPhoneLoginMutationBody = PhoneCodeBody
+export type AuthPhoneLoginMutationError = Problem
+export type AuthPhoneLoginMutationVariables = { data: PhoneCodeBody }
+
+/**
+ * @summary Auth:Phone.Login
+ */
+export const useAuthPhoneLogin = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof authPhoneLogin>>,
+      TError,
+      AuthPhoneLoginMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof authPhoneLogin>>,
+  TError,
+  AuthPhoneLoginMutationVariables,
+  TContext
+> => {
+  return useMutation(getAuthPhoneLoginMutationOptions(options), queryClient)
+}
+
+export const getAuthPhoneRequestUrl = () => {
+  return `/api/v1/auth/phone/request`
+}
+
+/**
+ * @summary Auth:Phone.Request
+ */
+export const authPhoneRequest = async (
+  phoneBody: PhoneBody,
+  options?: Parameters<typeof fetcher>[1]
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string]
+        )
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return fetcher<void>(getAuthPhoneRequestUrl(), {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(phoneBody),
+  })
+}
+
+export const getAuthPhoneRequestMutationKey = () =>
+  ["authPhoneRequest"] as const
+
+export const getAuthPhoneRequestMutationOptions = <
+  TError = Problem,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authPhoneRequest>>,
+    TError,
+    AuthPhoneRequestMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof fetcher>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof authPhoneRequest>>,
+  TError,
+  AuthPhoneRequestMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAuthPhoneRequestMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof authPhoneRequest>>,
+    AuthPhoneRequestMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return authPhoneRequest(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AuthPhoneRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof authPhoneRequest>>
+>
+export type AuthPhoneRequestMutationBody = PhoneBody
+export type AuthPhoneRequestMutationError = Problem
+export type AuthPhoneRequestMutationVariables = { data: PhoneBody }
+
+/**
+ * @summary Auth:Phone.Request
+ */
+export const useAuthPhoneRequest = <TError = Problem, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof authPhoneRequest>>,
+      TError,
+      AuthPhoneRequestMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof fetcher>
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof authPhoneRequest>>,
+  TError,
+  AuthPhoneRequestMutationVariables,
+  TContext
+> => {
+  return useMutation(getAuthPhoneRequestMutationOptions(options), queryClient)
 }
 
 export const getRegisterRegisterUrl = () => {
@@ -2887,8 +4975,8 @@ export const getUsersCurrentUserUrl = () => {
  */
 export const usersCurrentUser = async (
   options?: Parameters<typeof fetcher>[1]
-): Promise<UserRead> => {
-  return fetcher<UserRead>(getUsersCurrentUserUrl(), {
+): Promise<AccountView> => {
+  return fetcher<AccountView>(getUsersCurrentUserUrl(), {
     ...options,
     method: "GET",
   })
@@ -3037,9 +5125,9 @@ export const getUsersPatchCurrentUserUrl = () => {
  * @summary Users:Patch Current User
  */
 export const usersPatchCurrentUser = async (
-  userUpdate: UserUpdate,
+  profileUpdate: ProfileUpdate,
   options?: Parameters<typeof fetcher>[1]
-): Promise<UserRead> => {
+): Promise<AccountView> => {
   const getHeaders = (
     h?: NonNullable<RequestInit["headers"]>
   ): Record<string, string | readonly string[]> => {
@@ -3061,14 +5149,14 @@ export const usersPatchCurrentUser = async (
     }
     return headers
   }
-  return fetcher<UserRead>(getUsersPatchCurrentUserUrl(), {
+  return fetcher<AccountView>(getUsersPatchCurrentUserUrl(), {
     ...options,
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       ...getHeaders(options?.headers),
     },
-    body: JSON.stringify(userUpdate),
+    body: JSON.stringify(profileUpdate),
   })
 }
 
@@ -3116,9 +5204,9 @@ export const getUsersPatchCurrentUserMutationOptions = <
 export type UsersPatchCurrentUserMutationResult = NonNullable<
   Awaited<ReturnType<typeof usersPatchCurrentUser>>
 >
-export type UsersPatchCurrentUserMutationBody = UserUpdate
+export type UsersPatchCurrentUserMutationBody = ProfileUpdate
 export type UsersPatchCurrentUserMutationError = Problem
-export type UsersPatchCurrentUserMutationVariables = { data: UserUpdate }
+export type UsersPatchCurrentUserMutationVariables = { data: ProfileUpdate }
 
 /**
  * @summary Users:Patch Current User
@@ -3144,351 +5232,4 @@ export const useUsersPatchCurrentUser = <TError = Problem, TContext = unknown>(
     getUsersPatchCurrentUserMutationOptions(options),
     queryClient
   )
-}
-
-export const getUsersDeleteUserUrl = (id: string) => {
-  return `/api/v1/users/${id}`
-}
-
-/**
- * @summary Users:Delete User
- */
-export const usersDeleteUser = async (
-  id: string,
-  options?: Parameters<typeof fetcher>[1]
-): Promise<void> => {
-  return fetcher<void>(getUsersDeleteUserUrl(id), {
-    ...options,
-    method: "DELETE",
-  })
-}
-
-export const getUsersDeleteUserMutationKey = () => ["usersDeleteUser"] as const
-
-export const getUsersDeleteUserMutationOptions = <
-  TError = Problem,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof usersDeleteUser>>,
-    TError,
-    UsersDeleteUserMutationVariables,
-    TContext
-  >
-  request?: SecondParameter<typeof fetcher>
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof usersDeleteUser>>,
-  TError,
-  UsersDeleteUserMutationVariables,
-  TContext
-> => {
-  const mutationKey = getUsersDeleteUserMutationKey()
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined }
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof usersDeleteUser>>,
-    UsersDeleteUserMutationVariables
-  > = (props) => {
-    const { id } = props ?? {}
-
-    return usersDeleteUser(id, requestOptions)
-  }
-
-  return { mutationFn, ...mutationOptions }
-}
-
-export type UsersDeleteUserMutationResult = NonNullable<
-  Awaited<ReturnType<typeof usersDeleteUser>>
->
-
-export type UsersDeleteUserMutationError = Problem
-export type UsersDeleteUserMutationVariables = { id: string }
-
-/**
- * @summary Users:Delete User
- */
-export const useUsersDeleteUser = <TError = Problem, TContext = unknown>(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof usersDeleteUser>>,
-      TError,
-      UsersDeleteUserMutationVariables,
-      TContext
-    >
-    request?: SecondParameter<typeof fetcher>
-  },
-  queryClient?: QueryClient
-): UseMutationResult<
-  Awaited<ReturnType<typeof usersDeleteUser>>,
-  TError,
-  UsersDeleteUserMutationVariables,
-  TContext
-> => {
-  return useMutation(getUsersDeleteUserMutationOptions(options), queryClient)
-}
-
-export const getUsersUserUrl = (id: string) => {
-  return `/api/v1/users/${id}`
-}
-
-/**
- * @summary Users:User
- */
-export const usersUser = async (
-  id: string,
-  options?: Parameters<typeof fetcher>[1]
-): Promise<UserRead> => {
-  return fetcher<UserRead>(getUsersUserUrl(id), {
-    ...options,
-    method: "GET",
-  })
-}
-
-export const getUsersUserQueryKey = (id: string) => {
-  return [`/api/v1/users/${id}`] as const
-}
-
-export const getUsersUserQueryOptions = <
-  TData = Awaited<ReturnType<typeof usersUser>>,
-  TError = Problem,
->(
-  id: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof usersUser>>, TError, TData>
-    >
-    request?: SecondParameter<typeof fetcher>
-  }
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {}
-
-  const queryKey = queryOptions?.queryKey ?? getUsersUserQueryKey(id)
-
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof usersUser>>> = ({
-    signal,
-  }) => usersUser(id, { signal, ...requestOptions })
-
-  return {
-    queryKey,
-    queryFn,
-    enabled: id !== null && id !== undefined,
-    ...queryOptions,
-  } as UseQueryOptions<Awaited<ReturnType<typeof usersUser>>, TError, TData> & {
-    queryKey: DataTag<QueryKey, TData, TError>
-  }
-}
-
-export type UsersUserQueryResult = NonNullable<
-  Awaited<ReturnType<typeof usersUser>>
->
-export type UsersUserQueryError = Problem
-
-export function useUsersUser<
-  TData = Awaited<ReturnType<typeof usersUser>>,
-  TError = Problem,
->(
-  id: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof usersUser>>, TError, TData>
-    > &
-      Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof usersUser>>,
-          TError,
-          Awaited<ReturnType<typeof usersUser>>
-        >,
-        "initialData"
-      >
-    request?: SecondParameter<typeof fetcher>
-  },
-  queryClient?: QueryClient
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>
-}
-export function useUsersUser<
-  TData = Awaited<ReturnType<typeof usersUser>>,
-  TError = Problem,
->(
-  id: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof usersUser>>, TError, TData>
-    > &
-      Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof usersUser>>,
-          TError,
-          Awaited<ReturnType<typeof usersUser>>
-        >,
-        "initialData"
-      >
-    request?: SecondParameter<typeof fetcher>
-  },
-  queryClient?: QueryClient
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>
-}
-export function useUsersUser<
-  TData = Awaited<ReturnType<typeof usersUser>>,
-  TError = Problem,
->(
-  id: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof usersUser>>, TError, TData>
-    >
-    request?: SecondParameter<typeof fetcher>
-  },
-  queryClient?: QueryClient
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>
-}
-/**
- * @summary Users:User
- */
-
-export function useUsersUser<
-  TData = Awaited<ReturnType<typeof usersUser>>,
-  TError = Problem,
->(
-  id: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof usersUser>>, TError, TData>
-    >
-    request?: SecondParameter<typeof fetcher>
-  },
-  queryClient?: QueryClient
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>
-} {
-  const queryOptions = getUsersUserQueryOptions(id, options)
-
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData, TError> }
-
-  return withQueryKey(query, queryOptions.queryKey)
-}
-
-export const getUsersPatchUserUrl = (id: string) => {
-  return `/api/v1/users/${id}`
-}
-
-/**
- * @summary Users:Patch User
- */
-export const usersPatchUser = async (
-  id: string,
-  userUpdate: UserUpdate,
-  options?: Parameters<typeof fetcher>[1]
-): Promise<UserRead> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {}
-    if (h instanceof Headers) return Object.fromEntries(h.entries())
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string]
-        )
-      )
-    }
-    const headers: Record<string, string | readonly string[]> = {}
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value
-    }
-    return headers
-  }
-  return fetcher<UserRead>(getUsersPatchUserUrl(id), {
-    ...options,
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      ...getHeaders(options?.headers),
-    },
-    body: JSON.stringify(userUpdate),
-  })
-}
-
-export const getUsersPatchUserMutationKey = () => ["usersPatchUser"] as const
-
-export const getUsersPatchUserMutationOptions = <
-  TError = Problem,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof usersPatchUser>>,
-    TError,
-    UsersPatchUserMutationVariables,
-    TContext
-  >
-  request?: SecondParameter<typeof fetcher>
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof usersPatchUser>>,
-  TError,
-  UsersPatchUserMutationVariables,
-  TContext
-> => {
-  const mutationKey = getUsersPatchUserMutationKey()
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined }
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof usersPatchUser>>,
-    UsersPatchUserMutationVariables
-  > = (props) => {
-    const { id, data } = props ?? {}
-
-    return usersPatchUser(id, data, requestOptions)
-  }
-
-  return { mutationFn, ...mutationOptions }
-}
-
-export type UsersPatchUserMutationResult = NonNullable<
-  Awaited<ReturnType<typeof usersPatchUser>>
->
-export type UsersPatchUserMutationBody = UserUpdate
-export type UsersPatchUserMutationError = Problem
-export type UsersPatchUserMutationVariables = { id: string; data: UserUpdate }
-
-/**
- * @summary Users:Patch User
- */
-export const useUsersPatchUser = <TError = Problem, TContext = unknown>(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof usersPatchUser>>,
-      TError,
-      UsersPatchUserMutationVariables,
-      TContext
-    >
-    request?: SecondParameter<typeof fetcher>
-  },
-  queryClient?: QueryClient
-): UseMutationResult<
-  Awaited<ReturnType<typeof usersPatchUser>>,
-  TError,
-  UsersPatchUserMutationVariables,
-  TContext
-> => {
-  return useMutation(getUsersPatchUserMutationOptions(options), queryClient)
 }

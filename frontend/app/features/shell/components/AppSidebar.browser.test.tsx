@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
 
-import type { UserRead } from "~/api/gen/schemas"
+import type { AccountView } from "~/api/gen/schemas"
 import { getListConversationsMockHandler } from "~/api/gen/endpoints.msw"
 import { SidebarProvider } from "~/components/ui/sidebar"
 import { TooltipProvider } from "~/components/ui/tooltip"
@@ -13,10 +13,18 @@ import { AppSidebar } from "~/features/shell/components/AppSidebar"
 import { worker } from "../../../../tests/msw/browser"
 import { TestProviders } from "../../../../tests/utils/providers"
 
-const USER: UserRead = {
+const USER: AccountView = {
   id: "u1",
   email: "an@example.com",
+  phone_number: null,
   display_name: "An",
+  is_active: true,
+  is_superuser: false,
+  is_verified: true,
+  email_verified: true,
+  phone_verified: false,
+  password_set: true,
+  google_linked: false,
 }
 
 function ShellRoute() {

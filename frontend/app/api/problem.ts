@@ -28,6 +28,8 @@ export class ApiError extends Error {
   readonly code: string
   readonly detail: string | undefined
   readonly errors: ProblemItem[]
+  /** Seconds to wait before retrying, from the Retry-After header of a 429. */
+  readonly retryAfter: number | undefined
 
   constructor(init: {
     status: number
@@ -35,12 +37,14 @@ export class ApiError extends Error {
     title: string
     detail?: string | undefined
     errors?: ProblemItem[]
+    retryAfter?: number | undefined
   }) {
     super(init.title)
     this.status = init.status
     this.code = init.code
     this.detail = init.detail
     this.errors = init.errors ?? []
+    this.retryAfter = init.retryAfter
   }
 }
 
@@ -60,6 +64,9 @@ export async function toApiError(response: Response): Promise<ApiError> {
   const status = response.status
   const fallbackTitle = response.statusText || `HTTP ${status}`
   const body = await readJson(response)
+  const retryHeader = Number(response.headers.get("Retry-After"))
+  const retryAfter =
+    Number.isFinite(retryHeader) && retryHeader > 0 ? retryHeader : undefined
 
   const problem = problemSchema.safeParse(body)
   if (problem.success) {
@@ -69,6 +76,7 @@ export async function toApiError(response: Response): Promise<ApiError> {
       title: problem.data.title ?? fallbackTitle,
       detail: problem.data.detail ?? undefined,
       errors: problem.data.errors ?? [],
+      retryAfter,
     })
   }
 
@@ -81,6 +89,7 @@ export async function toApiError(response: Response): Promise<ApiError> {
         : UNKNOWN_ERROR_CODE,
       title: fallbackTitle,
       detail: detail.data.detail,
+      retryAfter,
     })
   }
 
@@ -88,5 +97,6 @@ export async function toApiError(response: Response): Promise<ApiError> {
     status,
     code: UNKNOWN_ERROR_CODE,
     title: fallbackTitle,
+    retryAfter,
   })
 }

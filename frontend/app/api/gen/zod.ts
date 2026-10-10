@@ -7,6 +7,144 @@
 import * as zod from "zod"
 
 /**
+ * @summary Account:Email.Request
+ */
+export const AccountEmailRequestBody = zod.object({
+  email: zod.email(),
+})
+
+export const AccountEmailRequestResponse = zod.void()
+
+/**
+ * @summary Account:Email.Confirm
+ */
+export const accountEmailConfirmBodyCodeRegExp = new RegExp("^\\d{6}$")
+
+export const AccountEmailConfirmBody = zod.object({
+  code: zod.string().regex(accountEmailConfirmBodyCodeRegExp),
+  email: zod.email(),
+})
+
+export const AccountEmailConfirmResponse = zod.object({
+  display_name: zod.string(),
+  email: zod.union([zod.string(), zod.null()]),
+  email_verified: zod.boolean(),
+  google_linked: zod.boolean(),
+  id: zod.uuid(),
+  is_active: zod.boolean(),
+  is_superuser: zod.boolean(),
+  is_verified: zod.boolean(),
+  password_set: zod.boolean(),
+  phone_number: zod.union([zod.string(), zod.null()]),
+  phone_verified: zod.boolean(),
+})
+
+/**
+ * @summary Account:Google.Unlink
+ */
+export const AccountGoogleUnlinkResponse = zod.object({
+  display_name: zod.string(),
+  email: zod.union([zod.string(), zod.null()]),
+  email_verified: zod.boolean(),
+  google_linked: zod.boolean(),
+  id: zod.uuid(),
+  is_active: zod.boolean(),
+  is_superuser: zod.boolean(),
+  is_verified: zod.boolean(),
+  password_set: zod.boolean(),
+  phone_number: zod.union([zod.string(), zod.null()]),
+  phone_verified: zod.boolean(),
+})
+
+/**
+ * @summary Account:Password.Change
+ */
+export const accountPasswordChangeBodyNewPasswordMax = 1024
+
+export const AccountPasswordChangeBody = zod.object({
+  current_password: zod.union([zod.string(), zod.null()]).optional(),
+  new_password: zod
+    .string()
+    .min(1)
+    .max(accountPasswordChangeBodyNewPasswordMax),
+})
+
+export const AccountPasswordChangeResponse = zod.void()
+
+/**
+ * @summary Account:Phone.Request
+ */
+export const accountPhoneRequestBodyPhoneMin = 3
+export const accountPhoneRequestBodyPhoneMax = 32
+
+export const AccountPhoneRequestBody = zod.object({
+  phone: zod
+    .string()
+    .min(accountPhoneRequestBodyPhoneMin)
+    .max(accountPhoneRequestBodyPhoneMax),
+})
+
+export const AccountPhoneRequestResponse = zod.void()
+
+/**
+ * @summary Account:Phone.Confirm
+ */
+export const accountPhoneConfirmBodyCodeRegExp = new RegExp("^\\d{6}$")
+export const accountPhoneConfirmBodyPhoneMin = 3
+export const accountPhoneConfirmBodyPhoneMax = 32
+
+export const AccountPhoneConfirmBody = zod.object({
+  code: zod.string().regex(accountPhoneConfirmBodyCodeRegExp),
+  phone: zod
+    .string()
+    .min(accountPhoneConfirmBodyPhoneMin)
+    .max(accountPhoneConfirmBodyPhoneMax),
+})
+
+export const AccountPhoneConfirmResponse = zod.object({
+  display_name: zod.string(),
+  email: zod.union([zod.string(), zod.null()]),
+  email_verified: zod.boolean(),
+  google_linked: zod.boolean(),
+  id: zod.uuid(),
+  is_active: zod.boolean(),
+  is_superuser: zod.boolean(),
+  is_verified: zod.boolean(),
+  password_set: zod.boolean(),
+  phone_number: zod.union([zod.string(), zod.null()]),
+  phone_verified: zod.boolean(),
+})
+
+/**
+ * @summary Account:Sessions.Revoke Others
+ */
+export const AccountSessionsRevokeOthersResponse = zod.void()
+
+/**
+ * @summary Account:Sessions.List
+ */
+export const AccountSessionsListResponseItem = zod.object({
+  created_at: zod.iso.datetime({ offset: true }),
+  current: zod.boolean(),
+  id: zod.string(),
+  ip_address: zod.string(),
+  last_used_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  user_agent: zod.string(),
+})
+export const AccountSessionsListResponse = zod.array(
+  AccountSessionsListResponseItem
+)
+
+/**
+ * @summary Account:Sessions.Revoke
+ */
+export const AccountSessionsRevokeParams = zod.object({
+  session_id: zod.string(),
+})
+
+export const AccountSessionsRevokeResponse = zod.void()
+
+/**
  * @summary Auth:Cookie.Login
  */
 export const authCookieLoginBodyGrantTypeOneRegExp = new RegExp("^password$")
@@ -32,6 +170,75 @@ export const AuthCookieLoginResponse = zod.unknown()
  * @summary Auth:Cookie.Logout
  */
 export const AuthCookieLogoutResponse = zod.unknown()
+
+/**
+ * @summary Auth:Email.Verify
+ */
+export const authEmailVerifyBodyCodeRegExp = new RegExp("^\\d{6}$")
+
+export const AuthEmailVerifyBody = zod.object({
+  code: zod.string().regex(authEmailVerifyBodyCodeRegExp),
+  email: zod.email(),
+})
+
+export const AuthEmailVerifyResponse = zod.void()
+
+/**
+ * @summary Auth:Email.Verify Request
+ */
+export const AuthEmailVerifyRequestBody = zod.object({
+  email: zod.email(),
+})
+
+export const AuthEmailVerifyRequestResponse = zod.void()
+
+/**
+ * @summary Oauth-Associate:Google.Authorize
+ */
+export const OauthAssociateGoogleAuthorizeQueryParams = zod.object({
+  scopes: zod.array(zod.string()).optional(),
+})
+
+export const OauthAssociateGoogleAuthorizeResponse = zod.object({
+  authorization_url: zod.string(),
+})
+
+/**
+ * The response varies based on the authentication backend used.
+ * @summary Oauth-Associate:Google.Callback
+ */
+export const OauthAssociateGoogleCallbackQueryParams = zod.object({
+  code: zod.union([zod.string(), zod.null()]).optional(),
+  code_verifier: zod.union([zod.string(), zod.null()]).optional(),
+  state: zod.union([zod.string(), zod.null()]).optional(),
+  error: zod.union([zod.string(), zod.null()]).optional(),
+})
+
+export const oauthAssociateGoogleCallbackResponseDisplayNameDefault = ``
+export const oauthAssociateGoogleCallbackResponseIsActiveDefault = true
+export const oauthAssociateGoogleCallbackResponseIsSuperuserDefault = false
+export const oauthAssociateGoogleCallbackResponseIsVerifiedDefault = false
+
+export const OauthAssociateGoogleCallbackResponse = zod
+  .object({
+    display_name: zod
+      .string()
+      .default(oauthAssociateGoogleCallbackResponseDisplayNameDefault),
+    email: zod.email(),
+    id: zod.uuid(),
+    is_active: zod
+      .boolean()
+      .default(oauthAssociateGoogleCallbackResponseIsActiveDefault),
+    is_superuser: zod
+      .boolean()
+      .default(oauthAssociateGoogleCallbackResponseIsSuperuserDefault),
+    is_verified: zod
+      .boolean()
+      .default(oauthAssociateGoogleCallbackResponseIsVerifiedDefault),
+  })
+  .describe(
+    "Registration and Google association responses; /users/me returns AccountView."
+  )
 
 /**
  * @summary Oauth:Google.Cookie.Authorize
@@ -85,6 +292,61 @@ export const AuthJwtLoginResponse = zod.object({
 export const AuthJwtLogoutResponse = zod.unknown()
 
 /**
+ * @summary Auth:Password.Forgot
+ */
+export const AuthPasswordForgotBody = zod.object({
+  email: zod.email(),
+})
+
+export const AuthPasswordForgotResponse = zod.void()
+
+/**
+ * @summary Auth:Password.Reset
+ */
+export const authPasswordResetBodyCodeRegExp = new RegExp("^\\d{6}$")
+export const authPasswordResetBodyPasswordMax = 1024
+
+export const AuthPasswordResetBody = zod.object({
+  code: zod.string().regex(authPasswordResetBodyCodeRegExp),
+  email: zod.email(),
+  password: zod.string().min(1).max(authPasswordResetBodyPasswordMax),
+})
+
+export const AuthPasswordResetResponse = zod.void()
+
+/**
+ * @summary Auth:Phone.Login
+ */
+export const authPhoneLoginBodyCodeRegExp = new RegExp("^\\d{6}$")
+export const authPhoneLoginBodyPhoneMin = 3
+export const authPhoneLoginBodyPhoneMax = 32
+
+export const AuthPhoneLoginBody = zod.object({
+  code: zod.string().regex(authPhoneLoginBodyCodeRegExp),
+  phone: zod
+    .string()
+    .min(authPhoneLoginBodyPhoneMin)
+    .max(authPhoneLoginBodyPhoneMax),
+})
+
+export const AuthPhoneLoginResponse = zod.void()
+
+/**
+ * @summary Auth:Phone.Request
+ */
+export const authPhoneRequestBodyPhoneMin = 3
+export const authPhoneRequestBodyPhoneMax = 32
+
+export const AuthPhoneRequestBody = zod.object({
+  phone: zod
+    .string()
+    .min(authPhoneRequestBodyPhoneMin)
+    .max(authPhoneRequestBodyPhoneMax),
+})
+
+export const AuthPhoneRequestResponse = zod.void()
+
+/**
  * @summary Register:Register
  */
 export const registerRegisterBodyDisplayNameDefault = ``
@@ -112,18 +374,24 @@ export const registerRegisterResponseIsActiveDefault = true
 export const registerRegisterResponseIsSuperuserDefault = false
 export const registerRegisterResponseIsVerifiedDefault = false
 
-export const RegisterRegisterResponse = zod.object({
-  display_name: zod
-    .string()
-    .default(registerRegisterResponseDisplayNameDefault),
-  email: zod.email(),
-  id: zod.uuid(),
-  is_active: zod.boolean().default(registerRegisterResponseIsActiveDefault),
-  is_superuser: zod
-    .boolean()
-    .default(registerRegisterResponseIsSuperuserDefault),
-  is_verified: zod.boolean().default(registerRegisterResponseIsVerifiedDefault),
-})
+export const RegisterRegisterResponse = zod
+  .object({
+    display_name: zod
+      .string()
+      .default(registerRegisterResponseDisplayNameDefault),
+    email: zod.email(),
+    id: zod.uuid(),
+    is_active: zod.boolean().default(registerRegisterResponseIsActiveDefault),
+    is_superuser: zod
+      .boolean()
+      .default(registerRegisterResponseIsSuperuserDefault),
+    is_verified: zod
+      .boolean()
+      .default(registerRegisterResponseIsVerifiedDefault),
+  })
+  .describe(
+    "Registration and Google association responses; /users/me returns AccountView."
+  )
 
 /**
  * @summary Chat
@@ -472,114 +740,42 @@ export const SubmitFeedbackResponse = zod.object({
 /**
  * @summary Users:Current User
  */
-export const usersCurrentUserResponseDisplayNameDefault = ``
-export const usersCurrentUserResponseIsActiveDefault = true
-export const usersCurrentUserResponseIsSuperuserDefault = false
-export const usersCurrentUserResponseIsVerifiedDefault = false
-
 export const UsersCurrentUserResponse = zod.object({
-  display_name: zod
-    .string()
-    .default(usersCurrentUserResponseDisplayNameDefault),
-  email: zod.email(),
+  display_name: zod.string(),
+  email: zod.union([zod.string(), zod.null()]),
+  email_verified: zod.boolean(),
+  google_linked: zod.boolean(),
   id: zod.uuid(),
-  is_active: zod.boolean().default(usersCurrentUserResponseIsActiveDefault),
-  is_superuser: zod
-    .boolean()
-    .default(usersCurrentUserResponseIsSuperuserDefault),
-  is_verified: zod.boolean().default(usersCurrentUserResponseIsVerifiedDefault),
+  is_active: zod.boolean(),
+  is_superuser: zod.boolean(),
+  is_verified: zod.boolean(),
+  password_set: zod.boolean(),
+  phone_number: zod.union([zod.string(), zod.null()]),
+  phone_verified: zod.boolean(),
 })
 
 /**
  * @summary Users:Patch Current User
  */
+export const usersPatchCurrentUserBodyDisplayNameMax = 100
+
 export const UsersPatchCurrentUserBody = zod.object({
-  display_name: zod.union([zod.string(), zod.null()]).optional(),
-  email: zod.union([zod.email(), zod.null()]).optional(),
-  is_active: zod.union([zod.boolean(), zod.null()]).optional(),
-  is_superuser: zod.union([zod.boolean(), zod.null()]).optional(),
-  is_verified: zod.union([zod.boolean(), zod.null()]).optional(),
-  password: zod.union([zod.string(), zod.null()]).optional(),
-})
-
-export const usersPatchCurrentUserResponseDisplayNameDefault = ``
-export const usersPatchCurrentUserResponseIsActiveDefault = true
-export const usersPatchCurrentUserResponseIsSuperuserDefault = false
-export const usersPatchCurrentUserResponseIsVerifiedDefault = false
-
-export const UsersPatchCurrentUserResponse = zod.object({
   display_name: zod
     .string()
-    .default(usersPatchCurrentUserResponseDisplayNameDefault),
-  email: zod.email(),
+    .min(1)
+    .max(usersPatchCurrentUserBodyDisplayNameMax),
+})
+
+export const UsersPatchCurrentUserResponse = zod.object({
+  display_name: zod.string(),
+  email: zod.union([zod.string(), zod.null()]),
+  email_verified: zod.boolean(),
+  google_linked: zod.boolean(),
   id: zod.uuid(),
-  is_active: zod
-    .boolean()
-    .default(usersPatchCurrentUserResponseIsActiveDefault),
-  is_superuser: zod
-    .boolean()
-    .default(usersPatchCurrentUserResponseIsSuperuserDefault),
-  is_verified: zod
-    .boolean()
-    .default(usersPatchCurrentUserResponseIsVerifiedDefault),
-})
-
-/**
- * @summary Users:Delete User
- */
-export const UsersDeleteUserParams = zod.object({
-  id: zod.string(),
-})
-
-export const UsersDeleteUserResponse = zod.void()
-
-/**
- * @summary Users:User
- */
-export const UsersUserParams = zod.object({
-  id: zod.string(),
-})
-
-export const usersUserResponseDisplayNameDefault = ``
-export const usersUserResponseIsActiveDefault = true
-export const usersUserResponseIsSuperuserDefault = false
-export const usersUserResponseIsVerifiedDefault = false
-
-export const UsersUserResponse = zod.object({
-  display_name: zod.string().default(usersUserResponseDisplayNameDefault),
-  email: zod.email(),
-  id: zod.uuid(),
-  is_active: zod.boolean().default(usersUserResponseIsActiveDefault),
-  is_superuser: zod.boolean().default(usersUserResponseIsSuperuserDefault),
-  is_verified: zod.boolean().default(usersUserResponseIsVerifiedDefault),
-})
-
-/**
- * @summary Users:Patch User
- */
-export const UsersPatchUserParams = zod.object({
-  id: zod.string(),
-})
-
-export const UsersPatchUserBody = zod.object({
-  display_name: zod.union([zod.string(), zod.null()]).optional(),
-  email: zod.union([zod.email(), zod.null()]).optional(),
-  is_active: zod.union([zod.boolean(), zod.null()]).optional(),
-  is_superuser: zod.union([zod.boolean(), zod.null()]).optional(),
-  is_verified: zod.union([zod.boolean(), zod.null()]).optional(),
-  password: zod.union([zod.string(), zod.null()]).optional(),
-})
-
-export const usersPatchUserResponseDisplayNameDefault = ``
-export const usersPatchUserResponseIsActiveDefault = true
-export const usersPatchUserResponseIsSuperuserDefault = false
-export const usersPatchUserResponseIsVerifiedDefault = false
-
-export const UsersPatchUserResponse = zod.object({
-  display_name: zod.string().default(usersPatchUserResponseDisplayNameDefault),
-  email: zod.email(),
-  id: zod.uuid(),
-  is_active: zod.boolean().default(usersPatchUserResponseIsActiveDefault),
-  is_superuser: zod.boolean().default(usersPatchUserResponseIsSuperuserDefault),
-  is_verified: zod.boolean().default(usersPatchUserResponseIsVerifiedDefault),
+  is_active: zod.boolean(),
+  is_superuser: zod.boolean(),
+  is_verified: zod.boolean(),
+  password_set: zod.boolean(),
+  phone_number: zod.union([zod.string(), zod.null()]),
+  phone_verified: zod.boolean(),
 })

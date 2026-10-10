@@ -2,7 +2,7 @@ import { MessageSquareIcon, SettingsIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link, useLocation } from "react-router"
 
-import type { UserRead } from "~/api/gen/schemas"
+import type { AccountView } from "~/api/gen/schemas"
 import {
   Sidebar,
   SidebarContent,
@@ -22,7 +22,7 @@ const NAV_ITEMS = [
   { to: "/settings", label: "nav.settings", Icon: SettingsIcon },
 ] as const
 
-export function AppSidebar({ user }: { user: UserRead }) {
+export function AppSidebar({ user }: { user: AccountView }) {
   const { t } = useTranslation("common")
   const { pathname } = useLocation()
 
