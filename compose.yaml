@@ -1,8 +1,14 @@
 # Local stack for the pharma agent on a CPU-only machine (Intel i5-13420H, 12 threads).
-# Run from the repository root. Ports, model files and CPU tuning come from the root .env
-# (see .env.example). Services reach each other by service name on the default network; host
-# ports are published only for the browser (nginx) and for tools that run on the host
-# (backend via `uv run`, pharma-lab).
+# Run from the repository root. Every ${VAR:-default} below has a working default, so no root
+# .env exists; override one with a shell variable, e.g. `WEB_PORT=8081 docker compose up -d`.
+# Overridable: ports (WEB_PORT, POSTGRES_PORT, QDRANT_HTTP_PORT, LLAMA_EMBEDDING_PORT,
+# LLAMA_RERANKER_PORT, CLI_PROXY_API_PORT), model files (GGUF_DIR, LLAMA_EMBEDDING_MODEL[_NAME],
+# LLAMA_RERANKER_MODEL[_NAME], LLAMA_RERANKER_PROTOCOL), CPU tuning (LLAMA_EMBEDDING_THREADS,
+# LLAMA_RERANKER_PARALLEL, LLAMA_RERANKER_UBATCH_SIZE, LLAMA_RERANKER_CONTEXT_SIZE,
+# LLAMA_RERANKER_THREADS, RERANK_MAX_CANDIDATES, RERANK_TIMEOUT_SECONDS), LLM_BASE_URL,
+# COOKIE_SECURE and POSTGRES_USER/PASSWORD/DB. Services reach each other by service name on the
+# default network; host ports are published only for the browser (nginx) and for tools that run
+# on the host (backend via `uv run`, pharma-lab).
 name: vipharmind
 
 x-llama-server: &llama-server
@@ -41,8 +47,8 @@ x-backend: &backend
     PHARMA_API__PORT: "8000"
     # Google OAuth returns to the single nginx origin.
     PHARMA_AUTH__FRONTEND_URL: "http://localhost:${WEB_PORT:-8080}"
-    # Secure session cookies work on http://localhost; set COOKIE_SECURE=false in the root .env
-    # when the stack is opened over plain HTTP from another host name (for example a LAN IP).
+    # Secure session cookies work on http://localhost; run with COOKIE_SECURE=false when the
+    # stack is opened over plain HTTP from another host name (for example a LAN IP).
     PHARMA_AUTH__COOKIE_SECURE: "${COOKIE_SECURE:-true}"
     PHARMA_POSTGRES__DSN: "postgresql+psycopg://${POSTGRES_USER:-vipharmind}:${POSTGRES_PASSWORD:-vipharmind}@postgres:5432/${POSTGRES_DB:-vipharmind}"
     PHARMA_QDRANT__URL: "http://qdrant:6333"
@@ -109,7 +115,7 @@ services:
   postgres:
     image: postgres:17.0-alpine
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     environment:
       POSTGRES_DB: "${POSTGRES_DB:-vipharmind}"
       POSTGRES_USER: "${POSTGRES_USER:-vipharmind}"
