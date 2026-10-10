@@ -182,7 +182,11 @@ def test_cleanup_sessions_uses_the_session_lifetime(
         calls.append((conninfo, lifetime_seconds))
         return 4
 
+    async def fake_stale(conninfo: str) -> tuple[int, int]:
+        return 2, 3
+
     monkeypatch.setattr(cli, "delete_expired_access_tokens", fake_cleanup)
+    monkeypatch.setattr(cli, "delete_stale_account_rows", fake_stale)
     monkeypatch.setenv("PHARMA_AUTH__SESSION_LIFETIME_SECONDS", "3600")
     monkeypatch.setenv(
         "PHARMA_POSTGRES__DSN", "postgresql+psycopg://u:p@db.example:5432/app"
@@ -192,4 +196,5 @@ def test_cleanup_sessions_uses_the_session_lifetime(
 
     assert result.exit_code == 0, result.output
     assert "deleted 4 sessions older than 3600 seconds" in result.output
+    assert "deleted 2 codes and 3 rate limit buckets" in result.output
     assert calls == [("postgresql://u:p@db.example:5432/app", 3600)]

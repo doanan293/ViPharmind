@@ -60,6 +60,23 @@ Cần `PHARMA_AUTH__JWT_SECRET` và `PHARMA_AUTH__CSRF_SECRET` (mỗi giá trị
   frontend gọi `GET /api/v1/auth/google/authorize`, Google chuyển về
   `{PHARMA_AUTH__FRONTEND_URL}/auth/google/callback`, frontend gọi
   `GET /api/v1/auth/google/callback?code=…&state=…` và nhận 204 kèm cookie `pharma_session`.
+  Google chỉ tự liên kết vào tài khoản có cùng email **đã xác minh**.
+- **Mã OTP 6 số** (hạn 10 phút, dùng một lần, sai quá 5 lần thì hết hiệu lực) cho xác minh
+  email (`/auth/email/verify/request`, `/auth/email/verify`), quên mật khẩu
+  (`/auth/password/forgot`, `/auth/password/reset`), đăng nhập bằng số điện thoại
+  (`/auth/phone/request`, `/auth/phone/login`, số chưa có tài khoản thì được tạo) và đổi
+  email hoặc số điện thoại trong cài đặt (`/account/email`, `/account/phone`, kèm `/confirm`).
+  Đăng ký phải xác minh email trước khi đăng nhập bằng mật khẩu: không xác minh thì
+  `/auth/cookie/login` trả 403 `EMAIL_NOT_VERIFIED`. Xác minh đúng mã thì được đăng nhập luôn.
+- **Giới hạn**: gửi mã tối đa 5 lần mỗi giờ cho một địa chỉ (cách nhau 60 giây cho cùng một
+  mục đích) và 20 lần mỗi giờ cho một IP; đăng nhập sai 10 lần trong 15 phút theo email hoặc IP.
+  Vượt giới hạn trả 429 kèm `Retry-After`.
+- **Cài đặt tài khoản**: `GET/PATCH /users/me`, `PUT /account/password`,
+  `DELETE /account/oauth/google`, `GET/DELETE /account/sessions`.
+- **Gửi mã**: `PHARMA_EMAIL__PROVIDER` là `log` (mã chỉ hiện trong log backend, dùng khi chạy
+  local), `smtp` (Gmail app password, không cần domain) hoặc `resend`. SMS hiện chỉ có `log`;
+  `PHARMA_SMS__ALLOWED_COUNTRY_CODES` (mặc định `["VN"]`) giới hạn nước nhận SMS. Cần đặt
+  `PHARMA_AUTH__OTP_SECRET` (ít nhất 32 ký tự), nếu thiếu thì các luồng tài khoản bị tắt.
 
 Luồng cookie bằng curl (curl coi `localhost` là origin an toàn nên giữ cookie `Secure`):
 
@@ -67,8 +84,9 @@ Luồng cookie bằng curl (curl coi `localhost` là origin an toàn nên giữ 
 JAR=$(mktemp)
 curl -s -c "$JAR" -b "$JAR" -X POST localhost:8000/api/v1/auth/register \
   -H 'content-type: application/json' -d '{"email":"an@example.com","password":"S3cure-password!"}'
-curl -s -c "$JAR" -b "$JAR" -X POST localhost:8000/api/v1/auth/cookie/login \
-  -d 'username=an@example.com&password=S3cure-password!'
+# Với PHARMA_EMAIL__PROVIDER=log, mã 6 số nằm trong log backend ("email provider is 'log'").
+curl -s -c "$JAR" -b "$JAR" -X POST localhost:8000/api/v1/auth/email/verify \
+  -H 'content-type: application/json' -d '{"email":"an@example.com","code":"123456"}'  # 204, đã đăng nhập
 curl -s -c "$JAR" -b "$JAR" localhost:8000/api/v1/users/me          # nhận thêm cookie csrftoken
 CSRF=$(awk '$6 == "csrftoken" {print $7}' "$JAR")
 CONVERSATION=$(curl -s -c "$JAR" -b "$JAR" -X POST localhost:8000/api/v1/conversations \
@@ -79,7 +97,7 @@ curl -N -c "$JAR" -b "$JAR" -X POST localhost:8000/api/v1/chat/stream -H "x-csrf
 curl -s -c "$JAR" -b "$JAR" -X POST localhost:8000/api/v1/auth/cookie/logout -H "x-csrftoken: $CSRF"
 ```
 
-Luồng bearer:
+Luồng bearer (tài khoản đã xác minh email):
 
 ```bash
 TOKEN=$(curl -s -X POST localhost:8000/api/v1/auth/jwt/login \
