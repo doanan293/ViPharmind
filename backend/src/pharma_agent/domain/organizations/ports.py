@@ -5,6 +5,7 @@ from typing import Protocol
 from pharma_agent.domain.access.models import Role
 from pharma_agent.domain.organizations.models import (
     Invitation,
+    InvitationStatus,
     Membership,
     MemberView,
     Organization,
@@ -104,6 +105,9 @@ class InvitationRepository(Protocol):
         """Raises InvitationConflict when an open invitation exists for the email."""
         ...
 
-    async def update(self, invitation: Invitation, tx: Transaction) -> None:
-        """Write status, token hash, deadline and decision fields."""
+    async def update(
+        self, invitation: Invitation, tx: Transaction, *, expected: InvitationStatus
+    ) -> bool:
+        """Write status, token hash, deadline and decision fields if the stored status is
+        still `expected`; False when another request changed it first."""
         ...

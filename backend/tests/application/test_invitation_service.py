@@ -1,5 +1,6 @@
 import re
 import uuid
+from dataclasses import replace
 
 import pytest
 
@@ -268,3 +269,29 @@ async def test_sending_to_one_address_is_rate_limited() -> None:
         await s.resend(me, org.id, view.id, locale="vi")
     f.clock.advance(hours=1)
     await s.resend(me, org.id, view.id, locale="vi")
+
+
+async def test_an_invitation_revoked_while_being_accepted_grants_nothing() -> None:
+    s, f, org, owner = await build()
+    await s.invite(
+        as_role(owner, org, Role.OWNER),
+        org.id,
+        "new@example.com",
+        Role.MEMBER,
+        locale="vi",
+    )
+    token = f.last_token("new@example.com")
+    invitee = f.accounts.add(email="new@example.com", email_verified=True)
+    stored = next(iter(f.invitations.rows.values()))
+    # The owner revokes after the accept read the invitation, before it wrote.
+    original_get = f.invitations.get_by_token_hash
+
+    async def stale_read(token_hash: str):
+        found = await original_get(token_hash)
+        f.invitations.rows[stored.id] = replace(stored, status=InvitationStatus.REVOKED)
+        return found
+
+    f.invitations.get_by_token_hash = stale_read
+    with pytest.raises(InvitationNotPending):
+        await s.accept(actor(invitee.id), token)
+    assert f.organizations.role_of(org.id, invitee.id) is None

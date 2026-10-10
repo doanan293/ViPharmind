@@ -5,9 +5,10 @@ when the dispatcher calls back: it is idempotent, so a retry after a failure res
 same release, and a call for a finished job changes nothing.
 """
 
+import logging
 import uuid
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pydantic import BaseModel
 
@@ -52,6 +53,9 @@ STEP_PROGRESS = {
 ERROR_MAX_CHARS = 500
 
 
+logger = logging.getLogger(__name__)
+
+
 class JobView(BaseModel):
     id: uuid.UUID
     collection_id: uuid.UUID
@@ -90,6 +94,7 @@ class PublishService:
         tx: TransactionFactory,
         clock: Clock,
         max_attempts: int = 3,
+        stale_after: timedelta = timedelta(minutes=40),
     ) -> None:
         self._collections = collections
         self._sources = sources
@@ -102,6 +107,8 @@ class PublishService:
         self._tx = tx
         self._clock = clock
         self._max_attempts = max_attempts
+        # An open job older than this has no runner left (crash, lost task, timeout).
+        self._stale_after = stale_after
 
     async def _view(self, job: IngestJob) -> JobView:
         number = None
@@ -142,8 +149,18 @@ class PublishService:
         await self._writable(actor, collection_id)
         if await self._sources.count_documents(collection_id) == 0:
             raise InvalidInput("add a document before publishing")
-        if await self._jobs.open_for(collection_id) is not None:
-            raise PublishInProgress("the collection is already being published")
+        open_job = await self._jobs.open_for(collection_id)
+        if open_job is not None:
+            if not self._is_stale(open_job):
+                raise PublishInProgress("the collection is already being published")
+            await self._jobs.update(
+                replace(
+                    open_job,
+                    status=JobStatus.FAILED,
+                    error="STALE: no runner finished the job",
+                    finished_at=self._clock.now(),
+                )
+            )
         job = IngestJob(
             id=uuid.uuid4(),
             collection_id=collection_id,
@@ -165,9 +182,25 @@ class PublishService:
             raise PublishInProgress(
                 "the collection is already being published"
             ) from exc
-        # After the commit, so the runner always finds the job.
-        await self._dispatcher.enqueue(job.id)
+        # After the commit, so the runner always finds the job. A job nothing will run must
+        # not hold the collection's single open slot.
+        try:
+            await self._dispatcher.enqueue(job.id)
+        except Exception:
+            await self._jobs.update(
+                replace(
+                    job,
+                    status=JobStatus.FAILED,
+                    error="DISPATCH_FAILED: the job could not be queued",
+                    finished_at=self._clock.now(),
+                )
+            )
+            raise
         return await self._view(job)
+
+    def _is_stale(self, job: IngestJob) -> bool:
+        started = job.started_at or job.created_at
+        return self._clock.now() - started > self._stale_after
 
     async def recent(self, actor: Actor, *, limit: int) -> list[JobView]:
         if not actor.is_superadmin:
@@ -248,22 +281,26 @@ class PublishService:
             finished_at=self._clock.now(),
         )
         await self._jobs.update(done)
-        requester = Actor(job.requested_by or uuid.UUID(int=0), False, {})
-        async with self._tx.begin() as tx:
-            await self._audit.record(
-                new_event(
-                    requester,
-                    AuditAction.COLLECTION_PUBLISHED,
-                    self._clock.now(),
-                    organization_id=collection.owner_organization_id,
-                    subject_user_id=collection.owner_user_id,
-                    collection_id=collection.id,
-                    title=collection.title,
-                    release=report.release.number,
-                    outcome=report.outcome.value,
-                ),
-                tx,
-            )
+        event = new_event(
+            Actor(job.requested_by or uuid.UUID(int=0), False, {}),
+            AuditAction.COLLECTION_PUBLISHED,
+            self._clock.now(),
+            organization_id=collection.owner_organization_id,
+            subject_user_id=collection.owner_user_id,
+            collection_id=collection.id,
+            title=collection.title,
+            release=report.release.number,
+            outcome=report.outcome.value,
+        )
+        if job.requested_by is None:
+            # The requester's account is gone; the event keeps no actor.
+            event = replace(event, actor_user_id=None)
+        try:
+            async with self._tx.begin() as tx:
+                await self._audit.record(event, tx)
+        except Exception:
+            # The release is live; a lost log line must not turn the job back to a retry.
+            logger.exception("could not record the publish of job %s", job.id)
         return done
 
     async def releases(

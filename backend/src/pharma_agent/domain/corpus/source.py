@@ -123,6 +123,10 @@ class SourceRepository(Protocol):
 
     async def count_documents(self, collection_id: uuid.UUID) -> int: ...
 
+    async def purge_content(self, collection_id: uuid.UUID, tx: Transaction) -> None:
+        """Delete the documents, glossary and colloquial names of a deleted collection."""
+        ...
+
     async def text_usage(self, owner: CollectionOwner) -> int:
         """Characters of authored text across the owner's live collections."""
         ...

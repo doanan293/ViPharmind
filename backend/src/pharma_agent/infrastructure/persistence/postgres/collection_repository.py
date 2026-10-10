@@ -28,11 +28,13 @@ from pharma_agent.domain.shared.transaction import Transaction
 from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     CollectionTable,
     ReleaseTable,
+    SourceDocumentTable,
 )
 from pharma_agent.infrastructure.persistence.postgres.transaction import session_of
 
 _c = CollectionTable.__table__.c
 _r = ReleaseTable.__table__.c
+_doc = SourceDocumentTable.__table__.c
 
 
 def _collection(row: CollectionTable) -> Collection:
@@ -177,14 +179,19 @@ class PostgresCollectionRepository:
             return list((await session.scalars(query)).all())
 
     async def deleted_with_releases(self) -> list[uuid.UUID]:
-        query = (
-            select(_c.id)
-            .join(ReleaseTable, _r.collection_id == _c.id)
+        # Deleted collections that still have a live release or authored content (an
+        # organization's deletion marks its collections without cleaning them).
+        live_release = (
+            select(_r.id)
             .where(
-                _c.deleted_at.is_not(None),
+                _r.collection_id == _c.id,
                 _r.status != ReleaseStatus.RETIRED.value,
             )
-            .distinct()
+            .exists()
+        )
+        has_content = select(_doc.id).where(_doc.collection_id == _c.id).exists()
+        query = select(_c.id).where(
+            _c.deleted_at.is_not(None), or_(live_release, has_content)
         )
         async with self._sessions() as session:
             return list((await session.scalars(query)).all())

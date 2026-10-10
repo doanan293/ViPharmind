@@ -243,7 +243,8 @@ class InvitationService:
             token_hash=invitation_token_hash(token),
             expires_at=now + INVITATION_TTL,
         )
-        await self._invitations.update(sent, tx)
+        if not await self._invitations.update(sent, tx, expected=invitation.status):
+            raise InvitationNotPending("the invitation changed meanwhile")
         link = f"{self._policy.frontend_url.rstrip('/')}/invitations/{token}"
         content = invitation_email(
             organization=organization.name,
@@ -391,7 +392,10 @@ class InvitationService:
             decided_at=self._clock.now(),
         )
         async with self._tx.begin() as tx:
-            await self._invitations.update(closed, tx)
+            if not await self._invitations.update(
+                closed, tx, expected=invitation.status
+            ):
+                raise InvitationNotPending("the invitation changed meanwhile")
             await self._record(tx, actor, action, invitation)
         return await self._view(closed)
 
@@ -472,7 +476,11 @@ class InvitationService:
             decided_at=now,
         )
         async with self._tx.begin() as tx:
-            await self._invitations.update(accepted, tx)
+            # Compare-and-set: a revoke or a second accept running at the same time loses.
+            if not await self._invitations.update(
+                accepted, tx, expected=invitation.status
+            ):
+                raise InvitationNotPending("the invitation changed meanwhile")
             if not already:
                 await self._organizations.add_member(
                     Membership(organization.id, actor.user_id, invitation.role, now), tx
@@ -508,5 +516,8 @@ class InvitationService:
             decided_at=self._clock.now(),
         )
         async with self._tx.begin() as tx:
-            await self._invitations.update(closed, tx)
+            if not await self._invitations.update(
+                closed, tx, expected=invitation.status
+            ):
+                raise InvitationNotPending("the invitation changed meanwhile")
             await self._record(tx, actor, AuditAction.INVITATION_DECLINED, invitation)

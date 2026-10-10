@@ -12,8 +12,19 @@ logger = logging.getLogger(__name__)
 
 
 class InProcessDispatcher:
-    def __init__(self, run: Callable[[uuid.UUID], Awaitable[object]]) -> None:
+    """`run` raises while the job has attempts left (as it does for Cloud Tasks), so this
+    calls it again after a pause, like a queue retry, until it returns or `max_runs`."""
+
+    def __init__(
+        self,
+        run: Callable[[uuid.UUID], Awaitable[object]],
+        *,
+        retry_delay_seconds: float = 5.0,
+        max_runs: int = 10,
+    ) -> None:
         self._run = run
+        self._retry_delay = retry_delay_seconds
+        self._max_runs = max_runs
         # Strong references: asyncio keeps only weak ones to running tasks.
         self._tasks: set[asyncio.Task[None]] = set()
 
@@ -23,11 +34,15 @@ class InProcessDispatcher:
         task.add_done_callback(self._tasks.discard)
 
     async def _safely(self, job_id: uuid.UUID) -> None:
-        try:
-            await self._run(job_id)
-        except Exception:
-            # The job records its own failure; nothing awaits this task.
-            logger.exception("publish job %s failed", job_id)
+        for attempt in range(1, self._max_runs + 1):
+            try:
+                await self._run(job_id)
+                return
+            except Exception:
+                # The job records its own failure; nothing awaits this task.
+                logger.exception("publish job %s failed (run %d)", job_id, attempt)
+                if attempt < self._max_runs:
+                    await asyncio.sleep(self._retry_delay * attempt)
 
     async def drain(self) -> None:
         """Wait for every queued job; tests and the E2E server use it."""

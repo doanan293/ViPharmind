@@ -112,6 +112,18 @@ class PostgresSourceRepository:
             delete(SourceDocumentTable).where(_doc.id == document_id)
         )
 
+    async def purge_content(self, collection_id: uuid.UUID, tx: Transaction) -> None:
+        session = session_of(tx)
+        await session.execute(
+            delete(SourceDocumentTable).where(_doc.collection_id == collection_id)
+        )
+        await session.execute(
+            delete(GlossaryEntryTable).where(_gloss.collection_id == collection_id)
+        )
+        await session.execute(
+            delete(ColloquialMappingTable).where(_coll.collection_id == collection_id)
+        )
+
     async def count_documents(self, collection_id: uuid.UUID) -> int:
         query = select(func.count()).where(_doc.collection_id == collection_id)
         async with self._sessions() as session:

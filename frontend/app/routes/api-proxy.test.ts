@@ -53,7 +53,8 @@ describe("api proxy", () => {
     const headers = new Headers(calls[0]?.init.headers)
     expect(headers.get("cookie")).toBe("pharma_session=abc")
     expect(headers.has("host")).toBe(false)
-    expect(headers.has("accept-encoding")).toBe(false)
+    expect(headers.get("accept-encoding")).toBe("identity")
+    expect(headers.has("x-vipharmind-proxy")).toBe(false)
     expect(calls[0]?.init.redirect).toBe("manual")
     expect(await response.json()).toEqual({ status: "ok" })
   })
@@ -89,5 +90,42 @@ describe("api proxy", () => {
       "pharma_session=new; HttpOnly",
       "csrftoken=t; Path=/",
     ])
+  })
+})
+
+describe("api proxy identity", () => {
+  test("proves it is our proxy with the shared secret and drops a forged one", async () => {
+    vi.stubEnv("API_INTERNAL_URL", "https://api.example.run.app")
+    vi.stubEnv("API_PROXY_SECRET", "s3cret")
+    const calls = stubBackend(Response.json({}))
+    await loader(
+      args(
+        new Request("https://vipharmind.vercel.app/api/v1/users/me", {
+          headers: { "x-vipharmind-proxy": "forged" },
+        })
+      )
+    )
+    expect(new Headers(calls[0]?.init.headers).get("x-vipharmind-proxy")).toBe(
+      "s3cret"
+    )
+  })
+
+  test("drops encoding headers that no longer describe the decoded body", async () => {
+    vi.stubEnv("API_INTERNAL_URL", "https://api.example.run.app")
+    stubBackend(
+      new Response("{}", {
+        headers: {
+          "content-type": "application/json",
+          "content-encoding": "gzip",
+          "content-length": "20",
+        },
+      })
+    )
+    const response = await loader(
+      args(new Request("https://vipharmind.vercel.app/api/v1/health"))
+    )
+    expect(response.headers.has("content-encoding")).toBe(false)
+    expect(response.headers.has("content-length")).toBe(false)
+    expect(response.headers.get("content-type")).toBe("application/json")
   })
 })

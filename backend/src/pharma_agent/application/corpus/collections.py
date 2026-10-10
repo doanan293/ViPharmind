@@ -404,11 +404,15 @@ class CollectionService:
     async def delete(self, actor: Actor, collection_id: uuid.UUID) -> None:
         """Hide the collection at once, then retire its releases and drop its points.
 
-        Rows that a conversation cites stay, so old answers keep their sources.
+        Rows that a conversation cites stay, so old answers keep their sources. The
+        authored content goes: quotas no longer count it, so keeping it would let
+        storage grow without bound.
         """
         collection = await self._editable(actor, collection_id)
         async with self._tx.begin() as tx:
             await self._collections.mark_deleted(collection_id, self._clock.now(), tx)
+            if self._sources is not None:
+                await self._sources.purge_content(collection_id, tx)
             await self._audit.record(
                 self._event(actor, AuditAction.COLLECTION_DELETED, collection), tx
             )
@@ -422,6 +426,9 @@ class CollectionService:
         return len(doomed)
 
     async def _discard(self, collection_id: uuid.UUID) -> None:
+        if self._sources is not None:
+            async with self._tx.begin() as tx:
+                await self._sources.purge_content(collection_id, tx)
         release_ids = await self._collections.live_release_ids(collection_id)
         if release_ids:
             items = await self._corpus.index_items(release_ids)

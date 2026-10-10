@@ -152,22 +152,30 @@ export function ConversationSources({
   return (
     <SourcesPopover
       value={conversation.data?.collection_ids ?? null}
-      onChange={(collectionIds) =>
+      onChange={(collectionIds) => {
+        // Show the pick at once, so a second quick pick builds on the first.
+        const key = getGetConversationQueryKey(conversationId)
+        const before = queryClient.getQueryData(key)
+        if (before !== undefined) {
+          queryClient.setQueryData(key, {
+            ...before,
+            collection_ids: collectionIds,
+          })
+        }
         update.mutate(
           { conversationId, data: { collection_ids: collectionIds } },
           {
             onSuccess: (updated) => {
-              queryClient.setQueryData(
-                getGetConversationQueryKey(conversationId),
-                updated
-              )
+              queryClient.setQueryData(key, updated)
               replaceConversationInCache(queryClient, updated)
             },
-            onError: () =>
-              toast.add({ type: "error", title: t("scope.saveFailed") }),
+            onError: () => {
+              queryClient.setQueryData(key, before)
+              toast.add({ type: "error", title: t("scope.saveFailed") })
+            },
           }
         )
-      }
+      }}
     />
   )
 }

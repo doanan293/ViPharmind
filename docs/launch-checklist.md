@@ -39,7 +39,7 @@ DeepInfra; bundle đã có embedding sẵn thì dùng lại, không gọi API.
 
 ## 4. Frontend trên Vercel
 
-- [ ] Làm theo mục *Deploy to Vercel* trong `frontend/README.md`: Root Directory `frontend`, ba biến
+- [ ] Làm theo mục *Deploy to Vercel* trong `frontend/README.md`: Root Directory `frontend`, bốn biến
       môi trường, Max Duration 300 s, tắt preview deploy.
 - [ ] Thêm hai redirect URI của Vercel vào OAuth client Google đã có
       (`/auth/google/callback`, `/auth/google/link-callback`).
@@ -53,10 +53,10 @@ DeepInfra; bundle đã có embedding sẵn thì dùng lại, không gọi API.
       trang và thấy mục **Quản trị**.
 - [ ] Tạo một bộ tài liệu, thêm tài liệu, bấm **Xuất bản**: tác vụ chạy qua Cloud Tasks và kết thúc
       ở "Đã xuất bản bản 1.".
-- [ ] **Đo `PHARMA_API__TRUSTED_PROXY_HOPS`:** sau khi đăng nhập qua Vercel, mở **Cài đặt → Phiên
-      đăng nhập** (gọi `GET /api/v1/account/sessions`). Nếu `ip_address` là IP thật của bạn thì
-      giữ `1`. Nếu là IP của Vercel thì đặt `2` trong `service.yaml` rồi `replace` lại, đăng nhập lại
-      và kiểm tra lần nữa. Sai giá trị này thì giới hạn theo IP gom mọi người vào một IP.
+- [ ] **Kiểm tra IP người dùng:** sau khi đăng nhập qua Vercel, mở **Cài đặt → Phiên đăng nhập**
+      (gọi `GET /api/v1/account/sessions`); `ip_address` phải là IP thật của bạn. Nếu là IP của
+      Vercel thì `API_PROXY_SECRET` trên Vercel và `PHARMA_API__PROXY_SECRET` trên Cloud Run chưa
+      khớp: sai chỗ này thì giới hạn theo IP gom mọi người vào một IP.
 - [ ] Uptime check của Cloud Monitoring vào `/api/v1/health` mỗi 5 phút, gửi thư khi lỗi.
 
 ## Khi cần scale

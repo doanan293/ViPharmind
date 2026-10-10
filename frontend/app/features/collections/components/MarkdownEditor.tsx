@@ -7,7 +7,7 @@ import {
   useEditorState,
 } from "@tiptap/react"
 import { StarterKit } from "@tiptap/starter-kit"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 import { Skeleton } from "~/components/ui/skeleton"
 
@@ -36,6 +36,9 @@ export function MarkdownEditor({
   onChange: (markdown: string) => void
   labelledBy: string
 }) {
+  // The Markdown this editor holds: what it was given or last emitted. A `value` equal to it
+  // is our own echo; anything else (an uploaded file) replaces the content.
+  const shown = useRef(value)
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -53,7 +56,10 @@ export function MarkdownEditor({
         class: CONTENT_CLASS,
       },
     },
-    onUpdate: ({ editor: current }) => onChange(markdownOf(current)),
+    onUpdate: ({ editor: current }) => {
+      shown.current = markdownOf(current)
+      onChange(shown.current)
+    },
   })
   // Re-render the toolbar when the selection moves so active marks stay in sync.
   useEditorState({
@@ -62,8 +68,14 @@ export function MarkdownEditor({
   })
 
   useEffect(() => {
-    if (editor === null || markdownOf(editor) === value) return
-    editor.commands.setContent(value, { contentType: "markdown" })
+    if (editor === null || value === shown.current) return
+    shown.current = value
+    // No update event: loading text is not an edit, so the stored Markdown stays as written
+    // until the user changes it.
+    editor.commands.setContent(value, {
+      contentType: "markdown",
+      emitUpdate: false,
+    })
   }, [editor, value])
 
   if (editor === null) {

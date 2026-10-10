@@ -134,7 +134,12 @@ async def test_one_open_invitation_per_email(database: Database) -> None:
     assert await invitations.get_by_token_hash(first.token_hash) == first
     declined = replace(first, status=InvitationStatus.DECLINED, decided_at=NOW)
     async with tx.begin() as t:
-        await invitations.update(declined, t)
+        assert await invitations.update(declined, t, expected=first.status)
+    # A second writer that read the open invitation loses: the status moved on.
+    async with tx.begin() as t:
+        assert not await invitations.update(
+            replace(first, status=InvitationStatus.ACCEPTED), t, expected=first.status
+        )
     assert await invitations.open_for(org.id, "new@example.com") is None
     assert await invitations.get(first.id) == declined
     assert await invitations.list_for_organization(org.id) == [declined]

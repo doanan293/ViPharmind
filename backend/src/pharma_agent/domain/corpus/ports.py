@@ -159,5 +159,5 @@ class CollectionRepository(Protocol):
         ...
 
     async def deleted_with_releases(self) -> list[uuid.UUID]:
-        """Deleted collections that still have releases to retire."""
+        """Deleted collections that still have live releases or authored content to clean."""
         ...

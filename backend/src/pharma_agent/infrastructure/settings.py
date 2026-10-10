@@ -207,6 +207,9 @@ class ApiSettings(BaseModel):
     # Reverse proxies in front of the API that append to X-Forwarded-For (0 trusts none, so
     # per-IP limits use the TCP peer). Behind Cloud Run set 1.
     trusted_proxy_hops: int = Field(default=0, ge=0)
+    # Shared with the frontend's /api proxy (API_PROXY_SECRET there): requests carrying it
+    # in X-Vipharmind-Proxy count that proxy as one more trusted hop.
+    proxy_secret: SecretStr | None = None
 
 
 class MemorySettings(BaseModel):

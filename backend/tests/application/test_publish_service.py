@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from collections.abc import Sequence
+from dataclasses import replace
 
 import pytest
 
@@ -192,3 +193,67 @@ async def test_rollback_returns_to_the_previous_release() -> None:
     releases = await w.service.releases(w.editor(), collection)
     assert [(r.number, r.current) for r in releases] == [(2, False), (1, True)]
     assert w.audit.actions()[-1] is AuditAction.COLLECTION_ROLLED_BACK
+
+
+async def test_a_job_no_runner_finished_stops_blocking_after_it_goes_stale() -> None:
+    w = World()
+    collection = await w.collection_with_a_document()
+    stuck = await w.service.publish(w.editor(), collection)
+    with pytest.raises(PublishInProgress):
+        await w.service.publish(w.editor(), collection)
+
+    w.clock.advance(hours=2)
+    fresh = await w.service.publish(w.editor(), collection)
+    assert fresh.id != stuck.id
+    old = await w.jobs.get(stuck.id)
+    assert old is not None and old.status is JobStatus.FAILED
+    assert old.error is not None and old.error.startswith("STALE")
+
+
+class FailingDispatcher(RecordingDispatcher):
+    async def enqueue(self, job_id: uuid.UUID) -> None:
+        raise RuntimeError("Cloud Tasks unavailable")
+
+
+async def test_a_job_that_could_not_be_dispatched_fails_at_once() -> None:
+    w = World()
+    collection = await w.collection_with_a_document()
+    w.service._dispatcher = FailingDispatcher()
+    with pytest.raises(RuntimeError):
+        await w.service.publish(w.editor(), collection)
+    jobs = await w.jobs.list_recent(limit=5)
+    assert [job.status for job in jobs] == [JobStatus.FAILED]
+
+    w.service._dispatcher = w.dispatcher
+    retried = await w.service.publish(w.editor(), collection)
+    assert retried.status is JobStatus.QUEUED
+
+
+async def test_a_table_only_document_publishes() -> None:
+    w = World()
+    view = await w.collection_service.create(
+        w.editor(), title="Bảng", owner_organization_id=w.org.id
+    )
+    await w.content.create_document(
+        w.editor(),
+        view.id,
+        DocumentInput(
+            title="Liều",
+            markdown="| Thuốc | Liều |\n| --- | --- |\n| Paracetamol | 500 mg |",
+        ),
+    )
+    job = await w.service.publish(w.editor(), view.id)
+    done = await w.service.run(job.id)
+    assert done.status is JobStatus.READY and done.release_number == 1
+
+
+async def test_a_publish_requested_by_a_deleted_account_has_no_audit_actor() -> None:
+    w = World()
+    collection = await w.collection_with_a_document()
+    job = await w.service.publish(w.editor(), collection)
+    stored = await w.jobs.get(job.id)
+    assert stored is not None
+    await w.jobs.update(replace(stored, requested_by=None))
+    done = await w.service.run(job.id)
+    assert done.status is JobStatus.READY
+    assert w.audit.events[-1].actor_user_id is None

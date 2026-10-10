@@ -198,3 +198,37 @@ async def test_the_system_corpus_is_never_authored() -> None:
     admin = actor(uuid.uuid4(), superadmin=True)
     with pytest.raises(SystemCollectionReadOnly):
         await w.service.create_document(admin, system.id, doc())
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [
+        [GlossaryEntry(term="x" * 201)],
+        [GlossaryEntry(term="IV", aliases=["a" * 201])],
+        [GlossaryEntry(term="IV", aliases=[f"a{i}" for i in range(51)])],
+        [GlossaryEntry(term=f"t{i}") for i in range(2001)],
+    ],
+    ids=["long-term", "long-alias", "many-aliases", "many-entries"],
+)
+async def test_glossary_sizes_are_bounded(entries: list[GlossaryEntry]) -> None:
+    w = World()
+    collection = await w.org_collection()
+    with pytest.raises(InvalidInput):
+        await w.service.replace_glossary(w.editor(), collection, entries)
+
+
+async def test_colloquial_sizes_are_bounded() -> None:
+    w = World()
+    collection = await w.org_collection()
+    with pytest.raises(InvalidInput):
+        await w.service.replace_colloquial(
+            w.editor(),
+            collection,
+            [ColloquialMappingRecord(key="x" * 201)],
+        )
+    with pytest.raises(InvalidInput):
+        await w.service.replace_colloquial(
+            w.editor(),
+            collection,
+            [ColloquialMappingRecord(key="x", product_names=["p"] * 51)],
+        )

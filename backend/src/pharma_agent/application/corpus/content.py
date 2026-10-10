@@ -85,6 +85,35 @@ def _detail(document: SourceDocument) -> DocumentDetail:
     )
 
 
+# Glossary and colloquial names are short lookups, not documents: bound them so one request
+# cannot store unlimited text outside the text quota.
+MAX_METADATA_ENTRIES = 2000
+MAX_METADATA_TEXT = 200
+MAX_METADATA_LIST = 50
+MAX_VISUAL_SIGN = 500
+
+
+def _check_sizes(
+    what: str, entries: list[GlossaryEntry] | list[ColloquialMappingRecord]
+) -> None:
+    if len(entries) > MAX_METADATA_ENTRIES:
+        raise InvalidInput(f"at most {MAX_METADATA_ENTRIES} {what} entries")
+    for entry in entries:
+        for name, value in entry.model_dump().items():
+            limit = MAX_VISUAL_SIGN if name == "visual_sign" else MAX_METADATA_TEXT
+            if isinstance(value, str) and len(value) > limit:
+                raise InvalidInput(f"{what} {name} is longer than {limit} characters")
+            if isinstance(value, list):
+                if len(value) > MAX_METADATA_LIST:
+                    raise InvalidInput(
+                        f"{what} {name} has more than {MAX_METADATA_LIST} items"
+                    )
+                # Section keys carry the document and heading path (column of 400).
+                item_limit = 400 if name == "section_keys" else MAX_METADATA_TEXT
+                if any(len(str(item)) > item_limit for item in value):
+                    raise InvalidInput(f"{what} {name} has an item that is too long")
+
+
 class ContentService:
     def __init__(
         self,
@@ -306,6 +335,7 @@ class ContentService:
         self, actor: Actor, collection_id: uuid.UUID, entries: list[GlossaryEntry]
     ) -> list[GlossaryEntry]:
         collection = await self._writable(actor, collection_id)
+        _check_sizes("glossary", entries)
         seen: set[str] = set()
         for entry in entries:
             term = entry.term.strip().casefold()
@@ -348,6 +378,7 @@ class ContentService:
         mappings: list[ColloquialMappingRecord],
     ) -> list[ColloquialMappingRecord]:
         collection = await self._writable(actor, collection_id)
+        _check_sizes("colloquial", mappings)
         known = {choice.key for choice in await self.sections(actor, collection_id)}
         keys: set[str] = set()
         for mapping in mappings:
