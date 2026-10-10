@@ -1,16 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useQueryClient } from "@tanstack/react-query"
 import { Controller, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { z } from "zod"
 
-import {
-  getUsersCurrentUserQueryKey,
-  useAuthCookieLogin,
-  useRegisterRegister,
-} from "~/api/gen/endpoints"
+import { useRegisterRegister } from "~/api/gen/endpoints"
 import { RegisterRegisterBody } from "~/api/gen/zod"
 import { Button } from "~/components/ui/button"
 import {
@@ -21,6 +15,7 @@ import {
 } from "~/components/ui/field"
 import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
+import { VerifyEmailStep } from "~/features/auth/components/VerifyEmailStep"
 import { passwordSchema } from "~/features/auth/lib/password"
 import { apiErrorMessage } from "~/i18n/error-message"
 import { applyApiError } from "~/lib/form-errors"
@@ -44,14 +39,10 @@ const REGISTER_FIELDS = ["email", "password", "display_name"] as const
 export function RegisterForm({ nextPath }: { nextPath: string }) {
   const { t } = useTranslation("auth")
   const { t: tErrors } = useTranslation("errors")
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const register = useRegisterRegister({
     mutation: { meta: { skipAuthRedirect: true } },
   })
-  const login = useAuthCookieLogin({
-    mutation: { meta: { skipAuthRedirect: true } },
-  })
+  const [registered, setRegistered] = useState<string | null>(null)
   const registerSchema = useMemo(
     () => createRegisterSchema(t("passwordTooShort")),
     [t]
@@ -64,9 +55,6 @@ export function RegisterForm({ nextPath }: { nextPath: string }) {
   async function onSubmit(values: RegisterValues) {
     try {
       await register.mutateAsync({ data: values })
-      await login.mutateAsync({
-        data: { username: values.email, password: values.password },
-      })
     } catch (error) {
       applyApiError(
         error,
@@ -76,10 +64,12 @@ export function RegisterForm({ nextPath }: { nextPath: string }) {
       )
       return
     }
-    await queryClient.invalidateQueries({
-      queryKey: getUsersCurrentUserQueryKey(),
-    })
-    await navigate(nextPath, { replace: true })
+    // The account exists but cannot sign in until the emailed code is entered.
+    setRegistered(values.email)
+  }
+
+  if (registered !== null) {
+    return <VerifyEmailStep email={registered} nextPath={nextPath} />
   }
 
   const serverError = form.formState.errors.root?.server?.message

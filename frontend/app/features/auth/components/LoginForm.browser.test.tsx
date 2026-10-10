@@ -89,6 +89,31 @@ describe("LoginForm", () => {
       .toHaveTextContent("Email hoặc mật khẩu không đúng.")
   })
 
+  test("an unverified email gets a code and the verification step", async () => {
+    const requested: string[] = []
+    worker.use(
+      http.post("/api/v1/auth/cookie/login", () =>
+        HttpResponse.json(
+          { code: "EMAIL_NOT_VERIFIED", title: "Forbidden" },
+          {
+            status: 403,
+            headers: { "Content-Type": "application/problem+json" },
+          }
+        )
+      ),
+      http.post("/api/v1/auth/email/verify/request", async ({ request }) => {
+        requested.push(await request.text())
+        return new HttpResponse(null, { status: 202 })
+      })
+    )
+    await renderLogin()
+    await submit("an@example.com", "mat-khau-dai")
+    await expect
+      .element(page.getByText(/Chúng tôi đã gửi mã 6 số tới an@example\.com/))
+      .toBeVisible()
+    expect(requested).toEqual(['{"email":"an@example.com"}'])
+  })
+
   test("validates the email before calling the API", async () => {
     await renderLogin()
 
