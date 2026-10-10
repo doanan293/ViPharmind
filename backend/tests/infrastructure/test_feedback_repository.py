@@ -8,7 +8,6 @@ from sqlalchemy import text
 from pharma_agent.domain.conversation.models import Conversation, Message, MessageRole
 from pharma_agent.domain.feedback.models import Feedback, Rating
 from pharma_agent.infrastructure.persistence.postgres.conversation_repository import (
-    AuditContext,
     PostgresConversationRepository,
 )
 from pharma_agent.infrastructure.persistence.postgres.database import Database
@@ -40,9 +39,7 @@ async def make_user(database: Database, email: str) -> str:
 
 
 async def seed_turn(database: Database, owner: str) -> tuple[str, str]:
-    conversations = PostgresConversationRepository(
-        database.sessions, AuditContext(embedding_model="t")
-    )
+    conversations = PostgresConversationRepository(database.sessions)
     conversation = Conversation.start(user_id=owner, first_message="hi", now=NOW)
     await conversations.create(conversation)
     user_msg = Message(
@@ -63,7 +60,7 @@ async def seed_turn(database: Database, owner: str) -> tuple[str, str]:
         created_at=NOW + timedelta(microseconds=1),
     )
     conversation.record_turn(NOW)
-    await conversations.append_turn(conversation, user_msg, assistant_msg, [])
+    await conversations.append_turn(conversation, user_msg, assistant_msg)
     return user_msg.message_id, assistant_msg.message_id
 
 
@@ -71,9 +68,7 @@ async def test_get_message_is_owner_scoped(database: Database) -> None:
     owner = await make_user(database, "a@example.com")
     stranger = await make_user(database, "b@example.com")
     user_id, assistant_id = await seed_turn(database, owner)
-    conversations = PostgresConversationRepository(
-        database.sessions, AuditContext(embedding_model="t")
-    )
+    conversations = PostgresConversationRepository(database.sessions)
     found = await conversations.get_message(owner, assistant_id)
     assert (
         found is not None

@@ -90,7 +90,6 @@ def build_harness(
     citation_reader = InMemoryCitationReader()
     sink = RecordingScoreSink()
     container = Container(
-        settings=settings(),
         sessions=None,
         queries=ConversationQueries(
             repo, clock, feedback=feedback_repo, citations=citation_reader

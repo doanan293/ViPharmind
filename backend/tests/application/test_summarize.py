@@ -28,13 +28,12 @@ async def seeded(
             run=run,
             answer_text=f"trả lời {index}",
             citations=[],
-            phases=[],
             now=NOW + timedelta(minutes=index),
         )
         user_msg = user_msg.model_copy(update={"status": status})
         assistant_msg = assistant_msg.model_copy(update={"status": status})
         conversation.record_turn(assistant_msg.created_at)
-        await repo.append_turn(conversation, user_msg, assistant_msg, [])
+        await repo.append_turn(conversation, user_msg, assistant_msg)
     return conversation
 
 

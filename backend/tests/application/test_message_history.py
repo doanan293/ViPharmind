@@ -66,11 +66,10 @@ async def test_list_messages_returns_ui_messages_with_feedback_and_is_current() 
             build_citation(1, chunk=1),
             build_citation(2, chunk=2, release_id=OLD_RELEASE_ID),
         ],
-        phases=["answering"],
         now=NOW,
     )
     conversation.record_turn(assistant_msg.created_at)
-    await repo.append_turn(conversation, user_msg, assistant_msg, [])
+    await repo.append_turn(conversation, user_msg, assistant_msg)
     await feedback.save(
         Feedback.create(
             user_id=OWNER,

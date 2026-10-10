@@ -174,7 +174,6 @@ class Message(BaseModel):
     content: str
     status: str
     citations: list[Citation] = Field(default_factory=list)
-    phases: list[str] = Field(default_factory=list)
     usage: dict[str, Any] = Field(default_factory=dict)
     run_id: str | None = None
     created_at: datetime

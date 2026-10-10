@@ -69,7 +69,6 @@ def test_build_turn_messages_and_pair_turns() -> None:
         run=run,
         answer_text="500 mg [1]",
         citations=[citation],
-        phases=["guarding", "answering"],
         now=NOW,
     )
     assert (user_msg.message_id, assistant_msg.message_id) == ("1" * 32, "2" * 32)
@@ -78,10 +77,7 @@ def test_build_turn_messages_and_pair_turns() -> None:
     assert assistant_msg.role is MessageRole.ASSISTANT and assistant_msg.citations == [
         citation
     ]
-    assert assistant_msg.run_id == run.run_id and assistant_msg.phases == [
-        "guarding",
-        "answering",
-    ]
+    assert assistant_msg.run_id == run.run_id
     assert assistant_msg.usage["llm_calls"] == 0
     assert assistant_msg.created_at > user_msg.created_at
 

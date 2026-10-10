@@ -1,8 +1,6 @@
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import DateTime, Uuid, delete, literal, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -15,7 +13,6 @@ from pharma_agent.domain.conversation.models import (
     Turn,
 )
 from pharma_agent.domain.conversation.turns import pair_turns
-from pharma_agent.domain.retrieval.audit import RetrievalRunRecord
 from pharma_agent.infrastructure.persistence.postgres.citation_rows import (
     citation_link_rows,
     load_citations,
@@ -23,21 +20,11 @@ from pharma_agent.infrastructure.persistence.postgres.citation_rows import (
 from pharma_agent.infrastructure.persistence.postgres.tables import (
     ConversationTable,
     MessageTable,
-    RetrievalHitTable,
-    RetrievalRunTable,
 )
 
 
 class ConversationRowMissing(LookupError):
     """append_turn was called for a conversation that is not in the database."""
-
-
-@dataclass(frozen=True)
-class AuditContext:
-    """Per-deployment audit fields; release ids come from each record."""
-
-    embedding_model: str
-    retriever_config: dict[str, Any] = field(default_factory=dict)
 
 
 def _uuid(value: str) -> uuid.UUID | None:
@@ -68,7 +55,6 @@ def _message(row: MessageTable, citations: Sequence[Citation]) -> Message:
         content=row.content,
         status=row.status,
         citations=list(citations),
-        phases=list(row.phases),
         usage=dict(row.usage),
         run_id=row.run_id,
         created_at=row.created_at,
@@ -82,7 +68,6 @@ def _message_row(message: Message) -> MessageTable:
         role=message.role.value,
         content=message.content,
         status=message.status,
-        phases=list(message.phases),
         usage=dict(message.usage),
         run_id=message.run_id,
         created_at=message.created_at,
@@ -90,11 +75,8 @@ def _message_row(message: Message) -> MessageTable:
 
 
 class PostgresConversationRepository:
-    def __init__(
-        self, sessions: async_sessionmaker[AsyncSession], audit_context: AuditContext
-    ) -> None:
+    def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
         self._sessions = sessions
-        self._audit_context = audit_context
 
     async def create(self, conversation: Conversation) -> None:
         async with self._sessions.begin() as session:
@@ -188,10 +170,8 @@ class PostgresConversationRepository:
         conversation: Conversation,
         user_message: Message,
         assistant_message: Message,
-        audit: Sequence[RetrievalRunRecord],
     ) -> None:
         key = uuid.UUID(hex=conversation.conversation_id)
-        assistant_id = uuid.UUID(hex=assistant_message.message_id)
         async with self._sessions.begin() as session:
             updated = await session.execute(
                 update(ConversationTable)
@@ -209,25 +189,6 @@ class PostgresConversationRepository:
             )
             await session.flush()
             session.add_all(citation_link_rows(assistant_message))
-            await session.flush()
-            for record in audit:
-                run_row = RetrievalRunTable(
-                    message_id=assistant_id,
-                    conversation_id=key,
-                    run_id=assistant_message.run_id or "",
-                    round=record.round,
-                    query_text=record.query_text,
-                    release_ids=dict(record.release_ids),
-                    embedding_model=self._audit_context.embedding_model,
-                    retriever_config=dict(self._audit_context.retriever_config),
-                    created_at=assistant_message.created_at,
-                )
-                session.add(run_row)
-                await session.flush()
-                session.add_all(
-                    RetrievalHitTable(retrieval_run_id=run_row.id, **hit.model_dump())
-                    for hit in record.hits
-                )
 
     async def recent_turns(self, conversation_id: str, limit: int) -> list[Turn]:
         messages = await self.messages(conversation_id, limit=limit * 2)

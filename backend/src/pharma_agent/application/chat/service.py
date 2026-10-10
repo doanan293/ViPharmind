@@ -18,7 +18,6 @@ from pharma_agent.domain.conversation.models import (
 )
 from pharma_agent.domain.conversation.ports import ConversationRepository
 from pharma_agent.domain.conversation.turns import build_turn_messages
-from pharma_agent.domain.retrieval.audit import audit_from_run
 from pharma_agent.domain.shared.clock import Clock
 from pharma_agent.domain.shared.ids import new_id
 
@@ -116,7 +115,6 @@ class ChatSession:
             run=outcome.run,
             answer_text=outcome.answer_text,
             citations=outcome.citations,
-            phases=phases,
             now=self._clock.now(),
         )
         self._conversation.record_turn(assistant_message.created_at)
@@ -126,7 +124,6 @@ class ChatSession:
                 self._conversation,
                 user_message,
                 assistant_message,
-                audit_from_run(outcome.run, outcome.citations),
             )
         except Exception:
             logger.exception(

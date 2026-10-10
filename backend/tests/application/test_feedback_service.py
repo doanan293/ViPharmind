@@ -42,11 +42,10 @@ async def seeded() -> tuple[InMemoryConversationRepository, str, str]:
         run=run,
         answer_text="a",
         citations=[],
-        phases=[],
         now=NOW,
     )
     conversation.record_turn(NOW)
-    await repo.append_turn(conversation, user_msg, assistant_msg, [])
+    await repo.append_turn(conversation, user_msg, assistant_msg)
     return repo, user_msg.message_id, assistant_msg.message_id
 
 

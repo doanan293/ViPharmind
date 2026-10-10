@@ -75,7 +75,7 @@ async def test_citation_block_keeps_reading_order_and_is_owner_scoped(
     cited = citation_for(seeded, index=1, position=1, block=order)
     user_msg, assistant_msg = turn(conversation.conversation_id, 0, citations=[cited])
     conversation.record_turn(assistant_msg.created_at)
-    await repo.append_turn(conversation, user_msg, assistant_msg, [])
+    await repo.append_turn(conversation, user_msg, assistant_msg)
     reader = PostgresCitationReader(database.sessions)
 
     block = await reader.citation_block(owner, assistant_msg.message_id, 1)

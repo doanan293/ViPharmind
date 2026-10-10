@@ -22,7 +22,6 @@ from pharma_agent.infrastructure.persistence.postgres.citation_reader import (
     PostgresCitationReader,
 )
 from pharma_agent.infrastructure.persistence.postgres.conversation_repository import (
-    AuditContext,
     PostgresConversationRepository,
 )
 from pharma_agent.infrastructure.persistence.postgres.database import Database
@@ -32,7 +31,6 @@ from pharma_agent.infrastructure.persistence.postgres.feedback_repository import
 from pharma_agent.infrastructure.persistence.postgres.tables import (
     FeedbackTable,
     MessageTable,
-    RetrievalRunTable,
 )
 from pharma_agent.infrastructure.settings import Settings
 from tests.api.asgi import running
@@ -59,10 +57,7 @@ async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
     async def factory(resolved: Settings) -> AsyncGenerator[Container]:
         database = Database(resolved.postgres.dsn, pool_size=2)
         database_holder["db"] = database
-        repo = PostgresConversationRepository(
-            database.sessions,
-            AuditContext(embedding_model="test"),
-        )
+        repo = PostgresConversationRepository(database.sessions)
         seeded = await seed_cited_release(database.sessions)
         runner = ChatTurnRunner(
             build_chat_graph(),
@@ -73,7 +68,6 @@ async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
         feedback_repository = PostgresFeedbackRepository(database.sessions)
         try:
             yield Container(
-                settings=resolved,
                 sessions=database.sessions,
                 queries=ConversationQueries(
                     repo,
@@ -142,12 +136,7 @@ async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
             message_count = (
                 await session.execute(select(func.count()).select_from(MessageTable))
             ).scalar_one()
-            audit_count = (
-                await session.execute(
-                    select(func.count()).select_from(RetrievalRunTable)
-                )
-            ).scalar_one()
-        assert message_count >= 2 and audit_count >= 1
+        assert message_count >= 2
 
         rated = await client.post(
             f"/api/v1/messages/{message_id}/feedback",
