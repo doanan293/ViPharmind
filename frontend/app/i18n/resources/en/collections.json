@@ -1,0 +1,117 @@
+{
+  "list": {
+    "title": "Collections",
+    "description": "The sources the assistant searches.",
+    "public": "Public",
+    "mine": "Mine",
+    "others": "Others (admin)",
+    "empty": "No collections yet.",
+    "create": "Create a collection",
+    "titleLabel": "Collection name",
+    "quota": "Used {{used}} / {{limit}} characters · {{count}} / {{max}} collections",
+    "system": "System"
+  },
+  "visibility": {
+    "label": "Who can see it",
+    "private": "Private",
+    "organization": "Whole organization",
+    "public": "Public"
+  },
+  "tabs": {
+    "documents": "Documents",
+    "glossary": "Glossary",
+    "colloquial": "Colloquial names",
+    "releases": "Releases"
+  },
+  "actions": {
+    "rename": "Rename",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete collection",
+    "deleteTitle": "Delete the collection?",
+    "deleteDescription": "It will no longer be searched. Old conversations keep their citations.",
+    "deleteConfirm": "Delete"
+  },
+  "documents": {
+    "add": "Add a document",
+    "empty": "No documents yet.",
+    "title": "Title",
+    "chars": "Characters",
+    "updated": "Updated",
+    "delete": "Delete {{title}}"
+  },
+  "glossary": {
+    "term": "Term",
+    "vietnamese": "Vietnamese meaning",
+    "english": "English meaning",
+    "aliases": "Other names",
+    "category": "Category",
+    "add": "Add a term",
+    "remove": "Remove row",
+    "save": "Save glossary",
+    "saved": "Glossary saved.",
+    "hint": "Separate several values with commas."
+  },
+  "colloquial": {
+    "key": "Colloquial name",
+    "aliases": "Other names",
+    "visualSign": "How to recognize it",
+    "products": "Product names",
+    "sections": "Related sections",
+    "add": "Add a name",
+    "remove": "Remove row",
+    "save": "Save names",
+    "saved": "Colloquial names saved."
+  },
+  "releases": {
+    "empty": "Not published yet.",
+    "number": "Release {{number}}",
+    "current": "In use",
+    "rollback": "Go back to the previous release",
+    "rolledBack": "Back to release {{number}}."
+  },
+  "publish": {
+    "button": "Publish",
+    "running": "Publishing…",
+    "ready": "Published release {{number}}.",
+    "failed": "Publishing failed: {{error}}",
+    "step": {
+      "bundle": "Preparing content",
+      "chunk": "Chunking",
+      "embed": "Embedding",
+      "index": "Indexing",
+      "publish": "Publishing"
+    }
+  },
+  "editor": {
+    "newTitle": "New document",
+    "title": "Title",
+    "kind": "Document type",
+    "source": "Source",
+    "sourceUrl": "Source URL",
+    "content": "Content",
+    "chars": "{{count}} / {{max}} characters",
+    "save": "Save document",
+    "saved": "Document saved.",
+    "upload": "Upload .md or .txt",
+    "replace": "Replace the current content with this file?",
+    "back": "Back to the collection",
+    "kindValue": {
+      "drug_monograph": "Drug monograph",
+      "general_monograph": "General monograph",
+      "leaflet": "Leaflet"
+    },
+    "toolbar": {
+      "h1": "Heading 1",
+      "h2": "Heading 2",
+      "h3": "Heading 3",
+      "bold": "Bold",
+      "italic": "Italic",
+      "bullet": "Bulleted list",
+      "ordered": "Numbered list",
+      "table": "Insert table",
+      "addRow": "Add row",
+      "deleteTable": "Delete table"
+    }
+  }
+}

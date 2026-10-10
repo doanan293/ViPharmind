@@ -1,0 +1,117 @@
+{
+  "list": {
+    "title": "Bộ tài liệu",
+    "description": "Nguồn mà trợ lý tìm khi trả lời.",
+    "public": "Công khai",
+    "mine": "Của tôi",
+    "others": "Khác (quản trị)",
+    "empty": "Chưa có bộ tài liệu nào.",
+    "create": "Tạo bộ tài liệu",
+    "titleLabel": "Tên bộ tài liệu",
+    "quota": "Đã dùng {{used}} / {{limit}} ký tự · {{count}} / {{max}} bộ tài liệu",
+    "system": "Hệ thống"
+  },
+  "visibility": {
+    "label": "Ai được thấy",
+    "private": "Riêng tư",
+    "organization": "Cả tổ chức",
+    "public": "Công khai"
+  },
+  "tabs": {
+    "documents": "Tài liệu",
+    "glossary": "Thuật ngữ",
+    "colloquial": "Tên gọi dân gian",
+    "releases": "Bản phát hành"
+  },
+  "actions": {
+    "rename": "Đổi tên",
+    "save": "Lưu",
+    "cancel": "Huỷ",
+    "delete": "Xoá bộ tài liệu",
+    "deleteTitle": "Xoá bộ tài liệu?",
+    "deleteDescription": "Bộ tài liệu sẽ không còn được tìm kiếm. Hội thoại cũ vẫn giữ trích dẫn.",
+    "deleteConfirm": "Xoá"
+  },
+  "documents": {
+    "add": "Thêm tài liệu",
+    "empty": "Chưa có tài liệu nào.",
+    "title": "Tiêu đề",
+    "chars": "Ký tự",
+    "updated": "Cập nhật",
+    "delete": "Xoá {{title}}"
+  },
+  "glossary": {
+    "term": "Thuật ngữ",
+    "vietnamese": "Nghĩa tiếng Việt",
+    "english": "Nghĩa tiếng Anh",
+    "aliases": "Tên khác",
+    "category": "Phân loại",
+    "add": "Thêm thuật ngữ",
+    "remove": "Xoá dòng",
+    "save": "Lưu thuật ngữ",
+    "saved": "Đã lưu thuật ngữ.",
+    "hint": "Nhiều giá trị cách nhau bằng dấu phẩy."
+  },
+  "colloquial": {
+    "key": "Tên gọi dân gian",
+    "aliases": "Cách gọi khác",
+    "visualSign": "Dấu hiệu nhận biết",
+    "products": "Tên sản phẩm",
+    "sections": "Mục liên quan",
+    "add": "Thêm tên gọi",
+    "remove": "Xoá dòng",
+    "save": "Lưu tên gọi",
+    "saved": "Đã lưu tên gọi dân gian."
+  },
+  "releases": {
+    "empty": "Chưa xuất bản lần nào.",
+    "number": "Bản {{number}}",
+    "current": "Đang dùng",
+    "rollback": "Quay lại bản trước",
+    "rolledBack": "Đã quay lại bản {{number}}."
+  },
+  "publish": {
+    "button": "Xuất bản",
+    "running": "Đang xuất bản…",
+    "ready": "Đã xuất bản bản {{number}}.",
+    "failed": "Xuất bản thất bại: {{error}}",
+    "step": {
+      "bundle": "Chuẩn bị nội dung",
+      "chunk": "Chia đoạn",
+      "embed": "Tạo vector",
+      "index": "Đánh chỉ mục",
+      "publish": "Phát hành"
+    }
+  },
+  "editor": {
+    "newTitle": "Tài liệu mới",
+    "title": "Tiêu đề",
+    "kind": "Loại tài liệu",
+    "source": "Nguồn",
+    "sourceUrl": "Đường dẫn nguồn",
+    "content": "Nội dung",
+    "chars": "{{count}} / {{max}} ký tự",
+    "save": "Lưu tài liệu",
+    "saved": "Đã lưu tài liệu.",
+    "upload": "Tải lên .md hoặc .txt",
+    "replace": "Thay nội dung hiện tại bằng tệp này?",
+    "back": "Về bộ tài liệu",
+    "kindValue": {
+      "drug_monograph": "Chuyên luận thuốc",
+      "general_monograph": "Chuyên luận chung",
+      "leaflet": "Tờ hướng dẫn"
+    },
+    "toolbar": {
+      "h1": "Tiêu đề 1",
+      "h2": "Tiêu đề 2",
+      "h3": "Tiêu đề 3",
+      "bold": "Đậm",
+      "italic": "Nghiêng",
+      "bullet": "Danh sách",
+      "ordered": "Danh sách số",
+      "table": "Chèn bảng",
+      "addRow": "Thêm hàng",
+      "deleteTable": "Xoá bảng"
+    }
+  }
+}

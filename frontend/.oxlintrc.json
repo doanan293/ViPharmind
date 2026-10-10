@@ -68,6 +68,8 @@
                   "~/features/auth/**",
                   "~/features/chat",
                   "~/features/chat/**",
+                  "~/features/collections",
+                  "~/features/collections/**",
                   "~/features/conversations",
                   "~/features/conversations/**",
                   "~/features/landing",
@@ -103,6 +105,8 @@
                   "~/features/audit/**",
                   "~/features/chat",
                   "~/features/chat/**",
+                  "~/features/collections",
+                  "~/features/collections/**",
                   "~/features/conversations",
                   "~/features/conversations/**",
                   "~/features/landing",
@@ -138,6 +142,8 @@
                   "~/features/audit/**",
                   "~/features/auth",
                   "~/features/auth/**",
+                  "~/features/collections",
+                  "~/features/collections/**",
                   "~/features/landing",
                   "~/features/landing/**",
                   "~/features/organizations",
@@ -148,6 +154,43 @@
                   "~/features/shell/**"
                 ],
                 "message": "features/chat may only import features/conversations; compose features in routes instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["app/features/collections/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["~/routes", "~/routes/**"],
+                "message": "Features must not import routes; routes compose features."
+              },
+              {
+                "group": [
+                  "~/features/audit",
+                  "~/features/audit/**",
+                  "~/features/auth",
+                  "~/features/auth/**",
+                  "~/features/chat",
+                  "~/features/chat/**",
+                  "~/features/conversations",
+                  "~/features/conversations/**",
+                  "~/features/landing",
+                  "~/features/landing/**",
+                  "~/features/organizations",
+                  "~/features/organizations/**",
+                  "~/features/settings",
+                  "~/features/settings/**",
+                  "~/features/shell",
+                  "~/features/shell/**"
+                ],
+                "message": "features/collections must not import other features; compose features in routes instead."
               }
             ]
           }
@@ -173,6 +216,8 @@
                   "~/features/auth/**",
                   "~/features/chat",
                   "~/features/chat/**",
+                  "~/features/collections",
+                  "~/features/collections/**",
                   "~/features/landing",
                   "~/features/landing/**",
                   "~/features/organizations",
@@ -208,6 +253,8 @@
                   "~/features/auth/**",
                   "~/features/chat",
                   "~/features/chat/**",
+                  "~/features/collections",
+                  "~/features/collections/**",
                   "~/features/conversations",
                   "~/features/conversations/**",
                   "~/features/organizations",
@@ -241,6 +288,8 @@
                   "~/features/auth/**",
                   "~/features/chat",
                   "~/features/chat/**",
+                  "~/features/collections",
+                  "~/features/collections/**",
                   "~/features/conversations",
                   "~/features/conversations/**",
                   "~/features/landing",
@@ -276,6 +325,8 @@
                   "~/features/auth/**",
                   "~/features/chat",
                   "~/features/chat/**",
+                  "~/features/collections",
+                  "~/features/collections/**",
                   "~/features/conversations",
                   "~/features/conversations/**",
                   "~/features/landing",
@@ -309,6 +360,8 @@
                   "~/features/audit/**",
                   "~/features/chat",
                   "~/features/chat/**",
+                  "~/features/collections",
+                  "~/features/collections/**",
                   "~/features/landing",
                   "~/features/landing/**",
                   "~/features/organizations",
