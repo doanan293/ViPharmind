@@ -1,4 +1,5 @@
 import { LandingPage } from "~/features/landing/components/LandingPage"
+import { SiteFooter } from "~/features/legal/components/SiteFooter"
 import { landingMeta } from "~/features/landing/lib/meta"
 import { FALLBACK_LANGUAGE, isLanguage } from "~/i18n/config"
 import { getInstance, getLocale } from "~/i18n/middleware.server"
@@ -24,5 +25,10 @@ export const meta: Route.MetaFunction = ({ loaderData }) =>
   loaderData === undefined ? [] : landingMeta(loaderData)
 
 export default function Landing({ loaderData }: Route.ComponentProps) {
-  return <LandingPage locale={loaderData.locale} />
+  return (
+    <>
+      <LandingPage locale={loaderData.locale} />
+      <SiteFooter locale={loaderData.locale} />
+    </>
+  )
 }

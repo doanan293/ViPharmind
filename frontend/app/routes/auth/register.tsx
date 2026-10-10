@@ -9,6 +9,7 @@ import { RegisterForm } from "~/features/auth/components/RegisterForm"
 import { SignInMethods } from "~/features/auth/components/SignInMethods"
 import { useRedirectIfAuthenticated } from "~/features/auth/hooks/use-redirect-if-authenticated"
 import { safeNextPath } from "~/features/auth/lib/next-path"
+import { LegalConsent } from "~/features/legal/components/LegalLinks"
 
 export default function RegisterPage() {
   const { t } = useTranslation("auth")
@@ -28,6 +29,7 @@ export default function RegisterPage() {
       />
       <FieldSeparator>{t("or")}</FieldSeparator>
       <GoogleButton nextPath={nextPath} />
+      <LegalConsent />
       <p className="text-center text-sm text-muted-foreground">
         {t("register.hasAccount")}{" "}
         <Link

@@ -94,9 +94,12 @@ export function localeFromPath(pathname: string): Language | null {
   )
 }
 
+/** Public pages besides the landing page; each also exists under `/en`. */
+export const PUBLIC_PAGE_PATHS = ["/privacy", "/terms"] as const
+
 /** Public pages get their language from the URL so SSR, prerendered files and hreflang agree. */
 export function publicPageLocale(pathname: string): Language | null {
-  if (pathname === "/") {
+  if (pathname === "/" || PUBLIC_PAGE_PATHS.some((path) => path === pathname)) {
     return FALLBACK_LANGUAGE
   }
   return localeFromPath(pathname)
