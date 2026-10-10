@@ -1,20 +1,36 @@
 """Account use cases over one-time codes: verification, password reset, phone sign-in."""
 
+import hmac
 import logging
 import secrets
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
+
+from pydantic import BaseModel
 
 from pharma_agent.application.account.errors import (
     AccountDisabled,
+    AccountNotFound,
+    CurrentPasswordInvalid,
     DeliveryFailed,
+    EmailAlreadyUsed,
     InvalidCode,
+    LastSignInMethod,
     PasswordInvalid,
+    PhoneAlreadyUsed,
     PhoneCountryNotAllowed,
     PhoneNumberInvalid,
     RateLimited,
+    SessionNotFound,
 )
-from pharma_agent.application.account.messages import Locale, code_email, code_sms
+from pharma_agent.application.account.messages import (
+    Locale,
+    code_email,
+    code_sms,
+    email_changed_notice,
+)
+from pharma_agent.application.errors import InvalidInput
 from pharma_agent.domain.account.codes import (
     CODE_TTL,
     code_digest,
@@ -24,10 +40,13 @@ from pharma_agent.domain.account.codes import (
 from pharma_agent.domain.account.models import (
     CHANNEL_BY_PURPOSE,
     AccountConflict,
+    AccountUser,
     Channel,
     OneTimeCode,
     OtpPurpose,
+    SignInMethod,
     normalize_email,
+    session_id_of,
 )
 from pharma_agent.domain.account.passwords import password_problem
 from pharma_agent.domain.account.phone import InvalidPhoneNumber, normalize_phone
@@ -45,6 +64,45 @@ from pharma_agent.domain.shared.clock import Clock
 
 logger = logging.getLogger(__name__)
 HOUR = 3600
+
+
+class AccountView(BaseModel):
+    id: uuid.UUID
+    email: str | None
+    phone_number: str | None
+    display_name: str
+    is_active: bool
+    is_superuser: bool
+    is_verified: bool
+    email_verified: bool
+    phone_verified: bool
+    password_set: bool
+    google_linked: bool
+
+    @classmethod
+    def of(cls, user: AccountUser) -> "AccountView":
+        return cls(
+            id=user.id,
+            email=user.email,
+            phone_number=user.phone_number,
+            display_name=user.display_name,
+            is_active=user.is_active,
+            is_superuser=user.is_superuser,
+            is_verified=user.email_verified or user.phone_verified,
+            email_verified=user.email_verified,
+            phone_verified=user.phone_verified,
+            password_set=user.password_set,
+            google_linked=user.google_linked,
+        )
+
+
+class SessionView(BaseModel):
+    id: str
+    created_at: datetime
+    last_used_at: datetime | None
+    user_agent: str
+    ip_address: str
+    current: bool
 
 
 @dataclass(frozen=True)
@@ -273,3 +331,140 @@ class AccountService:
                 limit=self._policy.login_failures_per_window,
                 window_seconds=self._policy.login_window_seconds,
             )
+
+    # Profile and contact changes ----------------------------------------------------
+
+    async def _require(self, user_id: uuid.UUID) -> AccountUser:
+        user = await self._accounts.get(user_id)
+        if user is None:
+            raise AccountNotFound(str(user_id))
+        return user
+
+    async def get_account(self, user_id: uuid.UUID) -> AccountView:
+        return AccountView.of(await self._require(user_id))
+
+    async def update_profile(
+        self, user_id: uuid.UUID, display_name: str
+    ) -> AccountView:
+        await self._require(user_id)
+        await self._accounts.update_display_name(user_id, display_name.strip())
+        return await self.get_account(user_id)
+
+    async def request_email_change(
+        self, user_id: uuid.UUID, email: str, *, locale: Locale, client_ip: str | None
+    ) -> None:
+        user = await self._require(user_id)
+        address = normalize_email(email)
+        owner = await self._accounts.get_by_email(address)
+        if owner is not None and owner.id != user_id:
+            raise EmailAlreadyUsed("this email belongs to another account")
+        if user.email == address and user.email_verified:
+            raise InvalidInput("this is already your email")
+        await self._limit_send(address, client_ip)
+        await self._deliver_code(OtpPurpose.CHANGE_EMAIL, address, user_id, locale)
+
+    async def confirm_email_change(
+        self, user_id: uuid.UUID, email: str, code: str, *, locale: Locale
+    ) -> AccountView:
+        address = normalize_email(email)
+        record = await self._consume(OtpPurpose.CHANGE_EMAIL, address, code)
+        if record.user_id != user_id:
+            raise InvalidCode("the code is invalid or has expired")
+        user = await self._require(user_id)
+        try:
+            await self._accounts.set_email(user_id, address, self._clock.now())
+        except AccountConflict as exc:
+            raise EmailAlreadyUsed("this email belongs to another account") from exc
+        if user.email is not None and user.email != address:
+            notice = email_changed_notice(address, locale)
+            try:
+                await self._email.send(
+                    to=user.email,
+                    subject=notice.subject,
+                    text=notice.text,
+                    html=notice.html,
+                )
+            except DeliveryError as exc:
+                logger.warning("could not notify the previous email: %s", exc)
+        return await self.get_account(user_id)
+
+    async def request_phone_change(
+        self, user_id: uuid.UUID, phone: str, *, locale: Locale, client_ip: str | None
+    ) -> None:
+        await self._require(user_id)
+        number = self._phone(phone)
+        owner = await self._accounts.get_by_phone(number)
+        if owner is not None and owner.id != user_id:
+            raise PhoneAlreadyUsed("this phone number belongs to another account")
+        await self._limit_send(number, client_ip)
+        await self._deliver_code(OtpPurpose.CHANGE_PHONE, number, user_id, locale)
+
+    async def confirm_phone_change(
+        self, user_id: uuid.UUID, phone: str, code: str
+    ) -> AccountView:
+        number = self._phone(phone)
+        record = await self._consume(OtpPurpose.CHANGE_PHONE, number, code)
+        if record.user_id != user_id:
+            raise InvalidCode("the code is invalid or has expired")
+        try:
+            await self._accounts.set_phone(user_id, number, self._clock.now())
+        except AccountConflict as exc:
+            raise PhoneAlreadyUsed(
+                "this phone number belongs to another account"
+            ) from exc
+        return await self.get_account(user_id)
+
+    async def change_password(
+        self, user_id: uuid.UUID, *, current_password: str | None, new_password: str
+    ) -> None:
+        self._check_password(new_password)
+        user = await self._require(user_id)
+        if user.password_set:
+            hashed = await self._accounts.hashed_password(user_id)
+            if (
+                current_password is None
+                or hashed is None
+                or not self._hasher.verify(current_password, hashed)
+            ):
+                raise CurrentPasswordInvalid("the current password is wrong")
+        await self._accounts.set_password(user_id, self._hasher.hash(new_password))
+
+    async def unlink_google(self, user_id: uuid.UUID) -> AccountView:
+        user = await self._require(user_id)
+        if user.google_linked:
+            if not user.sign_in_methods() - {SignInMethod.GOOGLE}:
+                raise LastSignInMethod(
+                    "add another way to sign in before removing Google"
+                )
+            await self._accounts.unlink_oauth(user_id, SignInMethod.GOOGLE.value)
+        return await self.get_account(user_id)
+
+    # Sessions -------------------------------------------------------------------------
+
+    async def list_sessions(
+        self, user_id: uuid.UUID, current_token: str | None
+    ) -> list[SessionView]:
+        return [
+            SessionView(
+                id=session_id_of(record.token),
+                created_at=record.created_at,
+                last_used_at=record.last_used_at,
+                user_agent=record.user_agent,
+                ip_address=record.ip_address,
+                current=current_token is not None
+                and hmac.compare_digest(record.token, current_token),
+            )
+            for record in await self._sessions.for_user(user_id)
+        ]
+
+    async def revoke_session(self, user_id: uuid.UUID, session_id: str) -> None:
+        for record in await self._sessions.for_user(user_id):
+            if hmac.compare_digest(session_id_of(record.token), session_id):
+                await self._sessions.delete(user_id, record.token)
+                return
+        raise SessionNotFound(session_id)
+
+    async def revoke_other_sessions(
+        self, user_id: uuid.UUID, current_token: str | None
+    ) -> int:
+        return await self._sessions.delete_all(user_id, keep=current_token)
