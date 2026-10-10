@@ -3,6 +3,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharma_agent.application.corpus.collections import CollectionService, QuotaPolicy
+from pharma_agent.application.corpus.content import ContentService
 from pharma_agent.domain.corpus.ports import VectorIndex
 from pharma_agent.domain.shared.clock import Clock
 from pharma_agent.infrastructure.persistence.postgres.account_repository import (
@@ -17,6 +18,9 @@ from pharma_agent.infrastructure.persistence.postgres.corpus_repository import (
 )
 from pharma_agent.infrastructure.persistence.postgres.organization_repository import (
     PostgresOrganizationRepository,
+)
+from pharma_agent.infrastructure.persistence.postgres.source_repository import (
+    PostgresSourceRepository,
 )
 from pharma_agent.infrastructure.persistence.postgres.transaction import (
     PostgresTransactionFactory,
@@ -49,6 +53,22 @@ def build_collection_service(
         accounts=PostgresAccountRepository(sessions),
         corpus=PostgresCorpusRepository(sessions),
         index=index,
+        audit=PostgresAuditLog(sessions),
+        tx=PostgresTransactionFactory(sessions),
+        clock=clock,
+        quotas=quota_policy(settings),
+        sources=PostgresSourceRepository(sessions),
+    )
+
+
+def build_content_service(
+    settings: Settings, sessions: async_sessionmaker[AsyncSession], *, clock: Clock
+) -> ContentService:
+    return ContentService(
+        collections=PostgresCollectionRepository(sessions),
+        sources=PostgresSourceRepository(sessions),
+        organizations=PostgresOrganizationRepository(sessions),
+        accounts=PostgresAccountRepository(sessions),
         audit=PostgresAuditLog(sessions),
         tx=PostgresTransactionFactory(sessions),
         clock=clock,

@@ -7,12 +7,14 @@ from datetime import datetime
 from pharma_agent.application.corpus.collections import CollectionService, QuotaPolicy
 from pharma_agent.domain.access import policy
 from pharma_agent.domain.access.models import Actor
+from pharma_agent.domain.corpus.bundle import ColloquialMappingRecord, GlossaryEntry
 from pharma_agent.domain.corpus.models import (
     Collection,
     CollectionOwner,
     ReleaseStatus,
     Visibility,
 )
+from pharma_agent.domain.corpus.source import SourceDocument
 from pharma_agent.domain.shared.clock import Clock, FixedClock
 from pharma_agent.domain.shared.transaction import Transaction
 from tests.account_fakes import START, InMemoryAccounts
@@ -45,7 +47,7 @@ class InMemoryCollections:
     def _store(self, collection: Collection) -> None:
         self.corpus.collections[collection.key] = collection
 
-    def _live(self) -> list[Collection]:
+    def live(self) -> list[Collection]:
         return [c for c in self.corpus.collections.values() if c.id not in self.deleted]
 
     async def get(self, collection_id: uuid.UUID) -> Collection | None:
@@ -53,7 +55,7 @@ class InMemoryCollections:
 
     async def visible_for(self, actor: Actor) -> list[Collection]:
         return sorted(
-            (c for c in self._live() if policy.can_view_collection(actor, c)),
+            (c for c in self.live() if policy.can_view_collection(actor, c)),
             key=lambda c: (c.title, c.id),
         )
 
@@ -61,7 +63,7 @@ class InMemoryCollections:
         return sum(
             c.owner_user_id == owner.user_id
             and c.owner_organization_id == owner.organization_id
-            for c in self._live()
+            for c in self.live()
         )
 
     async def create(
@@ -102,7 +104,7 @@ class InMemoryCollections:
     ) -> dict[uuid.UUID, uuid.UUID]:
         return {
             c.id: c.current_release_id
-            for c in self._live()
+            for c in self.live()
             if c.id in collection_ids and c.current_release_id is not None
         }
 
@@ -137,3 +139,67 @@ def build_collection_service(
         clock=clock or FixedClock(START),
         quotas=QuotaPolicy(),
     )
+
+
+class InMemorySources:
+    def __init__(self, collections: InMemoryCollections) -> None:
+        self.collections = collections
+        self.documents: dict[uuid.UUID, SourceDocument] = {}
+        self.glossaries: dict[uuid.UUID, list[GlossaryEntry]] = {}
+        self.mappings: dict[uuid.UUID, list[ColloquialMappingRecord]] = {}
+
+    async def list_documents(self, collection_id: uuid.UUID) -> list[SourceDocument]:
+        return sorted(
+            (d for d in self.documents.values() if d.collection_id == collection_id),
+            key=lambda d: (d.title, d.id),
+        )
+
+    async def get_document(self, document_id: uuid.UUID) -> SourceDocument | None:
+        return self.documents.get(document_id)
+
+    async def document_keys(self, collection_id: uuid.UUID) -> set[str]:
+        return {d.key for d in await self.list_documents(collection_id)}
+
+    async def create_document(self, document: SourceDocument, tx: Transaction) -> None:
+        _tx(tx).later(lambda: self.documents.__setitem__(document.id, document))
+
+    async def update_document(self, document: SourceDocument, tx: Transaction) -> None:
+        _tx(tx).later(lambda: self.documents.__setitem__(document.id, document))
+
+    async def delete_document(self, document_id: uuid.UUID, tx: Transaction) -> None:
+        _tx(tx).later(lambda: self.documents.pop(document_id, None))
+
+    async def count_documents(self, collection_id: uuid.UUID) -> int:
+        return len(await self.list_documents(collection_id))
+
+    async def text_usage(self, owner: CollectionOwner) -> int:
+        owned = {
+            c.id
+            for c in self.collections.live()
+            if c.owner_user_id == owner.user_id
+            and c.owner_organization_id == owner.organization_id
+        }
+        return sum(
+            d.char_count for d in self.documents.values() if d.collection_id in owned
+        )
+
+    async def glossary(self, collection_id: uuid.UUID) -> list[GlossaryEntry]:
+        return list(self.glossaries.get(collection_id, []))
+
+    async def replace_glossary(
+        self, collection_id: uuid.UUID, entries: list[GlossaryEntry], tx: Transaction
+    ) -> None:
+        _tx(tx).later(lambda: self.glossaries.__setitem__(collection_id, list(entries)))
+
+    async def colloquial(
+        self, collection_id: uuid.UUID
+    ) -> list[ColloquialMappingRecord]:
+        return list(self.mappings.get(collection_id, []))
+
+    async def replace_colloquial(
+        self,
+        collection_id: uuid.UUID,
+        mappings: list[ColloquialMappingRecord],
+        tx: Transaction,
+    ) -> None:
+        _tx(tx).later(lambda: self.mappings.__setitem__(collection_id, list(mappings)))
