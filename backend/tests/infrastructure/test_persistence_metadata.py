@@ -14,6 +14,10 @@ CORPUS_TABLES = {
     "chunk_versions",
     "releases",
     "release_chunks",
+    "source_documents",
+    "glossary_entries",
+    "colloquial_mappings",
+    "ingest_jobs",
 }
 
 

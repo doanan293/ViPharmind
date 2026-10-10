@@ -45,6 +45,10 @@ EXPECTED_CORPUS_TABLES = {
     "chunk_versions",
     "releases",
     "release_chunks",
+    "source_documents",
+    "glossary_entries",
+    "colloquial_mappings",
+    "ingest_jobs",
 }
 
 
@@ -299,3 +303,27 @@ async def test_collection_owner_and_visibility_constraints(migrated_dsn: str) ->
         columns = await connection.run_sync(_columns, "conversations")
     await engine.dispose()
     assert columns["collection_ids"] is True
+
+
+async def test_one_open_ingest_job_per_collection(migrated_dsn: str) -> None:
+    engine = create_async_engine(migrated_dsn)
+    collection = uuid.uuid4()
+    insert = text(
+        "INSERT INTO corpus.ingest_jobs (id, collection_id, status, step, progress,"
+        " attempts, created_at) VALUES (gen_random_uuid(), :c, :status, 'bundle', 0,"
+        " 0, now())"
+    )
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO corpus.collections (id, key, title, visibility)"
+                " VALUES (:id, :key, 't', 'public')"
+            ),
+            {"id": collection, "key": f"jobs-{collection.hex[:8]}"},
+        )
+        await connection.execute(insert, {"c": collection, "status": "ready"})
+        await connection.execute(insert, {"c": collection, "status": "queued"})
+        with pytest.raises(IntegrityError):
+            async with connection.begin_nested():
+                await connection.execute(insert, {"c": collection, "status": "running"})
+    await engine.dispose()
