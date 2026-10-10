@@ -1,0 +1,70 @@
+{
+  "actor": {
+    "unknown": "A user",
+    "superadmin": "{{name}} (Admin)"
+  },
+  "role": {
+    "owner": "owner",
+    "editor": "editor",
+    "member": "member"
+  },
+  "visibility": {
+    "private": "private",
+    "organization": "organization",
+    "public": "public"
+  },
+  "action": {
+    "organization": {
+      "created": "{{actor}} created the organization {{name}}",
+      "renamed": "{{actor}} renamed the organization from {{from}} to {{to}}",
+      "deleted": "{{actor}} deleted the organization {{name}}"
+    },
+    "member": {
+      "joined": "{{actor}} joined as {{role}}",
+      "left": "{{actor}} left the organization",
+      "removed": "{{actor}} removed a member from the organization",
+      "role_changed": "{{actor}} changed a member's role from {{from}} to {{to}}"
+    },
+    "invitation": {
+      "created": "{{actor}} invited {{email}} as {{role}}",
+      "approved": "{{actor}} approved the invitation to {{email}}",
+      "rejected": "{{actor}} rejected the invitation to {{email}}",
+      "revoked": "{{actor}} revoked the invitation to {{email}}",
+      "declined": "{{actor}} declined the invitation",
+      "resent": "{{actor}} resent the invitation to {{email}}"
+    },
+    "collection": {
+      "created": "{{actor}} created the collection {{title}}",
+      "renamed": "{{actor}} renamed the collection from {{from}} to {{to}}",
+      "deleted": "{{actor}} deleted the collection {{title}}",
+      "visibility_changed": "{{actor}} made {{title}} {{to}} instead of {{from}}",
+      "published": "{{actor}} published {{title}} (release {{release}})",
+      "rolled_back": "{{actor}} rolled {{title}} back to release {{release}}"
+    },
+    "document": {
+      "created": "{{actor}} added the document {{document}} to {{title}}",
+      "updated": "{{actor}} edited the document {{document}} in {{title}}",
+      "deleted": "{{actor}} deleted the document {{document}} from {{title}}"
+    },
+    "glossary": {
+      "updated": "{{actor}} updated the glossary of {{title}}"
+    },
+    "colloquial": {
+      "updated": "{{actor}} updated the colloquial names of {{title}}"
+    },
+    "user": {
+      "disabled": "{{actor}} disabled an account",
+      "enabled": "{{actor}} enabled an account"
+    },
+    "quota": {
+      "changed": "{{actor}} changed a quota"
+    }
+  },
+  "page": {
+    "title": "My activity",
+    "description": "Changes to your account and your personal collections.",
+    "empty": "No activity yet.",
+    "loadMore": "Load more",
+    "failed": "Could not load the log."
+  }
+}

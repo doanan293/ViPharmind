@@ -52,6 +52,39 @@
       }
     },
     {
+      "files": ["app/features/audit/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["~/routes", "~/routes/**"],
+                "message": "Features must not import routes; routes compose features."
+              },
+              {
+                "group": [
+                  "~/features/auth",
+                  "~/features/auth/**",
+                  "~/features/chat",
+                  "~/features/chat/**",
+                  "~/features/conversations",
+                  "~/features/conversations/**",
+                  "~/features/landing",
+                  "~/features/landing/**",
+                  "~/features/settings",
+                  "~/features/settings/**",
+                  "~/features/shell",
+                  "~/features/shell/**"
+                ],
+                "message": "features/audit must not import other features; compose features in routes instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["app/features/auth/**"],
       "rules": {
         "no-restricted-imports": [
@@ -64,6 +97,8 @@
               },
               {
                 "group": [
+                  "~/features/audit",
+                  "~/features/audit/**",
                   "~/features/chat",
                   "~/features/chat/**",
                   "~/features/conversations",
@@ -95,6 +130,8 @@
               },
               {
                 "group": [
+                  "~/features/audit",
+                  "~/features/audit/**",
                   "~/features/auth",
                   "~/features/auth/**",
                   "~/features/landing",
@@ -124,6 +161,8 @@
               },
               {
                 "group": [
+                  "~/features/audit",
+                  "~/features/audit/**",
                   "~/features/auth",
                   "~/features/auth/**",
                   "~/features/chat",
@@ -155,6 +194,8 @@
               },
               {
                 "group": [
+                  "~/features/audit",
+                  "~/features/audit/**",
                   "~/features/auth",
                   "~/features/auth/**",
                   "~/features/chat",
@@ -186,6 +227,8 @@
               },
               {
                 "group": [
+                  "~/features/audit",
+                  "~/features/audit/**",
                   "~/features/auth",
                   "~/features/auth/**",
                   "~/features/chat",
@@ -217,6 +260,8 @@
               },
               {
                 "group": [
+                  "~/features/audit",
+                  "~/features/audit/**",
                   "~/features/chat",
                   "~/features/chat/**",
                   "~/features/landing",
