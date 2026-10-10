@@ -140,7 +140,7 @@ async def test_issue_replaces_unused_codes_and_find_respects_limits(
         is None
     )
     for _ in range(MAX_ATTEMPTS):
-        await store.record_failure(second)
+        assert await store.claim_attempt(second)
     assert (
         await store.find_active(OtpPurpose.VERIFY_EMAIL, "an@example.com", NOW) is None
     )
@@ -200,3 +200,22 @@ async def test_session_store_lists_and_deletes(database: Database) -> None:
     assert await store.delete(user_id, "t-old") is False
     assert await store.delete_all(user_id, keep="t-new") == 1  # only t-expired remained
     assert [record.token for record in await store.for_user(user_id)] == ["t-new"]
+
+
+async def test_concurrent_guesses_cannot_exceed_the_attempt_limit(
+    database: Database,
+) -> None:
+    store = PostgresOneTimeCodeStore(database.sessions)
+    code_id = await store.issue(
+        purpose=OtpPurpose.VERIFY_EMAIL,
+        destination="an@example.com",
+        user_id=None,
+        digest="d" * 64,
+        expires_at=NOW + timedelta(minutes=10),
+        now=NOW,
+    )
+    claims = await asyncio.gather(*(store.claim_attempt(code_id) for _ in range(20)))
+    assert sum(claims) == MAX_ATTEMPTS
+    assert (
+        await store.find_active(OtpPurpose.VERIFY_EMAIL, "an@example.com", NOW) is None
+    )

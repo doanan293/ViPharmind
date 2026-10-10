@@ -82,13 +82,19 @@ class PostgresOneTimeCodeStore:
             attempts=row.attempts,
         )
 
-    async def record_failure(self, code_id: uuid.UUID) -> None:
+    async def claim_attempt(self, code_id: uuid.UUID) -> bool:
         async with self._sessions.begin() as session:
-            await session.execute(
+            result = await session.execute(
                 update(OneTimeCodeTable)
-                .where(OneTimeCodeTable.id == code_id)
+                .where(
+                    OneTimeCodeTable.id == code_id,
+                    OneTimeCodeTable.consumed_at.is_(None),
+                    OneTimeCodeTable.attempts < MAX_ATTEMPTS,
+                )
                 .values(attempts=OneTimeCodeTable.attempts + 1)
+                .returning(OneTimeCodeTable.id)
             )
+            return result.first() is not None
 
     async def consume(self, code_id: uuid.UUID, now: datetime) -> bool:
         async with self._sessions.begin() as session:

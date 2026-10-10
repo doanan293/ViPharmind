@@ -207,8 +207,12 @@ class InMemoryCodes:
                 )
         return None
 
-    async def record_failure(self, code_id: uuid.UUID) -> None:
-        self._row(code_id).attempts += 1
+    async def claim_attempt(self, code_id: uuid.UUID) -> bool:
+        row = self._row(code_id)
+        if row.consumed_at is not None or row.attempts >= MAX_ATTEMPTS:
+            return False
+        row.attempts += 1
+        return True
 
     async def consume(self, code_id: uuid.UUID, now: datetime) -> bool:
         row = self._row(code_id)

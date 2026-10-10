@@ -192,3 +192,14 @@ async def test_login_failures_lock_the_email_for_the_window() -> None:
         await service.check_login_allowed("other@example.com", "1.1.1.1")
     fakes.clock.advance(minutes=15)
     await service.check_login_allowed(EMAIL, "2.2.2.2")
+
+
+async def test_a_failed_delivery_does_not_use_up_the_resend_cooldown() -> None:
+    service, fakes = build_account_service()
+    fakes.accounts.add(email=EMAIL)
+    fakes.email.fail = True
+    with pytest.raises(DeliveryFailed):
+        await service.request_email_verification(EMAIL, locale="vi", client_ip=None)
+    fakes.email.fail = False
+    await service.request_email_verification(EMAIL, locale="vi", client_ip=None)
+    assert fakes.email.last_code(EMAIL)

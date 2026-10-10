@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import text
 
 from pharma_agent.domain.account.models import session_id_of
 from tests.api.postgres_app import (
@@ -201,3 +202,31 @@ async def test_login_is_throttled_after_ten_failures(migrated_dsn: str) -> None:
             "/api/v1/auth/cookie/login", data={"username": email, "password": PASSWORD}
         )
     assert locked.status_code == 429 and "retry-after" in locked.headers
+
+
+async def test_sessions_and_limits_use_the_forwarded_client_ip(
+    migrated_dsn: str,
+) -> None:
+    email = new_email()
+    async with postgres_app(migrated_dsn, api={"trusted_proxy_hops": 1}) as (
+        client,
+        database,
+        outbox,
+    ):
+        client.headers["x-forwarded-for"] = "203.0.113.9"
+        await verified_register(client, outbox, email)
+        sessions = (await client.get("/api/v1/account/sessions")).json()
+        async with database.sessions() as session:
+            keys = (
+                (
+                    await session.execute(
+                        text(
+                            "SELECT key FROM rate_limit_buckets WHERE key LIKE 'otp-send-ip:%'"
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+    assert sessions[0]["ip_address"] == "203.0.113.9"
+    assert keys == ["otp-send-ip:203.0.113.9"]

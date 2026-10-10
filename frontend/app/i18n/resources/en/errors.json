@@ -10,7 +10,7 @@
   "CITATION_NOT_FOUND": "Citation source not found.",
   "PAYLOAD_TOO_LARGE": "The file is too large.",
   "AGENT_UNAVAILABLE": "The agent is temporarily unavailable.",
-  "REGISTER_USER_ALREADY_EXISTS": "This email is already registered.",
+  "REGISTER_USER_ALREADY_EXISTS": "This email is already registered. If it is yours, use Forgot password.",
   "REGISTER_INVALID_PASSWORD": "The password does not meet the requirements.",
   "LOGIN_BAD_CREDENTIALS": "Incorrect email or password.",
   "LOGIN_USER_NOT_VERIFIED": "This account is not verified.",

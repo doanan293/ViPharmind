@@ -16,6 +16,7 @@ from pharma_agent.application.errors import (
     ServiceStarting,
 )
 from pharma_agent.application.feedback.service import FeedbackService
+from pharma_agent.infrastructure.auth.client_ip import request_client_ip
 from pharma_agent.infrastructure.auth.users import (
     SESSION_COOKIE_NAME,
     Auth,
@@ -80,7 +81,7 @@ def request_locale(request: Request) -> Locale:
 
 
 def client_ip(request: Request) -> str | None:
-    return None if request.client is None else request.client.host
+    return request_client_ip(request)
 
 
 def current_session_token(request: Request) -> str | None:

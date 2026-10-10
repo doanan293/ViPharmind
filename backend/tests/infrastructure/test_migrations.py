@@ -165,3 +165,17 @@ async def test_a_user_needs_an_email_or_a_phone(migrated_dsn: str) -> None:
                 "is_verified) VALUES (gen_random_uuid(), 'x', true, false, false)"
             )
     await engine.dispose()
+
+
+async def test_emails_are_unique_ignoring_case(migrated_dsn: str) -> None:
+    engine = create_async_engine(migrated_dsn)
+    insert = (
+        'INSERT INTO "user" (id, email, hashed_password, is_active, is_superuser, '
+        "is_verified) VALUES (gen_random_uuid(), '{}', 'x', true, false, false)"
+    )
+    async with engine.connect() as connection:
+        await connection.exec_driver_sql(insert.format("Case.Dup@Example.com"))
+        with pytest.raises(IntegrityError, match="uq_user_email_lower"):
+            await connection.exec_driver_sql(insert.format("case.dup@example.com"))
+        await connection.rollback()
+    await engine.dispose()

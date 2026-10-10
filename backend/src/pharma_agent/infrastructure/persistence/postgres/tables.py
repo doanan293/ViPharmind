@@ -49,6 +49,8 @@ class UserTable(SQLAlchemyBaseUserTableUUID, Base):
         CheckConstraint(
             "email IS NOT NULL OR phone_number IS NOT NULL", name="email_or_phone"
         ),
+        # Lookups compare lower(email); the plain unique index is case-sensitive.
+        Index("uq_user_email_lower", text("lower(email)"), unique=True),
     )
 
     # fastapi-users types `email` as str. Phone-only accounts store NULL, so the column is

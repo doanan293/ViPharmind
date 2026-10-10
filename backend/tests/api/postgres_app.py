@@ -39,7 +39,10 @@ class AppOutbox:
 
 @asynccontextmanager
 async def postgres_app(
-    dsn: str, *, auth: dict[str, object] | None = None
+    dsn: str,
+    *,
+    auth: dict[str, object] | None = None,
+    api: dict[str, object] | None = None,
 ) -> AsyncGenerator[tuple[httpx.AsyncClient, Database, AppOutbox]]:
     database = Database(dsn, pool_size=2)
     outbox = AppOutbox()
@@ -56,6 +59,7 @@ async def postgres_app(
             **(auth or {}),
         },
         postgres={"dsn": dsn},
+        api=api or {},
     )
 
     @asynccontextmanager

@@ -142,12 +142,11 @@ class AccountService:
 
     # Codes -------------------------------------------------------------------------
 
-    async def _limit_send(
-        self, purpose: OtpPurpose, destination: str, client_ip: str | None
-    ) -> None:
-        """Apply every send limit before looking the account up, so limits leak nothing."""
+    def _send_limits(
+        self, purpose: OtpPurpose, destination: str
+    ) -> list[tuple[str, int, int]]:
         policy = self._policy
-        limits = [
+        return [
             (
                 f"otp-cooldown:{purpose.value}:{destination}",
                 1,
@@ -155,17 +154,42 @@ class AccountService:
             ),
             (f"otp-send:{destination}", policy.sends_per_destination_per_hour, HOUR),
         ]
-        if client_ip is not None:
-            limits.append(
-                (f"otp-send-ip:{client_ip}", policy.sends_per_ip_per_hour, HOUR)
-            )
-        for key, limit, window in limits:
+
+    async def _limit_send(
+        self, purpose: OtpPurpose, destination: str, client_ip: str | None
+    ) -> None:
+        """Refuse a send over any limit, and count the request against its IP.
+
+        Runs before the account is looked up, so the answer never depends on whether the
+        address has an account. The per-address counters move in `_count_send`, once the
+        code was sent: a provider failure must not cost the user their resend.
+        """
+        ip_limits = (
+            []
+            if client_ip is None
+            else [
+                (
+                    f"otp-send-ip:{client_ip}",
+                    self._policy.sends_per_ip_per_hour,
+                    HOUR,
+                )
+            ]
+        )
+        for key, limit, window in [
+            *self._send_limits(purpose, destination),
+            *ip_limits,
+        ]:
             retry_after = await self._limiter.check(
                 key, limit=limit, window_seconds=window
             )
             if retry_after is not None:
                 raise RateLimited(retry_after)
-        for key, limit, window in limits:
+        for key, limit, window in ip_limits:
+            await self._limiter.hit(key, limit=limit, window_seconds=window)
+
+    async def _count_send(self, purpose: OtpPurpose, destination: str) -> None:
+        """Count a send, or the silent skip for an address without an account."""
+        for key, limit, window in self._send_limits(purpose, destination):
             await self._limiter.hit(key, limit=limit, window_seconds=window)
 
     async def _deliver_code(
@@ -202,6 +226,7 @@ class AccountService:
             await self._codes.revoke(code_id, now)
             logger.warning("could not deliver a %s code: %s", purpose.value, exc)
             raise DeliveryFailed("the code could not be delivered, try again") from exc
+        await self._count_send(purpose, destination)
 
     async def _consume(
         self, purpose: OtpPurpose, destination: str, code: str
@@ -210,8 +235,11 @@ class AccountService:
         record = await self._codes.find_active(purpose, destination, now)
         if record is None:
             raise InvalidCode("the code is invalid or has expired")
+        # Claim the guess first: counting only after a wrong answer lets parallel
+        # guesses all pass the attempt check before any failure is recorded.
+        if not await self._codes.claim_attempt(record.id):
+            raise InvalidCode("the code is invalid or has expired")
         if not code_matches(self._policy.otp_secret, record, code):
-            await self._codes.record_failure(record.id)
             raise InvalidCode("the code is invalid or has expired")
         if not await self._codes.consume(record.id, now):
             raise InvalidCode("the code is invalid or has expired")
@@ -241,6 +269,7 @@ class AccountService:
         await self._limit_send(OtpPurpose.VERIFY_EMAIL, address, client_ip)
         user = await self._accounts.get_by_email(address)
         if user is None or user.email_verified:
+            await self._count_send(OtpPurpose.VERIFY_EMAIL, address)
             return
         await self._deliver_code(OtpPurpose.VERIFY_EMAIL, address, user.id, locale)
 
@@ -264,6 +293,7 @@ class AccountService:
         await self._limit_send(OtpPurpose.RESET_PASSWORD, address, client_ip)
         user = await self._accounts.get_by_email(address)
         if user is None or not user.is_active:
+            await self._count_send(OtpPurpose.RESET_PASSWORD, address)
             return
         await self._deliver_code(OtpPurpose.RESET_PASSWORD, address, user.id, locale)
 
@@ -361,12 +391,13 @@ class AccountService:
     ) -> None:
         user = await self._require(user_id)
         address = normalize_email(email)
+        # Limit first: the 409 below tells a signed-in user which addresses have accounts.
+        await self._limit_send(OtpPurpose.CHANGE_EMAIL, address, client_ip)
         owner = await self._accounts.get_by_email(address)
         if owner is not None and owner.id != user_id:
             raise EmailAlreadyUsed("this email belongs to another account")
         if user.email == address and user.email_verified:
             raise InvalidInput("this is already your email")
-        await self._limit_send(OtpPurpose.CHANGE_EMAIL, address, client_ip)
         await self._deliver_code(OtpPurpose.CHANGE_EMAIL, address, user_id, locale)
 
     async def confirm_email_change(
@@ -399,10 +430,10 @@ class AccountService:
     ) -> None:
         await self._require(user_id)
         number = self._phone(phone)
+        await self._limit_send(OtpPurpose.CHANGE_PHONE, number, client_ip)
         owner = await self._accounts.get_by_phone(number)
         if owner is not None and owner.id != user_id:
             raise PhoneAlreadyUsed("this phone number belongs to another account")
-        await self._limit_send(OtpPurpose.CHANGE_PHONE, number, client_ip)
         await self._deliver_code(OtpPurpose.CHANGE_PHONE, number, user_id, locale)
 
     async def confirm_phone_change(
