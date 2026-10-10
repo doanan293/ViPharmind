@@ -21,6 +21,7 @@ export default [
     route("organizations", "routes/app/organizations.tsx"),
     route("organizations/:organizationId/:tab?", "routes/app/organization.tsx"),
     route("collections", "routes/app/collections.tsx"),
+    route("admin/:section?", "routes/app/admin.tsx"),
     route(
       "collections/:collectionId/documents/:documentId",
       "routes/app/document.tsx"
