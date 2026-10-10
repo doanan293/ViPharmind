@@ -6,7 +6,11 @@
   },
   "nav": {
     "chat": "Chat",
-    "settings": "Settings"
+    "settings": "Settings",
+    "organizations": "Organizations",
+    "collections": "Collections",
+    "activity": "Activity",
+    "admin": "Admin"
   },
   "userMenu": {
     "open": "Account menu",

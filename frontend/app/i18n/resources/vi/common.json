@@ -6,7 +6,11 @@
   },
   "nav": {
     "chat": "Trò chuyện",
-    "settings": "Cài đặt"
+    "settings": "Cài đặt",
+    "organizations": "Tổ chức",
+    "collections": "Bộ tài liệu",
+    "activity": "Hoạt động",
+    "admin": "Quản trị"
   },
   "userMenu": {
     "open": "Menu tài khoản",

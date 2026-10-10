@@ -19,14 +19,17 @@ export function AccountSection({ user }: { user: AccountView }) {
           verified={user.email_verified}
         />
       </section>
-      <section className="flex flex-col gap-2">
-        <h3 className="text-sm font-medium">{t("account.phone.heading")}</h3>
-        <ContactChangeFlow
-          kind="phone"
-          current={user.phone_number ?? null}
-          verified={user.phone_verified}
-        />
-      </section>
+      {/* Without SMS a number cannot be verified; one already on the account stays shown. */}
+      {user.phone_sign_in_enabled || user.phone_number ? (
+        <section className="flex flex-col gap-2">
+          <h3 className="text-sm font-medium">{t("account.phone.heading")}</h3>
+          <ContactChangeFlow
+            kind="phone"
+            current={user.phone_number ?? null}
+            verified={user.phone_verified}
+          />
+        </section>
+      ) : null}
       <section className="flex flex-col gap-2">
         <h3 className="text-sm font-medium">{t("account.google.heading")}</h3>
         <GoogleSetting linked={user.google_linked} />

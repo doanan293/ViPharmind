@@ -3,11 +3,11 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useId } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import type { z } from "zod"
+import { z } from "zod"
 
-import { useRenameConversation } from "~/api/gen/endpoints"
+import { useUpdateConversation } from "~/api/gen/endpoints"
 import type { ConversationView } from "~/api/gen/schemas"
-import { RenameConversationBody } from "~/api/gen/zod"
+import { updateConversationBodyTitleOneMax } from "~/api/gen/zod"
 import { Button } from "~/components/ui/button"
 import {
   Dialog,
@@ -22,7 +22,11 @@ import { toast } from "~/components/ui/toast"
 
 import { replaceConversationInCache } from "../lib/conversation-cache"
 
-type RenameValues = z.infer<typeof RenameConversationBody>
+const RenameSchema = z.object({
+  title: z.string().trim().min(1).max(updateConversationBodyTitleOneMax),
+})
+
+type RenameValues = z.infer<typeof RenameSchema>
 
 export type RenameConversationDialogProps = {
   conversation: ConversationView | null
@@ -36,9 +40,9 @@ export function RenameConversationDialog({
   const { t } = useTranslation("chat")
   const inputId = useId()
   const queryClient = useQueryClient()
-  const renameConversation = useRenameConversation()
+  const renameConversation = useUpdateConversation()
   const form = useForm<RenameValues>({
-    resolver: zodResolver(RenameConversationBody),
+    resolver: zodResolver(RenameSchema),
     defaultValues: { title: "" },
   })
 

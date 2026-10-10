@@ -6,6 +6,7 @@
  */
 
 export interface ConversationView {
+  collection_ids?: string[] | null
   created_at: string
   id: string
   title: string

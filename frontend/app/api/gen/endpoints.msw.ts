@@ -9,24 +9,82 @@ import { faker } from "@faker-js/faker"
 import { HttpResponse, http } from "msw"
 import type { RequestHandlerOptions } from "msw"
 
-import { HydrateStrategy, MessageStatus, Rating } from "./schemas"
+import {
+  AuditAction,
+  DocumentKind,
+  HydrateStrategy,
+  InvitationStatus,
+  JobStatus,
+  JobStep,
+  MessageStatus,
+  Rating,
+  ReleaseStatus,
+  Role,
+  Visibility,
+} from "./schemas"
 import type {
   AccountView,
+  AdminOrganizationPage,
+  AdminOrganizationView,
+  AdminUserPage,
+  AdminUserView,
+  AuditPage,
   BearerResponse,
   ChatTurnResult,
   CitationDetail,
+  CollectionGroups,
+  CollectionStats,
+  CollectionView,
+  ColloquialMappingRecord,
   ConversationPage,
   ConversationView,
+  DocumentDetail,
+  DocumentView,
   FeedbackView,
+  GlossaryEntry,
   HealthResponse,
+  InvitationPreview,
+  InvitationView,
+  JobView,
+  MemberItem,
   MessagePage,
   OAuth2AuthorizeResponse,
+  OrganizationView,
   PharmaDataParts,
+  QuotaUsage,
+  ReleaseView,
+  SectionChoice,
   SessionView,
   SourceDocumentUIPart,
   TextUIPart,
+  UploadResult,
   UserRead,
 } from "./schemas"
+
+export const getAuditMineResponseMock = (
+  overrideResponse: Partial<Extract<AuditPage, object>> = {}
+): AuditPage => ({
+  items: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    action: faker.helpers.arrayElement(Object.values(AuditAction)),
+    actor_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    actor_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    actor_was_superadmin: faker.datatype.boolean(),
+    collection_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    details: {},
+    id: faker.string.uuid(),
+    occurred_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+    organization_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    subject_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  })),
+  next_cursor: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  ...overrideResponse,
+})
 
 export const getAccountEmailConfirmResponseMock = (
   overrideResponse: Partial<Extract<AccountView, object>> = {}
@@ -40,13 +98,22 @@ export const getAccountEmailConfirmResponseMock = (
   google_linked: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
-  is_superuser: faker.datatype.boolean(),
+  is_superadmin: faker.datatype.boolean(),
   is_verified: faker.datatype.boolean(),
+  memberships: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    organization_id: faker.string.uuid(),
+    role: faker.helpers.arrayElement(Object.values(Role)),
+  })),
   password_set: faker.datatype.boolean(),
   phone_number: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
+  phone_sign_in_enabled: faker.datatype.boolean(),
   phone_verified: faker.datatype.boolean(),
   ...overrideResponse,
 })
@@ -63,13 +130,22 @@ export const getAccountGoogleUnlinkResponseMock = (
   google_linked: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
-  is_superuser: faker.datatype.boolean(),
+  is_superadmin: faker.datatype.boolean(),
   is_verified: faker.datatype.boolean(),
+  memberships: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    organization_id: faker.string.uuid(),
+    role: faker.helpers.arrayElement(Object.values(Role)),
+  })),
   password_set: faker.datatype.boolean(),
   phone_number: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
+  phone_sign_in_enabled: faker.datatype.boolean(),
   phone_verified: faker.datatype.boolean(),
   ...overrideResponse,
 })
@@ -86,13 +162,22 @@ export const getAccountPhoneConfirmResponseMock = (
   google_linked: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
-  is_superuser: faker.datatype.boolean(),
+  is_superadmin: faker.datatype.boolean(),
   is_verified: faker.datatype.boolean(),
+  memberships: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    organization_id: faker.string.uuid(),
+    role: faker.helpers.arrayElement(Object.values(Role)),
+  })),
   password_set: faker.datatype.boolean(),
   phone_number: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
+  phone_sign_in_enabled: faker.datatype.boolean(),
   phone_verified: faker.datatype.boolean(),
   ...overrideResponse,
 })
@@ -112,6 +197,314 @@ export const getAccountSessionsListResponseMock = (): SessionView[] =>
     ]),
     user_agent: faker.string.alpha({ length: { min: 10, max: 20 } }),
   }))
+
+export const getAdminAuditResponseMock = (
+  overrideResponse: Partial<Extract<AuditPage, object>> = {}
+): AuditPage => ({
+  items: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    action: faker.helpers.arrayElement(Object.values(AuditAction)),
+    actor_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    actor_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    actor_was_superadmin: faker.datatype.boolean(),
+    collection_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    details: {},
+    id: faker.string.uuid(),
+    occurred_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+    organization_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    subject_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  })),
+  next_cursor: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  ...overrideResponse,
+})
+
+export const getAdminCollectionsListResponseMock = (): CollectionStats[] =>
+  Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    collection: {
+      can_edit: faker.datatype.boolean(),
+      can_set_public: faker.datatype.boolean(),
+      current_release_id: faker.helpers.arrayElement([
+        faker.string.uuid(),
+        null,
+      ]),
+      current_release_number: faker.helpers.arrayElement([
+        faker.number.int(),
+        null,
+      ]),
+      id: faker.string.uuid(),
+      is_system: faker.datatype.boolean(),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      owner_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      owner_organization_id: faker.helpers.arrayElement([
+        faker.string.uuid(),
+        null,
+      ]),
+      owner_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      visibility: faker.helpers.arrayElement(Object.values(Visibility)),
+    },
+    documents: faker.number.int(),
+    qdrant_points: faker.number.int(),
+  }))
+
+export const getAdminIngestJobsListResponseMock = (): JobView[] =>
+  Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    attempts: faker.number.int(),
+    collection_id: faker.string.uuid(),
+    created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+    error: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    finished_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    id: faker.string.uuid(),
+    progress: faker.number.int(),
+    release_number: faker.helpers.arrayElement([faker.number.int(), null]),
+    started_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    status: faker.helpers.arrayElement(Object.values(JobStatus)),
+    step: faker.helpers.arrayElement(Object.values(JobStep)),
+  }))
+
+export const getAdminOrganizationsListResponseMock = (
+  overrideResponse: Partial<Extract<AdminOrganizationPage, object>> = {}
+): AdminOrganizationPage => ({
+  items: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    collection_quota: faker.helpers.arrayElement([faker.number.int(), null]),
+    created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+    id: faker.string.uuid(),
+    member_count: faker.number.int(),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    text_quota_bytes: faker.helpers.arrayElement([faker.number.int(), null]),
+  })),
+  next_cursor: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  ...overrideResponse,
+})
+
+export const getAdminOrganizationsUpdateResponseMock = (
+  overrideResponse: Partial<Extract<AdminOrganizationView, object>> = {}
+): AdminOrganizationView => ({
+  collection_quota: faker.helpers.arrayElement([faker.number.int(), null]),
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  id: faker.string.uuid(),
+  member_count: faker.number.int(),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  text_quota_bytes: faker.helpers.arrayElement([faker.number.int(), null]),
+  ...overrideResponse,
+})
+
+export const getAdminUsersListResponseMock = (
+  overrideResponse: Partial<Extract<AdminUserPage, object>> = {}
+): AdminUserPage => ({
+  items: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    collection_quota: faker.helpers.arrayElement([faker.number.int(), null]),
+    created_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    email: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    id: faker.string.uuid(),
+    is_active: faker.datatype.boolean(),
+    is_superadmin: faker.datatype.boolean(),
+    phone_number: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    text_quota_bytes: faker.helpers.arrayElement([faker.number.int(), null]),
+  })),
+  next_cursor: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  ...overrideResponse,
+})
+
+export const getAdminUsersUpdateResponseMock = (
+  overrideResponse: Partial<Extract<AdminUserView, object>> = {}
+): AdminUserView => ({
+  collection_quota: faker.helpers.arrayElement([faker.number.int(), null]),
+  created_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  email: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  id: faker.string.uuid(),
+  is_active: faker.datatype.boolean(),
+  is_superadmin: faker.datatype.boolean(),
+  phone_number: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  text_quota_bytes: faker.helpers.arrayElement([faker.number.int(), null]),
+  ...overrideResponse,
+})
+
+export const getAdminUsersConversationsResponseMock = (
+  overrideResponse: Partial<Extract<ConversationPage, object>> = {}
+): ConversationPage => ({
+  items: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    collection_ids: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1
+        ).map(() => faker.string.uuid()),
+        null,
+      ]),
+      undefined,
+    ]),
+    created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+    id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    turn_count: faker.number.int(),
+    updated_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  })),
+  next_cursor: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  ...overrideResponse,
+})
+
+export const getAdminConversationsMessagesResponseTextUIPartMock = (
+  overrideResponse: Partial<TextUIPart> = {}
+): TextUIPart => ({
+  ...{
+    text: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    type: "text",
+  },
+  ...overrideResponse,
+})
+
+export const getAdminConversationsMessagesResponseSourceDocumentUIPartMock = (
+  overrideResponse: Partial<SourceDocumentUIPart> = {}
+): SourceDocumentUIPart => ({
+  ...{
+    mediaType: "text/markdown",
+    providerMetadata: {
+      pharma: {
+        endPage: faker.helpers.arrayElement([faker.number.int(), null]),
+        index: faker.number.int(),
+        isCurrent: faker.datatype.boolean(),
+        section: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        snippet: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        source: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        startPage: faker.helpers.arrayElement([faker.number.int(), null]),
+        title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+    },
+    sourceId: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    type: "source-document",
+  },
+  ...overrideResponse,
+})
+
+export const getAdminConversationsMessagesResponseMock = (
+  overrideResponse: Partial<Extract<MessagePage, object>> = {}
+): MessagePage => ({
+  items: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    metadata: {
+      createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      errorCode: faker.helpers.arrayElement([
+        faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        undefined,
+      ]),
+      feedback: faker.helpers.arrayElement([
+        faker.helpers.arrayElement([
+          {
+            note: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            rating: faker.helpers.arrayElement(Object.values(Rating)),
+          },
+          null,
+        ]),
+        undefined,
+      ]),
+      persisted: faker.helpers.arrayElement([
+        faker.helpers.arrayElement([faker.datatype.boolean(), null]),
+        undefined,
+      ]),
+      runId: faker.helpers.arrayElement([
+        faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        undefined,
+      ]),
+      status: faker.helpers.arrayElement(Object.values(MessageStatus)),
+      usage: faker.helpers.arrayElement([
+        faker.helpers.arrayElement([
+          {
+            completionTokens: faker.number.int(),
+            llmCalls: faker.number.int(),
+            promptTokens: faker.number.int(),
+            searchRounds: faker.number.int(),
+          },
+          null,
+        ]),
+        undefined,
+      ]),
+    },
+    parts: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1
+    ).map(() =>
+      faker.helpers.arrayElement([
+        { ...getAdminConversationsMessagesResponseTextUIPartMock() },
+        { ...getAdminConversationsMessagesResponseSourceDocumentUIPartMock() },
+      ])
+    ),
+    role: faker.helpers.arrayElement(["user", "assistant"] as const),
+  })),
+  next_cursor: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  ...overrideResponse,
+})
 
 export const getOauthAssociateGoogleAuthorizeResponseMock = (
   overrideResponse: Partial<Extract<OAuth2AuthorizeResponse, object>> = {}
@@ -242,6 +635,479 @@ export const getChatStreamResponseMock = (
   ...overrideResponse,
 })
 
+export const getCollectionsListResponseMock = (
+  overrideResponse: Partial<Extract<CollectionGroups, object>> = {}
+): CollectionGroups => ({
+  mine: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    can_edit: faker.datatype.boolean(),
+    can_set_public: faker.datatype.boolean(),
+    current_release_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    current_release_number: faker.helpers.arrayElement([
+      faker.number.int(),
+      null,
+    ]),
+    id: faker.string.uuid(),
+    is_system: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    owner_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    owner_organization_id: faker.helpers.arrayElement([
+      faker.string.uuid(),
+      null,
+    ]),
+    owner_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    visibility: faker.helpers.arrayElement(Object.values(Visibility)),
+  })),
+  organizations: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    items: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1
+    ).map(() => ({
+      can_edit: faker.datatype.boolean(),
+      can_set_public: faker.datatype.boolean(),
+      current_release_id: faker.helpers.arrayElement([
+        faker.string.uuid(),
+        null,
+      ]),
+      current_release_number: faker.helpers.arrayElement([
+        faker.number.int(),
+        null,
+      ]),
+      id: faker.string.uuid(),
+      is_system: faker.datatype.boolean(),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      owner_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      owner_organization_id: faker.helpers.arrayElement([
+        faker.string.uuid(),
+        null,
+      ]),
+      owner_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      visibility: faker.helpers.arrayElement(Object.values(Visibility)),
+    })),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    organization_id: faker.string.uuid(),
+    role: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(Object.values(Role)),
+      null,
+    ]),
+  })),
+  others: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    can_edit: faker.datatype.boolean(),
+    can_set_public: faker.datatype.boolean(),
+    current_release_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    current_release_number: faker.helpers.arrayElement([
+      faker.number.int(),
+      null,
+    ]),
+    id: faker.string.uuid(),
+    is_system: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    owner_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    owner_organization_id: faker.helpers.arrayElement([
+      faker.string.uuid(),
+      null,
+    ]),
+    owner_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    visibility: faker.helpers.arrayElement(Object.values(Visibility)),
+  })),
+  public: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    can_edit: faker.datatype.boolean(),
+    can_set_public: faker.datatype.boolean(),
+    current_release_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    current_release_number: faker.helpers.arrayElement([
+      faker.number.int(),
+      null,
+    ]),
+    id: faker.string.uuid(),
+    is_system: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    owner_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    owner_organization_id: faker.helpers.arrayElement([
+      faker.string.uuid(),
+      null,
+    ]),
+    owner_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    visibility: faker.helpers.arrayElement(Object.values(Visibility)),
+  })),
+  ...overrideResponse,
+})
+
+export const getCollectionsCreateResponseMock = (
+  overrideResponse: Partial<Extract<CollectionView, object>> = {}
+): CollectionView => ({
+  can_edit: faker.datatype.boolean(),
+  can_set_public: faker.datatype.boolean(),
+  current_release_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  current_release_number: faker.helpers.arrayElement([
+    faker.number.int(),
+    null,
+  ]),
+  id: faker.string.uuid(),
+  is_system: faker.datatype.boolean(),
+  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  owner_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  owner_organization_id: faker.helpers.arrayElement([
+    faker.string.uuid(),
+    null,
+  ]),
+  owner_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  visibility: faker.helpers.arrayElement(Object.values(Visibility)),
+  ...overrideResponse,
+})
+
+export const getCollectionsQuotaResponseMock = (
+  overrideResponse: Partial<Extract<QuotaUsage, object>> = {}
+): QuotaUsage => ({
+  collections_limit: faker.number.int(),
+  collections_used: faker.number.int(),
+  text_limit: faker.number.int(),
+  text_used: faker.number.int(),
+  ...overrideResponse,
+})
+
+export const getCollectionsGetResponseMock = (
+  overrideResponse: Partial<Extract<CollectionView, object>> = {}
+): CollectionView => ({
+  can_edit: faker.datatype.boolean(),
+  can_set_public: faker.datatype.boolean(),
+  current_release_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  current_release_number: faker.helpers.arrayElement([
+    faker.number.int(),
+    null,
+  ]),
+  id: faker.string.uuid(),
+  is_system: faker.datatype.boolean(),
+  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  owner_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  owner_organization_id: faker.helpers.arrayElement([
+    faker.string.uuid(),
+    null,
+  ]),
+  owner_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  visibility: faker.helpers.arrayElement(Object.values(Visibility)),
+  ...overrideResponse,
+})
+
+export const getCollectionsUpdateResponseMock = (
+  overrideResponse: Partial<Extract<CollectionView, object>> = {}
+): CollectionView => ({
+  can_edit: faker.datatype.boolean(),
+  can_set_public: faker.datatype.boolean(),
+  current_release_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  current_release_number: faker.helpers.arrayElement([
+    faker.number.int(),
+    null,
+  ]),
+  id: faker.string.uuid(),
+  is_system: faker.datatype.boolean(),
+  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  owner_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  owner_organization_id: faker.helpers.arrayElement([
+    faker.string.uuid(),
+    null,
+  ]),
+  owner_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  visibility: faker.helpers.arrayElement(Object.values(Visibility)),
+  ...overrideResponse,
+})
+
+export const getCollectionsColloquialGetResponseMock =
+  (): ColloquialMappingRecord[] =>
+    Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1
+    ).map(() => ({
+      aliases: faker.helpers.arrayElement([
+        Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1
+        ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+        undefined,
+      ]),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      product_names: faker.helpers.arrayElement([
+        Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1
+        ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+        undefined,
+      ]),
+      section_keys: faker.helpers.arrayElement([
+        Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1
+        ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+        undefined,
+      ]),
+      visual_sign: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }))
+
+export const getCollectionsColloquialPutResponseMock =
+  (): ColloquialMappingRecord[] =>
+    Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1
+    ).map(() => ({
+      aliases: faker.helpers.arrayElement([
+        Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1
+        ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+        undefined,
+      ]),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      product_names: faker.helpers.arrayElement([
+        Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1
+        ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+        undefined,
+      ]),
+      section_keys: faker.helpers.arrayElement([
+        Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1
+        ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+        undefined,
+      ]),
+      visual_sign: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }))
+
+export const getDocumentsListResponseMock = (): DocumentView[] =>
+  Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    char_count: faker.number.int(),
+    collection_id: faker.string.uuid(),
+    id: faker.string.uuid(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(Object.values(DocumentKind)),
+    source_title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source_url: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    updated_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  }))
+
+export const getDocumentsCreateResponseMock = (
+  overrideResponse: Partial<Extract<DocumentDetail, object>> = {}
+): DocumentDetail => ({
+  char_count: faker.number.int(),
+  collection_id: faker.string.uuid(),
+  id: faker.string.uuid(),
+  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  kind: faker.helpers.arrayElement(Object.values(DocumentKind)),
+  markdown: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  source_title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  source_url: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  updated_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  ...overrideResponse,
+})
+
+export const getDocumentsUploadResponseMock = (
+  overrideResponse: Partial<Extract<UploadResult, object>> = {}
+): UploadResult => ({
+  char_count: faker.number.int(),
+  markdown: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+})
+
+export const getDocumentsGetResponseMock = (
+  overrideResponse: Partial<Extract<DocumentDetail, object>> = {}
+): DocumentDetail => ({
+  char_count: faker.number.int(),
+  collection_id: faker.string.uuid(),
+  id: faker.string.uuid(),
+  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  kind: faker.helpers.arrayElement(Object.values(DocumentKind)),
+  markdown: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  source_title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  source_url: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  updated_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  ...overrideResponse,
+})
+
+export const getDocumentsUpdateResponseMock = (
+  overrideResponse: Partial<Extract<DocumentDetail, object>> = {}
+): DocumentDetail => ({
+  char_count: faker.number.int(),
+  collection_id: faker.string.uuid(),
+  id: faker.string.uuid(),
+  key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  kind: faker.helpers.arrayElement(Object.values(DocumentKind)),
+  markdown: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  source_title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  source_url: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  updated_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  ...overrideResponse,
+})
+
+export const getCollectionsGlossaryGetResponseMock = (): GlossaryEntry[] =>
+  Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    aliases: faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1
+      ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+      undefined,
+    ]),
+    case_sensitive: faker.datatype.boolean(),
+    category: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    confidence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    english_expansions: faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1
+      ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+      undefined,
+    ]),
+    source: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    term: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    vietnamese_expansions: faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1
+      ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+      undefined,
+    ]),
+  }))
+
+export const getCollectionsGlossaryPutResponseMock = (): GlossaryEntry[] =>
+  Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    aliases: faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1
+      ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+      undefined,
+    ]),
+    case_sensitive: faker.datatype.boolean(),
+    category: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    confidence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    english_expansions: faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1
+      ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+      undefined,
+    ]),
+    source: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    term: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    vietnamese_expansions: faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1
+      ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+      undefined,
+    ]),
+  }))
+
+export const getCollectionsPublishResponseMock = (
+  overrideResponse: Partial<Extract<JobView, object>> = {}
+): JobView => ({
+  attempts: faker.number.int(),
+  collection_id: faker.string.uuid(),
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  error: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  finished_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  id: faker.string.uuid(),
+  progress: faker.number.int(),
+  release_number: faker.helpers.arrayElement([faker.number.int(), null]),
+  started_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  status: faker.helpers.arrayElement(Object.values(JobStatus)),
+  step: faker.helpers.arrayElement(Object.values(JobStep)),
+  ...overrideResponse,
+})
+
+export const getCollectionsReleasesResponseMock = (): ReleaseView[] =>
+  Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+    current: faker.datatype.boolean(),
+    id: faker.string.uuid(),
+    number: faker.number.int(),
+    published_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    status: faker.helpers.arrayElement(Object.values(ReleaseStatus)),
+  }))
+
+export const getCollectionsRollbackResponseMock = (
+  overrideResponse: Partial<Extract<ReleaseView, object>> = {}
+): ReleaseView => ({
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  current: faker.datatype.boolean(),
+  id: faker.string.uuid(),
+  number: faker.number.int(),
+  published_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  status: faker.helpers.arrayElement(Object.values(ReleaseStatus)),
+  ...overrideResponse,
+})
+
+export const getCollectionsSectionsResponseMock = (): SectionChoice[] =>
+  Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  }))
+
 export const getListConversationsResponseMock = (
   overrideResponse: Partial<Extract<ConversationPage, object>> = {}
 ): ConversationPage => ({
@@ -249,6 +1115,16 @@ export const getListConversationsResponseMock = (
     { length: faker.number.int({ min: 1, max: 10 }) },
     (_, i) => i + 1
   ).map(() => ({
+    collection_ids: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1
+        ).map(() => faker.string.uuid()),
+        null,
+      ]),
+      undefined,
+    ]),
     created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
     id: faker.string.alpha({ length: { min: 10, max: 20 } }),
     title: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -265,6 +1141,16 @@ export const getListConversationsResponseMock = (
 export const getCreateConversationResponseMock = (
   overrideResponse: Partial<Extract<ConversationView, object>> = {}
 ): ConversationView => ({
+  collection_ids: faker.helpers.arrayElement([
+    faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1
+      ).map(() => faker.string.uuid()),
+      null,
+    ]),
+    undefined,
+  ]),
   created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
   id: faker.string.alpha({ length: { min: 10, max: 20 } }),
   title: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -276,6 +1162,16 @@ export const getCreateConversationResponseMock = (
 export const getGetConversationResponseMock = (
   overrideResponse: Partial<Extract<ConversationView, object>> = {}
 ): ConversationView => ({
+  collection_ids: faker.helpers.arrayElement([
+    faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1
+      ).map(() => faker.string.uuid()),
+      null,
+    ]),
+    undefined,
+  ]),
   created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
   id: faker.string.alpha({ length: { min: 10, max: 20 } }),
   title: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -284,9 +1180,19 @@ export const getGetConversationResponseMock = (
   ...overrideResponse,
 })
 
-export const getRenameConversationResponseMock = (
+export const getUpdateConversationResponseMock = (
   overrideResponse: Partial<Extract<ConversationView, object>> = {}
 ): ConversationView => ({
+  collection_ids: faker.helpers.arrayElement([
+    faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1
+      ).map(() => faker.string.uuid()),
+      null,
+    ]),
+    undefined,
+  ]),
   created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
   id: faker.string.alpha({ length: { min: 10, max: 20 } }),
   title: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -406,6 +1312,7 @@ export const getHealthResponseMock = (
   checks: {
     [faker.string.alphanumeric(5)]: faker.datatype.boolean(),
   },
+  phone_sign_in_enabled: faker.datatype.boolean(),
   reasons: faker.helpers.arrayElement([
     {
       [faker.string.alphanumeric(5)]: faker.string.alpha({
@@ -415,6 +1322,56 @@ export const getHealthResponseMock = (
     undefined,
   ]),
   status: faker.helpers.arrayElement(["ok", "degraded"] as const),
+  ...overrideResponse,
+})
+
+export const getJobsGetResponseMock = (
+  overrideResponse: Partial<Extract<JobView, object>> = {}
+): JobView => ({
+  attempts: faker.number.int(),
+  collection_id: faker.string.uuid(),
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  error: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  finished_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  id: faker.string.uuid(),
+  progress: faker.number.int(),
+  release_number: faker.helpers.arrayElement([faker.number.int(), null]),
+  started_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  status: faker.helpers.arrayElement(Object.values(JobStatus)),
+  step: faker.helpers.arrayElement(Object.values(JobStep)),
+  ...overrideResponse,
+})
+
+export const getInvitationsPreviewResponseMock = (
+  overrideResponse: Partial<Extract<InvitationPreview, object>> = {}
+): InvitationPreview => ({
+  email_hint: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  inviter_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  organization_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  role: faker.helpers.arrayElement(Object.values(Role)),
+  ...overrideResponse,
+})
+
+export const getInvitationsAcceptResponseMock = (
+  overrideResponse: Partial<Extract<OrganizationView, object>> = {}
+): OrganizationView => ({
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  id: faker.string.uuid(),
+  member_count: faker.number.int(),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  role: faker.helpers.arrayElement([
+    faker.helpers.arrayElement(Object.values(Role)),
+    null,
+  ]),
   ...overrideResponse,
 })
 
@@ -452,6 +1409,212 @@ export const getSubmitFeedbackResponseMock = (
   ...overrideResponse,
 })
 
+export const getOrganizationsListResponseMock = (): OrganizationView[] =>
+  Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+    id: faker.string.uuid(),
+    member_count: faker.number.int(),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    role: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(Object.values(Role)),
+      null,
+    ]),
+  }))
+
+export const getOrganizationsCreateResponseMock = (
+  overrideResponse: Partial<Extract<OrganizationView, object>> = {}
+): OrganizationView => ({
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  id: faker.string.uuid(),
+  member_count: faker.number.int(),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  role: faker.helpers.arrayElement([
+    faker.helpers.arrayElement(Object.values(Role)),
+    null,
+  ]),
+  ...overrideResponse,
+})
+
+export const getOrganizationsGetResponseMock = (
+  overrideResponse: Partial<Extract<OrganizationView, object>> = {}
+): OrganizationView => ({
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  id: faker.string.uuid(),
+  member_count: faker.number.int(),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  role: faker.helpers.arrayElement([
+    faker.helpers.arrayElement(Object.values(Role)),
+    null,
+  ]),
+  ...overrideResponse,
+})
+
+export const getOrganizationsRenameResponseMock = (
+  overrideResponse: Partial<Extract<OrganizationView, object>> = {}
+): OrganizationView => ({
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  id: faker.string.uuid(),
+  member_count: faker.number.int(),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  role: faker.helpers.arrayElement([
+    faker.helpers.arrayElement(Object.values(Role)),
+    null,
+  ]),
+  ...overrideResponse,
+})
+
+export const getAuditOrganizationResponseMock = (
+  overrideResponse: Partial<Extract<AuditPage, object>> = {}
+): AuditPage => ({
+  items: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    action: faker.helpers.arrayElement(Object.values(AuditAction)),
+    actor_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    actor_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    actor_was_superadmin: faker.datatype.boolean(),
+    collection_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    details: {},
+    id: faker.string.uuid(),
+    occurred_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+    organization_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    subject_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  })),
+  next_cursor: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  ...overrideResponse,
+})
+
+export const getInvitationsListResponseMock = (): InvitationView[] =>
+  Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+    email: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    expires_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    id: faker.string.uuid(),
+    invited_by: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    invited_by_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    organization_id: faker.string.uuid(),
+    role: faker.helpers.arrayElement(Object.values(Role)),
+    status: faker.helpers.arrayElement(Object.values(InvitationStatus)),
+  }))
+
+export const getInvitationsCreateResponseMock = (
+  overrideResponse: Partial<Extract<InvitationView, object>> = {}
+): InvitationView => ({
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  email: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  expires_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  id: faker.string.uuid(),
+  invited_by: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  invited_by_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  organization_id: faker.string.uuid(),
+  role: faker.helpers.arrayElement(Object.values(Role)),
+  status: faker.helpers.arrayElement(Object.values(InvitationStatus)),
+  ...overrideResponse,
+})
+
+export const getInvitationsApproveResponseMock = (
+  overrideResponse: Partial<Extract<InvitationView, object>> = {}
+): InvitationView => ({
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  email: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  expires_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  id: faker.string.uuid(),
+  invited_by: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  invited_by_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  organization_id: faker.string.uuid(),
+  role: faker.helpers.arrayElement(Object.values(Role)),
+  status: faker.helpers.arrayElement(Object.values(InvitationStatus)),
+  ...overrideResponse,
+})
+
+export const getInvitationsRejectResponseMock = (
+  overrideResponse: Partial<Extract<InvitationView, object>> = {}
+): InvitationView => ({
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  email: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  expires_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  id: faker.string.uuid(),
+  invited_by: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  invited_by_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  organization_id: faker.string.uuid(),
+  role: faker.helpers.arrayElement(Object.values(Role)),
+  status: faker.helpers.arrayElement(Object.values(InvitationStatus)),
+  ...overrideResponse,
+})
+
+export const getInvitationsResendResponseMock = (
+  overrideResponse: Partial<Extract<InvitationView, object>> = {}
+): InvitationView => ({
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  email: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  expires_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  id: faker.string.uuid(),
+  invited_by: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  invited_by_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  organization_id: faker.string.uuid(),
+  role: faker.helpers.arrayElement(Object.values(Role)),
+  status: faker.helpers.arrayElement(Object.values(InvitationStatus)),
+  ...overrideResponse,
+})
+
+export const getInvitationsRevokeResponseMock = (
+  overrideResponse: Partial<Extract<InvitationView, object>> = {}
+): InvitationView => ({
+  created_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+  email: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  expires_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  id: faker.string.uuid(),
+  invited_by: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  invited_by_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  organization_id: faker.string.uuid(),
+  role: faker.helpers.arrayElement(Object.values(Role)),
+  status: faker.helpers.arrayElement(Object.values(InvitationStatus)),
+  ...overrideResponse,
+})
+
+export const getOrganizationsMembersListResponseMock = (): MemberItem[] =>
+  Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    email: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    joined_at: faker.date.past().toISOString().slice(0, 19) + "Z",
+    role: faker.helpers.arrayElement(Object.values(Role)),
+    user_id: faker.string.uuid(),
+  }))
+
 export const getUsersCurrentUserResponseMock = (
   overrideResponse: Partial<Extract<AccountView, object>> = {}
 ): AccountView => ({
@@ -464,13 +1627,22 @@ export const getUsersCurrentUserResponseMock = (
   google_linked: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
-  is_superuser: faker.datatype.boolean(),
+  is_superadmin: faker.datatype.boolean(),
   is_verified: faker.datatype.boolean(),
+  memberships: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    organization_id: faker.string.uuid(),
+    role: faker.helpers.arrayElement(Object.values(Role)),
+  })),
   password_set: faker.datatype.boolean(),
   phone_number: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
+  phone_sign_in_enabled: faker.datatype.boolean(),
   phone_verified: faker.datatype.boolean(),
   ...overrideResponse,
 })
@@ -487,16 +1659,49 @@ export const getUsersPatchCurrentUserResponseMock = (
   google_linked: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
-  is_superuser: faker.datatype.boolean(),
+  is_superadmin: faker.datatype.boolean(),
   is_verified: faker.datatype.boolean(),
+  memberships: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1
+  ).map(() => ({
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    organization_id: faker.string.uuid(),
+    role: faker.helpers.arrayElement(Object.values(Role)),
+  })),
   password_set: faker.datatype.boolean(),
   phone_number: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
+  phone_sign_in_enabled: faker.datatype.boolean(),
   phone_verified: faker.datatype.boolean(),
   ...overrideResponse,
 })
+
+export const getAuditMineMockHandler = (
+  overrideResponse?:
+    | AuditPage
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<AuditPage> | AuditPage),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/account/audit",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAuditMineResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
 
 export const getAccountEmailRequestMockHandler = (
   overrideResponse?:
@@ -694,6 +1899,222 @@ export const getAccountSessionsRevokeMockHandler = (
       }
 
       return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
+export const getAdminAuditMockHandler = (
+  overrideResponse?:
+    | AuditPage
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<AuditPage> | AuditPage),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/admin/audit",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAdminAuditResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAdminCollectionsListMockHandler = (
+  overrideResponse?:
+    | CollectionStats[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<CollectionStats[]> | CollectionStats[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/admin/collections",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAdminCollectionsListResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAdminIngestJobsListMockHandler = (
+  overrideResponse?:
+    | JobView[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<JobView[]> | JobView[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/admin/ingest-jobs",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAdminIngestJobsListResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAdminOrganizationsListMockHandler = (
+  overrideResponse?:
+    | AdminOrganizationPage
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<AdminOrganizationPage> | AdminOrganizationPage),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/admin/organizations",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAdminOrganizationsListResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAdminOrganizationsUpdateMockHandler = (
+  overrideResponse?:
+    | AdminOrganizationView
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0]
+      ) => Promise<AdminOrganizationView> | AdminOrganizationView),
+  options?: RequestHandlerOptions
+) => {
+  return http.patch(
+    "*/api/v1/admin/organizations/:organizationId",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAdminOrganizationsUpdateResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAdminUsersListMockHandler = (
+  overrideResponse?:
+    | AdminUserPage
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<AdminUserPage> | AdminUserPage),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/admin/users",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAdminUsersListResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAdminUsersUpdateMockHandler = (
+  overrideResponse?:
+    | AdminUserView
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0]
+      ) => Promise<AdminUserView> | AdminUserView),
+  options?: RequestHandlerOptions
+) => {
+  return http.patch(
+    "*/api/v1/admin/users/:userId",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAdminUsersUpdateResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAdminUsersConversationsMockHandler = (
+  overrideResponse?:
+    | ConversationPage
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<ConversationPage> | ConversationPage),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/admin/users/:userId/conversations",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAdminUsersConversationsResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAdminConversationsMessagesMockHandler = (
+  overrideResponse?:
+    | MessagePage
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<MessagePage> | MessagePage),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/admin/users/:userId/conversations/:conversationId/messages",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAdminConversationsMessagesResponseMock(),
+        { status: 200 }
+      )
     },
     options
   )
@@ -1079,6 +2500,480 @@ export const getChatStreamMockHandler = (
   )
 }
 
+export const getCollectionsListMockHandler = (
+  overrideResponse?:
+    | CollectionGroups
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<CollectionGroups> | CollectionGroups),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/collections",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsListResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsCreateMockHandler = (
+  overrideResponse?:
+    | CollectionView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<CollectionView> | CollectionView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/collections",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsCreateResponseMock(),
+        { status: 201 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsQuotaMockHandler = (
+  overrideResponse?:
+    | QuotaUsage
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<QuotaUsage> | QuotaUsage),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/collections/quota",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsQuotaResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsDeleteMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.delete>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.delete(
+    "*/api/v1/collections/:collectionId",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
+export const getCollectionsGetMockHandler = (
+  overrideResponse?:
+    | CollectionView
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<CollectionView> | CollectionView),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/collections/:collectionId",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsGetResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsUpdateMockHandler = (
+  overrideResponse?:
+    | CollectionView
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0]
+      ) => Promise<CollectionView> | CollectionView),
+  options?: RequestHandlerOptions
+) => {
+  return http.patch(
+    "*/api/v1/collections/:collectionId",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsUpdateResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsColloquialGetMockHandler = (
+  overrideResponse?:
+    | ColloquialMappingRecord[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<ColloquialMappingRecord[]> | ColloquialMappingRecord[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/collections/:collectionId/colloquial",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsColloquialGetResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsColloquialPutMockHandler = (
+  overrideResponse?:
+    | ColloquialMappingRecord[]
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0]
+      ) => Promise<ColloquialMappingRecord[]> | ColloquialMappingRecord[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.put(
+    "*/api/v1/collections/:collectionId/colloquial",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsColloquialPutResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getDocumentsListMockHandler = (
+  overrideResponse?:
+    | DocumentView[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<DocumentView[]> | DocumentView[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/collections/:collectionId/documents",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDocumentsListResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getDocumentsCreateMockHandler = (
+  overrideResponse?:
+    | DocumentDetail
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<DocumentDetail> | DocumentDetail),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/collections/:collectionId/documents",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDocumentsCreateResponseMock(),
+        { status: 201 }
+      )
+    },
+    options
+  )
+}
+
+export const getDocumentsUploadMockHandler = (
+  overrideResponse?:
+    | UploadResult
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<UploadResult> | UploadResult),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/collections/:collectionId/documents/upload",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDocumentsUploadResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getDocumentsDeleteMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.delete>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.delete(
+    "*/api/v1/collections/:collectionId/documents/:documentId",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
+export const getDocumentsGetMockHandler = (
+  overrideResponse?:
+    | DocumentDetail
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<DocumentDetail> | DocumentDetail),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/collections/:collectionId/documents/:documentId",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDocumentsGetResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getDocumentsUpdateMockHandler = (
+  overrideResponse?:
+    | DocumentDetail
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0]
+      ) => Promise<DocumentDetail> | DocumentDetail),
+  options?: RequestHandlerOptions
+) => {
+  return http.put(
+    "*/api/v1/collections/:collectionId/documents/:documentId",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDocumentsUpdateResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsGlossaryGetMockHandler = (
+  overrideResponse?:
+    | GlossaryEntry[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<GlossaryEntry[]> | GlossaryEntry[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/collections/:collectionId/glossary",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsGlossaryGetResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsGlossaryPutMockHandler = (
+  overrideResponse?:
+    | GlossaryEntry[]
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0]
+      ) => Promise<GlossaryEntry[]> | GlossaryEntry[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.put(
+    "*/api/v1/collections/:collectionId/glossary",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsGlossaryPutResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsPublishMockHandler = (
+  overrideResponse?:
+    | JobView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<JobView> | JobView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/collections/:collectionId/publish",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsPublishResponseMock(),
+        { status: 202 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsReleasesMockHandler = (
+  overrideResponse?:
+    | ReleaseView[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<ReleaseView[]> | ReleaseView[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/collections/:collectionId/releases",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsReleasesResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsRollbackMockHandler = (
+  overrideResponse?:
+    | ReleaseView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<ReleaseView> | ReleaseView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/collections/:collectionId/rollback",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsRollbackResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getCollectionsSectionsMockHandler = (
+  overrideResponse?:
+    | SectionChoice[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<SectionChoice[]> | SectionChoice[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/collections/:collectionId/sections",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCollectionsSectionsResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
 export const getListConversationsMockHandler = (
   overrideResponse?:
     | ConversationPage
@@ -1172,7 +3067,7 @@ export const getGetConversationMockHandler = (
   )
 }
 
-export const getRenameConversationMockHandler = (
+export const getUpdateConversationMockHandler = (
   overrideResponse?:
     | ConversationView
     | ((
@@ -1188,7 +3083,7 @@ export const getRenameConversationMockHandler = (
           ? typeof overrideResponse === "function"
             ? await overrideResponse(info)
             : overrideResponse
-          : getRenameConversationResponseMock(),
+          : getUpdateConversationResponseMock(),
         { status: 200 }
       )
     },
@@ -1244,6 +3139,99 @@ export const getHealthMockHandler = (
   )
 }
 
+export const getJobsGetMockHandler = (
+  overrideResponse?:
+    | JobView
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<JobView> | JobView),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/ingest-jobs/:jobId",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getJobsGetResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getInvitationsPreviewMockHandler = (
+  overrideResponse?:
+    | InvitationPreview
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<InvitationPreview> | InvitationPreview),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/invitations/:token",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getInvitationsPreviewResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getInvitationsAcceptMockHandler = (
+  overrideResponse?:
+    | OrganizationView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<OrganizationView> | OrganizationView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/invitations/:token/accept",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getInvitationsAcceptResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getInvitationsDeclineMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/invitations/:token/decline",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
 export const getGetMessageCitationMockHandler = (
   overrideResponse?:
     | CitationDetail
@@ -1287,6 +3275,378 @@ export const getSubmitFeedbackMockHandler = (
           : getSubmitFeedbackResponseMock(),
         { status: 201 }
       )
+    },
+    options
+  )
+}
+
+export const getOrganizationsListMockHandler = (
+  overrideResponse?:
+    | OrganizationView[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<OrganizationView[]> | OrganizationView[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/organizations",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getOrganizationsListResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getOrganizationsCreateMockHandler = (
+  overrideResponse?:
+    | OrganizationView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<OrganizationView> | OrganizationView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/organizations",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getOrganizationsCreateResponseMock(),
+        { status: 201 }
+      )
+    },
+    options
+  )
+}
+
+export const getOrganizationsDeleteMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.delete>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.delete(
+    "*/api/v1/organizations/:organizationId",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
+export const getOrganizationsGetMockHandler = (
+  overrideResponse?:
+    | OrganizationView
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<OrganizationView> | OrganizationView),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/organizations/:organizationId",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getOrganizationsGetResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getOrganizationsRenameMockHandler = (
+  overrideResponse?:
+    | OrganizationView
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0]
+      ) => Promise<OrganizationView> | OrganizationView),
+  options?: RequestHandlerOptions
+) => {
+  return http.patch(
+    "*/api/v1/organizations/:organizationId",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getOrganizationsRenameResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getAuditOrganizationMockHandler = (
+  overrideResponse?:
+    | AuditPage
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<AuditPage> | AuditPage),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/organizations/:organizationId/audit",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getAuditOrganizationResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getInvitationsListMockHandler = (
+  overrideResponse?:
+    | InvitationView[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<InvitationView[]> | InvitationView[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/organizations/:organizationId/invitations",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getInvitationsListResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getInvitationsCreateMockHandler = (
+  overrideResponse?:
+    | InvitationView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<InvitationView> | InvitationView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/organizations/:organizationId/invitations",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getInvitationsCreateResponseMock(),
+        { status: 201 }
+      )
+    },
+    options
+  )
+}
+
+export const getInvitationsApproveMockHandler = (
+  overrideResponse?:
+    | InvitationView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<InvitationView> | InvitationView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/organizations/:organizationId/invitations/:invitationId/approve",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getInvitationsApproveResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getInvitationsRejectMockHandler = (
+  overrideResponse?:
+    | InvitationView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<InvitationView> | InvitationView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/organizations/:organizationId/invitations/:invitationId/reject",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getInvitationsRejectResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getInvitationsResendMockHandler = (
+  overrideResponse?:
+    | InvitationView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<InvitationView> | InvitationView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/organizations/:organizationId/invitations/:invitationId/resend",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getInvitationsResendResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getInvitationsRevokeMockHandler = (
+  overrideResponse?:
+    | InvitationView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<InvitationView> | InvitationView),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/organizations/:organizationId/invitations/:invitationId/revoke",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getInvitationsRevokeResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getOrganizationsLeaveMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.post(
+    "*/api/v1/organizations/:organizationId/leave",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
+export const getOrganizationsMembersListMockHandler = (
+  overrideResponse?:
+    | MemberItem[]
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0]
+      ) => Promise<MemberItem[]> | MemberItem[]),
+  options?: RequestHandlerOptions
+) => {
+  return http.get(
+    "*/api/v1/organizations/:organizationId/members",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getOrganizationsMembersListResponseMock(),
+        { status: 200 }
+      )
+    },
+    options
+  )
+}
+
+export const getOrganizationsMembersRemoveMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.delete>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.delete(
+    "*/api/v1/organizations/:organizationId/members/:userId",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
+    },
+    options
+  )
+}
+
+export const getOrganizationsMembersSetRoleMockHandler = (
+  overrideResponse?:
+    | void
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0]
+      ) => Promise<void> | void),
+  options?: RequestHandlerOptions
+) => {
+  return http.patch(
+    "*/api/v1/organizations/:organizationId/members/:userId",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info)
+      }
+
+      return new HttpResponse(null, { status: 204 })
     },
     options
   )
@@ -1340,6 +3700,7 @@ export const getUsersPatchCurrentUserMockHandler = (
   )
 }
 export const getPharmaAgentAPIMock = () => [
+  getAuditMineMockHandler(),
   getAccountEmailRequestMockHandler(),
   getAccountEmailConfirmMockHandler(),
   getAccountGoogleUnlinkMockHandler(),
@@ -1349,6 +3710,15 @@ export const getPharmaAgentAPIMock = () => [
   getAccountSessionsRevokeOthersMockHandler(),
   getAccountSessionsListMockHandler(),
   getAccountSessionsRevokeMockHandler(),
+  getAdminAuditMockHandler(),
+  getAdminCollectionsListMockHandler(),
+  getAdminIngestJobsListMockHandler(),
+  getAdminOrganizationsListMockHandler(),
+  getAdminOrganizationsUpdateMockHandler(),
+  getAdminUsersListMockHandler(),
+  getAdminUsersUpdateMockHandler(),
+  getAdminUsersConversationsMockHandler(),
+  getAdminConversationsMessagesMockHandler(),
   getAuthCookieLoginMockHandler(),
   getAuthCookieLogoutMockHandler(),
   getAuthEmailVerifyMockHandler(),
@@ -1366,15 +3736,55 @@ export const getPharmaAgentAPIMock = () => [
   getRegisterRegisterMockHandler(),
   getChatMockHandler(),
   getChatStreamMockHandler(),
+  getCollectionsListMockHandler(),
+  getCollectionsCreateMockHandler(),
+  getCollectionsQuotaMockHandler(),
+  getCollectionsDeleteMockHandler(),
+  getCollectionsGetMockHandler(),
+  getCollectionsUpdateMockHandler(),
+  getCollectionsColloquialGetMockHandler(),
+  getCollectionsColloquialPutMockHandler(),
+  getDocumentsListMockHandler(),
+  getDocumentsCreateMockHandler(),
+  getDocumentsUploadMockHandler(),
+  getDocumentsDeleteMockHandler(),
+  getDocumentsGetMockHandler(),
+  getDocumentsUpdateMockHandler(),
+  getCollectionsGlossaryGetMockHandler(),
+  getCollectionsGlossaryPutMockHandler(),
+  getCollectionsPublishMockHandler(),
+  getCollectionsReleasesMockHandler(),
+  getCollectionsRollbackMockHandler(),
+  getCollectionsSectionsMockHandler(),
   getListConversationsMockHandler(),
   getCreateConversationMockHandler(),
   getDeleteConversationMockHandler(),
   getGetConversationMockHandler(),
-  getRenameConversationMockHandler(),
+  getUpdateConversationMockHandler(),
   getListMessagesMockHandler(),
   getHealthMockHandler(),
+  getJobsGetMockHandler(),
+  getInvitationsPreviewMockHandler(),
+  getInvitationsAcceptMockHandler(),
+  getInvitationsDeclineMockHandler(),
   getGetMessageCitationMockHandler(),
   getSubmitFeedbackMockHandler(),
+  getOrganizationsListMockHandler(),
+  getOrganizationsCreateMockHandler(),
+  getOrganizationsDeleteMockHandler(),
+  getOrganizationsGetMockHandler(),
+  getOrganizationsRenameMockHandler(),
+  getAuditOrganizationMockHandler(),
+  getInvitationsListMockHandler(),
+  getInvitationsCreateMockHandler(),
+  getInvitationsApproveMockHandler(),
+  getInvitationsRejectMockHandler(),
+  getInvitationsResendMockHandler(),
+  getInvitationsRevokeMockHandler(),
+  getOrganizationsLeaveMockHandler(),
+  getOrganizationsMembersListMockHandler(),
+  getOrganizationsMembersRemoveMockHandler(),
+  getOrganizationsMembersSetRoleMockHandler(),
   getUsersCurrentUserMockHandler(),
   getUsersPatchCurrentUserMockHandler(),
 ]
