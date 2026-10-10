@@ -163,11 +163,12 @@ class AuthSettings(BaseModel):
     # Browsers accept Secure cookies on http://localhost, so this stays on in development.
     cookie_secure: bool = True
     csrf_secret: SecretStr | None = None
+    otp_secret: SecretStr | None = None
     google_client_id: str | None = None
     google_client_secret: SecretStr | None = None
     frontend_url: str = "http://localhost:3000"
 
-    @field_validator("jwt_secret", "csrf_secret")
+    @field_validator("jwt_secret", "csrf_secret", "otp_secret")
     @classmethod
     def _secret_length(
         cls, value: SecretStr | None, info: ValidationInfo
@@ -184,6 +185,11 @@ class AuthSettings(BaseModel):
         if self.jwt_secret is None:
             raise ValueError("set PHARMA_AUTH__JWT_SECRET (at least 32 characters)")
         return self.jwt_secret.get_secret_value()
+
+    def require_otp_secret(self) -> str:
+        if self.otp_secret is None:
+            raise ValueError("set PHARMA_AUTH__OTP_SECRET (at least 32 characters)")
+        return self.otp_secret.get_secret_value()
 
     def require_csrf_secret(self) -> str:
         if self.csrf_secret is None:
@@ -213,6 +219,27 @@ class CorpusSettings(BaseModel):
     gc_keep: int = Field(default=2, ge=0)
 
 
+class EmailSettings(BaseModel):
+    """Where account emails go. `log` writes them to the log: local runs and tests only."""
+
+    provider: Literal["log", "smtp", "resend"] = "log"
+    sender: str = "ViPharMind <no-reply@vipharmind.local>"
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    resend_api_key: SecretStr | None = None
+    timeout_seconds: float = Field(default=10.0, gt=0)
+
+
+class SmsSettings(BaseModel):
+    """`log` writes SMS to the log; a real provider is chosen before launch."""
+
+    provider: Literal["log"] = "log"
+    # ISO 3166 regions SMS may go to; anything else is rejected before sending.
+    allowed_country_codes: list[str] = Field(default_factory=lambda: ["VN"])
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="PHARMA_",
@@ -229,6 +256,8 @@ class Settings(BaseSettings):
     langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)
     postgres: PostgresSettings = Field(default_factory=PostgresSettings)
     auth: AuthSettings = Field(default_factory=AuthSettings)
+    email: EmailSettings = Field(default_factory=EmailSettings)
+    sms: SmsSettings = Field(default_factory=SmsSettings)
     api: ApiSettings = Field(default_factory=ApiSettings)
     memory: MemorySettings = Field(default_factory=MemorySettings)
     corpus: CorpusSettings = Field(default_factory=CorpusSettings)

@@ -228,3 +228,32 @@ def test_rerank_protocol_rejects_completion_logprobs(
 
     with pytest.raises(ValidationError, match="protocol"):
         Settings(_env_file=None)
+
+
+def test_account_settings_defaults() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.email.provider == "log"
+    assert settings.email.smtp_host == "smtp.gmail.com"
+    assert settings.email.smtp_port == 587
+    assert settings.sms.provider == "log"
+    assert settings.sms.allowed_country_codes == ["VN"]
+    assert settings.auth.otp_secret is None
+    with pytest.raises(ValueError, match="PHARMA_AUTH__OTP_SECRET"):
+        settings.auth.require_otp_secret()
+
+
+def test_otp_secret_needs_32_characters() -> None:
+    with pytest.raises(ValidationError, match="otp_secret"):
+        Settings(_env_file=None, auth={"otp_secret": "short"})
+    settings = Settings(_env_file=None, auth={"otp_secret": "o" * 32})
+    assert settings.auth.require_otp_secret() == "o" * 32
+
+
+def test_email_and_sms_settings_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PHARMA_EMAIL__PROVIDER", "smtp")
+    monkeypatch.setenv("PHARMA_EMAIL__SMTP_USERNAME", "an@gmail.com")
+    monkeypatch.setenv("PHARMA_SMS__ALLOWED_COUNTRY_CODES", '["VN", "US"]')
+    settings = Settings(_env_file=None)
+    assert settings.email.provider == "smtp"
+    assert settings.email.smtp_username == "an@gmail.com"
+    assert settings.sms.allowed_country_codes == ["VN", "US"]
