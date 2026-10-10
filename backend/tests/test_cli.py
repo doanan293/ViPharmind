@@ -198,3 +198,32 @@ def test_cleanup_sessions_uses_the_session_lifetime(
     assert "deleted 4 sessions older than 3600 seconds" in result.output
     assert "deleted 2 codes and 3 rate limit buckets" in result.output
     assert calls == [("postgresql://u:p@db.example:5432/app", 3600)]
+
+
+def test_env_file_option_feeds_every_command(monkeypatch, tmp_path: Path) -> None:
+    env_file = tmp_path / "production.env"
+    env_file.write_text(
+        "PHARMA_POSTGRES__DSN=postgresql+psycopg://prod:secret@neon.example/vipharmind\n"
+        "PHARMA_QDRANT__URL=https://qdrant.example\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("PHARMA_POSTGRES__DSN", raising=False)
+    monkeypatch.delenv("PHARMA_QDRANT__URL", raising=False)
+    upgrades = []
+    monkeypatch.setattr(
+        "alembic.command.upgrade",
+        lambda config, revision: upgrades.append(config),
+    )
+    result = CliRunner().invoke(cli.app, ["--env-file", str(env_file), "migrate"])
+    assert result.exit_code == 0, result.output
+    assert "neon.example" in upgrades[0].attributes["dsn"]
+
+    seen = []
+
+    def stack(settings):
+        seen.append(settings.qdrant.url)
+        raise SystemExit(0)
+
+    monkeypatch.setattr(cli, "build_retrieval_service", stack)
+    CliRunner().invoke(cli.app, ["--env-file", str(env_file), "check"])
+    assert seen == ["https://qdrant.example"]
