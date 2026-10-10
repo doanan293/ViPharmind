@@ -10,8 +10,8 @@ from tests.api.postgres_app import (
     csrf_header,
     new_email,
     postgres_app,
-    register,
     set_cookie,
+    verified_register,
 )
 
 pytestmark = pytest.mark.integration
@@ -33,21 +33,25 @@ async def test_cookie_login_sets_an_httponly_session_that_authorizes(
     migrated_dsn: str,
 ) -> None:
     email = new_email()
-    async with postgres_app(migrated_dsn) as (client, database):
-        await register(client, email)
+    async with postgres_app(migrated_dsn) as (client, database, outbox):
+        await verified_register(client, outbox, email)
+        client.cookies.clear()
+        before = await sessions_for(database, email)
         login = await cookie_login(client, email)
         session_cookie = set_cookie(login, "pharma_session")
         assert "httponly" in session_cookie and "secure" in session_cookie
         assert "samesite=lax" in session_cookie and "max-age=604800" in session_cookie
-        assert await sessions_for(database, email) == 1
+        assert await sessions_for(database, email) == before + 1
         me = await client.get("/api/v1/users/me")
         assert me.status_code == 200 and me.json()["email"] == email
 
 
 async def test_cookie_logout_revokes_the_session_row(migrated_dsn: str) -> None:
     email = new_email()
-    async with postgres_app(migrated_dsn) as (client, database):
-        await register(client, email)
+    async with postgres_app(migrated_dsn) as (client, database, outbox):
+        await verified_register(client, outbox, email)
+        client.cookies.clear()
+        before = await sessions_for(database, email)
         await cookie_login(client, email)
         token = client.cookies["pharma_session"]
         logout = await client.post(
@@ -56,7 +60,7 @@ async def test_cookie_logout_revokes_the_session_row(migrated_dsn: str) -> None:
         assert logout.status_code == 204, logout.text
         assert "max-age=0" in set_cookie(logout, "pharma_session")
         assert "pharma_session" not in client.cookies
-        assert await sessions_for(database, email) == 0
+        assert await sessions_for(database, email) == before
         replay = await client.get(
             "/api/v1/users/me", headers={"Cookie": f"pharma_session={token}"}
         )
@@ -68,8 +72,9 @@ async def test_cookie_session_needs_the_csrf_header_on_unsafe_requests(
     migrated_dsn: str,
 ) -> None:
     email = new_email()
-    async with postgres_app(migrated_dsn) as (client, _):
-        await register(client, email)
+    async with postgres_app(migrated_dsn) as (client, _, outbox):
+        await verified_register(client, outbox, email)
+        client.cookies.clear()
         await cookie_login(client, email)
         rejected = await client.patch("/api/v1/users/me", json={"display_name": "An"})
         assert rejected.status_code == 403
@@ -87,8 +92,10 @@ async def test_bearer_jwt_still_authorizes_without_csrf_or_sessions(
     migrated_dsn: str,
 ) -> None:
     email = new_email()
-    async with postgres_app(migrated_dsn) as (client, database):
-        await register(client, email)
+    async with postgres_app(migrated_dsn) as (client, database, outbox):
+        await verified_register(client, outbox, email)
+        client.cookies.clear()
+        before = await sessions_for(database, email)
         login = await client.post(
             "/api/v1/auth/jwt/login", data={"username": email, "password": PASSWORD}
         )
@@ -100,4 +107,4 @@ async def test_bearer_jwt_still_authorizes_without_csrf_or_sessions(
         )
         assert patched.status_code == 200, patched.text
         assert patched.json()["display_name"] == "Bình"
-        assert await sessions_for(database, email) == 0
+        assert await sessions_for(database, email) == before

@@ -20,7 +20,7 @@ from pathlib import Path
 import psycopg
 import uvicorn
 from alembic import command
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from psycopg import sql
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 from qdrant_client import AsyncQdrantClient
@@ -38,6 +38,7 @@ from pharma_agent.infrastructure.persistence.postgres.alembic_config import (
 )
 from pharma_agent.infrastructure.retrieval.qdrant_index import physical_collection_name
 from pharma_agent.infrastructure.settings import Settings
+from tests.account_fakes import RecordingEmailSender, RecordingSmsSender, code_in
 from tests.corpus_fixtures import (
     COLLECTION_KEY,
     small_bundle,
@@ -153,12 +154,18 @@ async def prepare_backing_services(settings: Settings) -> None:
         )
 
 
-def e2e_container_factory() -> ContainerFactory:
+def e2e_container_factory(
+    email: RecordingEmailSender, sms: RecordingSmsSender
+) -> ContainerFactory:
     @asynccontextmanager
     async def factory(settings: Settings) -> AsyncGenerator[Container]:
         await prepare_backing_services(settings)
         async with open_container(
-            settings, llm=ScenarioLlm(), embedder=FakeEmbedder()
+            settings,
+            llm=ScenarioLlm(),
+            embedder=FakeEmbedder(),
+            email_sender=email,
+            sms_sender=sms,
         ) as container:
             yield container
 
@@ -166,7 +173,22 @@ def e2e_container_factory() -> ContainerFactory:
 
 
 def build_e2e_app(config: E2EConfig) -> FastAPI:
-    return create_app(e2e_settings(config), container_factory=e2e_container_factory())
+    email = RecordingEmailSender()
+    sms = RecordingSmsSender()
+    app = create_app(
+        e2e_settings(config), container_factory=e2e_container_factory(email, sms)
+    )
+
+    @app.get("/api/v1/__e2e/outbox/code", include_in_schema=False)
+    async def latest_code(to: str) -> dict[str, str]:
+        """E2E only: the last code sent to `to`, an email address or an E.164 number."""
+        texts = [m.text for m in email.sent if m.to == to]
+        texts += [m.text for m in sms.sent if m.to == to]
+        if not texts:
+            raise HTTPException(status_code=404, detail="NO_CODE")
+        return {"code": code_in(texts[-1])}
+
+    return app
 
 
 def main(argv: Sequence[str] | None = None) -> None:

@@ -17,6 +17,7 @@ from pharma_agent.application.feedback.service import FeedbackService
 from pharma_agent.application.tracing import NullTracing
 from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.shared.clock import SystemClock
+from pharma_agent.infrastructure.account_factory import build_account_service
 from pharma_agent.infrastructure.container import Container
 from pharma_agent.infrastructure.persistence.postgres.citation_reader import (
     PostgresCitationReader,
@@ -35,6 +36,7 @@ from pharma_agent.infrastructure.persistence.postgres.tables import (
 from pharma_agent.infrastructure.settings import Settings
 from tests.api.asgi import running
 from tests.api.harness import ui_chunks
+from tests.api.postgres_app import AppOutbox
 from tests.api.test_chat_api import script_turn
 from tests.contract.invariants import assert_stream_invariants
 from tests.corpus_rows import hit_for, seed_cited_release
@@ -46,11 +48,12 @@ pytestmark = pytest.mark.integration
 async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
     settings = Settings(
         _env_file=None,
-        auth={"jwt_secret": "s" * 40, "csrf_secret": "c" * 40},
+        auth={"jwt_secret": "s" * 40, "csrf_secret": "c" * 40, "otp_secret": "o" * 40},
         postgres={"dsn": migrated_dsn},
     )
     llm = FakeLlm()
     script_turn(llm)
+    outbox = AppOutbox()
     database_holder: dict[str, Database] = {}
 
     @asynccontextmanager
@@ -78,6 +81,13 @@ async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
                 chat=ChatService(runner, repo, clock, MemoryPolicy()),
                 feedback=FeedbackService(
                     repo, feedback_repository, NullTracing(), clock
+                ),
+                account=build_account_service(
+                    resolved,
+                    database.sessions,
+                    clock=clock,
+                    email=outbox.email,
+                    sms=outbox.sms,
                 ),
                 health_checks={"postgres": database.ping},
             )
@@ -107,6 +117,12 @@ async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
         )
         assert wrong_password.status_code == 400
         assert wrong_password.json()["code"] == "LOGIN_BAD_CREDENTIALS"
+        verified = await client.post(
+            "/api/v1/auth/email/verify",
+            json={"email": email, "code": outbox.email.last_code(email)},
+        )
+        assert verified.status_code == 204, verified.text
+        client.cookies.clear()
         login = await client.post(
             "/api/v1/auth/jwt/login", data={"username": email, "password": password}
         )

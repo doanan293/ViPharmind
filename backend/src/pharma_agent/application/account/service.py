@@ -142,11 +142,17 @@ class AccountService:
 
     # Codes -------------------------------------------------------------------------
 
-    async def _limit_send(self, destination: str, client_ip: str | None) -> None:
+    async def _limit_send(
+        self, purpose: OtpPurpose, destination: str, client_ip: str | None
+    ) -> None:
         """Apply every send limit before looking the account up, so limits leak nothing."""
         policy = self._policy
         limits = [
-            (f"otp-cooldown:{destination}", 1, policy.send_cooldown_seconds),
+            (
+                f"otp-cooldown:{purpose.value}:{destination}",
+                1,
+                policy.send_cooldown_seconds,
+            ),
             (f"otp-send:{destination}", policy.sends_per_destination_per_hour, HOUR),
         ]
         if client_ip is not None:
@@ -232,7 +238,7 @@ class AccountService:
         self, email: str, *, locale: Locale, client_ip: str | None
     ) -> None:
         address = normalize_email(email)
-        await self._limit_send(address, client_ip)
+        await self._limit_send(OtpPurpose.VERIFY_EMAIL, address, client_ip)
         user = await self._accounts.get_by_email(address)
         if user is None or user.email_verified:
             return
@@ -255,7 +261,7 @@ class AccountService:
         self, email: str, *, locale: Locale, client_ip: str | None
     ) -> None:
         address = normalize_email(email)
-        await self._limit_send(address, client_ip)
+        await self._limit_send(OtpPurpose.RESET_PASSWORD, address, client_ip)
         user = await self._accounts.get_by_email(address)
         if user is None or not user.is_active:
             return
@@ -280,7 +286,7 @@ class AccountService:
         self, phone: str, *, locale: Locale, client_ip: str | None
     ) -> None:
         number = self._phone(phone)
-        await self._limit_send(number, client_ip)
+        await self._limit_send(OtpPurpose.PHONE_LOGIN, number, client_ip)
         user = await self._accounts.get_by_phone(number)
         await self._deliver_code(
             OtpPurpose.PHONE_LOGIN, number, None if user is None else user.id, locale
@@ -360,7 +366,7 @@ class AccountService:
             raise EmailAlreadyUsed("this email belongs to another account")
         if user.email == address and user.email_verified:
             raise InvalidInput("this is already your email")
-        await self._limit_send(address, client_ip)
+        await self._limit_send(OtpPurpose.CHANGE_EMAIL, address, client_ip)
         await self._deliver_code(OtpPurpose.CHANGE_EMAIL, address, user_id, locale)
 
     async def confirm_email_change(
@@ -396,7 +402,7 @@ class AccountService:
         owner = await self._accounts.get_by_phone(number)
         if owner is not None and owner.id != user_id:
             raise PhoneAlreadyUsed("this phone number belongs to another account")
-        await self._limit_send(number, client_ip)
+        await self._limit_send(OtpPurpose.CHANGE_PHONE, number, client_ip)
         await self._deliver_code(OtpPurpose.CHANGE_PHONE, number, user_id, locale)
 
     async def confirm_phone_change(

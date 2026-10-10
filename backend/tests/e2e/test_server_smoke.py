@@ -47,6 +47,14 @@ async def test_register_login_chat_and_open_a_citation(
             "/api/v1/auth/register", json={"email": email, "password": PASSWORD}
         )
         assert registered.status_code == 201, registered.text
+        sent = await client.get("/api/v1/__e2e/outbox/code", params={"to": email})
+        assert sent.status_code == 200, sent.text
+        verified = await client.post(
+            "/api/v1/auth/email/verify",
+            json={"email": email, "code": sent.json()["code"]},
+        )
+        assert verified.status_code == 204, verified.text
+        client.cookies.clear()
         login = await client.post(
             "/api/v1/auth/cookie/login", data={"username": email, "password": PASSWORD}
         )

@@ -10,6 +10,7 @@ from pharma_agent.api.csrf import install_csrf
 from pharma_agent.api.deps import session_factory, user_id_dependency
 from pharma_agent.api.errors import install_error_handlers
 from pharma_agent.api.openapi import PharmaAgentAPI
+from pharma_agent.api.routers.account import build_account_router
 from pharma_agent.api.routers.chat import build_chat_router
 from pharma_agent.api.routers.citations import build_citations_router
 from pharma_agent.api.routers.conversations import build_conversations_router
@@ -56,6 +57,7 @@ def create_app(
     api = APIRouter(prefix="/api/v1")
     include_auth_routes(api, auth)
     current_user_id = user_id_dependency(auth)
+    api.include_router(build_account_router(current_user_id, auth.login_session))
     api.include_router(build_health_router())
     api.include_router(build_chat_router(current_user_id))
     api.include_router(build_conversations_router(current_user_id))
