@@ -1,0 +1,101 @@
+{
+  "list": {
+    "title": "Tổ chức",
+    "description": "Nhóm làm việc chung trên các bộ tài liệu.",
+    "empty": "Bạn chưa thuộc tổ chức nào.",
+    "create": "Tạo tổ chức",
+    "members": "{{count}} thành viên"
+  },
+  "create": {
+    "title": "Tạo tổ chức",
+    "name": "Tên tổ chức",
+    "submit": "Tạo",
+    "nameRequired": "Nhập tên tổ chức.",
+    "nameTooLong": "Tên tối đa 100 ký tự."
+  },
+  "role": {
+    "owner": "Chủ sở hữu",
+    "editor": "Biên tập viên",
+    "member": "Thành viên",
+    "admin": "Quản trị viên"
+  },
+  "tabs": {
+    "members": "Thành viên",
+    "invitations": "Lời mời",
+    "collections": "Bộ tài liệu",
+    "audit": "Nhật ký"
+  },
+  "actions": {
+    "rename": "Đổi tên",
+    "delete": "Xoá tổ chức",
+    "leave": "Rời tổ chức",
+    "save": "Lưu",
+    "cancel": "Huỷ"
+  },
+  "delete": {
+    "title": "Xoá tổ chức?",
+    "description": "Mọi bộ tài liệu của tổ chức sẽ bị xoá. Gõ {{name}} để xác nhận.",
+    "confirm": "Xoá vĩnh viễn"
+  },
+  "leave": {
+    "title": "Rời tổ chức?",
+    "description": "Bạn sẽ không còn thấy bộ tài liệu của tổ chức này.",
+    "confirm": "Rời"
+  },
+  "members": {
+    "name": "Tên",
+    "email": "Email",
+    "role": "Vai trò",
+    "joined": "Tham gia",
+    "remove": "Xoá {{name}}",
+    "removeTitle": "Xoá thành viên?",
+    "removeDescription": "{{name}} sẽ không còn truy cập tổ chức.",
+    "roleOf": "Vai trò của {{name}}",
+    "you": "bạn"
+  },
+  "invitations": {
+    "empty": "Chưa có lời mời nào.",
+    "invite": "Mời",
+    "email": "Email người được mời",
+    "role": "Vai trò",
+    "status": "Trạng thái",
+    "invitedBy": "Người mời",
+    "expires": "Hết hạn",
+    "approve": "Duyệt",
+    "reject": "Từ chối",
+    "revoke": "Thu hồi",
+    "resend": "Gửi lại",
+    "sent": "Đã gửi lời mời.",
+    "pending": "Lời mời đang chờ chủ sở hữu hoặc biên tập viên duyệt.",
+    "statusValue": {
+      "pending_approval": "Chờ duyệt",
+      "sent": "Đã gửi",
+      "accepted": "Đã nhận",
+      "declined": "Bị từ chối",
+      "rejected": "Không duyệt",
+      "revoked": "Đã thu hồi",
+      "expired": "Hết hạn"
+    }
+  },
+  "collections": {
+    "empty": "Tổ chức chưa có bộ tài liệu nào.",
+    "create": "Tạo bộ tài liệu",
+    "title": "Tên bộ tài liệu",
+    "private": "Nháp (chỉ chủ sở hữu và biên tập viên)",
+    "shared": "Cả tổ chức"
+  },
+  "landing": {
+    "title": "Lời mời tham gia tổ chức",
+    "body": "{{inviter}} mời bạn tham gia {{organization}} với vai trò {{role}}.",
+    "forEmail": "Lời mời gửi tới {{email}}.",
+    "signIn": "Đăng nhập để nhận lời mời",
+    "register": "Tạo tài khoản",
+    "accept": "Tham gia",
+    "decline": "Từ chối",
+    "joined": "Bạn đã tham gia {{organization}}.",
+    "declined": "Bạn đã từ chối lời mời.",
+    "wrongEmail": "Lời mời này dành cho {{email}}, nhưng bạn đang đăng nhập bằng tài khoản khác.",
+    "signOut": "Đăng xuất",
+    "invalid": "Lời mời không còn hiệu lực. Hãy nhờ người mời gửi lại."
+  }
+}

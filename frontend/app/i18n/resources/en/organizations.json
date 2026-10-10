@@ -1,0 +1,101 @@
+{
+  "list": {
+    "title": "Organizations",
+    "description": "Teams that share collections.",
+    "empty": "You are not in any organization yet.",
+    "create": "Create an organization",
+    "members": "{{count}} members"
+  },
+  "create": {
+    "title": "Create an organization",
+    "name": "Organization name",
+    "submit": "Create",
+    "nameRequired": "Enter a name.",
+    "nameTooLong": "At most 100 characters."
+  },
+  "role": {
+    "owner": "Owner",
+    "editor": "Editor",
+    "member": "Member",
+    "admin": "Admin"
+  },
+  "tabs": {
+    "members": "Members",
+    "invitations": "Invitations",
+    "collections": "Collections",
+    "audit": "Log"
+  },
+  "actions": {
+    "rename": "Rename",
+    "delete": "Delete organization",
+    "leave": "Leave organization",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "delete": {
+    "title": "Delete the organization?",
+    "description": "All its collections are deleted. Type {{name}} to confirm.",
+    "confirm": "Delete forever"
+  },
+  "leave": {
+    "title": "Leave the organization?",
+    "description": "You will no longer see its collections.",
+    "confirm": "Leave"
+  },
+  "members": {
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "joined": "Joined",
+    "remove": "Remove {{name}}",
+    "removeTitle": "Remove the member?",
+    "removeDescription": "{{name}} will lose access to the organization.",
+    "roleOf": "Role of {{name}}",
+    "you": "you"
+  },
+  "invitations": {
+    "empty": "No invitations yet.",
+    "invite": "Invite",
+    "email": "Email to invite",
+    "role": "Role",
+    "status": "Status",
+    "invitedBy": "Invited by",
+    "expires": "Expires",
+    "approve": "Approve",
+    "reject": "Reject",
+    "revoke": "Revoke",
+    "resend": "Resend",
+    "sent": "Invitation sent.",
+    "pending": "The invitation waits for an owner or editor to approve it.",
+    "statusValue": {
+      "pending_approval": "Awaiting approval",
+      "sent": "Sent",
+      "accepted": "Accepted",
+      "declined": "Declined",
+      "rejected": "Rejected",
+      "revoked": "Revoked",
+      "expired": "Expired"
+    }
+  },
+  "collections": {
+    "empty": "The organization has no collections yet.",
+    "create": "Create a collection",
+    "title": "Collection name",
+    "private": "Draft (owners and editors only)",
+    "shared": "Whole organization"
+  },
+  "landing": {
+    "title": "Invitation to an organization",
+    "body": "{{inviter}} invited you to {{organization}} as {{role}}.",
+    "forEmail": "The invitation was sent to {{email}}.",
+    "signIn": "Sign in to accept",
+    "register": "Create an account",
+    "accept": "Join",
+    "decline": "Decline",
+    "joined": "You joined {{organization}}.",
+    "declined": "You declined the invitation.",
+    "wrongEmail": "This invitation is for {{email}}, but you are signed in with another account.",
+    "signOut": "Sign out",
+    "invalid": "The invitation is no longer valid. Ask for a new one."
+  }
+}
