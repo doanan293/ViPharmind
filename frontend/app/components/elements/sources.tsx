@@ -1,14 +1,22 @@
 import { ChevronDownIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { Badge } from "~/components/ui/badge"
+import { Button } from "~/components/ui/button"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "~/components/ui/collapsible"
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "~/components/ui/item"
 import { cn } from "~/lib/utils"
-
-import { collapsePanel, fieldInteractive, mono, paper } from "./surfaces"
 
 export interface SourceCard {
   index: number
@@ -41,48 +49,51 @@ export function Sources({
       className={cn("w-full max-w-xl", className)}
     >
       <CollapsibleTrigger
-        className={cn(
-          fieldInteractive,
-          "group/trigger inline-flex w-fit items-center gap-1.5 rounded-full px-3.5 py-2 text-xs text-foreground/60 outline-none hover:text-foreground/90"
-        )}
+        render={
+          <Button
+            variant="secondary"
+            size="sm"
+            className="group/trigger rounded-full"
+          />
+        }
       >
-        <span>{t("sources.trigger", { count: sources.length })}</span>
+        {t("sources.trigger", { count: sources.length })}
         <ChevronDownIcon
           aria-hidden
-          className="size-3 opacity-60 transition-transform duration-200 group-data-panel-open/trigger:rotate-180 motion-reduce:transition-none"
+          data-icon="inline-end"
+          className="transition-transform group-data-panel-open/trigger:rotate-180"
         />
       </CollapsibleTrigger>
-      <CollapsibleContent className={cn(collapsePanel, "outline-none")}>
-        <div className="grid grid-cols-1 gap-2 pt-2.5 sm:grid-cols-2">
+      <CollapsibleContent>
+        <ItemGroup className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-2">
           {sources.map((source) => (
-            <button
+            <Item
               key={source.index}
-              type="button"
+              variant="outline"
+              size="sm"
+              render={(props) => <button type="button" {...props} />}
               onClick={() => onSelect(source.index)}
-              className={cn(
-                paper,
-                "flex flex-col gap-1.5 rounded-2xl p-3 text-start transition-transform hover:-translate-y-px"
-              )}
+              className="text-start"
             >
-              <span className="flex items-center gap-1.5">
-                <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-foreground/[0.06] px-1 text-[9px] font-medium text-foreground/45 tabular-nums">
+              <ItemMedia>
+                <Badge variant="secondary" className="tabular-nums">
                   {source.index}
-                </span>
-                <span className={cn(mono, "truncate text-foreground/40")}>
+                </Badge>
+              </ItemMedia>
+              <ItemContent>
+                <ItemDescription className="line-clamp-1 text-xs">
                   {source.source}
-                </span>
-              </span>
-              <span className="line-clamp-2 text-[13px] leading-snug font-medium text-foreground/90">
-                {source.title}
-              </span>
-              {source.stale ? (
-                <span className="text-xs text-amber-600 dark:text-amber-400">
-                  {t("sources.stale")}
-                </span>
-              ) : null}
-            </button>
+                </ItemDescription>
+                <ItemTitle className="line-clamp-2">{source.title}</ItemTitle>
+                {source.stale ? (
+                  <span className="text-xs text-amber-600 dark:text-amber-400">
+                    {t("sources.stale")}
+                  </span>
+                ) : null}
+              </ItemContent>
+            </Item>
           ))}
-        </div>
+        </ItemGroup>
       </CollapsibleContent>
     </Collapsible>
   )

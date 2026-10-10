@@ -1,9 +1,15 @@
 import { CircleAlertIcon, RefreshCwIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "~/components/ui/alert"
+import { Button } from "~/components/ui/button"
+import { Spinner } from "~/components/ui/spinner"
 import { cn } from "~/lib/utils"
-
-import { ShimmerLabel } from "./surfaces"
 
 export type ErrorStateProps = {
   title: string
@@ -26,48 +32,33 @@ export function ErrorState({
       <output
         data-slot="error-state"
         className={cn(
-          "flex w-full max-w-xl animate-in items-center gap-2.5 text-sm duration-300 fade-in motion-reduce:animate-none",
+          "flex w-full max-w-xl items-center gap-2 text-sm text-muted-foreground",
           className
         )}
       >
-        <RefreshCwIcon
-          aria-hidden
-          className="size-3.5 shrink-0 animate-spin text-foreground/45 motion-reduce:animate-none"
-        />
-        <ShimmerLabel className="relative inline-block text-foreground/55">
+        <Spinner />
+        <span className="shimmer motion-reduce:animate-none">
           {t("error.retrying")}
-        </ShimmerLabel>
+        </span>
       </output>
     )
   }
 
   return (
-    <div
+    <Alert
       data-slot="error-state"
-      role="alert"
-      className={cn(
-        "flex w-full max-w-xl animate-in items-start gap-2.5 rounded-2xl bg-red-500/[0.06] px-4 py-3 text-sm duration-300 fade-in motion-reduce:animate-none dark:bg-red-500/10",
-        className
-      )}
+      variant="destructive"
+      className={cn("max-w-xl", className)}
     >
-      <CircleAlertIcon
-        aria-hidden
-        className="mt-0.5 size-4 shrink-0 text-red-500/80"
-      />
-      <div>
-        <p className="font-medium text-red-600 dark:text-red-400">{title}</p>
-        <p className="mt-0.5 text-[13px] leading-snug text-red-600/60 dark:text-red-400/60">
-          {detail}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="ms-auto flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/10 dark:text-red-400"
-      >
-        <RefreshCwIcon aria-hidden className="size-3" />
-        {t("error.retry")}
-      </button>
-    </div>
+      <CircleAlertIcon aria-hidden />
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>{detail}</AlertDescription>
+      <AlertAction>
+        <Button variant="ghost" size="sm" onClick={onRetry}>
+          <RefreshCwIcon aria-hidden data-icon="inline-start" />
+          {t("error.retry")}
+        </Button>
+      </AlertAction>
+    </Alert>
   )
 }
