@@ -145,7 +145,7 @@ Thêm `collection_ids uuid[]`, có thể rỗng. Rỗng (NULL) nghĩa là mọi 
 3. **Xoá bảng `public.skills`** sót lại từ các migration đã bỏ.
 4. Migration kết thúc bằng `VACUUM FULL` các bảng corpus để trả chỗ trống.
 
-Kết quả dự kiến: `formulary` còn khoảng 50 MB trong Postgres. Qdrant là nút thắt tiếp theo: `formulary` chiếm 250 MB trong 1 GB miễn phí, nên toàn bộ người dùng có khoảng 120 MB chữ, đúng với hạn mức ở mục 2.
+Kết quả đo sau migration 0016 ngày 2026-10-11: cả database local còn 66 MB, trong đó `chunk_versions` 46 MB. Qdrant là nút thắt tiếp theo: `formulary` chiếm 250 MB trong 1 GB miễn phí, nên toàn bộ người dùng có khoảng 120 MB chữ, đúng với hạn mức ở mục 2.
 
 ### 4.10 Migration
 
