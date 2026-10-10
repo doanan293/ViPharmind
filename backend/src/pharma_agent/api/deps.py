@@ -129,6 +129,19 @@ def actor_dependency(current_user_id: UserIdDependency) -> ActorDependency:
     return current_actor
 
 
+def superadmin_dependency(current_actor: ActorDependency) -> ActorDependency:
+    """The actor, or 404 for anyone who is not a superadmin: the console stays hidden."""
+
+    async def current_superadmin(
+        actor: Annotated[Actor, Depends(current_actor)],
+    ) -> Actor:
+        if not actor.is_superadmin:
+            raise HTTPException(status_code=404, detail="NOT_FOUND")
+        return actor
+
+    return current_superadmin
+
+
 def require_account(container: Container) -> AccountService:
     if container.account is None:
         raise ServiceNotConfigured(

@@ -95,6 +95,14 @@ class CollectionView(BaseModel):
     current_release_number: int | None
 
 
+class CollectionStats(BaseModel):
+    """What the superadmin console shows per collection: size in Postgres and Qdrant."""
+
+    collection: CollectionView
+    documents: int
+    qdrant_points: int
+
+
 class OrganizationCollections(BaseModel):
     organization_id: uuid.UUID
     name: str
@@ -220,6 +228,31 @@ class CollectionService:
         return CollectionGroups(
             public=public, organizations=organizations, mine=mine, others=others
         )
+
+    async def overview(self, actor: Actor) -> list[CollectionStats]:
+        """Every live collection with its size; Qdrant is the first free tier to fill."""
+        if not actor.is_superadmin:
+            raise ForbiddenRole("only superadmins see the overview")
+        stats = []
+        for collection in await self._collections.visible_for(actor):
+            points = (
+                0
+                if collection.current_release_id is None
+                else await self._index.count_release(collection.current_release_id)
+            )
+            documents = (
+                0
+                if self._sources is None
+                else await self._sources.count_documents(collection.id)
+            )
+            stats.append(
+                CollectionStats(
+                    collection=await self._view(actor, collection),
+                    documents=documents,
+                    qdrant_points=points,
+                )
+            )
+        return stats
 
     async def get(self, actor: Actor, collection_id: uuid.UUID) -> CollectionView:
         return await self._view(actor, await self._visible(actor, collection_id))

@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 
 from pharma_agent.domain.access.models import Actor, Role
+from pharma_agent.domain.account.models import AccountUser
 from pharma_agent.domain.audit.models import AuditAction, AuditEvent
 from pharma_agent.domain.audit.ports import Cursor
 from pharma_agent.domain.organizations.models import (
@@ -308,3 +309,70 @@ def actor(
     superadmin: bool = False,
 ) -> Actor:
     return Actor(user_id, superadmin, memberships or {})
+
+
+class InMemoryAccountAdmin:
+    def __init__(self, accounts: InMemoryAccounts) -> None:
+        self.accounts = accounts
+
+    async def get(self, user_id: uuid.UUID) -> AccountUser | None:
+        return self.accounts.users.get(user_id)
+
+    async def search(
+        self,
+        query: str | None,
+        *,
+        limit: int,
+        cursor: tuple[datetime, str] | None,
+    ) -> list[AccountUser]:
+        rows = sorted(
+            self.accounts.users.values(),
+            key=lambda u: (u.created_at or START, u.id),
+            reverse=True,
+        )
+        if query:
+            needle = query.casefold()
+            rows = [
+                u
+                for u in rows
+                if needle
+                in " ".join(
+                    filter(None, [u.email, u.phone_number, u.display_name])
+                ).casefold()
+            ]
+        if cursor is not None:
+            at, key = cursor
+            rows = [
+                u
+                for u in rows
+                if (u.created_at or START, u.id) < (at, uuid.UUID(hex=key))
+            ]
+        return rows[:limit]
+
+    async def set_active(
+        self, user_id: uuid.UUID, active: bool, tx: Transaction
+    ) -> None:
+        _tx(tx).later(
+            lambda: self.accounts.users.__setitem__(
+                user_id, replace(self.accounts.users[user_id], is_active=active)
+            )
+        )
+
+    async def set_quotas(
+        self,
+        user_id: uuid.UUID,
+        *,
+        text_quota_bytes: int | None,
+        collection_quota: int | None,
+        tx: Transaction,
+    ) -> None:
+        _tx(tx).later(
+            lambda: self.accounts.users.__setitem__(
+                user_id,
+                replace(
+                    self.accounts.users[user_id],
+                    text_quota_bytes=text_quota_bytes,
+                    collection_quota=collection_quota,
+                ),
+            )
+        )

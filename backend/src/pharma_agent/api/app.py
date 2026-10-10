@@ -10,11 +10,13 @@ from pharma_agent.api.csrf import install_csrf
 from pharma_agent.api.deps import (
     actor_dependency,
     session_factory,
+    superadmin_dependency,
     user_id_dependency,
 )
 from pharma_agent.api.errors import install_error_handlers
 from pharma_agent.api.openapi import PharmaAgentAPI
 from pharma_agent.api.routers.account import build_account_router
+from pharma_agent.api.routers.admin import build_admin_router
 from pharma_agent.api.routers.audit import build_audit_router
 from pharma_agent.api.routers.chat import build_chat_router
 from pharma_agent.api.routers.citations import build_citations_router
@@ -83,6 +85,7 @@ def create_app(
     api.include_router(build_collections_router(current_actor))
     api.include_router(build_documents_router(current_actor))
     api.include_router(build_jobs_router(current_actor))
+    api.include_router(build_admin_router(superadmin_dependency(current_actor)))
     api.include_router(build_internal_router())
     app.include_router(api)
     return app

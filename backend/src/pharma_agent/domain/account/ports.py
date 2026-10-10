@@ -12,6 +12,7 @@ from pharma_agent.domain.account.models import (
     SessionRecord,
 )
 from pharma_agent.domain.shared.errors import DomainError
+from pharma_agent.domain.shared.transaction import Transaction
 
 
 class DeliveryError(DomainError):
@@ -150,3 +151,32 @@ class SessionStore(Protocol):
     async def delete_all(
         self, user_id: uuid.UUID, *, keep: str | None = None
     ) -> int: ...
+
+
+class AccountAdmin(Protocol):
+    """What the superadmin console changes on accounts, inside a transaction."""
+
+    async def get(self, user_id: uuid.UUID) -> AccountUser | None: ...
+
+    async def search(
+        self,
+        query: str | None,
+        *,
+        limit: int,
+        cursor: tuple[datetime, str] | None,
+    ) -> list[AccountUser]:
+        """Newest first; `query` matches email, phone or name, ignoring case."""
+        ...
+
+    async def set_active(
+        self, user_id: uuid.UUID, active: bool, tx: Transaction
+    ) -> None: ...
+
+    async def set_quotas(
+        self,
+        user_id: uuid.UUID,
+        *,
+        text_quota_bytes: int | None,
+        collection_quota: int | None,
+        tx: Transaction,
+    ) -> None: ...
