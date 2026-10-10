@@ -7,6 +7,10 @@ describe("publicPageLocale", () => {
     ["/", "vi"],
     ["/en", "en"],
     ["/en/", "en"],
+    ["/privacy", "vi"],
+    ["/terms", "vi"],
+    ["/en/privacy", "en"],
+    ["/en/terms", "en"],
     ["/login", null],
     ["/chat/7f0c", null],
   ] as const)("%s -> %s", (pathname, expected) => {

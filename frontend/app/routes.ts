@@ -8,6 +8,10 @@ import {
 export default [
   index("routes/public/landing.tsx", { id: "landing-vi" }),
   route("en", "routes/public/landing.tsx", { id: "landing-en" }),
+  route("privacy", "routes/public/privacy.tsx", { id: "privacy-vi" }),
+  route("en/privacy", "routes/public/privacy.tsx", { id: "privacy-en" }),
+  route("terms", "routes/public/terms.tsx", { id: "terms-vi" }),
+  route("en/terms", "routes/public/terms.tsx", { id: "terms-en" }),
   route("login", "routes/auth/login.tsx"),
   route("register", "routes/auth/register.tsx"),
   route("forgot-password", "routes/auth/forgot-password.tsx"),
