@@ -1,26 +1,24 @@
 """Account emails and SMS in Vietnamese and English."""
 
-from dataclasses import dataclass
-from html import escape
-from typing import Literal
-
+from pharma_agent.application.mail import (
+    EmailContent,
+    Locale,
+    html_message,
+    locale_from_accept_language,
+)
 from pharma_agent.domain.account.codes import CODE_TTL
 from pharma_agent.domain.account.models import OtpPurpose
 
-Locale = Literal["vi", "en"]
+__all__ = [
+    "EmailContent",
+    "Locale",
+    "code_email",
+    "code_sms",
+    "email_changed_notice",
+    "locale_from_accept_language",
+]
+
 TTL_MINUTES = int(CODE_TTL.total_seconds() // 60)
-
-
-@dataclass(frozen=True)
-class EmailContent:
-    subject: str
-    text: str
-    html: str
-
-
-def locale_from_accept_language(header: str | None) -> Locale:
-    first = (header or "").split(",")[0].strip().lower()
-    return "en" if first.startswith("en") else "vi"
 
 
 _SUBJECTS: dict[OtpPurpose, dict[Locale, str]] = {
@@ -70,22 +68,12 @@ _CHANGED: dict[Locale, tuple[str, str]] = {
 }
 
 
-def _html(subject: str, body: str, code: str | None = None) -> str:
-    code_block = (
-        ""
-        if code is None
-        else f'<p style="font-size:32px;font-weight:bold;letter-spacing:4px">{code}</p>'
-    )
-    return (
-        '<div style="font-family:sans-serif;color:#1f2937">'
-        f"<h2>{escape(subject)}</h2>{code_block}<p>{escape(body)}</p></div>"
-    )
-
-
 def code_email(purpose: OtpPurpose, code: str, locale: Locale) -> EmailContent:
     subject = _SUBJECTS[purpose][locale]
     text = _BODY[locale].format(code=code, minutes=TTL_MINUTES)
-    return EmailContent(subject=subject, text=text, html=_html(subject, text, code))
+    return EmailContent(
+        subject=subject, text=text, html=html_message(subject, text, highlight=code)
+    )
 
 
 def code_sms(purpose: OtpPurpose, code: str, locale: Locale) -> str:
@@ -95,4 +83,4 @@ def code_sms(purpose: OtpPurpose, code: str, locale: Locale) -> str:
 def email_changed_notice(new_email: str, locale: Locale) -> EmailContent:
     subject, body = _CHANGED[locale]
     text = body.format(email=new_email)
-    return EmailContent(subject=subject, text=text, html=_html(subject, text))
+    return EmailContent(subject=subject, text=text, html=html_message(subject, text))
