@@ -42,6 +42,7 @@ def create_app(
         generate_unique_id_function=lambda route: route.name,
     )
     app.state.auth = auth
+    app.state.trusted_proxy_hops = resolved.api.trusted_proxy_hops
     install_csrf(app, resolved.auth)
     if resolved.api.cors_origins:
         # Added after CSRF, so CORS is the outer layer and 403 problems carry CORS headers.

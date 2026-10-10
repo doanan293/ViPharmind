@@ -10,7 +10,7 @@
   "CITATION_NOT_FOUND": "Không tìm thấy nguồn trích dẫn.",
   "PAYLOAD_TOO_LARGE": "Tệp quá lớn.",
   "AGENT_UNAVAILABLE": "Agent tạm thời không sẵn sàng.",
-  "REGISTER_USER_ALREADY_EXISTS": "Email này đã được đăng ký.",
+  "REGISTER_USER_ALREADY_EXISTS": "Email này đã được đăng ký. Nếu là của bạn, hãy dùng Quên mật khẩu.",
   "REGISTER_INVALID_PASSWORD": "Mật khẩu không đạt yêu cầu.",
   "LOGIN_BAD_CREDENTIALS": "Email hoặc mật khẩu không đúng.",
   "LOGIN_USER_NOT_VERIFIED": "Tài khoản chưa được xác thực.",

@@ -33,6 +33,7 @@ from pharma_agent.application.account.errors import DeliveryFailed, RateLimited
 from pharma_agent.application.account.messages import locale_from_accept_language
 from pharma_agent.application.account.service import AccountService
 from pharma_agent.domain.account.passwords import password_problem
+from pharma_agent.infrastructure.auth.client_ip import request_client_ip
 from pharma_agent.infrastructure.persistence.postgres.tables import (
     AccessTokenTable,
     OAuthAccountTable,
@@ -64,9 +65,7 @@ class UserCreate(schemas.BaseUserCreate):
 
 
 def _client_ip(request: Request | None) -> str | None:
-    if request is None or request.client is None:
-        return None
-    return request.client.host
+    return None if request is None else request_client_ip(request)
 
 
 def _already_exists() -> HTTPException:

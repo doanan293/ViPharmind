@@ -202,6 +202,9 @@ class ApiSettings(BaseModel):
     port: int = 8000
     # The browser reaches the API on the same origin (nginx or the dev proxy): no CORS by default.
     cors_origins: list[str] = Field(default_factory=list)
+    # Reverse proxies in front of the API that append to X-Forwarded-For (0 trusts none, so
+    # per-IP limits use the TCP peer). Behind Cloud Run set 1.
+    trusted_proxy_hops: int = Field(default=0, ge=0)
 
 
 class MemorySettings(BaseModel):

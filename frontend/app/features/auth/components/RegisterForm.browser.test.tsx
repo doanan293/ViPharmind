@@ -107,6 +107,8 @@ describe("RegisterForm", () => {
 
     await expect
       .element(page.getByRole("alert"))
-      .toHaveTextContent("Email này đã được đăng ký.")
+      .toHaveTextContent(
+        "Email này đã được đăng ký. Nếu là của bạn, hãy dùng Quên mật khẩu."
+      )
   })
 })

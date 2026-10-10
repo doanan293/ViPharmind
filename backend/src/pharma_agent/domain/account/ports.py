@@ -78,7 +78,12 @@ class OneTimeCodeStore(Protocol):
         """The newest unused, unexpired code with fewer than MAX_ATTEMPTS failures."""
         ...
 
-    async def record_failure(self, code_id: uuid.UUID) -> None: ...
+    async def claim_attempt(self, code_id: uuid.UUID) -> bool:
+        """Count one guess before it is compared; False once MAX_ATTEMPTS were claimed.
+
+        Atomic, so parallel guesses cannot exceed the limit.
+        """
+        ...
 
     async def consume(self, code_id: uuid.UUID, now: datetime) -> bool:
         """Mark the code used; False if it was already used (exactly one caller wins)."""

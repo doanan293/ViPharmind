@@ -9,6 +9,7 @@ from pharma_agent.application.account.errors import (
     InvalidCode,
     LastSignInMethod,
     PhoneAlreadyUsed,
+    RateLimited,
     SessionNotFound,
 )
 from pharma_agent.domain.account.models import session_id_of
@@ -146,3 +147,19 @@ async def test_unknown_account_is_reported() -> None:
     service, _ = build_account_service()
     with pytest.raises(AccountNotFound):
         await service.get_account(uuid.uuid4())
+
+
+async def test_probing_taken_addresses_is_rate_limited_per_ip() -> None:
+    service, fakes = build_account_service()
+    user = fakes.accounts.add(email="an@example.com", email_verified=True)
+    for index in range(20):
+        fakes.accounts.add(email=f"taken{index}@example.com")
+    for index in range(20):
+        with pytest.raises(EmailAlreadyUsed):
+            await service.request_email_change(
+                user.id, f"taken{index}@example.com", locale="vi", client_ip="9.9.9.9"
+            )
+    with pytest.raises(RateLimited):
+        await service.request_email_change(
+            user.id, "taken0@example.com", locale="vi", client_ip="9.9.9.9"
+        )
