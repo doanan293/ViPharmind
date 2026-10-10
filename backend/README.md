@@ -164,6 +164,29 @@ Chạy định kỳ:
 uv run pharma-agent cleanup-sessions
 ```
 
+Xoá một tổ chức chỉ đánh dấu các collection của nó là đã xoá (các chunk được hội thoại trích dẫn
+phải còn). Chạy định kỳ để thu hồi release và điểm trên Qdrant của chúng:
+
+```bash
+uv run pharma-agent corpus purge-deleted
+```
+
+Quyền superadmin chỉ cấp trên server:
+
+```bash
+uv run pharma-agent superadmin grant ban@example.com   # revoke, list
+```
+
+## Tổ chức, collection và xuất bản
+
+- Collection thuộc một người dùng, một tổ chức, hoặc hệ thống (bộ `formulary` nạp bằng
+  `corpus import`, luôn công khai). Chỉ superadmin đặt được mức công khai.
+- Chat tìm trong mọi collection người dùng được thấy; `collection_ids` của hội thoại thu hẹp
+  phạm vi. Quyền được đọc lại ở mỗi lượt hỏi.
+- Tài liệu soạn trong app được dựng thành knowledge bundle và nạp bằng đúng pipeline của CLI.
+  `POST /collections/{id}/publish` tạo một job; local chạy ngay trong tiến trình, production
+  qua Cloud Tasks gọi `POST /api/v1/internal/ingest-jobs/{id}/run`.
+
 ## Server E2E
 
 Playwright của frontend chạy backend bằng server E2E: app thật trên Postgres và Qdrant thật,
