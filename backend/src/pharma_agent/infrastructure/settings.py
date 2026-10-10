@@ -8,6 +8,7 @@ from pydantic import (
     SecretStr,
     ValidationInfo,
     field_validator,
+    model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -301,3 +302,11 @@ class Settings(BaseSettings):
     corpus: CorpusSettings = Field(default_factory=CorpusSettings)
     quotas: QuotaSettings = Field(default_factory=QuotaSettings)
     jobs: JobsSettings = Field(default_factory=JobsSettings)
+    # Cloud Run tells the container which port to listen on in PORT (no prefix).
+    platform_port: int | None = Field(default=None, validation_alias="PORT")
+
+    @model_validator(mode="after")
+    def _listen_on_the_platform_port(self) -> "Settings":
+        if self.platform_port is not None and "port" not in self.api.model_fields_set:
+            self.api.port = self.platform_port
+        return self

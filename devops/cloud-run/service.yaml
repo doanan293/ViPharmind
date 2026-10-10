@@ -1,0 +1,107 @@
+# Cloud Run service of the API. Create or update it with:
+#   gcloud run services replace devops/cloud-run/service.yaml --region asia-southeast1
+# after replacing PROJECT_ID, the image tag and the URLs below. The deploy workflow only
+# swaps the image afterwards; settings changes go through this file.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: vipharmind-api
+  labels:
+    cloud.googleapis.com/location: asia-southeast1
+spec:
+  template:
+    metadata:
+      annotations:
+        # Cost guard: one instance at most, none when idle.
+        autoscaling.knative.dev/maxScale: "1"
+        autoscaling.knative.dev/minScale: "0"
+        # Request-based billing: CPU only while a request is open. Publish jobs run inside
+        # the Cloud Tasks callback request, so nothing needs CPU between requests.
+        run.googleapis.com/cpu-throttling: "true"
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      serviceAccountName: vipharmind-api@PROJECT_ID.iam.gserviceaccount.com
+      containerConcurrency: 40
+      # Answers stream for up to 90 s and publish jobs run up to 10 min.
+      timeoutSeconds: 600
+      containers:
+        - image: asia-southeast1-docker.pkg.dev/PROJECT_ID/vipharmind/pharma-agent:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+            periodSeconds: 5
+            failureThreshold: 24
+          env:
+            - name: PHARMA_API__HOST
+              value: 0.0.0.0
+            # Cloud Run's front end appends one X-Forwarded-For hop; measure again behind
+            # Vercel (docs/launch-checklist.md).
+            - name: PHARMA_API__TRUSTED_PROXY_HOPS
+              value: "1"
+            - name: PHARMA_AUTH__FRONTEND_URL
+              value: https://vipharmind.vercel.app
+            - name: PHARMA_LLM__DEFAULT__BASE_URL
+              value: https://api.deepinfra.com/v1/openai
+            - name: PHARMA_LLM__DEFAULT__MODEL
+              value: Qwen/Qwen3.5-9B
+            - name: PHARMA_LLM__DEFAULT__EXTRA_BODY
+              value: '{"chat_template_kwargs": {"enable_thinking": false}}'
+            - name: PHARMA_RETRIEVAL__EMBEDDING__BASE_URL
+              value: https://api.deepinfra.com/v1/openai
+            - name: PHARMA_RETRIEVAL__EMBEDDING__MODEL
+              value: Qwen/Qwen3-Embedding-4B
+            - name: PHARMA_RETRIEVAL__EMBEDDING__DIMENSION
+              value: "2560"
+            - name: PHARMA_RETRIEVAL__RERANK__PROTOCOL
+              value: deepinfra
+            - name: PHARMA_RETRIEVAL__RERANK__BASE_URL
+              value: https://api.deepinfra.com
+            - name: PHARMA_RETRIEVAL__RERANK__MODEL
+              value: Qwen/Qwen3-Reranker-4B
+            - name: PHARMA_SMS__PROVIDER
+              value: none
+            - name: PHARMA_EMAIL__PROVIDER
+              value: smtp
+            - name: PHARMA_EMAIL__SMTP_USERNAME
+              value: SENDER@gmail.com
+            - name: PHARMA_EMAIL__SENDER
+              value: ViPharMind <SENDER@gmail.com>
+            - name: PHARMA_JOBS__DISPATCHER
+              value: cloud_tasks
+            - name: PHARMA_JOBS__BACKEND_URL
+              value: https://vipharmind-api-HASH.asia-southeast1.run.app
+            - name: PHARMA_JOBS__CLOUD_TASKS_PROJECT
+              value: PROJECT_ID
+            - name: PHARMA_JOBS__SERVICE_ACCOUNT_EMAIL
+              value: vipharmind-tasks@PROJECT_ID.iam.gserviceaccount.com
+            # Secrets from Secret Manager (one secret per variable, same name).
+            - name: PHARMA_POSTGRES__DSN
+              valueFrom: {secretKeyRef: {name: PHARMA_POSTGRES__DSN, key: latest}}
+            - name: PHARMA_QDRANT__URL
+              valueFrom: {secretKeyRef: {name: PHARMA_QDRANT__URL, key: latest}}
+            - name: PHARMA_QDRANT__API_KEY
+              valueFrom: {secretKeyRef: {name: PHARMA_QDRANT__API_KEY, key: latest}}
+            - name: PHARMA_LLM__DEFAULT__API_KEY
+              valueFrom: {secretKeyRef: {name: DEEPINFRA_API_KEY, key: latest}}
+            - name: PHARMA_RETRIEVAL__EMBEDDING__API_KEY
+              valueFrom: {secretKeyRef: {name: DEEPINFRA_API_KEY, key: latest}}
+            - name: PHARMA_RETRIEVAL__RERANK__API_KEY
+              valueFrom: {secretKeyRef: {name: DEEPINFRA_API_KEY, key: latest}}
+            - name: PHARMA_AUTH__JWT_SECRET
+              valueFrom: {secretKeyRef: {name: PHARMA_AUTH__JWT_SECRET, key: latest}}
+            - name: PHARMA_AUTH__CSRF_SECRET
+              valueFrom: {secretKeyRef: {name: PHARMA_AUTH__CSRF_SECRET, key: latest}}
+            - name: PHARMA_AUTH__OTP_SECRET
+              valueFrom: {secretKeyRef: {name: PHARMA_AUTH__OTP_SECRET, key: latest}}
+            - name: PHARMA_AUTH__GOOGLE_CLIENT_ID
+              valueFrom: {secretKeyRef: {name: PHARMA_AUTH__GOOGLE_CLIENT_ID, key: latest}}
+            - name: PHARMA_AUTH__GOOGLE_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: PHARMA_AUTH__GOOGLE_CLIENT_SECRET, key: latest}}
+            - name: PHARMA_EMAIL__SMTP_PASSWORD
+              valueFrom: {secretKeyRef: {name: PHARMA_EMAIL__SMTP_PASSWORD, key: latest}}
