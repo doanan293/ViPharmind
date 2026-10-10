@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -22,7 +23,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from pharma_agent.infrastructure.persistence.postgres.tables import Base
@@ -231,3 +232,144 @@ class ReleaseChunkTable(Base):
     )
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
     hydrate_strategy: Mapped[str] = mapped_column(String(32), nullable=False)
+
+
+class SourceDocumentTable(Base):
+    """Documents written or uploaded in the app; the editable source of a bundle."""
+
+    __tablename__ = "source_documents"
+    __table_args__ = (
+        UniqueConstraint(
+            "collection_id", "key", name="uq_source_documents_collection_key"
+        ),
+        CheckConstraint(
+            "kind IN ('drug_monograph', 'general_monograph', 'leaflet')", name="kind"
+        ),
+        {"schema": CORPUS_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    collection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("corpus.collections.id", ondelete="CASCADE"), nullable=False
+    )
+    key: Mapped[str] = mapped_column(String(300), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_title: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    char_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+
+class GlossaryEntryTable(Base):
+    __tablename__ = "glossary_entries"
+    __table_args__ = (
+        UniqueConstraint(
+            "collection_id", "term", name="uq_glossary_entries_collection_term"
+        ),
+        {"schema": CORPUS_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    collection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("corpus.collections.id", ondelete="CASCADE"), nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    term: Mapped[str] = mapped_column(String(200), nullable=False)
+    case_sensitive: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    vietnamese_expansions: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'")
+    )
+    english_expansions: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'")
+    )
+    aliases: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'")
+    )
+    category: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+
+
+class ColloquialMappingTable(Base):
+    __tablename__ = "colloquial_mappings"
+    __table_args__ = (
+        UniqueConstraint(
+            "collection_id", "key", name="uq_colloquial_mappings_collection_key"
+        ),
+        {"schema": CORPUS_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    collection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("corpus.collections.id", ondelete="CASCADE"), nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    key: Mapped[str] = mapped_column(String(200), nullable=False)
+    aliases: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'")
+    )
+    visual_sign: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    product_names: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'")
+    )
+    section_keys: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'")
+    )
+
+
+class IngestJobTable(Base):
+    __tablename__ = "ingest_jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued', 'running', 'ready', 'failed')", name="status"
+        ),
+        CheckConstraint(
+            "step IN ('bundle', 'chunk', 'embed', 'index', 'publish')", name="step"
+        ),
+        Index(
+            "uq_ingest_jobs_open",
+            "collection_id",
+            unique=True,
+            postgresql_where=text("status IN ('queued', 'running')"),
+        ),
+        Index("ix_ingest_jobs_created", "created_at", "id"),
+        {"schema": CORPUS_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    collection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("corpus.collections.id", ondelete="CASCADE"), nullable=False
+    )
+    release_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("corpus.releases.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    step: Mapped[str] = mapped_column(String(16), nullable=False)
+    progress: Mapped[int] = mapped_column(Integer, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    requested_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
