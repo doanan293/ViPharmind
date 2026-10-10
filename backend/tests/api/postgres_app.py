@@ -128,6 +128,7 @@ async def verified_register(
     await register(client, email)
     code = outbox.email.last_code(email)
     response = await client.post(
-        "/api/v1/auth/email/verify", json={"email": email, "code": code}
+        "/api/v1/auth/email/verify",
+        json={"email": email, "code": code, "password": PASSWORD},
     )
     assert response.status_code == 204, response.text

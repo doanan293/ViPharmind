@@ -162,18 +162,52 @@ async def test_consume_succeeds_once(database: Database) -> None:
     assert sorted(results) == [False, True]
 
 
-async def test_rate_limiter_counts_per_window(database: Database) -> None:
-    clock = FixedClock(NOW + timedelta(seconds=30))
-    limiter = PostgresRateLimiter(database.sessions, clock)
-    assert await limiter.hit("k", limit=2, window_seconds=60) is None
-    assert await limiter.hit("k", limit=2, window_seconds=60) is None
-    assert await limiter.check("k", limit=2, window_seconds=60) == pytest.approx(30)
-    assert await limiter.hit("k", limit=2, window_seconds=60) == pytest.approx(30)
-    assert await limiter.check("other", limit=2, window_seconds=60) is None
-    later = PostgresRateLimiter(
-        database.sessions, FixedClock(NOW + timedelta(seconds=61))
+def limiter_at(database: Database, seconds: float) -> PostgresRateLimiter:
+    return PostgresRateLimiter(
+        database.sessions, FixedClock(NOW + timedelta(seconds=seconds))
     )
-    assert await later.check("k", limit=2, window_seconds=60) is None
+
+
+async def test_rate_limiter_windows_open_at_the_first_action(
+    database: Database,
+) -> None:
+    first = limiter_at(database, 50)
+    assert await first.hit("k", limit=2, window_seconds=60) is None
+    assert await first.hit("k", limit=2, window_seconds=60) is None
+    later = limiter_at(database, 80)
+    # A clock-aligned window would have rolled over at 60 seconds.
+    assert await later.check("k", limit=2, window_seconds=60) == pytest.approx(30)
+    assert await later.hit("k", limit=2, window_seconds=60) == pytest.approx(30)
+    assert await later.check("other", limit=2, window_seconds=60) is None
+    reopened = limiter_at(database, 110)
+    assert await reopened.check("k", limit=2, window_seconds=60) is None
+    assert await reopened.hit("k", limit=2, window_seconds=60) is None
+    assert await limiter_at(database, 169).check(
+        "k", limit=1, window_seconds=60
+    ) == pytest.approx(1)
+
+
+async def test_rate_limiter_acquire_never_overshoots_in_parallel(
+    database: Database,
+) -> None:
+    limiter = limiter_at(database, 0)
+    results = await asyncio.gather(
+        *(limiter.acquire("k", limit=3, window_seconds=60) for _ in range(12))
+    )
+    assert sum(result is None for result in results) == 3
+    assert all(r == pytest.approx(60) for r in results if r is not None)
+
+
+async def test_rate_limiter_release_gives_back_one_action(database: Database) -> None:
+    limiter = limiter_at(database, 0)
+    assert await limiter.acquire("k", limit=1, window_seconds=60) is None
+    assert await limiter.acquire("k", limit=1, window_seconds=60) == pytest.approx(60)
+    await limiter.release("k", window_seconds=60)
+    assert await limiter.acquire("k", limit=1, window_seconds=60) is None
+    await limiter.release("missing", window_seconds=60)
+    expired = limiter_at(database, 61)
+    await expired.release("k", window_seconds=60)
+    assert await expired.acquire("k", limit=1, window_seconds=60) is None
 
 
 async def test_session_store_lists_and_deletes(database: Database) -> None:

@@ -30,7 +30,11 @@ async def test_login_before_verification_is_refused_then_allowed(
         )
         verify = await client.post(
             "/api/v1/auth/email/verify",
-            json={"email": email.upper(), "code": outbox.email.last_code(email)},
+            json={
+                "email": email.upper(),
+                "code": outbox.email.last_code(email),
+                "password": PASSWORD,
+            },
         )
         assert verify.status_code == 204 and "pharma_session" in client.cookies
         me = (await client.get("/api/v1/users/me")).json()
@@ -62,6 +66,31 @@ async def test_resend_inside_the_cooldown_is_429_with_retry_after(
     assert 1 <= int(again.headers["retry-after"]) <= 60
 
 
+async def test_verify_with_a_wrong_password_is_400_and_keeps_the_code(
+    migrated_dsn: str,
+) -> None:
+    email = new_email()
+    async with postgres_app(migrated_dsn) as (client, _, outbox):
+        await register(client, email)
+        code = outbox.email.last_code(email)
+        guessed = await client.post(
+            "/api/v1/auth/email/verify",
+            json={"email": email, "code": code, "password": "not-the-password"},
+        )
+        assert guessed.status_code == 400
+        assert guessed.json()["code"] == "LOGIN_BAD_CREDENTIALS"
+        assert "pharma_session" not in client.cookies
+        missing = await client.post(
+            "/api/v1/auth/email/verify", json={"email": email, "code": code}
+        )
+        assert missing.status_code == 400
+        verified = await client.post(
+            "/api/v1/auth/email/verify",
+            json={"email": email, "code": code, "password": PASSWORD},
+        )
+        assert verified.status_code == 204, verified.text
+
+
 async def test_wrong_code_is_400_otp_invalid(migrated_dsn: str) -> None:
     email = new_email()
     async with postgres_app(migrated_dsn) as (client, _, outbox):
@@ -69,7 +98,8 @@ async def test_wrong_code_is_400_otp_invalid(migrated_dsn: str) -> None:
         real = outbox.email.last_code(email)
         wrong = "000000" if real != "000000" else "111111"
         response = await client.post(
-            "/api/v1/auth/email/verify", json={"email": email, "code": wrong}
+            "/api/v1/auth/email/verify",
+            json={"email": email, "code": wrong, "password": PASSWORD},
         )
     assert response.status_code == 400 and response.json()["code"] == "OTP_INVALID"
 

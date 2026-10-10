@@ -244,12 +244,15 @@ class OneTimeCodeTable(Base):
 
 
 class RateLimitBucketTable(Base):
-    """Fixed-window counters behind domain/account/ports.RateLimiter."""
+    """One counter per key behind domain/account/ports.RateLimiter.
+
+    The window opens at the key's first action and lasts the caller's window length.
+    """
 
     __tablename__ = "rate_limit_buckets"
 
     key: Mapped[str] = mapped_column(String(200), primary_key=True)
     window_start: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), primary_key=True
+        DateTime(timezone=True), nullable=False
     )
     count: Mapped[int] = mapped_column(Integer, nullable=False)
