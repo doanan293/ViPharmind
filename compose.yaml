@@ -1,37 +1,17 @@
-# Local stack for the pharma agent on a CPU-only machine (Intel i5-13420H, 12 threads).
-# Run from the repository root. Every ${VAR:-default} below has a working default, so no root
-# .env exists; override one with a shell variable, e.g. `WEB_PORT=8081 docker compose up -d`.
-# Overridable: ports (WEB_PORT, POSTGRES_PORT, QDRANT_HTTP_PORT, LLAMA_EMBEDDING_PORT,
-# LLAMA_RERANKER_PORT, CLI_PROXY_API_PORT), model files (GGUF_DIR, LLAMA_EMBEDDING_MODEL[_NAME],
-# LLAMA_RERANKER_MODEL[_NAME], LLAMA_RERANKER_PROTOCOL), CPU tuning (LLAMA_EMBEDDING_THREADS,
-# LLAMA_RERANKER_PARALLEL, LLAMA_RERANKER_UBATCH_SIZE, LLAMA_RERANKER_CONTEXT_SIZE,
-# LLAMA_RERANKER_THREADS, RERANK_MAX_CANDIDATES, RERANK_TIMEOUT_SECONDS), LLM_BASE_URL,
-# COOKIE_SECURE and POSTGRES_USER/PASSWORD/DB. Services reach each other by service name on the
-# default network; host ports are published only for the browser (nginx) and for tools that run
-# on the host (backend via `uv run`, pharma-lab).
+# Local stack for the pharma agent. Run from the repository root. Every ${VAR:-default} below
+# has a working default, so no root .env exists; override one with a shell variable, e.g.
+# `WEB_PORT=8081 docker compose up -d`. Overridable: ports (WEB_PORT, POSTGRES_PORT,
+# QDRANT_HTTP_PORT), COOKIE_SECURE and POSTGRES_USER/PASSWORD/DB.
+#
+# By default the backend calls the model providers configured in backend/.env (DeepInfra).
+# Two override files add local alternatives:
+#   compose.local-models.yaml  llama.cpp embedding and reranker servers on this machine (CPU)
+#   compose.gemini-proxy.yaml  the cli-proxy-api gateway to Gemini for the LLM roles
+# e.g. `docker compose -f compose.yaml -f compose.local-models.yaml up -d`.
+# Services reach each other by service name on the default network; host ports are published
+# only for the browser (nginx) and for tools that run on the host (backend via `uv run`,
+# pharma-lab).
 name: vipharmind
-
-x-llama-server: &llama-server
-  image: ghcr.io/ggml-org/llama.cpp:server-b10920
-  volumes:
-    - "${GGUF_DIR:-./ai-models/gguf}:/models:ro"
-  healthcheck:
-    test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
-    interval: 15s
-    timeout: 5s
-    retries: 5
-    # Loading a 4B fp16 model from disk takes minutes on this machine.
-    start_period: 10m
-    start_interval: 5s
-  restart: unless-stopped
-
-# llama-server reads its options from LLAMA_ARG_* variables (listed in `llama-server --help`).
-# The cache policy matches pharma-lab's runtime (server_policy.inference_cache_policy).
-x-llama-env: &llama-env
-  LLAMA_ARG_OFFLINE: "true"
-  LLAMA_ARG_UI: "false"
-  LLAMA_ARG_CACHE_RAM: "0"
-  LLAMA_ARG_CACHE_IDLE_SLOTS: "false"
 
 x-backend: &backend
   build:
@@ -52,66 +32,10 @@ x-backend: &backend
     PHARMA_AUTH__COOKIE_SECURE: "${COOKIE_SECURE:-true}"
     PHARMA_POSTGRES__DSN: "postgresql+psycopg://${POSTGRES_USER:-vipharmind}:${POSTGRES_PASSWORD:-vipharmind}@postgres:5432/${POSTGRES_DB:-vipharmind}"
     PHARMA_QDRANT__URL: "http://qdrant:6333"
-    PHARMA_LLM__DEFAULT__BASE_URL: "${LLM_BASE_URL:-http://cli-proxy-api:8317/v1}"
-    # Corpus text lives in Postgres schema `corpus`; Qdrant keeps only the index (alias chunks_current).
-    # Load it once: docker compose exec backend pharma-agent corpus import <bundle_dir> --collection formulary --publish
-    PHARMA_RETRIEVAL__EMBEDDING__BASE_URL: "http://llama-embedding:8080/v1"
-    PHARMA_RETRIEVAL__EMBEDDING__MODEL: "${LLAMA_EMBEDDING_MODEL_NAME:-qwen3-embedding:4b-fp16}"
-    PHARMA_RETRIEVAL__RERANK__BASE_URL: "http://llama-reranker:8080"
-    PHARMA_RETRIEVAL__RERANK__MODEL: "${LLAMA_RERANKER_MODEL_NAME:-qwen3-reranker:4b-fp16}"
-    PHARMA_RETRIEVAL__RERANK__PROTOCOL: "${LLAMA_RERANKER_PROTOCOL:-native_rerank}"
-    # One /v1/rerank request carries every candidate of a search round and llama-server
-    # spreads its documents over the slots, so the backend sends one request at a time.
-    PHARMA_RETRIEVAL__RERANK__MAX_CONCURRENT: "1"
-    # CPU profile: rerank only the best RRF candidates (RRF alone puts 95.7% of answers in top 10).
-    PHARMA_RETRIEVAL__RERANK__MAX_CANDIDATES: "${RERANK_MAX_CANDIDATES:-15}"
-    # At least twice the CPU p95 of one rerank request (latency_p95_seconds of the benchmark).
-    PHARMA_RETRIEVAL__RERANK__TIMEOUT_SECONDS: "${RERANK_TIMEOUT_SECONDS:-898}"
+    # Models (LLM, embedding, reranker) come from backend/.env; the override files above
+    # point them at local containers instead.
 
 services:
-  llama-embedding:
-    <<: *llama-server
-    ports:
-      - "${LLAMA_EMBEDDING_PORT:-11434}:8080"
-    environment:
-      <<: *llama-env
-      LLAMA_ARG_MODEL: "/models/${LLAMA_EMBEDDING_MODEL:-qwen3-embedding-4b-fp16.gguf}"
-      LLAMA_ARG_EMBEDDINGS: "true"
-      LLAMA_ARG_N_PARALLEL: "${LLAMA_EMBEDDING_PARALLEL:-1}"
-      # Context per slot; llama-server sizes the total context to slots x this value.
-      LLAMA_ARG_KV_UNIFIED_PER_SLOT: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-2048}"
-      # Embedding models are non-causal: a whole input must fit in one physical batch.
-      LLAMA_ARG_BATCH: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-2048}"
-      LLAMA_ARG_UBATCH: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-2048}"
-      # Only short user queries are embedded at runtime, so a few threads are enough.
-      LLAMA_ARG_THREADS: "${LLAMA_EMBEDDING_THREADS:-4}"
-
-  llama-reranker:
-    <<: *llama-server
-    ports:
-      - "${LLAMA_RERANKER_PORT:-11435}:8080"
-    environment:
-      <<: *llama-env
-      LLAMA_ARG_MODEL: "/models/${LLAMA_RERANKER_MODEL:-qwen3-reranker-4b-f16-vimed.gguf}"
-      # /v1/rerank needs a classifier GGUF (tensor cls.output.weight).
-      LLAMA_ARG_RERANKING: "true"
-      # Rank pooling computes each document in one pass, so -b = -ub must hold the longest
-      # rerank prompt (1,664 tokens): keep it >= 2048. A slot keeps its last prompt in the
-      # unified KV until its next document enters a batch, so -c = -ub + -np x 2048.
-      LLAMA_ARG_KV_UNIFIED: "true"
-      # Measured on an Intel i5-13420H (12 threads, 23 GB RAM, llama.cpp server-b10920) with
-      # `pharma-lab rerank --backend local --benchmark --model qwen3-reranker:4b-fp16`:
-      # p95 448.7 s per 15-document request, 0.05 pairs/s. That run used -ub 2048, which
-      # rejects the longest prompt of the corpus (2,074 tokens), so the sizes below come
-      # from the -ub 4096 level; rerun the benchmark to measure it. Other machines:
-      # rerun the benchmark and override these variables in .env.
-      LLAMA_ARG_N_PARALLEL: "${LLAMA_RERANKER_PARALLEL:-4}"
-      LLAMA_ARG_CTX_SIZE: "${LLAMA_RERANKER_CONTEXT_SIZE:-20480}"
-      LLAMA_ARG_BATCH: "${LLAMA_RERANKER_UBATCH_SIZE:-4096}"
-      LLAMA_ARG_UBATCH: "${LLAMA_RERANKER_UBATCH_SIZE:-4096}"
-      # Prompt processing dominates reranking; 12 threads measured faster than 8.
-      LLAMA_ARG_THREADS: "${LLAMA_RERANKER_THREADS:-12}"
-
   postgres:
     image: postgres:17.0-alpine
     ports:
@@ -143,27 +67,6 @@ services:
       retries: 12
     restart: unless-stopped
 
-  # OpenAI-compatible LLM gateway. Setup: devops/cli-proxy-api/config.example.yaml.
-  cli-proxy-api:
-    image: eceasy/cli-proxy-api:v7.3.0
-    ports:
-      - "${CLI_PROXY_API_PORT:-8317}:8317"
-    environment:
-      TZ: "Asia/Ho_Chi_Minh"
-    configs:
-      - source: cli-proxy-api
-        target: /CLIProxyAPI/config.yaml
-    volumes:
-      # OAuth credential files (auth-dir in the config).
-      - cli_proxy_auth:/root/.cli-proxy-api
-    healthcheck:
-      # The image has bash but no curl or wget.
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8317 && printf 'GET /healthz HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
   backend-migrate:
     <<: *backend
     command: ["pharma-agent", "migrate"]
@@ -180,10 +83,6 @@ services:
       backend-migrate:
         condition: service_completed_successfully
       qdrant:
-        condition: service_healthy
-      llama-embedding:
-        condition: service_healthy
-      llama-reranker:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5)"]
@@ -226,11 +125,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-configs:
-  cli-proxy-api:
-    file: ./devops/cli-proxy-api/config.yaml
-
 volumes:
   postgres_data:
   qdrant_data:
-  cli_proxy_auth:

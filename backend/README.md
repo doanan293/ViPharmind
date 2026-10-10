@@ -8,11 +8,13 @@ the current backend architecture and corpus specifications.
 ```bash
 uv sync                         # ở repo root: một .venv chung cho cả uv workspace
 cd backend
-cp .env.example .env            # điền PHARMA_LLM__DEFAULT__API_KEY
+cp .env.example .env            # điền key DeepInfra và các secret auth
 ```
 
-Cần Postgres, Qdrant, llama.cpp embedding (cổng 11434), reranker (cổng 11435) và proxy LLM
-CLIProxyAPI (cổng 8317) từ `compose.yaml` ở repo root. Corpus nằm trong schema `corpus` của Postgres; Qdrant chỉ là
+Cần Postgres và Qdrant từ `compose.yaml` ở repo root (`docker compose up -d postgres qdrant`).
+LLM, embedding và reranker mặc định gọi DeepInfra theo `.env`; muốn chạy model trên máy hoặc Gemini
+qua CLIProxyAPI thì xem `compose.local-models.yaml` và `compose.gemini-proxy.yaml` trong README ở
+root. Corpus nằm trong schema `corpus` của Postgres; Qdrant chỉ là
 index (alias `chunks_current`). Nạp một knowledge bundle và publish trước khi hỏi:
 
 ```bash
@@ -31,13 +33,13 @@ uv run pharma-agent ask "..." --json           # kèm trace đầy đủ
 
 ## Chạy toàn bộ bằng Docker
 
-Stack đầy đủ (backend, frontend, nginx và các service phụ trợ) chạy bằng `compose.yaml` ở repo
-root; xem mục *Chạy toàn bộ bằng Docker* trong README ở root.
+Stack đầy đủ (backend, frontend, nginx, Postgres, Qdrant) chạy bằng `compose.yaml` ở repo root; xem
+mục *Chạy local* trong README ở root.
 
 ## Chạy HTTP API
 
 ```bash
-docker compose up -d postgres qdrant llama-embedding llama-reranker cli-proxy-api   # chạy từ repo root
+docker compose up -d postgres qdrant     # chạy từ repo root
 cd backend
 uv run pharma-agent migrate
 uv run pharma-agent serve            # http://127.0.0.1:8000/docs

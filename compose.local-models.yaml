@@ -1,0 +1,98 @@
+# Embedding and reranker models on this machine with llama.cpp (CPU-only, measured on an
+# Intel i5-13420H, 12 threads), instead of the provider in backend/.env. Use with compose.yaml:
+#   docker compose -f compose.yaml -f compose.local-models.yaml up -d
+# For a backend on the host (`uv run pharma-agent serve`), start only the model servers:
+#   docker compose -f compose.yaml -f compose.local-models.yaml up -d llama-embedding llama-reranker
+# and point backend/.env at http://localhost:11434/v1 and http://localhost:11435.
+# Overridable: ports (LLAMA_EMBEDDING_PORT, LLAMA_RERANKER_PORT), model files (GGUF_DIR,
+# LLAMA_EMBEDDING_MODEL[_NAME], LLAMA_RERANKER_MODEL[_NAME], LLAMA_RERANKER_PROTOCOL) and CPU
+# tuning (LLAMA_EMBEDDING_THREADS, LLAMA_RERANKER_PARALLEL, LLAMA_RERANKER_UBATCH_SIZE,
+# LLAMA_RERANKER_CONTEXT_SIZE, LLAMA_RERANKER_THREADS, RERANK_MAX_CANDIDATES,
+# RERANK_TIMEOUT_SECONDS).
+
+x-llama-server: &llama-server
+  image: ghcr.io/ggml-org/llama.cpp:server-b10920
+  volumes:
+    - "${GGUF_DIR:-./ai-models/gguf}:/models:ro"
+  healthcheck:
+    test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+    interval: 15s
+    timeout: 5s
+    retries: 5
+    # Loading a 4B fp16 model from disk takes minutes on this machine.
+    start_period: 10m
+    start_interval: 5s
+  restart: unless-stopped
+
+# llama-server reads its options from LLAMA_ARG_* variables (listed in `llama-server --help`).
+# The cache policy matches pharma-lab's runtime (server_policy.inference_cache_policy).
+x-llama-env: &llama-env
+  LLAMA_ARG_OFFLINE: "true"
+  LLAMA_ARG_UI: "false"
+  LLAMA_ARG_CACHE_RAM: "0"
+  LLAMA_ARG_CACHE_IDLE_SLOTS: "false"
+
+services:
+  llama-embedding:
+    <<: *llama-server
+    ports:
+      - "${LLAMA_EMBEDDING_PORT:-11434}:8080"
+    environment:
+      <<: *llama-env
+      LLAMA_ARG_MODEL: "/models/${LLAMA_EMBEDDING_MODEL:-qwen3-embedding-4b-fp16.gguf}"
+      LLAMA_ARG_EMBEDDINGS: "true"
+      LLAMA_ARG_N_PARALLEL: "${LLAMA_EMBEDDING_PARALLEL:-1}"
+      # Context per slot; llama-server sizes the total context to slots x this value.
+      LLAMA_ARG_KV_UNIFIED_PER_SLOT: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-2048}"
+      # Embedding models are non-causal: a whole input must fit in one physical batch.
+      LLAMA_ARG_BATCH: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-2048}"
+      LLAMA_ARG_UBATCH: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-2048}"
+      # Only short user queries are embedded at runtime, so a few threads are enough.
+      LLAMA_ARG_THREADS: "${LLAMA_EMBEDDING_THREADS:-4}"
+
+  llama-reranker:
+    <<: *llama-server
+    ports:
+      - "${LLAMA_RERANKER_PORT:-11435}:8080"
+    environment:
+      <<: *llama-env
+      LLAMA_ARG_MODEL: "/models/${LLAMA_RERANKER_MODEL:-qwen3-reranker-4b-f16-vimed.gguf}"
+      # /v1/rerank needs a classifier GGUF (tensor cls.output.weight).
+      LLAMA_ARG_RERANKING: "true"
+      # Rank pooling computes each document in one pass, so -b = -ub must hold the longest
+      # rerank prompt (1,664 tokens): keep it >= 2048. A slot keeps its last prompt in the
+      # unified KV until its next document enters a batch, so -c = -ub + -np x 2048.
+      LLAMA_ARG_KV_UNIFIED: "true"
+      # Measured on an Intel i5-13420H (12 threads, 23 GB RAM, llama.cpp server-b10920) with
+      # `pharma-lab rerank --backend local --benchmark --model qwen3-reranker:4b-fp16`:
+      # p95 448.7 s per 15-document request, 0.05 pairs/s. That run used -ub 2048, which
+      # rejects the longest prompt of the corpus (2,074 tokens), so the sizes below come
+      # from the -ub 4096 level; rerun the benchmark to measure it. Other machines:
+      # rerun the benchmark and override these variables in .env.
+      LLAMA_ARG_N_PARALLEL: "${LLAMA_RERANKER_PARALLEL:-4}"
+      LLAMA_ARG_CTX_SIZE: "${LLAMA_RERANKER_CONTEXT_SIZE:-20480}"
+      LLAMA_ARG_BATCH: "${LLAMA_RERANKER_UBATCH_SIZE:-4096}"
+      LLAMA_ARG_UBATCH: "${LLAMA_RERANKER_UBATCH_SIZE:-4096}"
+      # Prompt processing dominates reranking; 12 threads measured faster than 8.
+      LLAMA_ARG_THREADS: "${LLAMA_RERANKER_THREADS:-12}"
+
+  backend:
+    environment:
+      PHARMA_RETRIEVAL__EMBEDDING__BASE_URL: "http://llama-embedding:8080/v1"
+      PHARMA_RETRIEVAL__EMBEDDING__MODEL: "${LLAMA_EMBEDDING_MODEL_NAME:-qwen3-embedding:4b-fp16}"
+      PHARMA_RETRIEVAL__EMBEDDING__DIMENSION: "2560"
+      PHARMA_RETRIEVAL__RERANK__BASE_URL: "http://llama-reranker:8080"
+      PHARMA_RETRIEVAL__RERANK__MODEL: "${LLAMA_RERANKER_MODEL_NAME:-qwen3-reranker:4b-fp16}"
+      PHARMA_RETRIEVAL__RERANK__PROTOCOL: "${LLAMA_RERANKER_PROTOCOL:-native_rerank}"
+      # One /v1/rerank request carries every candidate of a search round and llama-server
+      # spreads its documents over the slots, so the backend sends one request at a time.
+      PHARMA_RETRIEVAL__RERANK__MAX_CONCURRENT: "1"
+      # CPU profile: rerank only the best RRF candidates (RRF alone puts 95.7% of answers in top 10).
+      PHARMA_RETRIEVAL__RERANK__MAX_CANDIDATES: "${RERANK_MAX_CANDIDATES:-15}"
+      # At least twice the CPU p95 of one rerank request (latency_p95_seconds of the benchmark).
+      PHARMA_RETRIEVAL__RERANK__TIMEOUT_SECONDS: "${RERANK_TIMEOUT_SECONDS:-898}"
+    depends_on:
+      llama-embedding:
+        condition: service_healthy
+      llama-reranker:
+        condition: service_healthy
