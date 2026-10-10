@@ -19,6 +19,15 @@ import { Input } from "~/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { Spinner } from "~/components/ui/spinner"
 import { toast } from "~/components/ui/toast"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "~/components/ui/item"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 import { type Viewer, atLeast, invitableRoles } from "../lib/roles"
@@ -190,34 +199,33 @@ export function InvitationsTab({
       {invitations.data === undefined ? (
         <Spinner />
       ) : invitations.data.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {t("invitations.empty")}
-        </p>
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyDescription>{t("invitations.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ItemGroup className="gap-2">
           {invitations.data.map((invitation) => (
-            <li
-              key={invitation.id}
-              className="flex flex-wrap items-center justify-between gap-2 text-sm"
-            >
-              <div className="flex flex-col">
-                <span className="flex items-center gap-2">
+            <Item key={invitation.id} variant="outline" size="sm">
+              <ItemContent>
+                <ItemTitle>
                   {invitation.email}
                   <Badge variant="secondary">
                     {t(`invitations.statusValue.${invitation.status}`)}
                   </Badge>
-                </span>
-                <span className="text-muted-foreground">
+                </ItemTitle>
+                <ItemDescription>
                   {t(`role.${invitation.role}`)} · {invitation.invited_by_name}
                   {invitation.expires_at
                     ? ` · ${t("invitations.expires")} ${format.format(new Date(invitation.expires_at))}`
                     : ""}
-                </span>
-              </div>
-              <div className="flex gap-2">{actions(invitation)}</div>
-            </li>
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>{actions(invitation)}</ItemActions>
+            </Item>
           ))}
-        </ul>
+        </ItemGroup>
       )}
     </div>
   )

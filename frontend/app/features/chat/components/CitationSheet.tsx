@@ -5,6 +5,7 @@ import { Streamdown } from "streamdown"
 
 import { getGetMessageCitationQueryOptions } from "~/api/gen/endpoints"
 import type { CitationDetail } from "~/api/gen/schemas"
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
 import { Badge } from "~/components/ui/badge"
 import {
   Drawer,
@@ -64,12 +65,12 @@ export function CitationDetailView({ messageId, index }: CitationTarget) {
 
   if (query.isError) {
     return (
-      <div role="alert" className="flex flex-col gap-1 text-sm">
-        <p className="font-medium text-destructive">{t("sheet.loadFailed")}</p>
-        <p className="text-muted-foreground">
+      <Alert variant="destructive">
+        <AlertTitle>{t("sheet.loadFailed")}</AlertTitle>
+        <AlertDescription>
           {apiErrorMessage(query.error, tErrors)}
-        </p>
-      </div>
+        </AlertDescription>
+      </Alert>
     )
   }
 

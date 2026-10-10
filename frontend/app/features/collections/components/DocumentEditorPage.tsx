@@ -24,6 +24,7 @@ import { Input } from "~/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { Spinner } from "~/components/ui/spinner"
 import { toast } from "~/components/ui/toast"
+import { Alert, AlertDescription } from "~/components/ui/alert"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 import { MarkdownEditor } from "./MarkdownEditor"
@@ -247,9 +248,11 @@ function ExistingDocument({
   const document = useDocumentsGet(collection.id, documentId)
   if (document.isError) {
     return (
-      <p role="alert" className="text-sm text-destructive">
-        {apiErrorMessage(document.error, tErrors)}
-      </p>
+      <Alert variant="destructive">
+        <AlertDescription>
+          {apiErrorMessage(document.error, tErrors)}
+        </AlertDescription>
+      </Alert>
     )
   }
   if (document.data === undefined) return <Spinner />
@@ -276,9 +279,11 @@ export function DocumentEditorPage({
 
   if (collection.isError) {
     return (
-      <p role="alert" className="p-8 text-sm text-destructive">
-        {apiErrorMessage(collection.error, tErrors)}
-      </p>
+      <Alert variant="destructive" className="m-4 w-auto md:m-8">
+        <AlertDescription>
+          {apiErrorMessage(collection.error, tErrors)}
+        </AlertDescription>
+      </Alert>
     )
   }
   if (collection.data === undefined) return <Spinner />

@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "~/components/ui/button"
+import { FieldError } from "~/components/ui/field"
 import { startGoogleLogin } from "~/features/auth/lib/google"
 import { apiErrorMessage } from "~/i18n/error-message"
 
@@ -34,11 +35,7 @@ export function GoogleButton({ nextPath }: { nextPath: string }) {
       >
         {t("google")}
       </Button>
-      {error === null ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      {error === null ? null : <FieldError>{error}</FieldError>}
     </div>
   )
 }

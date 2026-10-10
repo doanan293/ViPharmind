@@ -28,6 +28,7 @@ import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { toast } from "~/components/ui/toast"
+import { Alert, AlertDescription } from "~/components/ui/alert"
 import { AuditList } from "~/features/audit/components/AuditList"
 import { apiErrorMessage } from "~/i18n/error-message"
 
@@ -77,9 +78,11 @@ export function OrganizationPage({
 
   if (organization.isError) {
     return (
-      <p role="alert" className="p-8 text-sm text-destructive">
-        {apiErrorMessage(organization.error, tErrors)}
-      </p>
+      <Alert variant="destructive" className="m-4 w-auto md:m-8">
+        <AlertDescription>
+          {apiErrorMessage(organization.error, tErrors)}
+        </AlertDescription>
+      </Alert>
     )
   }
   if (organization.data === undefined || user.data === undefined) {

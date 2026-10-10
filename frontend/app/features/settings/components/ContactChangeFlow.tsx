@@ -158,9 +158,7 @@ export function ContactChangeFlow({
         )}
       />
       {serverError === undefined ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {serverError}
-        </p>
+        <FieldError>{serverError}</FieldError>
       )}
       <div className="flex gap-2">
         <Button type="submit" disabled={form.formState.isSubmitting}>

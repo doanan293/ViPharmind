@@ -12,6 +12,7 @@ import { isApiError } from "~/api/problem"
 import { Button, buttonVariants } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import { Spinner } from "~/components/ui/spinner"
+import { Alert, AlertDescription } from "~/components/ui/alert"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 const SKIP_AUTH = { meta: { skipAuthRedirect: true }, retry: false } as const
@@ -44,9 +45,9 @@ export function InvitationLanding({
   }
   if (preview.data === undefined) {
     return (
-      <p role="alert" className="text-sm text-destructive">
-        {t("landing.invalid")}
-      </p>
+      <Alert variant="destructive">
+        <AlertDescription>{t("landing.invalid")}</AlertDescription>
+      </Alert>
     )
   }
   const invitation = preview.data
@@ -93,9 +94,11 @@ export function InvitationLanding({
           </div>
         ) : wrongEmail ? (
           <div className="flex flex-col gap-3">
-            <p role="alert" className="text-sm text-destructive">
-              {t("landing.wrongEmail", { email: invitation.email_hint })}
-            </p>
+            <Alert variant="destructive">
+              <AlertDescription>
+                {t("landing.wrongEmail", { email: invitation.email_hint })}
+              </AlertDescription>
+            </Alert>
             <Button
               variant="outline"
               className="self-start"
@@ -107,9 +110,9 @@ export function InvitationLanding({
         ) : (
           <div className="flex flex-col gap-3">
             {problem === null ? null : (
-              <p role="alert" className="text-sm text-destructive">
-                {problem}
-              </p>
+              <Alert variant="destructive">
+                <AlertDescription>{problem}</AlertDescription>
+              </Alert>
             )}
             <div className="flex gap-2">
               <Button

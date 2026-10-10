@@ -11,6 +11,15 @@ import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { Spinner } from "~/components/ui/spinner"
 import { toast } from "~/components/ui/toast"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "~/components/ui/item"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 export function ReleasesTab({
@@ -35,7 +44,11 @@ export function ReleasesTab({
   }
   if (releases.data.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">{t("releases.empty")}</p>
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyDescription>{t("releases.empty")}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
   }
   const current = releases.data.find((release) => release.current)
@@ -49,24 +62,27 @@ export function ReleasesTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <ul className="flex flex-col gap-2">
+      <ItemGroup className="gap-2">
         {releases.data.map((release) => (
-          <li
-            key={release.id}
-            className="flex items-center justify-between gap-2 rounded-lg border p-3 text-sm"
-          >
-            <span className="flex items-center gap-2 font-medium">
-              {t("releases.number", { number: release.number })}
-              {release.current ? <Badge>{t("releases.current")}</Badge> : null}
-            </span>
-            <span className="text-muted-foreground">
-              {format.format(
-                new Date(release.published_at ?? release.created_at)
-              )}
-            </span>
-          </li>
+          <Item key={release.id} variant="outline" size="sm">
+            <ItemContent>
+              <ItemTitle>
+                {t("releases.number", { number: release.number })}
+                {release.current ? (
+                  <Badge>{t("releases.current")}</Badge>
+                ) : null}
+              </ItemTitle>
+            </ItemContent>
+            <ItemActions>
+              <ItemDescription>
+                {format.format(
+                  new Date(release.published_at ?? release.created_at)
+                )}
+              </ItemDescription>
+            </ItemActions>
+          </Item>
         ))}
-      </ul>
+      </ItemGroup>
       {canRollBack ? (
         <Button
           variant="outline"

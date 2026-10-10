@@ -111,9 +111,7 @@ export function PhoneLoginForm({
         )}
       />
       {serverError === undefined ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {serverError}
-        </p>
+        <FieldError>{serverError}</FieldError>
       )}
       <Button type="submit" disabled={form.formState.isSubmitting}>
         {form.formState.isSubmitting ? <Spinner /> : null}

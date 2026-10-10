@@ -14,6 +14,14 @@ import { Field, FieldLabel } from "~/components/ui/field"
 import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
 import { toast } from "~/components/ui/toast"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemGroup,
+  ItemTitle,
+} from "~/components/ui/item"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 import { type Viewer, atLeast } from "../lib/roles"
@@ -84,27 +92,33 @@ export function OrgCollectionsTab({
         </form>
       ) : null}
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {t("collections.empty")}
-        </p>
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyDescription>{t("collections.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ItemGroup className="gap-2">
           {items.map((collection) => (
-            <li key={collection.id} className="flex items-center gap-2 text-sm">
-              <Link
-                to={`/collections/${collection.id}`}
-                className="underline underline-offset-4"
-              >
-                {collection.title}
-              </Link>
-              <Badge variant="secondary">
-                {collection.visibility === "organization"
-                  ? t("collections.shared")
-                  : t("collections.private")}
-              </Badge>
-            </li>
+            <Item
+              key={collection.id}
+              variant="outline"
+              size="sm"
+              render={<Link to={`/collections/${collection.id}`} />}
+            >
+              <ItemContent>
+                <ItemTitle>{collection.title}</ItemTitle>
+              </ItemContent>
+              <ItemActions>
+                <Badge variant="secondary">
+                  {collection.visibility === "organization"
+                    ? t("collections.shared")
+                    : t("collections.private")}
+                </Badge>
+              </ItemActions>
+            </Item>
           ))}
-        </ul>
+        </ItemGroup>
       )}
     </div>
   )

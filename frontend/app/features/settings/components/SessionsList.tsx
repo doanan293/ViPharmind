@@ -11,6 +11,15 @@ import type { SessionView } from "~/api/gen/schemas"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { Spinner } from "~/components/ui/spinner"
+import { Alert, AlertDescription } from "~/components/ui/alert"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "~/components/ui/item"
 
 const BROWSERS = ["Edg", "Chrome", "Firefox", "Safari"] as const
 
@@ -40,9 +49,9 @@ export function SessionsList() {
   if (sessions.isError) {
     return (
       <div className="flex flex-col items-start gap-2 text-sm">
-        <p role="alert" className="text-destructive">
-          {t("sessions.loadFailed")}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{t("sessions.loadFailed")}</AlertDescription>
+        </Alert>
         <Button
           type="button"
           variant="outline"
@@ -59,45 +68,44 @@ export function SessionsList() {
   }
   return (
     <div className="flex flex-col gap-3">
-      <ul className="flex flex-col gap-2">
+      <ItemGroup className="gap-2">
         {sessions.data.map((session) => (
-          <li
-            key={session.id}
-            className="flex items-center justify-between gap-2 text-sm"
-          >
-            <div className="flex flex-col">
-              <span className="flex items-center gap-2">
+          <Item key={session.id} variant="outline" size="sm">
+            <ItemContent>
+              <ItemTitle>
                 {browserOf(session)}
                 {session.current ? (
                   <Badge variant="secondary">{t("sessions.current")}</Badge>
                 ) : null}
-              </span>
-              <span className="text-muted-foreground">
+              </ItemTitle>
+              <ItemDescription>
                 {session.ip_address} ·{" "}
                 {format.format(
                   new Date(session.last_used_at ?? session.created_at)
                 )}
-              </span>
-            </div>
+              </ItemDescription>
+            </ItemContent>
             {session.current ? null : (
-              <Button
-                type="button"
-                variant="outline"
-                aria-label={t("sessions.revokeOne", {
-                  device: browserOf(session),
-                })}
-                onClick={() =>
-                  void revoke
-                    .mutateAsync({ sessionId: session.id })
-                    .then(refresh)
-                }
-              >
-                {t("sessions.revoke")}
-              </Button>
+              <ItemActions>
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-label={t("sessions.revokeOne", {
+                    device: browserOf(session),
+                  })}
+                  onClick={() =>
+                    void revoke
+                      .mutateAsync({ sessionId: session.id })
+                      .then(refresh)
+                  }
+                >
+                  {t("sessions.revoke")}
+                </Button>
+              </ItemActions>
             )}
-          </li>
+          </Item>
         ))}
-      </ul>
+      </ItemGroup>
       {sessions.data.some((session) => !session.current) ? (
         <Button
           type="button"

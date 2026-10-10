@@ -152,11 +152,7 @@ export function PasswordForm({
           </Field>
         )}
       />
-      {rootError === undefined ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {rootError}
-        </p>
-      )}
+      {rootError === undefined ? null : <FieldError>{rootError}</FieldError>}
       <Button type="submit" className="self-start" disabled={change.isPending}>
         {t("password.submit")}
       </Button>
