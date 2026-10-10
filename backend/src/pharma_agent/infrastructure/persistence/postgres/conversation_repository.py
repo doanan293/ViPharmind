@@ -44,6 +44,9 @@ def _conversation(row: ConversationTable) -> Conversation:
         summarized_turns=row.summarized_turns,
         created_at=row.created_at,
         updated_at=row.updated_at,
+        collection_ids=None
+        if row.collection_ids is None
+        else tuple(row.collection_ids),
     )
 
 
@@ -90,6 +93,9 @@ class PostgresConversationRepository:
                     summarized_turns=conversation.summarized_turns,
                     created_at=conversation.created_at,
                     updated_at=conversation.updated_at,
+                    collection_ids=None
+                    if conversation.collection_ids is None
+                    else list(conversation.collection_ids),
                 )
             )
 

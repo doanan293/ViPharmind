@@ -1,4 +1,6 @@
 import re
+import uuid
+from collections.abc import Sequence
 
 import pytest
 
@@ -19,6 +21,7 @@ from pharma_agent.domain.agent.schemas import (
 from pharma_agent.domain.conversation.models import Conversation
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict
 from pharma_agent.domain.llm.models import LlmRole
+from pharma_agent.domain.retrieval.models import ReleaseScope
 from pharma_agent.domain.shared.clock import FixedClock
 from tests.domain.factories import make_hit
 from tests.fakes import NOW, FakeLlm, FakeRetriever, build_deps
@@ -46,15 +49,38 @@ def scripted_turn(llm: FakeLlm, standalone: str) -> None:
     )
 
 
+class FakeScopes:
+    def __init__(self, scope: ReleaseScope) -> None:
+        self.scope = scope
+        self.calls: list[tuple[str, list[uuid.UUID] | None]] = []
+
+    async def resolve(
+        self, *, user_id: str, requested: Sequence[uuid.UUID] | None
+    ) -> ReleaseScope:
+        self.calls.append((user_id, None if requested is None else list(requested)))
+        return self.scope
+
+
 def service_with(
-    llm: FakeLlm, repo: InMemoryConversationRepository, rounds: int = 2
+    llm: FakeLlm,
+    repo: InMemoryConversationRepository,
+    rounds: int = 2,
+    *,
+    scopes: FakeScopes | None = None,
+    retriever: FakeRetriever | None = None,
 ) -> ChatService:
-    retriever = FakeRetriever(*[[make_hit(f"c{i}", fusion=0.9)] for i in range(rounds)])
+    retriever = retriever or FakeRetriever(
+        *[[make_hit(f"c{i}", fusion=0.9)] for i in range(rounds)]
+    )
     runner = ChatTurnRunner(
         build_chat_graph(), build_deps(llm, retriever), BudgetLimits()
     )
     return ChatService(
-        runner, repo, FixedClock(NOW), MemoryPolicy(context_turns=4, context_chars=4000)
+        runner,
+        repo,
+        FixedClock(NOW),
+        MemoryPolicy(context_turns=4, context_chars=4000),
+        scopes=scopes,
     )
 
 
@@ -213,3 +239,46 @@ async def test_renamed_empty_conversation_keeps_its_title() -> None:
     )
 
     assert repo.rows[empty.conversation_id].title == "Hỏi về thuốc hạ sốt"
+
+
+async def test_a_new_conversation_keeps_its_sources_and_searches_only_them() -> None:
+    llm, repo = FakeLlm(), InMemoryConversationRepository()
+    scripted_turn(llm, "Liều paracetamol")
+    chosen = uuid.uuid4()
+    scope = {chosen: uuid.uuid4()}
+    scopes = FakeScopes(scope)
+    retriever = FakeRetriever([make_hit("c0", fusion=0.9)])
+    service = service_with(llm, repo, scopes=scopes, retriever=retriever)
+
+    session = await service.open_turn(
+        user_id=OWNER,
+        message="Paracetamol?",
+        conversation_id=None,
+        collection_ids=[chosen],
+    )
+    await collect(session.events())
+
+    assert repo.rows[session.conversation_id].collection_ids == (chosen,)
+    assert scopes.calls == [(OWNER, [chosen])]
+    assert retriever.scopes and all(s == scope for s in retriever.scopes)
+
+
+async def test_a_follow_up_uses_the_sources_stored_on_the_conversation() -> None:
+    llm, repo = FakeLlm(), InMemoryConversationRepository()
+    chosen = uuid.uuid4()
+    stored = Conversation.start(user_id=OWNER, first_message="Trước", now=NOW)
+    await repo.create(stored.model_copy(update={"collection_ids": (chosen,)}))
+    scripted_turn(llm, "Tiếp theo")
+    scopes = FakeScopes({})
+    service = service_with(llm, repo, scopes=scopes)
+
+    session = await service.open_turn(
+        user_id=OWNER,
+        message="Tiếp theo?",
+        conversation_id=stored.conversation_id,
+        collection_ids=[uuid.uuid4()],
+    )
+    await collect(session.events())
+
+    # collection_ids only applies to a new conversation.
+    assert scopes.calls == [(OWNER, [chosen])]

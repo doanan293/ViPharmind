@@ -303,3 +303,31 @@ async def test_verify_corpus_requires_a_current_release_for_every_scoped_collect
         await retriever(FakeQdrant([], metadata={}), ready).verify_corpus(
             embedding_model="m", dimension=2
         )
+
+
+async def test_a_given_scope_replaces_the_configured_collections() -> None:
+    client = FakeQdrant([point("c1", 0.5)])
+    reader = FakeReader({COLLECTION_ID: RELEASE_ID}, [record("c1")])
+
+    hits = await retriever(client, reader).search_many(
+        [Query(text="q", origin=QueryOrigin.INITIAL)],
+        top_k=5,
+        scope={COLLECTION_ID: RELEASE_ID},
+    )
+
+    assert reader.release_calls == []
+    assert [h.chunk_version_id for h in hits[0]] == [chunk_uuid("c1")]
+    query_filter = client.query_calls[0]["query_filter"]
+    assert query_filter == release_scope_filter({COLLECTION_ID: RELEASE_ID})
+
+
+async def test_an_empty_scope_queries_nothing() -> None:
+    client = FakeQdrant([point("c1", 0.5)])
+    reader = FakeReader({COLLECTION_ID: RELEASE_ID}, [record("c1")])
+
+    hits = await retriever(client, reader).search_many(
+        [Query(text="q", origin=QueryOrigin.INITIAL)], top_k=5, scope={}
+    )
+
+    assert hits == [[]]
+    assert client.query_calls == [] and reader.release_calls == []

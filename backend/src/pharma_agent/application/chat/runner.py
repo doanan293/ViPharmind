@@ -26,6 +26,7 @@ from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.agent.prompts import fallback_text
 from pharma_agent.domain.agent.run import AgentRun, ErrorCode
 from pharma_agent.domain.conversation.models import Citation, ConversationContext
+from pharma_agent.domain.retrieval.models import ReleaseScope
 
 
 class TurnOutcome(BaseModel):
@@ -50,9 +51,11 @@ class ChatTurnExecution:
         conversation: ConversationContext,
         conversation_id: str | None,
         pipeline: PipelineOptions,
+        scope: ReleaseScope | None = None,
     ) -> None:
         self._graph = graph
         self._pipeline = pipeline
+        self._scope = scope
         self._deps = deps
         self._limits = limits
         self._tracer = tracer
@@ -99,7 +102,10 @@ class ChatTurnExecution:
         config: RunnableConfig = {"callbacks": list(handle.callbacks)}
         modes: list[StreamMode] = ["custom", "values"]
         context = TurnContext(
-            deps=self._deps, conversation=self._conversation, pipeline=self._pipeline
+            deps=self._deps,
+            conversation=self._conversation,
+            pipeline=self._pipeline,
+            scope=self._scope,
         )
         try:
             async with asyncio.timeout(self._limits.deadline_seconds):
@@ -206,6 +212,7 @@ class ChatTurnRunner:
         message: str,
         conversation: ConversationContext | None = None,
         conversation_id: str | None = None,
+        scope: ReleaseScope | None = None,
     ) -> ChatTurnExecution:
         return ChatTurnExecution(
             self._graph,
@@ -217,4 +224,5 @@ class ChatTurnRunner:
             conversation=conversation or ConversationContext(),
             conversation_id=conversation_id,
             pipeline=self.pipeline,
+            scope=scope,
         )

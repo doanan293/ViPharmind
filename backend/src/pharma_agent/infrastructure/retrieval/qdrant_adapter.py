@@ -13,7 +13,7 @@ from uuid import UUID
 from qdrant_client import models
 
 from pharma_agent.domain.corpus.ports import Embedder
-from pharma_agent.domain.retrieval.models import Hit, Query
+from pharma_agent.domain.retrieval.models import Hit, Query, ReleaseScope
 from pharma_agent.domain.retrieval.ports import ChunkKey, CorpusReader, RetrievalError
 
 DENSE_VECTOR_NAME = "dense_vector"
@@ -116,25 +116,25 @@ class QdrantHybridRetriever:
         self._semaphore = asyncio.Semaphore(max_concurrent)
 
     async def search_many(
-        self, queries: Sequence[Query], top_k: int
+        self, queries: Sequence[Query], top_k: int, scope: ReleaseScope | None = None
     ) -> list[list[Hit]]:
+        """`scope` is what a user may search; None falls back to the configured
+        collections, for runs without a user (evaluation, CLI)."""
         if not queries:
             return []
-        releases = await self._reader.current_releases(self._scope)
+        releases = dict(scope) if scope is not None else await self._default_releases()
         if not releases:
-            raise RetrievalError(
-                f"no current release for collections {', '.join(self._scope)}"
-            )
+            return [[] for _ in queries]
         # bm25 needs no query vector, so the embedding endpoint is not called at all.
         vectors: list[list[float] | None] = [None] * len(queries)
         if self._mode != "bm25":
             embedded = await self._embedder.embed([q.text for q in queries])
             vectors = [*embedded]
-        scope = release_scope_filter(releases)
+        release_filter = release_scope_filter(releases)
         try:
             ranked = await asyncio.gather(
                 *(
-                    self._search_one(q, v, top_k, scope)
+                    self._search_one(q, v, top_k, release_filter)
                     for q, v in zip(queries, vectors, strict=True)
                 )
             )
@@ -243,6 +243,14 @@ class QdrantHybridRetriever:
                 f"collection {self._collection} metadata {metadata!r} does not match "
                 f"embedding model {embedding_model} with {dimension} dims"
             )
+
+    async def _default_releases(self) -> dict[UUID, UUID]:
+        releases = await self._reader.current_releases(self._scope)
+        if not releases:
+            raise RetrievalError(
+                f"no current release for collections {', '.join(self._scope)}"
+            )
+        return releases
 
     async def verify_corpus(self, *, embedding_model: str, dimension: int) -> None:
         """Raise RetrievalError unless the collection matches the embedding settings and every

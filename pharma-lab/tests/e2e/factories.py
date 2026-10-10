@@ -7,7 +7,13 @@ from collections.abc import AsyncIterator, Sequence
 from typing import TypeVar
 
 from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
-from pharma_agent.domain.retrieval.models import Chunk, Hit, HydrateStrategy, Query
+from pharma_agent.domain.retrieval.models import (
+    Chunk,
+    Hit,
+    HydrateStrategy,
+    Query,
+    ReleaseScope,
+)
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
 from pharma_agent.infrastructure.retrieval.llama_cpp_reranker import NoopReranker
 from pydantic import BaseModel
@@ -85,8 +91,10 @@ class FakeRetriever:
         self.queries: list[list[str]] = []
 
     async def search_many(
-        self, queries: Sequence[Query], top_k: int
+        self, queries: Sequence[Query], top_k: int, scope: ReleaseScope | None = None
     ) -> list[list[Hit]]:
+        # Evaluation runs have no user, so the harness never passes a scope.
+        assert scope is None
         self.queries.append([query.text for query in queries])
         return [list(self.hits[:top_k]) for _ in queries]
 
