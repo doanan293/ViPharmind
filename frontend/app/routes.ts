@@ -10,6 +10,7 @@ export default [
   route("en", "routes/public/landing.tsx", { id: "landing-en" }),
   route("login", "routes/auth/login.tsx"),
   route("register", "routes/auth/register.tsx"),
+  route("forgot-password", "routes/auth/forgot-password.tsx"),
   route("auth/google/callback", "routes/auth/google-callback.tsx"),
   layout("routes/app/layout.tsx", [
     route("chat/:conversationId?", "routes/app/chat.tsx"),
