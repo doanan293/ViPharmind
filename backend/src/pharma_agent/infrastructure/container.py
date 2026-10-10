@@ -26,7 +26,6 @@ from pharma_agent.infrastructure.persistence.postgres.citation_reader import (
     PostgresCitationReader,
 )
 from pharma_agent.infrastructure.persistence.postgres.conversation_repository import (
-    AuditContext,
     PostgresConversationRepository,
 )
 from pharma_agent.infrastructure.persistence.postgres.database import Database
@@ -44,13 +43,11 @@ CORPUS_NOT_READY = "CORPUS_NOT_READY"
 
 @dataclass
 class Container:
-    settings: Settings
     sessions: async_sessionmaker[AsyncSession] | None
     queries: ConversationQueries
     chat: ChatService | None = None
     summarizer: SummarizeConversation | None = None
     feedback: FeedbackService | None = None
-    tracing: Tracing = field(default_factory=NullTracing)
     health_checks: dict[str, HealthCheck] = field(default_factory=dict)
     # Reason code /health reports when the named check fails.
     health_reasons: dict[str, str] = field(default_factory=dict)
@@ -88,15 +85,7 @@ async def open_container(
         echo=settings.postgres.echo,
     )
     clock = SystemClock()
-    repository = PostgresConversationRepository(
-        database.sessions,
-        AuditContext(
-            embedding_model=settings.retrieval.embedding.model,
-            retriever_config=settings.retrieval.model_dump(
-                mode="json", exclude={"embedding": {"api_key"}, "rerank": {"api_key"}}
-            ),
-        ),
-    )
+    repository = PostgresConversationRepository(database.sessions)
     tracing: Tracing = (
         LangfuseTracing.from_settings(settings.langfuse)
         if settings.langfuse.enabled
@@ -104,7 +93,6 @@ async def open_container(
     )
     feedback_repository = PostgresFeedbackRepository(database.sessions)
     container = Container(
-        settings=settings,
         sessions=database.sessions,
         queries=ConversationQueries(
             repository,
@@ -113,7 +101,6 @@ async def open_container(
             citations=PostgresCitationReader(database.sessions),
         ),
         feedback=FeedbackService(repository, feedback_repository, tracing, clock),
-        tracing=tracing,
         health_checks={"postgres": database.ping},
     )
     try:

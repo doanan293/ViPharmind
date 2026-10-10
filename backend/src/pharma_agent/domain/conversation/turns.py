@@ -17,7 +17,6 @@ def build_turn_messages(
     run: AgentRun,
     answer_text: str,
     citations: Sequence[Citation],
-    phases: Sequence[str],
     now: datetime,
 ) -> tuple[Message, Message]:
     status = run.status.value
@@ -37,7 +36,6 @@ def build_turn_messages(
         content=answer_text,
         status=status,
         citations=list(citations),
-        phases=list(phases),
         usage=run.usage.model_dump(),
         run_id=run.run_id,
         created_at=now + _ASSISTANT_OFFSET,

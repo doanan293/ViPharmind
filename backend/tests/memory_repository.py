@@ -10,7 +10,6 @@ from pharma_agent.domain.conversation.models import (
 )
 from pharma_agent.domain.conversation.turns import pair_turns
 from pharma_agent.domain.feedback.models import Feedback
-from pharma_agent.domain.retrieval.audit import RetrievalRunRecord
 
 
 class InMemoryConversationRepository:
@@ -19,7 +18,6 @@ class InMemoryConversationRepository:
     def __init__(self) -> None:
         self.rows: dict[str, Conversation] = {}
         self.message_log: dict[str, list[Message]] = {}
-        self.audit: dict[str, list[RetrievalRunRecord]] = {}
         self.fail_append = False
 
     async def create(self, conversation: Conversation) -> None:
@@ -80,7 +78,6 @@ class InMemoryConversationRepository:
         conversation: Conversation,
         user_message: Message,
         assistant_message: Message,
-        audit: Sequence[RetrievalRunRecord],
     ) -> None:
         if self.fail_append:
             raise RuntimeError("database unavailable")
@@ -92,7 +89,6 @@ class InMemoryConversationRepository:
         self.message_log[conversation.conversation_id].extend(
             [user_message, assistant_message]
         )
-        self.audit[assistant_message.message_id] = list(audit)
 
     async def recent_turns(self, conversation_id: str, limit: int) -> list[Turn]:
         return pair_turns(self.message_log.get(conversation_id, []))[-limit:]

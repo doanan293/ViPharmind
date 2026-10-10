@@ -38,7 +38,6 @@ async def postgres_app(
     @asynccontextmanager
     async def factory(resolved: Settings) -> AsyncGenerator[Container]:
         yield Container(
-            settings=resolved,
             sessions=database.sessions,
             queries=ConversationQueries(
                 InMemoryConversationRepository(),

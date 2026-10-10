@@ -106,11 +106,6 @@ async def test_new_conversation_turn_is_persisted_with_audit() -> None:
     assert assistant_msg.message_id == session.assistant_message_id
     assert assistant_msg.citations
     assert done.data["created_at"] == assistant_msg.created_at.isoformat()
-    assert "answering" in assistant_msg.phases
-    assert (
-        repo.audit[assistant_msg.message_id][0].query_text
-        == "Liều paracetamol cho người lớn"
-    )
     assert session.result is not None and session.result.persisted is True
     assert session.result.created_at == assistant_msg.created_at
 

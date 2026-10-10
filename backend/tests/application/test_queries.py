@@ -51,11 +51,10 @@ async def add_turn(
         run=finished_run("q"),
         answer_text="a",
         citations=[],
-        phases=[],
         now=NOW,
     )
     conversation.record_turn(NOW)
-    await repo.append_turn(conversation, user_msg, assistant_msg, [])
+    await repo.append_turn(conversation, user_msg, assistant_msg)
 
 
 async def test_list_get_messages_rename_delete() -> None:
@@ -74,11 +73,10 @@ async def test_list_get_messages_rename_delete() -> None:
         run=finished_run("q"),
         answer_text="a",
         citations=[],
-        phases=["answering"],
         now=NOW,
     )
     older.record_turn(NOW + timedelta(minutes=2))
-    await repo.append_turn(older, user_msg, assistant_msg, [])
+    await repo.append_turn(older, user_msg, assistant_msg)
 
     listed = await queries.list_conversations(OWNER, limit=10)
     assert [c.title for c in listed.items] == ["older"]

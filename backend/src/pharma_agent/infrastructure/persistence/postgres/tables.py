@@ -8,10 +8,8 @@ from fastapi_users_db_sqlalchemy import (
 )
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyBaseAccessTokenTableUUID
 from sqlalchemy import (
-    Boolean,
     CheckConstraint,
     DateTime,
-    Float,
     ForeignKey,
     Index,
     Integer,
@@ -106,9 +104,6 @@ class MessageTable(Base):
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
-    phases: Mapped[list[str]] = mapped_column(
-        JSONB, nullable=False, server_default=text("'[]'::jsonb")
-    )
     usage: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
@@ -147,52 +142,6 @@ class MessageCitationTable(Base):
     block_chunk_version_ids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(Uuid), nullable=False
     )
-
-
-class RetrievalRunTable(Base):
-    __tablename__ = "retrieval_runs"
-    __table_args__ = (Index("ix_retrieval_runs_message", "message_id"),)
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    message_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
-    )
-    conversation_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
-    )
-    run_id: Mapped[str] = mapped_column(String(32), nullable=False)
-    round: Mapped[int] = mapped_column(Integer, nullable=False)
-    query_text: Mapped[str] = mapped_column(Text, nullable=False)
-    # str(collection_id) -> str(release_id). No FK into schema corpus, so gc is never blocked.
-    release_ids: Mapped[dict[str, str]] = mapped_column(
-        JSONB, nullable=False, server_default=text("'{}'::jsonb")
-    )
-    embedding_model: Mapped[str] = mapped_column(String(200), nullable=False)
-    retriever_config: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, nullable=False, server_default=text("'{}'::jsonb")
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-
-
-class RetrievalHitTable(Base):
-    __tablename__ = "retrieval_hits"
-
-    retrieval_run_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("retrieval_runs.id", ondelete="CASCADE"), primary_key=True
-    )
-    rank: Mapped[int] = mapped_column(Integer, primary_key=True)
-    chunk_version_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
-    section_key: Mapped[str] = mapped_column(Text, nullable=False)
-    table_key: Mapped[str | None] = mapped_column(Text, nullable=True)
-    fusion_score: Mapped[float] = mapped_column(Float, nullable=False)
-    rerank_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    hydrate_strategy: Mapped[str] = mapped_column(String(32), nullable=False)
-    cited: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default=text("false")
-    )
-    snippet: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
 
 
 class FeedbackTable(Base):

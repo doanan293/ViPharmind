@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Collection, Sequence
+from collections.abc import Collection
 from datetime import datetime
 from typing import Protocol
 
@@ -9,7 +9,6 @@ from pharma_agent.domain.conversation.models import (
     Message,
     Turn,
 )
-from pharma_agent.domain.retrieval.audit import RetrievalRunRecord
 
 
 class ConversationRepository(Protocol):
@@ -47,9 +46,8 @@ class ConversationRepository(Protocol):
         conversation: Conversation,
         user_message: Message,
         assistant_message: Message,
-        audit: Sequence[RetrievalRunRecord],
     ) -> None:
-        """Write both messages and the audit, and increment turn_count, in one transaction."""
+        """Write both messages and increment turn_count in one transaction."""
         ...
 
     async def recent_turns(self, conversation_id: str, limit: int) -> list[Turn]:

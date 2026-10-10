@@ -22,11 +22,10 @@ async def add_turn(harness: Harness, conversation: Conversation, at: datetime) -
         run=run,
         answer_text="a",
         citations=[],
-        phases=[],
         now=at,
     )
     conversation.record_turn(at)
-    await harness.repo.append_turn(conversation, user_msg, assistant_msg, [])
+    await harness.repo.append_turn(conversation, user_msg, assistant_msg)
 
 
 async def test_conversation_endpoints() -> None:
@@ -195,11 +194,10 @@ async def test_message_history_is_a_page_of_ui_messages() -> None:
         run=run,
         answer_text="Người lớn 0,5–1 g [1].",
         citations=[build_citation(1, release_id=OLD_RELEASE_ID)],
-        phases=["answering"],
         now=now,
     )
     conversation.record_turn(assistant_msg.created_at)
-    await harness.repo.append_turn(conversation, user_msg, assistant_msg, [])
+    await harness.repo.append_turn(conversation, user_msg, assistant_msg)
     await harness.feedback_repo.save(
         Feedback.create(
             user_id=OWNER.hex,
