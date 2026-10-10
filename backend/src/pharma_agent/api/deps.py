@@ -2,7 +2,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharma_agent.application.access.service import Actor
@@ -13,6 +13,8 @@ from pharma_agent.application.account.messages import (
 from pharma_agent.application.account.service import AccountService
 from pharma_agent.application.chat.service import ChatService
 from pharma_agent.application.corpus.collections import CollectionService
+from pharma_agent.application.corpus.content import ContentService
+from pharma_agent.application.corpus.jobs import PublishService
 from pharma_agent.application.errors import (
     AgentUnavailable,
     ServiceNotConfigured,
@@ -26,6 +28,10 @@ from pharma_agent.infrastructure.auth.users import (
     SessionLogin,
 )
 from pharma_agent.infrastructure.container import Container
+from pharma_agent.infrastructure.jobs.internal_auth import (
+    InternalAuthError,
+    verify_internal_request,
+)
 from pharma_agent.infrastructure.organizations_factory import OrganizationServices
 from pharma_agent.infrastructure.persistence.postgres.tables import UserTable
 
@@ -73,6 +79,29 @@ def user_id_dependency(auth: Auth) -> UserIdDependency:
 
 
 ActorDependency = Callable[..., Awaitable[Actor]]
+
+
+def require_content(container: Container) -> ContentService:
+    if container.content is None:
+        raise ServiceNotConfigured("authoring is not configured")
+    return container.content
+
+
+def require_publishing(container: Container) -> PublishService:
+    if container.publishing is None:
+        raise ServiceNotConfigured("publishing is not configured")
+    return container.publishing.service
+
+
+def verify_internal_caller(request: Request) -> None:
+    """Only the job runner (in-process token or Cloud Tasks OIDC) may call /internal."""
+    try:
+        verify_internal_request(request.headers, request.app.state.jobs_settings)
+    except InternalAuthError as exc:
+        raise HTTPException(status_code=401, detail="UNAUTHORIZED") from exc
+
+
+InternalCaller = Annotated[None, Depends(verify_internal_caller)]
 
 
 def require_collections(container: Container) -> CollectionService:

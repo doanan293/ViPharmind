@@ -223,6 +223,26 @@ class CorpusSettings(BaseModel):
     gc_keep: int = Field(default=2, ge=0)
 
 
+class JobsSettings(BaseModel):
+    """How publish jobs run (spec §5.3).
+
+    `inprocess` runs them in the API process (local, tests); `cloud_tasks` queues them on
+    Google Cloud Tasks, which calls the backend back with an OIDC token.
+    """
+
+    dispatcher: Literal["inprocess", "cloud_tasks"] = "inprocess"
+    # inprocess: the X-Internal-Token header of /internal calls.
+    internal_token: SecretStr | None = None
+    # cloud_tasks: the public URL of the backend, used as target and OIDC audience.
+    backend_url: str | None = None
+    cloud_tasks_project: str | None = None
+    cloud_tasks_location: str = "asia-southeast1"
+    cloud_tasks_queue: str = "ingest"
+    service_account_email: str | None = None
+    max_attempts: int = Field(default=3, ge=1)
+    dispatch_deadline_seconds: int = Field(default=600, ge=15, le=1800)
+
+
 class QuotaSettings(BaseModel):
     """Default quotas of spec §2; users and organizations may override them in the DB."""
 
@@ -280,3 +300,4 @@ class Settings(BaseSettings):
     memory: MemorySettings = Field(default_factory=MemorySettings)
     corpus: CorpusSettings = Field(default_factory=CorpusSettings)
     quotas: QuotaSettings = Field(default_factory=QuotaSettings)
+    jobs: JobsSettings = Field(default_factory=JobsSettings)

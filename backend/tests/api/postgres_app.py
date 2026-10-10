@@ -10,6 +10,7 @@ from sqlalchemy import text
 
 from pharma_agent.api.app import create_app
 from pharma_agent.application.conversation.service import ConversationService
+from pharma_agent.domain.corpus.ports import VectorIndex
 from pharma_agent.domain.shared.clock import SystemClock
 from pharma_agent.infrastructure.account_factory import build_account_service
 from pharma_agent.infrastructure.collections_factory import (
@@ -17,14 +18,17 @@ from pharma_agent.infrastructure.collections_factory import (
     build_content_service,
 )
 from pharma_agent.infrastructure.container import Container
+from pharma_agent.infrastructure.jobs.inprocess import InProcessDispatcher
 from pharma_agent.infrastructure.organizations_factory import (
     build_organization_services,
 )
 from pharma_agent.infrastructure.persistence.postgres.database import Database
+from pharma_agent.infrastructure.publishing_factory import Publishing, build_publishing
 from pharma_agent.infrastructure.settings import Settings
 from tests.account_fakes import RecordingEmailSender, RecordingSmsSender
 from tests.api.asgi import running
 from tests.corpus_memory import InMemoryVectorIndex
+from tests.fakes import FAKE_EMBEDDING_DIMENSION, FAKE_EMBEDDING_MODEL, FakeEmbedder
 from tests.memory_repository import (
     InMemoryCitationReader,
     InMemoryConversationRepository,
@@ -43,6 +47,14 @@ class AppOutbox:
 
     email: RecordingEmailSender = field(default_factory=RecordingEmailSender)
     sms: RecordingSmsSender = field(default_factory=RecordingSmsSender)
+    # Publish jobs the app queued; tests drain its dispatcher.
+    publishing: Publishing | None = None
+
+    async def drain_jobs(self) -> None:
+        assert self.publishing is not None
+        dispatcher = self.publishing.dispatcher
+        assert isinstance(dispatcher, InProcessDispatcher)
+        await dispatcher.drain()
 
 
 @asynccontextmanager
@@ -51,7 +63,10 @@ async def postgres_app(
     *,
     auth: dict[str, object] | None = None,
     api: dict[str, object] | None = None,
+    jobs: dict[str, object] | None = None,
+    index: VectorIndex | None = None,
 ) -> AsyncGenerator[tuple[httpx.AsyncClient, Database, AppOutbox]]:
+    """`index` replaces the in-memory vector index, for tests on a real Qdrant."""
     database = Database(dsn, pool_size=2)
     outbox = AppOutbox()
     # Every test client shares one fake IP and the database lives for the whole session,
@@ -68,10 +83,27 @@ async def postgres_app(
         },
         postgres={"dsn": dsn},
         api=api or {},
+        jobs=jobs or {},
+        retrieval={
+            "embedding": {
+                "model": FAKE_EMBEDDING_MODEL,
+                "dimension": FAKE_EMBEDDING_DIMENSION,
+            }
+        },
     )
+
+    vectors = index if index is not None else InMemoryVectorIndex()
 
     @asynccontextmanager
     async def factory(resolved: Settings) -> AsyncGenerator[Container]:
+        publishing = build_publishing(
+            resolved,
+            database.sessions,
+            index=vectors,
+            embedder=FakeEmbedder(),
+            clock=SystemClock(),
+        )
+        outbox.publishing = publishing
         yield Container(
             sessions=database.sessions,
             conversations=ConversationService(
@@ -95,11 +127,9 @@ async def postgres_app(
                 resolved, database.sessions, clock=SystemClock()
             ),
             collections=build_collection_service(
-                resolved,
-                database.sessions,
-                index=InMemoryVectorIndex(),
-                clock=SystemClock(),
+                resolved, database.sessions, index=vectors, clock=SystemClock()
             ),
+            publishing=publishing,
         )
 
     try:
