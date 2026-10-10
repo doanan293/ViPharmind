@@ -169,6 +169,13 @@ class PublishService:
         await self._dispatcher.enqueue(job.id)
         return await self._view(job)
 
+    async def recent(self, actor: Actor, *, limit: int) -> list[JobView]:
+        if not actor.is_superadmin:
+            raise ForbiddenRole("only superadmins list every job")
+        return [
+            await self._view(job) for job in await self._jobs.list_recent(limit=limit)
+        ]
+
     async def get_job(self, actor: Actor, job_id: uuid.UUID) -> JobView:
         job = await self._jobs.get(job_id)
         if job is None:

@@ -4,15 +4,29 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Select, delete, func, insert, select, update
+from sqlalchemy import (
+    DateTime,
+    Select,
+    Uuid,
+    delete,
+    func,
+    insert,
+    literal,
+    or_,
+    select,
+    tuple_,
+    update,
+)
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharma_agent.domain.account.models import AccountConflict, AccountUser
+from pharma_agent.domain.shared.transaction import Transaction
 from pharma_agent.infrastructure.persistence.postgres.tables import (
     OAuthAccountTable,
     UserTable,
 )
+from pharma_agent.infrastructure.persistence.postgres.transaction import session_of
 
 # fastapi-users declares these columns with plain Python types for type checkers, so the
 # SQL expressions below use the table's own columns.
@@ -35,6 +49,7 @@ def _account(row: UserTable) -> AccountUser:
         is_superuser=row.is_superuser,
         text_quota_bytes=row.text_quota_bytes,
         collection_quota=row.collection_quota,
+        created_at=row.created_at,
     )
 
 
@@ -131,3 +146,77 @@ class PostgresAccountRepository:
 
     async def update_display_name(self, user_id: uuid.UUID, display_name: str) -> None:
         await self._update(user_id, {"display_name": display_name})
+
+
+class PostgresAccountAdmin:
+    """AccountAdmin: account changes the superadmin console makes in a transaction."""
+
+    def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        self._sessions = sessions
+
+    async def get(self, user_id: uuid.UUID) -> AccountUser | None:
+        async with self._sessions() as session:
+            row = (
+                (await session.execute(select(UserTable).where(_user.id == user_id)))
+                .unique()
+                .scalar_one_or_none()
+            )
+        return None if row is None else _account(row)
+
+    async def search(
+        self,
+        query: str | None,
+        *,
+        limit: int,
+        cursor: tuple[datetime, str] | None,
+    ) -> list[AccountUser]:
+        statement = select(UserTable)
+        if query:
+            pattern = f"%{query}%"
+            statement = statement.where(
+                or_(
+                    _user.email.ilike(pattern),
+                    _user.phone_number.ilike(pattern),
+                    _user.display_name.ilike(pattern),
+                )
+            )
+        if cursor is not None:
+            at, key = cursor
+            statement = statement.where(
+                tuple_(_user.created_at, _user.id)
+                < tuple_(
+                    literal(at, DateTime(timezone=True)),
+                    literal(uuid.UUID(hex=key), Uuid()),
+                )
+            )
+        statement = statement.order_by(_user.created_at.desc(), _user.id.desc()).limit(
+            limit
+        )
+        async with self._sessions() as session:
+            rows = (await session.execute(statement)).unique().scalars().all()
+        return [_account(row) for row in rows]
+
+    async def set_active(
+        self, user_id: uuid.UUID, active: bool, tx: Transaction
+    ) -> None:
+        await session_of(tx).execute(
+            update(UserTable)
+            .where(_user.id == user_id)
+            .values({_user.is_active: active})
+        )
+
+    async def set_quotas(
+        self,
+        user_id: uuid.UUID,
+        *,
+        text_quota_bytes: int | None,
+        collection_quota: int | None,
+        tx: Transaction,
+    ) -> None:
+        await session_of(tx).execute(
+            update(UserTable)
+            .where(_user.id == user_id)
+            .values(
+                text_quota_bytes=text_quota_bytes, collection_quota=collection_quota
+            )
+        )

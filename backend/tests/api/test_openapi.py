@@ -88,6 +88,15 @@ EXPECTED_OPERATION_IDS = {
     "collections:rollback",
     "collections:releases",
     "jobs:get",
+    "admin:users.list",
+    "admin:users.update",
+    "admin:organizations.list",
+    "admin:organizations.update",
+    "admin:collections.list",
+    "admin:ingest_jobs.list",
+    "admin:users.conversations",
+    "admin:conversations.messages",
+    "admin:audit",
 }
 
 

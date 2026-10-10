@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharma_agent.application.access.service import ActorResolver
+from pharma_agent.application.admin.service import AdminService
 from pharma_agent.application.audit.service import AuditService
 from pharma_agent.application.organizations.invitations import (
     InvitationPolicy,
@@ -15,6 +16,7 @@ from pharma_agent.domain.account.ports import EmailSender
 from pharma_agent.domain.shared.clock import Clock
 from pharma_agent.infrastructure.notifications.factory import build_email_sender
 from pharma_agent.infrastructure.persistence.postgres.account_repository import (
+    PostgresAccountAdmin,
     PostgresAccountRepository,
 )
 from pharma_agent.infrastructure.persistence.postgres.audit_log import PostgresAuditLog
@@ -26,6 +28,9 @@ from pharma_agent.infrastructure.persistence.postgres.organization_repository im
 )
 from pharma_agent.infrastructure.persistence.postgres.rate_limiter import (
     PostgresRateLimiter,
+)
+from pharma_agent.infrastructure.persistence.postgres.session_store import (
+    PostgresSessionStore,
 )
 from pharma_agent.infrastructure.persistence.postgres.transaction import (
     PostgresTransactionFactory,
@@ -39,6 +44,7 @@ class OrganizationServices:
     organizations: OrganizationService
     invitations: InvitationService
     audit: AuditService
+    admin: AdminService
 
 
 def build_organization_services(
@@ -70,5 +76,17 @@ def build_organization_services(
         ),
         audit=AuditService(
             audit=audit, accounts=accounts, organizations=organizations, clock=clock
+        ),
+        admin=AdminService(
+            accounts=PostgresAccountAdmin(sessions),
+            organizations=organizations,
+            sessions=PostgresSessionStore(
+                sessions,
+                lifetime_seconds=settings.auth.session_lifetime_seconds,
+                clock=clock,
+            ),
+            audit=audit,
+            tx=tx,
+            clock=clock,
         ),
     )
