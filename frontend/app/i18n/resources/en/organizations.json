@@ -82,7 +82,8 @@
     "create": "Create a collection",
     "title": "Collection name",
     "private": "Draft (owners and editors only)",
-    "shared": "Whole organization"
+    "shared": "Whole organization",
+    "titleRequired": "Enter a title."
   },
   "landing": {
     "title": "Invitation to an organization",

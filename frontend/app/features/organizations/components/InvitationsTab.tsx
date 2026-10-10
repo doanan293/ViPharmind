@@ -1,5 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { type FormEvent, useState } from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useState } from "react"
+import { Controller, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 
 import {
@@ -11,10 +13,11 @@ import {
   useInvitationsResend,
   useInvitationsRevoke,
 } from "~/api/gen/endpoints"
-import type { InvitationView, Role } from "~/api/gen/schemas"
+import { InvitationsCreateBody } from "~/api/gen/zod"
+import type { InvitationView } from "~/api/gen/schemas"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
-import { Field, FieldLabel } from "~/components/ui/field"
+import { Field, FieldError, FieldLabel } from "~/components/ui/field"
 import { Input } from "~/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { Spinner } from "~/components/ui/spinner"
@@ -29,6 +32,7 @@ import {
 } from "~/components/ui/item"
 import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { apiErrorMessage } from "~/i18n/error-message"
+import { applyApiError } from "~/lib/form-errors"
 
 import { type Viewer, atLeast, invitableRoles } from "../lib/roles"
 
@@ -51,8 +55,11 @@ export function InvitationsTab({
   const revoke = useInvitationsRevoke()
   const resend = useInvitationsResend()
   const roles = invitableRoles(viewer)
-  const [email, setEmail] = useState("")
-  const [role, setRole] = useState<Role>("member")
+  const form = useForm({
+    resolver: zodResolver(InvitationsCreateBody),
+    defaultValues: { email: "", role: "member" as const },
+  })
+  const serverError = form.formState.errors.root?.server?.message
   const [notice, setNotice] = useState<string | null>(null)
   const canDecide = atLeast(viewer, "editor")
   const format = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" })
@@ -68,23 +75,27 @@ export function InvitationsTab({
     onError: fail,
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    create.mutate(
-      { organizationId, data: { email: email.trim(), role } },
-      {
-        onSuccess: (created) => {
-          setEmail("")
-          setNotice(
-            created.status === "pending_approval"
-              ? t("invitations.pending")
-              : t("invitations.sent")
-          )
-          void refresh()
-        },
-        onError: fail,
-      }
-    )
+  async function onSubmit(data: {
+    email: string
+    role: InvitationView["role"]
+  }) {
+    try {
+      const created = await create.mutateAsync({ organizationId, data })
+      form.reset({ email: "", role: data.role })
+      setNotice(
+        created.status === "pending_approval"
+          ? t("invitations.pending")
+          : t("invitations.sent")
+      )
+      await refresh()
+    } catch (error) {
+      applyApiError(
+        error,
+        form.setError,
+        ["email", "role"],
+        apiErrorMessage(error, tErrors)
+      )
+    }
   }
 
   function actions(invitation: InvitationView) {
@@ -151,43 +162,64 @@ export function InvitationsTab({
     <div className="flex flex-col gap-6">
       {roles.length > 0 ? (
         <form
-          onSubmit={submit}
-          className="flex flex-col gap-3 sm:flex-row sm:items-end"
+          noValidate
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex flex-col gap-3 sm:flex-row sm:items-start"
         >
-          <Field className="flex-1">
-            <FieldLabel htmlFor="invite-email">
-              {t("invitations.email")}
-            </FieldLabel>
-            <Input
-              id="invite-email"
-              type="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </Field>
-          <Field className="sm:w-48">
-            <FieldLabel htmlFor="invite-role">
-              {t("invitations.role")}
-            </FieldLabel>
-            <NativeSelect
-              id="invite-role"
-              value={role}
-              onChange={(event) => {
-                const next = roles.find((value) => value === event.target.value)
-                if (next !== undefined) setRole(next)
-              }}
-            >
-              {roles.map((value) => (
-                <NativeSelectOption key={value} value={value}>
-                  {t(`role.${value}`)}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </Field>
+          <Controller
+            name="email"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field className="flex-1" data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor="invite-email">
+                  {t("invitations.email")}
+                </FieldLabel>
+                <Input
+                  {...field}
+                  id="invite-email"
+                  type="email"
+                  autoComplete="off"
+                  aria-invalid={fieldState.invalid}
+                />
+                <FieldError errors={[fieldState.error]} />
+                {serverError === undefined ? null : (
+                  <FieldError>{serverError}</FieldError>
+                )}
+              </Field>
+            )}
+          />
+          <Controller
+            name="role"
+            control={form.control}
+            render={({ field }) => (
+              <Field className="sm:w-48">
+                <FieldLabel htmlFor="invite-role">
+                  {t("invitations.role")}
+                </FieldLabel>
+                <NativeSelect
+                  id="invite-role"
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  onChange={(event) => {
+                    const next = roles.find(
+                      (value) => value === event.target.value
+                    )
+                    if (next !== undefined) field.onChange(next)
+                  }}
+                >
+                  {roles.map((value) => (
+                    <NativeSelectOption key={value} value={value}>
+                      {t(`role.${value}`)}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+            )}
+          />
           <Button
             type="submit"
-            disabled={create.isPending || email.trim() === ""}
+            className="sm:mt-6"
+            disabled={form.formState.isSubmitting}
           >
             {t("invitations.invite")}
           </Button>

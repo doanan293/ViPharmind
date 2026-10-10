@@ -9,7 +9,8 @@
     "create": "Create a collection",
     "titleLabel": "Collection name",
     "quota": "Used {{used}} / {{limit}} characters · {{count}} / {{max}} collections",
-    "system": "System"
+    "system": "System",
+    "titleRequired": "Enter a title."
   },
   "visibility": {
     "label": "Who can see it",
@@ -112,6 +113,10 @@
       "table": "Insert table",
       "addRow": "Add row",
       "deleteTable": "Delete table"
-    }
+    },
+    "titleRequired": "Enter a title.",
+    "contentRequired": "Write some content.",
+    "tooLong": "The document is longer than {{max}} characters.",
+    "invalidUrl": "Enter a valid URL."
   }
 }

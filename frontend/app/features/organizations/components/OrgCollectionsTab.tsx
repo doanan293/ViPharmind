@@ -1,5 +1,4 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { type FormEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 
@@ -8,12 +7,9 @@ import {
   useCollectionsCreate,
   useCollectionsList,
 } from "~/api/gen/endpoints"
+import { NameForm } from "~/components/name-form"
 import { Badge } from "~/components/ui/badge"
-import { Button } from "~/components/ui/button"
-import { Field, FieldLabel } from "~/components/ui/field"
-import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
-import { toast } from "~/components/ui/toast"
 import {
   Item,
   ItemActions,
@@ -22,7 +18,6 @@ import {
   ItemTitle,
 } from "~/components/ui/item"
 import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
-import { apiErrorMessage } from "~/i18n/error-message"
 
 import { type Viewer, atLeast } from "../lib/roles"
 
@@ -34,29 +29,10 @@ export function OrgCollectionsTab({
   viewer: Viewer
 }) {
   const { t } = useTranslation("organizations")
-  const { t: tErrors } = useTranslation("errors")
   const queryClient = useQueryClient()
   const groups = useCollectionsList()
   const create = useCollectionsCreate()
-  const [title, setTitle] = useState("")
   const canCreate = atLeast(viewer, "editor")
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    create.mutate(
-      { data: { title: title.trim(), owner_organization_id: organizationId } },
-      {
-        onSuccess: () => {
-          setTitle("")
-          void queryClient.invalidateQueries({
-            queryKey: getCollectionsListQueryKey(),
-          })
-        },
-        onError: (error) =>
-          toast.add({ type: "error", title: apiErrorMessage(error, tErrors) }),
-      }
-    )
-  }
 
   if (groups.data === undefined) {
     return <Spinner />
@@ -68,28 +44,22 @@ export function OrgCollectionsTab({
   return (
     <div className="flex flex-col gap-6">
       {canCreate ? (
-        <form
-          onSubmit={submit}
-          className="flex flex-col gap-3 sm:flex-row sm:items-end"
-        >
-          <Field className="flex-1">
-            <FieldLabel htmlFor="org-collection-title">
-              {t("collections.title")}
-            </FieldLabel>
-            <Input
-              id="org-collection-title"
-              value={title}
-              maxLength={200}
-              onChange={(event) => setTitle(event.target.value)}
-            />
-          </Field>
-          <Button
-            type="submit"
-            disabled={create.isPending || title.trim() === ""}
-          >
-            {t("collections.create")}
-          </Button>
-        </form>
+        <NameForm
+          id="org-collection-title"
+          field="title"
+          label={t("collections.title")}
+          submitLabel={t("collections.create")}
+          requiredMessage={t("collections.titleRequired")}
+          maxLength={200}
+          onSubmit={async (title) => {
+            await create.mutateAsync({
+              data: { title, owner_organization_id: organizationId },
+            })
+            await queryClient.invalidateQueries({
+              queryKey: getCollectionsListQueryKey(),
+            })
+          }}
+        />
       ) : null}
       {items.length === 0 ? (
         <Empty className="border">

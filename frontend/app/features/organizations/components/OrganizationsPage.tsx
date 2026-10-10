@@ -1,4 +1,3 @@
-import { type FormEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router"
 
@@ -6,11 +5,9 @@ import {
   useOrganizationsCreate,
   useOrganizationsList,
 } from "~/api/gen/endpoints"
+import { NameForm } from "~/components/name-form"
 import { Badge } from "~/components/ui/badge"
-import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Field, FieldError, FieldLabel } from "~/components/ui/field"
-import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
 import {
   Item,
@@ -21,32 +18,12 @@ import {
   ItemTitle,
 } from "~/components/ui/item"
 import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
-import { apiErrorMessage } from "~/i18n/error-message"
 
 export function OrganizationsPage() {
   const { t } = useTranslation("organizations")
-  const { t: tErrors } = useTranslation("errors")
   const navigate = useNavigate()
   const organizations = useOrganizationsList()
   const create = useOrganizationsCreate()
-  const [name, setName] = useState("")
-  const [error, setError] = useState<string | null>(null)
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const trimmed = name.trim()
-    if (trimmed === "") {
-      setError(t("create.nameRequired"))
-      return
-    }
-    create.mutate(
-      { data: { name: trimmed } },
-      {
-        onSuccess: (created) => void navigate(`/organizations/${created.id}`),
-        onError: (failure) => setError(apiErrorMessage(failure, tErrors)),
-      }
-    )
-  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 md:p-8">
@@ -60,31 +37,18 @@ export function OrganizationsPage() {
           <CardTitle>{t("create.title")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form
-            noValidate
-            onSubmit={submit}
-            className="flex flex-col gap-3 sm:flex-row sm:items-end"
-          >
-            <Field className="flex-1" data-invalid={error !== null}>
-              <FieldLabel htmlFor="organization-name">
-                {t("create.name")}
-              </FieldLabel>
-              <Input
-                id="organization-name"
-                value={name}
-                maxLength={100}
-                aria-invalid={error !== null}
-                onChange={(event) => {
-                  setName(event.target.value)
-                  setError(null)
-                }}
-              />
-              {error === null ? null : <FieldError>{error}</FieldError>}
-            </Field>
-            <Button type="submit" disabled={create.isPending}>
-              {t("create.submit")}
-            </Button>
-          </form>
+          <NameForm
+            id="organization-name"
+            field="name"
+            label={t("create.name")}
+            submitLabel={t("create.submit")}
+            requiredMessage={t("create.nameRequired")}
+            maxLength={100}
+            onSubmit={async (name) => {
+              const created = await create.mutateAsync({ data: { name } })
+              await navigate(`/organizations/${created.id}`)
+            }}
+          />
         </CardContent>
       </Card>
       {organizations.data === undefined ? (

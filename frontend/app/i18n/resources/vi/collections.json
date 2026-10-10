@@ -9,7 +9,8 @@
     "create": "Tạo bộ tài liệu",
     "titleLabel": "Tên bộ tài liệu",
     "quota": "Đã dùng {{used}} / {{limit}} ký tự · {{count}} / {{max}} bộ tài liệu",
-    "system": "Hệ thống"
+    "system": "Hệ thống",
+    "titleRequired": "Nhập tên bộ tài liệu."
   },
   "visibility": {
     "label": "Ai được thấy",
@@ -112,6 +113,10 @@
       "table": "Chèn bảng",
       "addRow": "Thêm hàng",
       "deleteTable": "Xoá bảng"
-    }
+    },
+    "titleRequired": "Nhập tiêu đề.",
+    "contentRequired": "Nhập nội dung.",
+    "tooLong": "Tài liệu dài quá {{max}} ký tự.",
+    "invalidUrl": "Đường dẫn không hợp lệ."
   }
 }

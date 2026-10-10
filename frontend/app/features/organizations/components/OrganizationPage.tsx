@@ -22,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog"
+import { NameForm } from "~/components/name-form"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
@@ -72,7 +73,7 @@ export function OrganizationPage({
   const rename = useOrganizationsRename()
   const remove = useOrganizationsDelete()
   const leave = useOrganizationsLeave()
-  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState(false)
   const [confirm, setConfirm] = useState<Confirm>(null)
   const [typed, setTyped] = useState("")
 
@@ -110,7 +111,7 @@ export function OrganizationPage({
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 md:p-8">
       <title>{org.name}</title>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {renaming === null ? (
+        {!renaming ? (
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold">{org.name}</h1>
             <Badge variant="secondary">
@@ -118,45 +119,34 @@ export function OrganizationPage({
             </Badge>
           </div>
         ) : (
-          <form
-            className="flex items-center gap-2"
-            onSubmit={(event) => {
-              event.preventDefault()
-              rename.mutate(
-                { organizationId, data: { name: renaming.trim() } },
-                {
-                  onSuccess: (updated) => {
-                    queryClient.setQueryData(
-                      getOrganizationsGetQueryKey(organizationId),
-                      updated
-                    )
-                    setRenaming(null)
-                  },
-                  onError: fail,
-                }
+          <NameForm
+            id="organization-rename"
+            field="name"
+            label={t("create.name")}
+            hideLabel
+            defaultValue={org.name}
+            submitLabel={t("actions.save")}
+            cancelLabel={t("actions.cancel")}
+            requiredMessage={t("create.nameRequired")}
+            maxLength={100}
+            onCancel={() => setRenaming(false)}
+            onSubmit={async (name) => {
+              const updated = await rename.mutateAsync({
+                organizationId,
+                data: { name },
+              })
+              queryClient.setQueryData(
+                getOrganizationsGetQueryKey(organizationId),
+                updated
               )
+              setRenaming(false)
             }}
-          >
-            <Input
-              aria-label={t("create.name")}
-              value={renaming}
-              maxLength={100}
-              onChange={(event) => setRenaming(event.target.value)}
-            />
-            <Button type="submit">{t("actions.save")}</Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setRenaming(null)}
-            >
-              {t("actions.cancel")}
-            </Button>
-          </form>
+          />
         )}
         <div className="flex gap-2">
-          {atLeast(viewer, "owner") && renaming === null ? (
+          {atLeast(viewer, "owner") && !renaming ? (
             <>
-              <Button variant="outline" onClick={() => setRenaming(org.name)}>
+              <Button variant="outline" onClick={() => setRenaming(true)}>
                 {t("actions.rename")}
               </Button>
               <Button

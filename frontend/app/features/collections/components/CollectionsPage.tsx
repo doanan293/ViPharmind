@@ -1,4 +1,3 @@
-import { type FormEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router"
 
@@ -8,11 +7,9 @@ import {
   useCollectionsQuota,
 } from "~/api/gen/endpoints"
 import type { CollectionView } from "~/api/gen/schemas"
+import { NameForm } from "~/components/name-form"
 import { Badge } from "~/components/ui/badge"
-import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Field, FieldError, FieldLabel } from "~/components/ui/field"
-import { Input } from "~/components/ui/input"
 import { Progress } from "~/components/ui/progress"
 import { Spinner } from "~/components/ui/spinner"
 import {
@@ -24,7 +21,6 @@ import {
   ItemTitle,
 } from "~/components/ui/item"
 import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
-import { apiErrorMessage } from "~/i18n/error-message"
 
 function CollectionList({
   title,
@@ -96,23 +92,9 @@ function QuotaBar() {
 
 export function CollectionsPage() {
   const { t } = useTranslation("collections")
-  const { t: tErrors } = useTranslation("errors")
   const navigate = useNavigate()
   const groups = useCollectionsList()
   const create = useCollectionsCreate()
-  const [title, setTitle] = useState("")
-  const [error, setError] = useState<string | null>(null)
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    create.mutate(
-      { data: { title: title.trim() } },
-      {
-        onSuccess: (created) => void navigate(`/collections/${created.id}`),
-        onError: (failure) => setError(apiErrorMessage(failure, tErrors)),
-      }
-    )
-  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 md:p-8">
@@ -126,34 +108,18 @@ export function CollectionsPage() {
           <CardTitle>{t("list.create")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <form
-            noValidate
-            onSubmit={submit}
-            className="flex flex-col gap-3 sm:flex-row sm:items-end"
-          >
-            <Field className="flex-1" data-invalid={error !== null}>
-              <FieldLabel htmlFor="collection-title">
-                {t("list.titleLabel")}
-              </FieldLabel>
-              <Input
-                id="collection-title"
-                value={title}
-                maxLength={200}
-                aria-invalid={error !== null}
-                onChange={(event) => {
-                  setTitle(event.target.value)
-                  setError(null)
-                }}
-              />
-              {error === null ? null : <FieldError>{error}</FieldError>}
-            </Field>
-            <Button
-              type="submit"
-              disabled={create.isPending || title.trim() === ""}
-            >
-              {t("list.create")}
-            </Button>
-          </form>
+          <NameForm
+            id="collection-title"
+            field="title"
+            label={t("list.titleLabel")}
+            submitLabel={t("list.create")}
+            requiredMessage={t("list.titleRequired")}
+            maxLength={200}
+            onSubmit={async (title) => {
+              const created = await create.mutateAsync({ data: { title } })
+              await navigate(`/collections/${created.id}`)
+            }}
+          />
           <QuotaBar />
         </CardContent>
       </Card>
