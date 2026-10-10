@@ -183,7 +183,17 @@ uv run pytest -q -m integration  # cần Docker (Qdrant thật)
 - `src/pharma_agent/infrastructure`: OpenAI, Qdrant, llama.cpp, Postgres, settings, composition root.
 - `src/pharma_agent/api`: router FastAPI, chỉ gọi xuống `application`.
 
-Quy tắc phụ thuộc được kiểm tra bởi `tests/architecture/test_layering.py`.
+Quy tắc phụ thuộc được kiểm tra bởi `tests/architecture/test_layering.py`:
+
+- `domain` không import tầng nào khác và không dùng framework.
+- `application` không import `infrastructure` hay `api`. Ngoài LangGraph, nó chỉ chạm tới DB,
+  SDK hay HTTP qua các port của `domain`.
+- Mỗi feature trong `application/` chỉ import chính nó và các module chung ở gốc
+  `application/` (`errors`, `progress`, `pagination`, `tracing`). Use case của nhiều feature
+  được ghép ở `api` hoặc `infrastructure`.
+- `infrastructure` không import `api`.
+- `api` không gọi thẳng `domain`. Router chỉ gọi service của `application`, còn việc lắp
+  dependency từ `infrastructure` nằm ở `api/deps.py` và `api/app.py`.
 
 Mỗi feature trong `application/<feature>/` có một `service.py` với class `<Feature>Service`.
 Mỗi method công khai là một use case. Một use case chỉ tách thành class riêng trong file
