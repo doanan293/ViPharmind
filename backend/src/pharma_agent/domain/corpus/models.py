@@ -36,6 +36,7 @@ from pharma_agent.domain.shared.errors import DomainError
 
 class Visibility(StrEnum):
     PRIVATE = "private"
+    ORGANIZATION = "organization"
     PUBLIC = "public"
 
 
@@ -82,8 +83,14 @@ class Collection(_Frozen):
     key: str
     title: str
     owner_user_id: uuid.UUID | None = None
+    owner_organization_id: uuid.UUID | None = None
     visibility: Visibility = Visibility.PRIVATE
     current_release_id: uuid.UUID | None = None
+
+    @property
+    def is_system(self) -> bool:
+        """No owner: the shared corpus that only superadmin manages."""
+        return self.owner_user_id is None and self.owner_organization_id is None
 
 
 class ReleaseStats(_Frozen):
