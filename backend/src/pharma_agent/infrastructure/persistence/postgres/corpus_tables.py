@@ -67,8 +67,11 @@ class CollectionTable(Base):
     owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("user.id", ondelete="CASCADE"), nullable=True
     )
-    owner_organization_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True
+    # No foreign key: deleting an organization marks its collections deleted instead,
+    # because cited chunk versions are kept (RESTRICT) and block a cascade.
+    owner_organization_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     visibility: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="private"

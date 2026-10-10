@@ -7,6 +7,7 @@ repository only stores what the domain computed.
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
@@ -91,6 +92,22 @@ class Collection(_Frozen):
     def is_system(self) -> bool:
         """No owner: the shared corpus that only superadmin manages."""
         return self.owner_user_id is None and self.owner_organization_id is None
+
+
+@dataclass(frozen=True)
+class CollectionOwner:
+    """Who a collection belongs to: a user, an organization, or neither (the system)."""
+
+    user_id: uuid.UUID | None = None
+    organization_id: uuid.UUID | None = None
+
+    def __post_init__(self) -> None:
+        if self.user_id is not None and self.organization_id is not None:
+            raise ValueError("a collection has one owner")
+
+    @property
+    def is_system(self) -> bool:
+        return self.user_id is None and self.organization_id is None
 
 
 class ReleaseStats(_Frozen):

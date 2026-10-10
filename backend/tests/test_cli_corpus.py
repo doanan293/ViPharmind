@@ -13,6 +13,7 @@ from pharma_agent import cli
 from pharma_agent.domain.corpus.models import build_snapshot
 from pharma_agent.infrastructure.corpus_factory import CorpusServices
 from pharma_agent.infrastructure.settings import Settings
+from tests.collection_fakes import build_collection_service
 from tests.corpus_fixtures import (
     DOSAGE_SECTION,
     FIXTURE_DIR,
@@ -43,6 +44,9 @@ class FakeCorpus:
             importer=build_importer(self.adapters, self.embedder, clock=self.clock),
             releases=build_release_service(
                 self.adapters, self.embedder, clock=self.clock
+            ),
+            collections=build_collection_service(
+                self.adapters.repository, self.adapters.index, clock=self.clock
             ),
             index=self.adapters.index,
             embedder=self.embedder,
@@ -136,3 +140,11 @@ def test_release_commands(corpus: FakeCorpus, monkeypatch: pytest.MonkeyPatch) -
 
     unknown = invoke("rollback", "--collection", "missing")
     assert unknown.exit_code == 1 and "COLLECTION_NOT_FOUND" in unknown.output
+
+
+def test_purge_deleted_reports_how_many_collections_it_cleaned(
+    corpus: FakeCorpus,
+) -> None:
+    result = invoke("purge-deleted")
+    assert result.exit_code == 0, result.output
+    assert "purged 0 deleted collections" in result.output

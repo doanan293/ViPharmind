@@ -343,6 +343,17 @@ def _release_line(summary: ReleaseSummary) -> str:
     )
 
 
+@corpus_app.command("purge-deleted")
+def corpus_purge_deleted() -> None:
+    """Retire và xoá khỏi Qdrant các collection đã xoá cùng tổ chức."""
+
+    async def action(services: CorpusServices) -> None:
+        purged = await services.collections.purge_deleted()
+        typer.echo(f"purged {purged} deleted collections")
+
+    _run_corpus(action)
+
+
 @corpus_app.command("import")
 def corpus_import(
     bundle_dir: Path = typer.Argument(

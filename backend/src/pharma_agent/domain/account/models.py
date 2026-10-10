@@ -55,6 +55,9 @@ class AccountUser:
     google_linked: bool
     is_active: bool
     is_superuser: bool
+    # Overrides of the default quotas; None uses the configured default.
+    text_quota_bytes: int | None = None
+    collection_quota: int | None = None
 
     def sign_in_methods(self) -> set[SignInMethod]:
         """Ways this account can sign in now; a password needs a verified email to log in with."""

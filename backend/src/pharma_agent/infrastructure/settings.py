@@ -222,6 +222,17 @@ class CorpusSettings(BaseModel):
     gc_keep: int = Field(default=2, ge=0)
 
 
+class QuotaSettings(BaseModel):
+    """Default quotas of spec §2; users and organizations may override them in the DB."""
+
+    document_chars: int = Field(default=200_000, ge=1)
+    documents_per_collection: int = Field(default=100, ge=1)
+    user_text_bytes: int = Field(default=1_000_000, ge=0)
+    user_collections: int = Field(default=5, ge=0)
+    org_text_bytes: int = Field(default=5_000_000, ge=0)
+    org_collections: int = Field(default=20, ge=0)
+
+
 class EmailSettings(BaseModel):
     """Where account emails go. `log` writes them to the log: local runs and tests only."""
 
@@ -267,3 +278,4 @@ class Settings(BaseSettings):
     api: ApiSettings = Field(default_factory=ApiSettings)
     memory: MemorySettings = Field(default_factory=MemorySettings)
     corpus: CorpusSettings = Field(default_factory=CorpusSettings)
+    quotas: QuotaSettings = Field(default_factory=QuotaSettings)
