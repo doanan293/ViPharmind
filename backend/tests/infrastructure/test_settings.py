@@ -257,3 +257,14 @@ def test_email_and_sms_settings_from_env(monkeypatch: pytest.MonkeyPatch) -> Non
     assert settings.email.provider == "smtp"
     assert settings.email.smtp_username == "an@gmail.com"
     assert settings.sms.allowed_country_codes == ["VN", "US"]
+
+
+def test_cloud_run_port_sets_the_api_port(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PORT", "8080")
+    assert Settings(_env_file=None).api.port == 8080
+
+
+def test_an_explicit_api_port_wins_over_port(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PORT", "8080")
+    monkeypatch.setenv("PHARMA_API__PORT", "9000")
+    assert Settings(_env_file=None).api.port == 9000

@@ -1,0 +1,28 @@
+# Cloud Run job that runs `pharma-agent migrate` before each deploy. Create it once with:
+#   gcloud run jobs replace devops/cloud-run/migrate-job.yaml --region asia-southeast1
+# after replacing PROJECT_ID. The deploy workflow updates the image and executes it.
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: vipharmind-migrate
+  labels:
+    cloud.googleapis.com/location: asia-southeast1
+spec:
+  template:
+    spec:
+      taskCount: 1
+      template:
+        spec:
+          serviceAccountName: vipharmind-api@PROJECT_ID.iam.gserviceaccount.com
+          maxRetries: 0
+          timeoutSeconds: 600
+          containers:
+            - image: asia-southeast1-docker.pkg.dev/PROJECT_ID/vipharmind/pharma-agent:latest
+              command: ["pharma-agent", "migrate"]
+              resources:
+                limits:
+                  cpu: "1"
+                  memory: 512Mi
+              env:
+                - name: PHARMA_POSTGRES__DSN
+                  valueFrom: {secretKeyRef: {name: PHARMA_POSTGRES__DSN, key: latest}}
