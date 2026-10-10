@@ -1,4 +1,4 @@
-# vipharma-rag: Agentic RAG cho tài liệu dược Việt Nam
+# ViPharMind: trợ lý AI tra cứu thuốc cho người Việt
 
 | Thư mục | Nội dung |
 | --- | --- |

@@ -5,7 +5,7 @@ Công cụ offline tạo dữ liệu gốc cho backend `pharma-agent` từ ngu�
 ## Bắt đầu
 
 ```bash
-cd /home/andv/personal/thesis
+# từ thư mục gốc của repo
 uv sync    # uv workspace: backend `pharma-agent` và mọi thư viện dev của pharma-lab
 cd pharma-lab
 ```

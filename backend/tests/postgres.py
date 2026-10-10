@@ -15,9 +15,9 @@ def postgres_dsn() -> Iterator[str]:
 
     with PostgresContainer(
         "postgres:17-alpine",
-        username="thesis",
-        password="thesis",
-        dbname="thesis",
+        username="vipharmind",
+        password="vipharmind",
+        dbname="vipharmind",
         driver="psycopg",
     ) as container:
         yield container.get_connection_url()

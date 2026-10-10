@@ -22,12 +22,12 @@ Report ghi `judgments_sha256` trong identity, và `pharma-lab metrics compare` c
 ## 2. Môi trường riêng cho đánh giá
 
 ```bash
-POSTGRES_PORT=5434 QDRANT_HTTP_PORT=6335 docker compose -p thesis-eval up -d --wait postgres qdrant
-export PHARMA_POSTGRES__DSN=postgresql+psycopg://thesis:thesis@localhost:5434/thesis
+POSTGRES_PORT=5434 QDRANT_HTTP_PORT=6335 docker compose -p vipharmind-eval up -d --wait postgres qdrant
+export PHARMA_POSTGRES__DSN=postgresql+psycopg://vipharmind:vipharmind@localhost:5434/vipharmind
 export PHARMA_QDRANT__URL=http://localhost:6335
 ```
 
-Stack `thesis-eval` tách khỏi stack của app (cổng 5433 và 6333). Không cần llama.cpp: vector chunk có sẵn trong bundle, vector query có sẵn trong cache, `pharma-lab retrieve` tắt rerank. Xong việc: `docker compose -p thesis-eval down -v`.
+Stack `vipharmind-eval` tách khỏi stack của app (cổng 5433 và 6333). Không cần llama.cpp: vector chunk có sẵn trong bundle, vector query có sẵn trong cache, `pharma-lab retrieve` tắt rerank. Xong việc: `docker compose -p vipharmind-eval down -v`.
 
 ## 3. Chạy một model
 

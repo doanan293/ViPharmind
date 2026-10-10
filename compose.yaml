@@ -3,7 +3,7 @@
 # (see .env.example). Services reach each other by service name on the default network; host
 # ports are published only for the browser (nginx) and for tools that run on the host
 # (backend via `uv run`, pharma-lab).
-name: thesis
+name: vipharmind
 
 x-llama-server: &llama-server
   image: ghcr.io/ggml-org/llama.cpp:server-b10920
@@ -32,7 +32,7 @@ x-backend: &backend
     # The backend is a uv workspace member, so the image builds from the repository root.
     context: .
     dockerfile: backend/Dockerfile
-  image: thesis-pharma-agent:local
+  image: vipharmind-pharma-agent:local
   env_file:
     - path: ./backend/.env
       required: false
@@ -44,7 +44,7 @@ x-backend: &backend
     # Secure session cookies work on http://localhost; set COOKIE_SECURE=false in the root .env
     # when the stack is opened over plain HTTP from another host name (for example a LAN IP).
     PHARMA_AUTH__COOKIE_SECURE: "${COOKIE_SECURE:-true}"
-    PHARMA_POSTGRES__DSN: "postgresql+psycopg://${POSTGRES_USER:-thesis}:${POSTGRES_PASSWORD:-thesis}@postgres:5432/${POSTGRES_DB:-thesis}"
+    PHARMA_POSTGRES__DSN: "postgresql+psycopg://${POSTGRES_USER:-vipharmind}:${POSTGRES_PASSWORD:-vipharmind}@postgres:5432/${POSTGRES_DB:-vipharmind}"
     PHARMA_QDRANT__URL: "http://qdrant:6333"
     PHARMA_LLM__DEFAULT__BASE_URL: "${LLM_BASE_URL:-http://cli-proxy-api:8317/v1}"
     # Corpus text lives in Postgres schema `corpus`; Qdrant keeps only the index (alias chunks_current).
@@ -111,9 +111,9 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     environment:
-      POSTGRES_DB: "${POSTGRES_DB:-thesis}"
-      POSTGRES_USER: "${POSTGRES_USER:-thesis}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-thesis}"
+      POSTGRES_DB: "${POSTGRES_DB:-vipharmind}"
+      POSTGRES_USER: "${POSTGRES_USER:-vipharmind}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-vipharmind}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -191,7 +191,7 @@ services:
       context: ./frontend
       args:
         PUBLIC_SITE_URL: "http://localhost:${WEB_PORT:-8080}"
-    image: thesis-pharma-web:local
+    image: vipharmind-pharma-web:local
     env_file:
       - path: ./frontend/.env
         required: false
