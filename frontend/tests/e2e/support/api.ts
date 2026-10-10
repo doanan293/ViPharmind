@@ -12,6 +12,8 @@ export const API = "/api/v1"
 
 export type TestUser = { email: string; password: string; displayName: string }
 
+const CodeResponse = z.object({ code: z.string().regex(/^\d{6}$/) })
+
 const ConversationCreated = z.object({ id: z.string() })
 
 async function assertStatus(
@@ -47,6 +49,22 @@ export async function registerUser(
     },
   })
   await assertStatus(response, 201)
+  const verify = await request.post(`${API}/auth/email/verify`, {
+    data: { email: user.email, code: await latestCode(request, user.email) },
+  })
+  await assertStatus(verify, 204)
+}
+
+/** The last code the E2E backend sent to an email address or E.164 number. */
+export async function latestCode(
+  request: APIRequestContext,
+  to: string
+): Promise<string> {
+  const response = await request.get(`${API}/__e2e/outbox/code`, {
+    params: { to },
+  })
+  await assertStatus(response, 200)
+  return CodeResponse.parse(await response.json()).code
 }
 
 /**

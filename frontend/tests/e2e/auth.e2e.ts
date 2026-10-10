@@ -1,10 +1,12 @@
 import type { Page } from "@playwright/test"
 
-import { type TestUser, newUser } from "./support/api"
+import { type TestUser, latestCode, newUser } from "./support/api"
 import { expect, test } from "./support/fixtures"
 
 async function logIn(page: Page, user: TestUser): Promise<void> {
-  await page.getByLabel("Email", { exact: true }).fill(user.email)
+  await page
+    .getByRole("textbox", { name: "Email", exact: true })
+    .fill(user.email)
   await page.getByLabel("Mật khẩu", { exact: true }).fill(user.password)
   await page.getByRole("button", { name: "Đăng nhập" }).click()
 }
@@ -15,15 +17,24 @@ async function logOut(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/login(\?|$)/)
 }
 
-test("register, log out, log in and log out again", async ({ page }) => {
+test("register, verify the email, log out, log in and log out again", async ({
+  page,
+  request,
+}) => {
   const user = newUser()
 
   await page.goto("/register")
   await page.getByLabel("Tên hiển thị", { exact: true }).fill(user.displayName)
-  await page.getByLabel("Email", { exact: true }).fill(user.email)
+  await page
+    .getByRole("textbox", { name: "Email", exact: true })
+    .fill(user.email)
   await page.getByLabel("Mật khẩu", { exact: true }).fill(user.password)
   await page.getByRole("button", { name: "Tạo tài khoản" }).click()
-  // P8's register form signs the new user in and opens /chat.
+  await expect(page.getByText(/Chúng tôi đã gửi mã 6 số tới/)).toBeVisible()
+  await page
+    .getByLabel("Mã xác minh")
+    .fill(await latestCode(request, user.email))
+  await page.getByRole("button", { name: "Xác minh email" }).click()
   await expect(page).toHaveURL(/\/chat$/)
   await logOut(page)
 
