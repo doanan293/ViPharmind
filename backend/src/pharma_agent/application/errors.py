@@ -1,9 +1,20 @@
+import math
+
+
 class ApplicationError(Exception):
     code = "APPLICATION_ERROR"
 
 
 class AccountNotFound(ApplicationError):
     code = "ACCOUNT_NOT_FOUND"
+
+
+class RateLimited(ApplicationError):
+    code = "RATE_LIMITED"
+
+    def __init__(self, retry_after: float) -> None:
+        super().__init__(f"try again in {math.ceil(retry_after)} seconds")
+        self.retry_after = retry_after
 
 
 class ConversationNotFound(ApplicationError):
@@ -38,3 +49,7 @@ class ServiceNotConfigured(ServiceUnavailable):
 
 class AgentUnavailable(ServiceUnavailable):
     code = "AGENT_UNAVAILABLE"
+
+
+class DeliveryFailed(ServiceUnavailable):
+    code = "DELIVERY_FAILED"
