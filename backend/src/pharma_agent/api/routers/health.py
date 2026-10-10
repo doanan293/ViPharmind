@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from pharma_agent.api.deps import ContainerDep
@@ -22,7 +22,7 @@ def build_health_router() -> APIRouter:
     router = APIRouter(tags=["health"], responses=HEALTH_RESPONSES)
 
     @router.get("/health", response_model=HealthResponse)
-    async def health(container: ContainerDep) -> JSONResponse:
+    async def health(container: ContainerDep, request: Request) -> JSONResponse:
         names = list(container.health_checks)
         results = await asyncio.gather(
             *(container.health_checks[name]() for name in names)
@@ -38,6 +38,7 @@ def build_health_router() -> APIRouter:
                 for name, ok in checks.items()
                 if not ok and name in container.health_reasons
             },
+            phone_sign_in_enabled=request.app.state.phone_sign_in_enabled,
         )
         return JSONResponse(
             status_code=200 if healthy else 503, content=body.model_dump()
