@@ -8,8 +8,10 @@ import {
 } from "../../../../tests/chat/fixtures"
 import { worker } from "../../../../tests/msw/browser"
 
+import { getChatStreamUrl } from "~/api/gen/endpoints"
+
 import { toPharmaMessage } from "./chat-messages"
-import { CHAT_STREAM_API, createChatTransport } from "./chat-transport"
+import { createChatTransport } from "./chat-transport"
 import { readStreamProblem } from "./stream-problem"
 
 async function readAll<T>(stream: ReadableStream<T>): Promise<T[]> {
@@ -48,7 +50,7 @@ describe("createChatTransport", () => {
     document.cookie = "csrftoken=token-123; path=/"
     const captured: { body: unknown; csrf: string | null }[] = []
     worker.use(
-      http.post(`*${CHAT_STREAM_API}`, async ({ request }) => {
+      http.post(`*${getChatStreamUrl()}`, async ({ request }) => {
         captured.push({
           body: await request.json(),
           csrf: request.headers.get("x-csrftoken"),
@@ -83,7 +85,7 @@ describe("createChatTransport", () => {
 
   test("rejects with the problem body when the stream cannot start", async () => {
     worker.use(
-      http.post(`*${CHAT_STREAM_API}`, () =>
+      http.post(`*${getChatStreamUrl()}`, () =>
         HttpResponse.json(
           {
             type: "urn:pharma-agent:problem:agent-unavailable",

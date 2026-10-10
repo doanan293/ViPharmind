@@ -3,8 +3,8 @@ import { createUIMessageStreamResponse } from "ai"
 import { type HttpHandler, http, HttpResponse } from "msw"
 import { z } from "zod"
 
+import { getChatStreamUrl } from "~/api/gen/endpoints"
 import type { MessageMetadata } from "~/api/gen/schemas"
-import { CHAT_STREAM_API } from "~/features/chat/lib/chat-transport"
 import type { PharmaUIMessage } from "~/features/chat/lib/message-schema"
 
 import { CREATED_AT, pharmaSource } from "./fixtures"
@@ -17,7 +17,7 @@ const streamRequestSchema = z.object({
 export type StreamRequest = z.infer<typeof streamRequestSchema>
 export type ScriptedChat = ReturnType<typeof createChat<PharmaUIMessage>>
 
-export const STREAM_URL = `*${CHAT_STREAM_API}`
+export const STREAM_URL = `*${getChatStreamUrl()}`
 
 export function finishMetadata(
   overrides: Partial<MessageMetadata> = {}

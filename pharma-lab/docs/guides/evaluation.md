@@ -22,7 +22,7 @@ Report ghi `judgments_sha256` trong identity, và `pharma-lab metrics compare` c
 ## 2. Môi trường riêng cho đánh giá
 
 ```bash
-POSTGRES_PORT=5434 QDRANT_HTTP_PORT=6335 QDRANT_GRPC_PORT=6336 docker compose -p thesis-eval up -d --wait postgres qdrant
+POSTGRES_PORT=5434 QDRANT_HTTP_PORT=6335 docker compose -p thesis-eval up -d --wait postgres qdrant
 export PHARMA_POSTGRES__DSN=postgresql+psycopg://thesis:thesis@localhost:5434/thesis
 export PHARMA_QDRANT__URL=http://localhost:6335
 ```

@@ -1,9 +1,6 @@
 {
   "appName": "Pharma Agent",
   "actions": {
-    "save": "Lưu",
-    "cancel": "Huỷ",
-    "retry": "Thử lại",
     "close": "Đóng",
     "loading": "Đang tải…"
   },
