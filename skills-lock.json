@@ -13,6 +13,12 @@
       "skillPath": "SKILL.md",
       "computedHash": "aa677a51432adffa70093d894da74cc4469fe5b2ef3a12b97da42726c50d7f31"
     },
+    "react-router": {
+      "source": "remix-run/react-router",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/react-router/SKILL.md",
+      "computedHash": "ff4d9bc724f0e56a51c453eef5b93caef1c16d3623ac49345d74fc1a5efbc05a"
+    },
     "research-paper-writing": {
       "source": "master-cai/research-paper-writing-skills",
       "sourceType": "github",
