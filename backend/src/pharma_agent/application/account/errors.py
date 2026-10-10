@@ -1,12 +1,18 @@
-"""Errors of the account use cases; api/errors.py maps them to HTTP statuses."""
+"""Errors of the account use cases; api/errors.py maps them to HTTP statuses.
+
+`AccountNotFound` lives in application/errors.py because other features raise it too.
+"""
 
 import math
 
 from pharma_agent.application.errors import (
+    AccountNotFound,
     ApplicationError,
     InvalidInput,
     ServiceUnavailable,
 )
+
+__all__ = ["AccountNotFound"]
 
 
 class InvalidCode(ApplicationError):
@@ -41,10 +47,6 @@ class LastSignInMethod(ApplicationError):
 
 class CurrentPasswordInvalid(ApplicationError):
     code = "CURRENT_PASSWORD_INVALID"
-
-
-class AccountNotFound(ApplicationError):
-    code = "ACCOUNT_NOT_FOUND"
 
 
 class AccountDisabled(ApplicationError):
