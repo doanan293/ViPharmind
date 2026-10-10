@@ -22,6 +22,7 @@ from pharma_agent.api.routers.collections import build_collections_router
 from pharma_agent.api.routers.conversations import build_conversations_router
 from pharma_agent.api.routers.feedback import build_feedback_router
 from pharma_agent.api.routers.health import build_health_router
+from pharma_agent.api.routers.internal import build_internal_router
 from pharma_agent.api.routers.invitations import build_invitations_router
 from pharma_agent.api.routers.organizations import build_organizations_router
 from pharma_agent.infrastructure.auth.users import build_auth, include_auth_routes
@@ -51,6 +52,7 @@ def create_app(
     )
     app.state.auth = auth
     app.state.trusted_proxy_hops = resolved.api.trusted_proxy_hops
+    app.state.jobs_settings = resolved.jobs
     install_csrf(app, resolved.auth)
     if resolved.api.cors_origins:
         # Added after CSRF, so CORS is the outer layer and 403 problems carry CORS headers.
@@ -77,5 +79,6 @@ def create_app(
     api.include_router(build_invitations_router(current_actor))
     api.include_router(build_audit_router(current_actor))
     api.include_router(build_collections_router(current_actor))
+    api.include_router(build_internal_router())
     app.include_router(api)
     return app

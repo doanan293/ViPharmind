@@ -32,6 +32,7 @@ from pharma_agent.infrastructure.collections_factory import (
 )
 from pharma_agent.infrastructure.composition import Application, build_application
 from pharma_agent.infrastructure.observability.langfuse_tracing import LangfuseTracing
+from pharma_agent.infrastructure.openai_client import build_async_openai
 from pharma_agent.infrastructure.organizations_factory import (
     OrganizationServices,
     build_organization_services,
@@ -49,6 +50,8 @@ from pharma_agent.infrastructure.persistence.postgres.database import Database
 from pharma_agent.infrastructure.persistence.postgres.feedback_repository import (
     PostgresFeedbackRepository,
 )
+from pharma_agent.infrastructure.publishing_factory import Publishing, build_publishing
+from pharma_agent.infrastructure.retrieval.qdrant_adapter import OpenAiEmbedder
 from pharma_agent.infrastructure.retrieval.qdrant_index import QdrantVectorIndex
 from pharma_agent.infrastructure.retrieval.scope_resolver import PostgresScopeResolver
 from pharma_agent.infrastructure.settings import Settings
@@ -68,6 +71,7 @@ class Container:
     organizations: OrganizationServices | None = None
     collections: CollectionService | None = None
     content: ContentService | None = None
+    publishing: Publishing | None = None
     chat: ChatService | None = None
     summarizer: SummarizeConversation | None = None
     feedback: FeedbackService | None = None
@@ -152,15 +156,35 @@ async def open_container(
                 check_compatibility=False,
             )
             stack.push_async_callback(qdrant.close)
+            corpus_embedder = embedder
+            if corpus_embedder is None:
+                embedding = settings.retrieval.embedding
+                # Publishing embeds documents, not chat turns: no Langfuse tracing.
+                embed_client = build_async_openai(
+                    api_key=embedding.api_key,
+                    base_url=embedding.base_url,
+                    timeout=embedding.timeout_seconds,
+                    max_retries=embedding.max_retries,
+                    traced=False,
+                )
+                stack.push_async_callback(embed_client.close)
+                corpus_embedder = OpenAiEmbedder(
+                    embed_client, model=embedding.model, dimension=embedding.dimension
+                )
+            index = QdrantVectorIndex(
+                qdrant,
+                model=corpus_embedder.model,
+                dimension=corpus_embedder.dimension,
+                alias=settings.retrieval.qdrant_collection,
+            )
             container.collections = build_collection_service(
+                settings, database.sessions, index=index, clock=clock
+            )
+            container.publishing = build_publishing(
                 settings,
                 database.sessions,
-                index=QdrantVectorIndex(
-                    qdrant,
-                    model=settings.retrieval.embedding.model,
-                    dimension=settings.retrieval.embedding.dimension,
-                    alias=settings.retrieval.qdrant_collection,
-                ),
+                index=index,
+                embedder=corpus_embedder,
                 clock=clock,
             )
             if settings.llm.configured or llm is not None:

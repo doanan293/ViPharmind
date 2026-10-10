@@ -14,7 +14,7 @@ from pharma_agent.domain.corpus.models import (
     ReleaseStatus,
     Visibility,
 )
-from pharma_agent.domain.corpus.source import SourceDocument
+from pharma_agent.domain.corpus.source import IngestJob, JobConflict, SourceDocument
 from pharma_agent.domain.shared.clock import Clock, FixedClock
 from pharma_agent.domain.shared.transaction import Transaction
 from tests.account_fakes import START, InMemoryAccounts
@@ -203,3 +203,52 @@ class InMemorySources:
         tx: Transaction,
     ) -> None:
         _tx(tx).later(lambda: self.mappings.__setitem__(collection_id, list(mappings)))
+
+
+class InMemoryJobs:
+    def __init__(self) -> None:
+        self.rows: dict[uuid.UUID, IngestJob] = {}
+
+    async def get(self, job_id: uuid.UUID) -> IngestJob | None:
+        return self.rows.get(job_id)
+
+    async def open_for(self, collection_id: uuid.UUID) -> IngestJob | None:
+        return next(
+            (
+                j
+                for j in self.rows.values()
+                if j.collection_id == collection_id and j.is_open
+            ),
+            None,
+        )
+
+    async def create(self, job: IngestJob, tx: Transaction) -> None:
+        # Checked when the write is queued, as the unique index does on insert.
+        if await self.open_for(job.collection_id) is not None:
+            raise JobConflict("open job")
+
+        def write() -> None:
+            if any(
+                j.collection_id == job.collection_id and j.is_open
+                for j in self.rows.values()
+            ):
+                raise JobConflict("open job")
+            self.rows[job.id] = job
+
+        _tx(tx).later(write)
+
+    async def update(self, job: IngestJob) -> None:
+        self.rows[job.id] = job
+
+    async def list_recent(self, *, limit: int) -> list[IngestJob]:
+        return sorted(self.rows.values(), key=lambda j: j.created_at, reverse=True)[
+            :limit
+        ]
+
+
+class RecordingDispatcher:
+    def __init__(self) -> None:
+        self.enqueued: list[uuid.UUID] = []
+
+    async def enqueue(self, job_id: uuid.UUID) -> None:
+        self.enqueued.append(job_id)

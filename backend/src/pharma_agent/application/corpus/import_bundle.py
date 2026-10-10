@@ -6,7 +6,7 @@ service. Every step is idempotent on hashed ids, so rerunning after a failure re
 """
 
 import uuid
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
@@ -26,6 +26,7 @@ from pharma_agent.domain.corpus.ports import (
     Embedder,
     VectorIndex,
 )
+from pharma_agent.domain.corpus.source import JobStep
 from pharma_agent.domain.shared.clock import Clock
 
 
@@ -48,6 +49,7 @@ class ImportReport(BaseModel):
 # returns an empty mapping when it ships none. The CLI passes
 # `functools.partial(read_bundle_embeddings, directory, manifest)`.
 type BundleEmbeddings = Callable[[str, int], Mapping[str, Sequence[float]]]
+type StepCallback = Callable[[JobStep], Awaitable[None]]
 
 
 def bundle_vectors(
@@ -95,9 +97,19 @@ class ImportKnowledgeBundle:
         *,
         embeddings: BundleEmbeddings,
         publish: bool,
+        on_step: StepCallback | None = None,
     ) -> ImportReport:
-        """Import `bundle`; `embeddings` is not called when the bundle is unchanged."""
+        """Import `bundle`; `embeddings` is not called when the bundle is unchanged.
+
+        `on_step` hears each stage as it starts, for progress shown to a user.
+        """
+
+        async def step(name: JobStep) -> None:
+            if on_step is not None:
+                await on_step(name)
+
         model = self._embedder.model
+        await step(JobStep.CHUNK)
         snapshot = build_snapshot(bundle)
         key = snapshot.collection.key
 
@@ -131,10 +143,12 @@ class ImportKnowledgeBundle:
                 embedding_model=model,
                 at=self._clock.now(),
             )
+            await step(JobStep.EMBED)
             await self._build(snapshot, vectors, release)
             outcome = ImportOutcome.IMPORTED
 
         if publish:
+            await step(JobStep.PUBLISH)
             await self._repository.publish(release.id, self._clock.now())
         stored = await self._repository.get_release(release.id)
         if stored is None:
