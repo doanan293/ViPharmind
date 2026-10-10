@@ -17,6 +17,16 @@ class RateLimited(ApplicationError):
         self.retry_after = retry_after
 
 
+class ForbiddenRole(ApplicationError):
+    """The actor sees the resource but their role does not allow the change."""
+
+    code = "FORBIDDEN_ROLE"
+
+
+class OrganizationNotFound(ApplicationError):
+    code = "ORGANIZATION_NOT_FOUND"
+
+
 class ConversationNotFound(ApplicationError):
     code = "CONVERSATION_NOT_FOUND"
 

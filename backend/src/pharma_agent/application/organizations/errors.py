@@ -4,15 +4,14 @@ Anything the actor may not see raises a NotFound error, so an outsider cannot le
 organization exists. ForbiddenRole is for what the actor sees but may not change.
 """
 
-from pharma_agent.application.errors import ApplicationError, InvalidInput
+from pharma_agent.application.errors import (
+    ApplicationError,
+    ForbiddenRole,
+    InvalidInput,
+    OrganizationNotFound,
+)
 
-
-class ForbiddenRole(ApplicationError):
-    code = "FORBIDDEN_ROLE"
-
-
-class OrganizationNotFound(ApplicationError):
-    code = "ORGANIZATION_NOT_FOUND"
+__all__ = ["ForbiddenRole", "OrganizationNotFound"]
 
 
 class MemberNotFound(ApplicationError):
