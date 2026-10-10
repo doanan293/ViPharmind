@@ -6,6 +6,7 @@
  */
 
 export interface ChatRequest {
+  collection_ids?: string[] | null
   conversation_id?: string | null
   /**
    * @minLength 1

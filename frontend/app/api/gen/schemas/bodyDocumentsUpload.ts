@@ -5,10 +5,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface RenameConversationRequest {
-  /**
-   * @minLength 1
-   * @maxLength 80
-   */
-  title: string
+export interface BodyDocumentsUpload {
+  file: Blob
 }

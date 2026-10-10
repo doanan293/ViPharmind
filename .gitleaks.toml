@@ -1,0 +1,9 @@
+# Gitleaks config for the pre-commit hook: the default rules plus one allowlisted string.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "fastapi-users' documented example JWT (expired 2019), copied into the OpenAPI schema"
+regexes = [
+  '''eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9\.eyJ1c2VyX2lkIjoiOTIyMWZmYzktNjQwZi00MzcyLTg2ZDMtY2U2NDJjYmE1NjAzIiwiYXVkIjoiZmFzdGFwaS11c2VyczphdXRoIiwiZXhwIjoxNTcxNTA0MTkzfQ\.M10bjOe45I5Ncu_uXvOmVV8QxnL-nZfcH96U90JaocI''',
+]

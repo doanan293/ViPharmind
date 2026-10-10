@@ -19,7 +19,9 @@ const USER: AccountView = {
   phone_number: null,
   display_name: "An",
   is_active: true,
-  is_superuser: false,
+  is_superadmin: false,
+  memberships: [],
+  phone_sign_in_enabled: true,
   is_verified: true,
   email_verified: true,
   phone_verified: false,
@@ -60,6 +62,25 @@ describe("AppSidebar", () => {
     worker.use(
       getListConversationsMockHandler({ items: [], next_cursor: null })
     )
+  })
+
+  test("shows the console only to superadmins", async () => {
+    await renderShell()
+    await expect
+      .element(page.getByRole("link", { name: "Tổ chức" }))
+      .toHaveAttribute("href", "/organizations")
+    await expect
+      .element(page.getByRole("link", { name: "Bộ tài liệu" }))
+      .toHaveAttribute("href", "/collections")
+    await expect
+      .element(page.getByRole("link", { name: "Hoạt động" }))
+      .toHaveAttribute("href", "/activity")
+    await expect
+      .element(page.getByRole("link", { name: "Quản trị" }))
+      .not.toBeInTheDocument()
+    await expect
+      .element(page.getByText("Chưa có cuộc trò chuyện nào"))
+      .toBeVisible()
   })
 
   test("links the private pages and marks the current one", async () => {

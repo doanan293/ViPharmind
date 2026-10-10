@@ -1,4 +1,11 @@
-import { MessageSquareIcon, SettingsIcon } from "lucide-react"
+import {
+  ActivityIcon,
+  BuildingIcon,
+  LibraryIcon,
+  MessageSquareIcon,
+  SettingsIcon,
+  ShieldIcon,
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link, useLocation } from "react-router"
 
@@ -19,12 +26,21 @@ import { ConversationSidebar } from "~/features/conversations/components/Convers
 
 const NAV_ITEMS = [
   { to: "/chat", label: "nav.chat", Icon: MessageSquareIcon },
+  { to: "/organizations", label: "nav.organizations", Icon: BuildingIcon },
+  { to: "/collections", label: "nav.collections", Icon: LibraryIcon },
+  { to: "/activity", label: "nav.activity", Icon: ActivityIcon },
   { to: "/settings", label: "nav.settings", Icon: SettingsIcon },
 ] as const
+const ADMIN_ITEM = {
+  to: "/admin",
+  label: "nav.admin",
+  Icon: ShieldIcon,
+} as const
 
 export function AppSidebar({ user }: { user: AccountView }) {
   const { t } = useTranslation("common")
   const { pathname } = useLocation()
+  const items = user.is_superadmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS
 
   return (
     <Sidebar collapsible="icon">
@@ -35,7 +51,7 @@ export function AppSidebar({ user }: { user: AccountView }) {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV_ITEMS.map(({ to, label, Icon }) => (
+              {items.map(({ to, label, Icon }) => (
                 <SidebarMenuItem key={to}>
                   <SidebarMenuButton
                     render={<Link to={to} />}

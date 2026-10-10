@@ -4,6 +4,7 @@
  * Pharma Agent API
  * OpenAPI spec version: 0.1.0
  */
+import type { MembershipView } from "./membershipView"
 
 export interface AccountView {
   display_name: string
@@ -12,9 +13,11 @@ export interface AccountView {
   google_linked: boolean
   id: string
   is_active: boolean
-  is_superuser: boolean
+  is_superadmin: boolean
   is_verified: boolean
+  memberships?: MembershipView[]
   password_set: boolean
   phone_number: string | null
+  phone_sign_in_enabled?: boolean
   phone_verified: boolean
 }

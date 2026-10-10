@@ -34,5 +34,21 @@
   "DELIVERY_FAILED": "The code could not be sent. Please try again.",
   "SESSION_NOT_FOUND": "This session no longer exists.",
   "ACCOUNT_DISABLED": "This account is disabled.",
-  "ACCOUNT_NOT_FOUND": "Account not found."
+  "ACCOUNT_NOT_FOUND": "Account not found.",
+  "FORBIDDEN_ROLE": "Your role does not allow this.",
+  "ORGANIZATION_NOT_FOUND": "The organization was not found.",
+  "ORGANIZATION_NAME_INVALID": "The organization name needs 1 to 100 characters.",
+  "LAST_OWNER": "An organization keeps at least one owner. Make someone else an owner first.",
+  "ALREADY_MEMBER": "This person is already a member.",
+  "MEMBER_NOT_FOUND": "The member was not found.",
+  "INVITATION_NOT_FOUND": "The invitation is no longer valid.",
+  "INVITATION_EXPIRED": "The invitation has expired. Ask for a new one.",
+  "INVITATION_NOT_PENDING": "The invitation was already handled.",
+  "INVITATION_EMAIL_MISMATCH": "This invitation is for a different email.",
+  "INVITATION_ALREADY_OPEN": "This email already has an open invitation.",
+  "COLLECTION_NOT_FOUND": "The collection was not found.",
+  "SYSTEM_COLLECTION_READ_ONLY": "The system collection cannot be changed here.",
+  "QUOTA_EXCEEDED": "You have used up your quota.",
+  "PUBLISH_IN_PROGRESS": "The collection is already being published.",
+  "PHONE_SIGN_IN_DISABLED": "Phone sign-in is turned off."
 }

@@ -34,5 +34,21 @@
   "DELIVERY_FAILED": "Chưa gửi được mã. Vui lòng thử lại.",
   "SESSION_NOT_FOUND": "Phiên đăng nhập không còn tồn tại.",
   "ACCOUNT_DISABLED": "Tài khoản này đã bị khoá.",
-  "ACCOUNT_NOT_FOUND": "Không tìm thấy tài khoản."
+  "ACCOUNT_NOT_FOUND": "Không tìm thấy tài khoản.",
+  "FORBIDDEN_ROLE": "Vai trò của bạn không làm được thao tác này.",
+  "ORGANIZATION_NOT_FOUND": "Không tìm thấy tổ chức.",
+  "ORGANIZATION_NAME_INVALID": "Tên tổ chức cần từ 1 đến 100 ký tự.",
+  "LAST_OWNER": "Tổ chức cần ít nhất một chủ sở hữu. Hãy giao quyền chủ sở hữu cho người khác trước.",
+  "ALREADY_MEMBER": "Người này đã là thành viên.",
+  "MEMBER_NOT_FOUND": "Không tìm thấy thành viên.",
+  "INVITATION_NOT_FOUND": "Lời mời không còn hiệu lực.",
+  "INVITATION_EXPIRED": "Lời mời đã hết hạn. Hãy nhờ người mời gửi lại.",
+  "INVITATION_NOT_PENDING": "Lời mời đã được xử lý.",
+  "INVITATION_EMAIL_MISMATCH": "Lời mời này dành cho một email khác.",
+  "INVITATION_ALREADY_OPEN": "Email này đã có một lời mời đang chờ.",
+  "COLLECTION_NOT_FOUND": "Không tìm thấy bộ tài liệu.",
+  "SYSTEM_COLLECTION_READ_ONLY": "Bộ tài liệu hệ thống không sửa được ở đây.",
+  "QUOTA_EXCEEDED": "Bạn đã dùng hết hạn mức.",
+  "PUBLISH_IN_PROGRESS": "Bộ tài liệu đang được xuất bản.",
+  "PHONE_SIGN_IN_DISABLED": "Đăng nhập bằng số điện thoại đang tắt."
 }
