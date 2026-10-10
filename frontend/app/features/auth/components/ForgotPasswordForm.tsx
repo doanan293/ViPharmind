@@ -121,9 +121,7 @@ export function ForgotPasswordForm() {
           )}
         />
         {serverError === undefined ? null : (
-          <p role="alert" className="text-sm text-destructive">
-            {serverError}
-          </p>
+          <FieldError>{serverError}</FieldError>
         )}
         <Button type="submit" disabled={emailForm.formState.isSubmitting}>
           {emailForm.formState.isSubmitting ? <Spinner /> : null}
@@ -184,9 +182,7 @@ export function ForgotPasswordForm() {
         ))}
       </FieldGroup>
       {serverError === undefined ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {serverError}
-        </p>
+        <FieldError>{serverError}</FieldError>
       )}
       <Button type="submit" disabled={resetForm.formState.isSubmitting}>
         {resetForm.formState.isSubmitting ? <Spinner /> : null}

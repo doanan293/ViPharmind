@@ -27,6 +27,7 @@ import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select"
 import { Spinner } from "~/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { toast } from "~/components/ui/toast"
+import { Alert, AlertDescription } from "~/components/ui/alert"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 import { ColloquialTab } from "./ColloquialTab"
@@ -68,9 +69,11 @@ export function CollectionPage({
 
   if (query.isError) {
     return (
-      <p role="alert" className="p-8 text-sm text-destructive">
-        {apiErrorMessage(query.error, tErrors)}
-      </p>
+      <Alert variant="destructive" className="m-4 w-auto md:m-8">
+        <AlertDescription>
+          {apiErrorMessage(query.error, tErrors)}
+        </AlertDescription>
+      </Alert>
     )
   }
   if (query.data === undefined) {

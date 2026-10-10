@@ -28,6 +28,7 @@ import {
   SidebarMenuItem,
   SidebarMenuSkeleton,
 } from "~/components/ui/sidebar"
+import { Alert, AlertDescription } from "~/components/ui/alert"
 
 import { DeleteConversationDialog } from "./DeleteConversationDialog"
 import { RenameConversationDialog } from "./RenameConversationDialog"
@@ -91,9 +92,11 @@ export function ConversationSidebar() {
             : null}
           {isError && data === undefined ? (
             <SidebarMenuItem>
-              <p role="alert" className="px-2 text-xs text-destructive">
-                {t("conversations.loadFailed")}
-              </p>
+              <Alert variant="destructive" className="mx-2 w-auto text-xs">
+                <AlertDescription>
+                  {t("conversations.loadFailed")}
+                </AlertDescription>
+              </Alert>
             </SidebarMenuItem>
           ) : null}
           {data !== undefined && conversations.length === 0 ? (

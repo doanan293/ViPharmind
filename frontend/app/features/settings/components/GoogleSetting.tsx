@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog"
 import { Button } from "~/components/ui/button"
+import { FieldError } from "~/components/ui/field"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 import { startGoogleLink } from "../lib/google-link"
@@ -67,11 +68,7 @@ export function GoogleSetting({ linked }: { linked: boolean }) {
           {linked ? t("account.google.unlink") : t("account.google.link")}
         </Button>
       </div>
-      {error === null ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      {error === null ? null : <FieldError>{error}</FieldError>}
       <AlertDialog open={confirming} onOpenChange={setConfirming}>
         <AlertDialogContent>
           <AlertDialogHeader>

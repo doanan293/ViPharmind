@@ -15,6 +15,15 @@ import { Field, FieldError, FieldLabel } from "~/components/ui/field"
 import { Input } from "~/components/ui/input"
 import { Progress } from "~/components/ui/progress"
 import { Spinner } from "~/components/ui/spinner"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "~/components/ui/item"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 function CollectionList({
@@ -29,29 +38,28 @@ function CollectionList({
   return (
     <section className="flex flex-col gap-2">
       <h2 className="text-lg font-medium">{title}</h2>
-      <ul className="flex flex-col gap-2">
+      <ItemGroup className="gap-2">
         {items.map((collection) => (
-          <li
+          <Item
             key={collection.id}
-            className="flex items-center justify-between gap-2 rounded-lg border p-3"
+            variant="outline"
+            render={<Link to={`/collections/${collection.id}`} />}
           >
-            <Link
-              to={`/collections/${collection.id}`}
-              className="font-medium underline-offset-4 hover:underline"
-            >
-              {collection.title}
-            </Link>
-            <span className="flex items-center gap-2">
+            <ItemContent>
+              <ItemTitle>{collection.title}</ItemTitle>
+              <ItemDescription>{collection.owner_name}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
               {collection.is_system ? (
                 <Badge variant="secondary">{t("list.system")}</Badge>
               ) : null}
               <Badge variant="outline">
                 {t(`visibility.${collection.visibility}`)}
               </Badge>
-            </span>
-          </li>
+            </ItemActions>
+          </Item>
         ))}
-      </ul>
+      </ItemGroup>
     </section>
   )
 }
@@ -171,7 +179,11 @@ export function CollectionsPage() {
               0
             ) ===
           0 ? (
-            <p className="text-sm text-muted-foreground">{t("list.empty")}</p>
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyDescription>{t("list.empty")}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : null}
         </div>
       )}

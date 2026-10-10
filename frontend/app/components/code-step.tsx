@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import { OTP_LENGTH, OtpCodeField } from "~/components/otp-code-field"
 import { ResendCodeButton } from "~/components/resend-code-button"
 import { Button } from "~/components/ui/button"
-import { Field, FieldLabel } from "~/components/ui/field"
+import { Field, FieldError, FieldLabel } from "~/components/ui/field"
 import { Spinner } from "~/components/ui/spinner"
 import { apiErrorMessage } from "~/i18n/error-message"
 
@@ -65,11 +65,7 @@ export function CodeStep({
           invalid={error !== null}
         />
       </Field>
-      {error === null ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      {error === null ? null : <FieldError>{error}</FieldError>}
       <Button type="submit" disabled={pending}>
         {pending ? <Spinner /> : null}
         {submitLabel}

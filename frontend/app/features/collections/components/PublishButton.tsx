@@ -12,6 +12,7 @@ import type { JobView } from "~/api/gen/schemas"
 import { Button } from "~/components/ui/button"
 import { Progress } from "~/components/ui/progress"
 import { toast } from "~/components/ui/toast"
+import { Alert, AlertDescription } from "~/components/ui/alert"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 const POLL_MS = 2000
@@ -31,9 +32,11 @@ function JobProgress({ job }: { job: JobView }) {
   }
   if (job.status === "failed") {
     return (
-      <p role="alert" className="text-sm text-destructive">
-        {t("publish.failed", { error: job.error ?? "" })}
-      </p>
+      <Alert variant="destructive">
+        <AlertDescription>
+          {t("publish.failed", { error: job.error ?? "" })}
+        </AlertDescription>
+      </Alert>
     )
   }
   return (

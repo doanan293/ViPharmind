@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next"
 import type { AuditPage, Problem } from "~/api/gen/schemas"
 import { Button } from "~/components/ui/button"
 import { Spinner } from "~/components/ui/spinner"
+import { Alert, AlertDescription } from "~/components/ui/alert"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 
 import { describeEvent } from "../lib/describe-event"
 
@@ -27,14 +29,20 @@ export function AuditList({ query }: { query: AuditQuery }) {
   }
   if (query.isError && query.data === undefined) {
     return (
-      <p role="alert" className="text-sm text-destructive">
-        {t("page.failed")}
-      </p>
+      <Alert variant="destructive">
+        <AlertDescription>{t("page.failed")}</AlertDescription>
+      </Alert>
     )
   }
   const events = query.data?.pages.flatMap((page) => page.items) ?? []
   if (events.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t("page.empty")}</p>
+    return (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyDescription>{t("page.empty")}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
   }
   return (
     <div className="flex flex-col gap-3">

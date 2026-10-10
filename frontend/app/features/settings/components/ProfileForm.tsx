@@ -86,11 +86,7 @@ export function ProfileForm({ user }: { user: AccountView }) {
           </Field>
         )}
       />
-      {rootError === undefined ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {rootError}
-        </p>
-      )}
+      {rootError === undefined ? null : <FieldError>{rootError}</FieldError>}
       <Button
         type="submit"
         className="self-start"

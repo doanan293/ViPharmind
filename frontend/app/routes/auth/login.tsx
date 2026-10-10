@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router"
 
 import { FieldSeparator } from "~/components/ui/field"
+import { Alert, AlertDescription } from "~/components/ui/alert"
 import { AuthCard } from "~/features/auth/components/AuthCard"
 import { GoogleButton } from "~/features/auth/components/GoogleButton"
 import { LoginForm } from "~/features/auth/components/LoginForm"
@@ -23,9 +24,11 @@ export default function LoginPage() {
     <AuthCard title={t("login.title")} description={t("login.description")}>
       <title>{t("login.title")}</title>
       {errorCode === null ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {tErrors(isErrorCode(errorCode) ? errorCode : "UNKNOWN")}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {tErrors(isErrorCode(errorCode) ? errorCode : "UNKNOWN")}
+          </AlertDescription>
+        </Alert>
       )}
       <SignInMethods
         email={

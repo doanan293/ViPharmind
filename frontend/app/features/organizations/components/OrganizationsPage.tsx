@@ -12,6 +12,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import { Field, FieldError, FieldLabel } from "~/components/ui/field"
 import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "~/components/ui/item"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 export function OrganizationsPage() {
@@ -81,29 +90,33 @@ export function OrganizationsPage() {
       {organizations.data === undefined ? (
         <Spinner />
       ) : organizations.data.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("list.empty")}</p>
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyDescription>{t("list.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ItemGroup className="gap-2">
           {organizations.data.map((organization) => (
-            <li
+            <Item
               key={organization.id}
-              className="flex items-center justify-between gap-2 rounded-lg border p-3"
+              variant="outline"
+              render={<Link to={`/organizations/${organization.id}`} />}
             >
-              <Link
-                to={`/organizations/${organization.id}`}
-                className="font-medium underline-offset-4 hover:underline"
-              >
-                {organization.name}
-              </Link>
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                {t("list.members", { count: organization.member_count })}
+              <ItemContent>
+                <ItemTitle>{organization.name}</ItemTitle>
+                <ItemDescription>
+                  {t("list.members", { count: organization.member_count })}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
                 <Badge variant="secondary">
                   {t(`role.${organization.role ?? "admin"}`)}
                 </Badge>
-              </span>
-            </li>
+              </ItemActions>
+            </Item>
           ))}
-        </ul>
+        </ItemGroup>
       )}
     </div>
   )

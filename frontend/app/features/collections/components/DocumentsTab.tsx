@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "~/components/ui/table"
 import { toast } from "~/components/ui/toast"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 export function DocumentsTab({
@@ -49,7 +50,11 @@ export function DocumentsTab({
         </Link>
       ) : null}
       {documents.data.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("documents.empty")}</p>
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyDescription>{t("documents.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <Table>
           <TableHeader>

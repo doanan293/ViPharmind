@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import { isApiError } from "~/api/problem"
 import { Button } from "~/components/ui/button"
+import { FieldError } from "~/components/ui/field"
 import { useCountdown } from "~/hooks/use-countdown"
 import { apiErrorMessage } from "~/i18n/error-message"
 
@@ -69,11 +70,7 @@ export function ResendCodeButton({
           ? t("code.resendIn", { seconds: secondsLeft })
           : t("code.resend")}
       </Button>
-      {error === null ? null : (
-        <p role="alert" className="text-destructive">
-          {error}
-        </p>
-      )}
+      {error === null ? null : <FieldError>{error}</FieldError>}
     </div>
   )
 }

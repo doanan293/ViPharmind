@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router"
 import { useUsersCurrentUser } from "~/api/gen/endpoints"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import { Spinner } from "~/components/ui/spinner"
+import { Alert, AlertDescription } from "~/components/ui/alert"
 import { isErrorCode } from "~/i18n/error-message"
 
 import { AccountSection } from "./AccountSection"
@@ -23,9 +24,11 @@ export function SettingsPage() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 md:p-8">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
       {errorCode === null ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {tErrors(isErrorCode(errorCode) ? errorCode : "UNKNOWN")}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {tErrors(isErrorCode(errorCode) ? errorCode : "UNKNOWN")}
+          </AlertDescription>
+        </Alert>
       )}
       <Card>
         <CardHeader>
