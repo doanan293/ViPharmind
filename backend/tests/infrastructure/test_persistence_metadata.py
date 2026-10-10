@@ -35,6 +35,10 @@ def test_target_metadata_holds_app_and_corpus_tables() -> None:
         "messages",
         "oauth_account",
         "one_time_codes",
+        "organizations",
+        "organization_members",
+        "organization_invitations",
+        "audit_events",
         "rate_limit_buckets",
         "user",
     }
