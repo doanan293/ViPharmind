@@ -125,7 +125,7 @@ def test_local_backend_does_not_start_a_server_when_cache_is_complete(
     cache_path = tmp_path / "cache.jsonl"
     open_text_cache(cache_path, MODEL).set(text_sha256("a"), _vector(0.1))
     backend = LocalTextEmbeddingBackend(
-        compose_file=tmp_path / "missing-compose.yml", gguf_root=tmp_path
+        compose_files=(tmp_path / "missing-compose.yml",), gguf_root=tmp_path
     )
 
     result = backend.run(

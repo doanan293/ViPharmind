@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 from pharma_lab.cache.jsonl_records import merge_records
 from pharma_lab.config.paths import (
-    COMPOSE_FILE,
     GGUF_ROOT,
+    LOCAL_MODELS_COMPOSE_FILES,
     WORK_DIR,
 )
 from pharma_lab.evaluation.preload_query_embeddings import preload_embeddings
@@ -59,10 +59,10 @@ class LocalQueryEmbeddingBackend:
     def __init__(
         self,
         *,
-        compose_file: Path = COMPOSE_FILE,
+        compose_files: Sequence[Path] = LOCAL_MODELS_COMPOSE_FILES,
         gguf_root: Path = GGUF_ROOT,
     ):
-        self.compose_file = compose_file
+        self.compose_files = compose_files
         self.gguf_root = gguf_root
 
     def run(self, request: QueryEmbeddingRequest) -> QueryEmbeddingStageResult:
@@ -73,7 +73,7 @@ class LocalQueryEmbeddingBackend:
             raise ValueError("benchmark requires --backend kaggle")
         if request.dry_run:
             return QueryEmbeddingStageResult(None, None, ("dry-run",))
-        manager = LlamaCppComposeManager(self.compose_file)
+        manager = LlamaCppComposeManager(self.compose_files)
         endpoint = resolve_server("compose", [], spec, manager, self.gguf_root)[0]
         client = LlamaCppClient(endpoint, timeout=request.request_timeout_seconds)
         expected_dimension = spec.vector_dimension

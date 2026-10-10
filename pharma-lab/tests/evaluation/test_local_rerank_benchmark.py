@@ -103,7 +103,7 @@ class Bench:
         self, runner: RecordingRunner, client: ScoringClient, clock: FakeClock
     ) -> LocalRerankBenchmarkResult:
         manager = LlamaCppComposeManager(
-            self.compose_file,
+            (self.compose_file,),
             runner=runner,
             client_factory=HealthyClient,
             environment={},

@@ -5,7 +5,7 @@ import os
 import re
 import subprocess
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from pharma_lab.runtime.catalog import ModelKind, ModelSpec
@@ -54,7 +54,7 @@ def verify_model_artifact(root: Path, spec: ModelSpec) -> Path:
 
 
 def compose_llama_cpp_image(compose_file: Path) -> str:
-    """The llama.cpp server image tag that compose.yaml pins."""
+    """The llama.cpp server image tag that compose.local-models.yaml pins."""
     match = _LLAMA_CPP_IMAGE.search(Path(compose_file).read_text(encoding="utf-8"))
     if match is None:
         raise ValueError(f"{compose_file} declares no llama.cpp server image")
@@ -62,7 +62,7 @@ def compose_llama_cpp_image(compose_file: Path) -> str:
 
 
 def reranker_environment(runtime: RuntimeCandidate) -> dict[str, str]:
-    """Root .env variables that compose.yaml maps to llama-reranker's LLAMA_ARG_*."""
+    """Root .env variables that compose.local-models.yaml maps to llama-reranker's LLAMA_ARG_*."""
     if runtime.logical_batch_size != runtime.physical_batch_size:
         raise ValueError("reranker runtime must use one size for batch and ubatch")
     context = reranker_context_size(
@@ -94,16 +94,19 @@ class SubprocessRunner:
 
 
 class LlamaCppComposeManager:
+    """Starts the llama.cpp services: `compose_files` are compose.yaml and its
+    compose.local-models.yaml override, layered with one `-f` each."""
+
     def __init__(
         self,
-        compose_file: Path,
+        compose_files: Sequence[Path],
         runner=None,
         client_factory=LlamaCppClient,
         environment=None,
         startup_timeout: float = 180.0,
         poll_interval: float = 2.0,
     ) -> None:
-        self.compose_file = Path(compose_file)
+        self.compose_files = tuple(Path(path) for path in compose_files)
         self.runner = runner or SubprocessRunner()
         self.client_factory = client_factory
         self.environment = dict(os.environ if environment is None else environment)
@@ -136,10 +139,7 @@ class LlamaCppComposeManager:
         if runtime is not None:
             environment.update(reranker_environment(runtime))
         command = [
-            "docker",
-            "compose",
-            "-f",
-            str(self.compose_file),
+            *self._compose(),
             "up",
             "-d",
             "--force-recreate",
@@ -165,6 +165,10 @@ class LlamaCppComposeManager:
             f"{service} did not become healthy: {last_error}\n{logs[-8000:]}"
         )
 
+    def _compose(self) -> list[str]:
+        files = [arg for path in self.compose_files for arg in ("-f", str(path))]
+        return ["docker", "compose", *files]
+
     def logs(
         self,
         role: str,
@@ -174,10 +178,7 @@ class LlamaCppComposeManager:
     ) -> str:
         return self.runner.run(
             [
-                "docker",
-                "compose",
-                "-f",
-                str(self.compose_file),
+                *self._compose(),
                 "logs",
                 "--tail",
                 str(tail),

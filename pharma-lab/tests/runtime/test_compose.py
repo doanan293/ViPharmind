@@ -3,7 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from pharma_lab.config.paths import COMPOSE_FILE
+from pharma_lab.config.paths import (
+    COMPOSE_FILE,
+    LOCAL_MODELS_COMPOSE_FILE,
+    LOCAL_MODELS_COMPOSE_FILES,
+)
 from pharma_lab.runtime.catalog import LOCAL_RERANK_SEARCH_SPACE, require_model
 from pharma_lab.runtime.compose import (
     LlamaCppComposeManager,
@@ -34,7 +38,7 @@ class HealthyClient:
 
 def _manager(tmp_path: Path, runner: RecordingRunner) -> LlamaCppComposeManager:
     return LlamaCppComposeManager(
-        tmp_path / "compose.yaml",
+        (tmp_path / "compose.yaml", tmp_path / "compose.local-models.yaml"),
         runner=runner,
         client_factory=HealthyClient,
         environment={},
@@ -115,16 +119,39 @@ def test_logs_reads_the_service_tail(tmp_path: Path) -> None:
     assert command[-4:] == ["logs", "--tail", "80", "llama-reranker"]
 
 
+def test_the_manager_layers_the_local_models_file_over_the_base(
+    tmp_path: Path,
+) -> None:
+    runner = RecordingRunner()
+    _manager(tmp_path, runner).ensure(
+        "reranker", _spec(tmp_path, "qwen3-reranker:4b-fp16"), tmp_path
+    )
+    command, _environment = runner.calls[0]
+    assert command[:6] == [
+        "docker",
+        "compose",
+        "-f",
+        str(tmp_path / "compose.yaml"),
+        "-f",
+        str(tmp_path / "compose.local-models.yaml"),
+    ]
+
+
+def test_the_local_models_files_are_the_base_and_its_override() -> None:
+    assert LOCAL_MODELS_COMPOSE_FILES == (COMPOSE_FILE, LOCAL_MODELS_COMPOSE_FILE)
+    assert all(path.is_file() for path in LOCAL_MODELS_COMPOSE_FILES)
+
+
 def test_compose_pins_the_llama_cpp_server_image() -> None:
     assert (
-        compose_llama_cpp_image(COMPOSE_FILE)
+        compose_llama_cpp_image(LOCAL_MODELS_COMPOSE_FILE)
         == "ghcr.io/ggml-org/llama.cpp:server-b10920"
     )
 
 
 def test_compose_reranker_serves_batched_unified_kv() -> None:
-    text = COMPOSE_FILE.read_text(encoding="utf-8")
-    block = text[text.index("  llama-reranker:") : text.index("  postgres:")]
+    text = LOCAL_MODELS_COMPOSE_FILE.read_text(encoding="utf-8")
+    block = text[text.index("  llama-reranker:") : text.index("  backend:")]
 
     for line in (
         'LLAMA_ARG_RERANKING: "true"',
@@ -140,7 +167,7 @@ def test_compose_reranker_serves_batched_unified_kv() -> None:
 
 
 def test_compose_backend_sends_one_rerank_request_at_a_time() -> None:
-    text = COMPOSE_FILE.read_text(encoding="utf-8")
+    text = LOCAL_MODELS_COMPOSE_FILE.read_text(encoding="utf-8")
 
     assert 'PHARMA_RETRIEVAL__RERANK__MAX_CONCURRENT: "1"' in text
     assert (
