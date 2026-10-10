@@ -4,11 +4,11 @@ import { beforeEach, describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
 
-import { LoginForm } from "~/features/auth/LoginForm"
+import { LoginForm } from "~/features/auth/components/LoginForm"
 import { applyZodLocale } from "~/i18n/zod-locale"
 
-import { worker } from "../../../tests/msw/browser"
-import { TestProviders } from "../../../tests/utils/providers"
+import { worker } from "../../../../tests/msw/browser"
+import { TestProviders } from "../../../../tests/utils/providers"
 
 function LoginRoute() {
   return <LoginForm nextPath="/chat" />

@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card"
-import { LANDING_PATHS } from "~/features/landing/meta"
+import { LANDING_PATHS } from "~/features/landing/lib/meta"
 import type { Language } from "~/i18n/config"
 
 const FEATURES = ["citations", "streaming"] as const

@@ -8,7 +8,7 @@ import {
 } from "~/components/ui/sidebar"
 import { Spinner } from "~/components/ui/spinner"
 import { requireUser } from "~/features/auth/lib/require-user"
-import { AppSidebar } from "~/features/shell/AppSidebar"
+import { AppSidebar } from "~/features/shell/components/AppSidebar"
 
 import type { Route } from "./+types/layout"
 

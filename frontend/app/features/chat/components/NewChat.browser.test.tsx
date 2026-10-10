@@ -8,14 +8,14 @@ import {
   getListMessagesMockHandler,
 } from "~/api/gen/endpoints.msw"
 
-import { conversationView, messagePage } from "../../../tests/chat/fixtures"
-import { renderRoutes } from "../../../tests/chat/render"
+import { conversationView, messagePage } from "../../../../tests/chat/fixtures"
+import { renderRoutes } from "../../../../tests/chat/render"
 import {
   answerChat,
   chatStreamHandler,
   type StreamRequest,
-} from "../../../tests/chat/stream-handler"
-import { worker } from "../../../tests/msw/browser"
+} from "../../../../tests/chat/stream-handler"
+import { worker } from "../../../../tests/msw/browser"
 
 import { ChatThread } from "./ChatThread"
 

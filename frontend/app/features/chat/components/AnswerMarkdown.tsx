@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { type Components, Streamdown } from "streamdown"
 
-import { CitationMarker } from "~/features/citations/CitationMarker"
+import { CitationMarker } from "~/features/chat/components/CitationMarker"
 
 import { toCiteRefMarkup } from "../lib/cite-markers"
 import { streamdownPlugins } from "../lib/streamdown-config"

@@ -29,8 +29,8 @@ import {
   SidebarMenuSkeleton,
 } from "~/components/ui/sidebar"
 
-import { DeleteConversationDialog } from "./components/DeleteConversationDialog"
-import { RenameConversationDialog } from "./components/RenameConversationDialog"
+import { DeleteConversationDialog } from "./DeleteConversationDialog"
+import { RenameConversationDialog } from "./RenameConversationDialog"
 
 export const CONVERSATION_PAGE_SIZE = 20
 

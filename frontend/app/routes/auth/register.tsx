@@ -2,9 +2,9 @@ import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router"
 
 import { FieldSeparator } from "~/components/ui/field"
-import { AuthCard } from "~/features/auth/AuthCard"
-import { GoogleButton } from "~/features/auth/GoogleButton"
-import { RegisterForm } from "~/features/auth/RegisterForm"
+import { AuthCard } from "~/features/auth/components/AuthCard"
+import { GoogleButton } from "~/features/auth/components/GoogleButton"
+import { RegisterForm } from "~/features/auth/components/RegisterForm"
 import { useRedirectIfAuthenticated } from "~/features/auth/hooks/use-redirect-if-authenticated"
 import { safeNextPath } from "~/features/auth/lib/next-path"
 

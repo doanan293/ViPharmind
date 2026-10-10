@@ -4,9 +4,9 @@ import { page, userEvent } from "vitest/browser"
 
 import { getGetMessageCitationMockHandler } from "~/api/gen/endpoints.msw"
 
-import { citationDetail } from "../../../tests/chat/fixtures"
-import { renderRoutes } from "../../../tests/chat/render"
-import { worker } from "../../../tests/msw/browser"
+import { citationDetail } from "../../../../tests/chat/fixtures"
+import { renderRoutes } from "../../../../tests/chat/render"
+import { worker } from "../../../../tests/msw/browser"
 
 import { CitationSheet } from "./CitationSheet"
 

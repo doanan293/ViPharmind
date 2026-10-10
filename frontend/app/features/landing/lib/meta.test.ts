@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 
-import { landingMeta } from "~/features/landing/meta"
+import { landingMeta } from "~/features/landing/lib/meta"
 
 const SITE = "https://pharma.example"
 
