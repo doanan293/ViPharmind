@@ -13,11 +13,11 @@ from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError
 from pharma_agent.infrastructure.settings import RerankSettings
 
 
-def _document_text(hit: Hit) -> str:
+def document_text(hit: Hit) -> str:
     return hit.embedding_text or f"{hit.context_header}\n\n{hit.chunk_text}".strip()
 
 
-def _sorted_top(
+def sorted_top(
     hits: Sequence[Hit], scores: Sequence[float | None], top_n: int
 ) -> list[Hit]:
     scored = [
@@ -47,7 +47,7 @@ class NativeReranker:
         body = {
             "model": self._model,
             "query": query,
-            "documents": [_document_text(h) for h in hits],
+            "documents": [document_text(h) for h in hits],
             "top_n": len(hits),
         }
         try:
@@ -69,7 +69,7 @@ class NativeReranker:
                 and isinstance(score, int | float)
             ):
                 scores[index] = float(score)
-        return _sorted_top(hits, scores, top_n)
+        return sorted_top(hits, scores, top_n)
 
 
 class NoopReranker:
@@ -86,6 +86,14 @@ def build_reranker(settings: RerankSettings) -> Reranker:
     http = httpx.AsyncClient(
         base_url=settings.base_url, timeout=settings.timeout_seconds, headers=headers
     )
+    if settings.protocol == "deepinfra":
+        from pharma_agent.infrastructure.retrieval.deepinfra_reranker import (
+            DeepInfraReranker,
+        )
+
+        return DeepInfraReranker(
+            http, model=settings.model, max_concurrent=settings.max_concurrent
+        )
     return NativeReranker(
         http, model=settings.model, max_concurrent=settings.max_concurrent
     )
