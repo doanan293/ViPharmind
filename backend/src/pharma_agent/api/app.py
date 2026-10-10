@@ -57,6 +57,7 @@ def create_app(
     app.state.auth = auth
     app.state.trusted_proxy_hops = resolved.api.trusted_proxy_hops
     app.state.jobs_settings = resolved.jobs
+    app.state.phone_sign_in_enabled = resolved.sms.provider != "none"
     install_csrf(app, resolved.auth)
     if resolved.api.cors_origins:
         # Added after CSRF, so CORS is the outer layer and 403 problems carry CORS headers.
