@@ -228,16 +228,18 @@ def settings() -> Settings:
     )
 ```
 
-`backend/tests/api/postgres_app.py`: thêm hằng `OTP_SECRET = "o" * 40` và đổi dòng `auth=` thành:
+`backend/tests/api/postgres_app.py`: thêm hằng `OTP_SECRET = "o" * 40` và trong `postgres_app` đổi câu tạo `settings` thành:
 
 ```python
-auth = (
-    {
+settings = Settings(
+    _env_file=None,
+    auth={
         "jwt_secret": JWT_SECRET,
         "csrf_secret": CSRF_SECRET,
         "otp_secret": OTP_SECRET,
         **(auth or {}),
     },
+    postgres={"dsn": dsn},
 )
 ```
 
