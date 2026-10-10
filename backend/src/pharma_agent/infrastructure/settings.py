@@ -152,7 +152,7 @@ class PostgresSettings(BaseModel):
 
     @property
     def conninfo(self) -> str:
-        """libpq connection string for psycopg (the checkpointer pool)."""
+        """libpq connection string for raw psycopg connections."""
         return self.dsn.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
@@ -205,10 +205,6 @@ class MemorySettings(BaseModel):
     summary_max_chars: int = 1500
 
 
-class CheckpointSettings(BaseModel):
-    retention_days: int = Field(default=7, ge=1)
-
-
 class CorpusSettings(BaseModel):
     """Corpus import and release commands (spec C §8.2, §8.5)."""
 
@@ -235,5 +231,4 @@ class Settings(BaseSettings):
     auth: AuthSettings = Field(default_factory=AuthSettings)
     api: ApiSettings = Field(default_factory=ApiSettings)
     memory: MemorySettings = Field(default_factory=MemorySettings)
-    checkpoints: CheckpointSettings = Field(default_factory=CheckpointSettings)
     corpus: CorpusSettings = Field(default_factory=CorpusSettings)

@@ -32,7 +32,6 @@ from pharma_agent.infrastructure.corpus_factory import (
     CorpusServices,
     open_corpus_services,
 )
-from pharma_agent.infrastructure.langgraph.cleanup import delete_expired_checkpoints
 from pharma_agent.infrastructure.settings import Settings
 
 app = typer.Typer(help="Pharma agent developer CLI", no_args_is_help=True)
@@ -242,21 +241,6 @@ def export_openapi(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(document, encoding="utf-8", newline="\n")
     typer.echo(f"wrote {output}")
-
-
-@app.command("cleanup-checkpoints")
-def cleanup_checkpoints(
-    days: int | None = typer.Option(
-        None, min=1, help="Số ngày lưu giữ (mặc định lấy từ settings)"
-    ),
-) -> None:
-    """Xóa checkpoint LangGraph cũ hơn số ngày lưu giữ."""
-    settings = Settings()
-    retention = days if days is not None else settings.checkpoints.retention_days
-    deleted = asyncio.run(
-        delete_expired_checkpoints(settings.postgres.conninfo, retention_days=retention)
-    )
-    typer.echo(f"deleted {deleted} checkpoints older than {retention} days")
 
 
 @app.command("cleanup-sessions")

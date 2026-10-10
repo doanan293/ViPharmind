@@ -1,9 +1,7 @@
 import asyncio
 
 import pytest
-from langgraph.checkpoint.memory import InMemorySaver
 
-from pharma_agent.application.chat.checkpoint import checkpoint_serializer
 from pharma_agent.application.chat.context import PipelineOptions
 from pharma_agent.application.chat.graph import build_chat_graph
 from pharma_agent.application.chat.runner import ChatTurnRunner
@@ -54,7 +52,7 @@ async def run_turn(
     reranker: FakeReranker | None = None,
     pipeline: PipelineOptions | None = None,
 ):
-    graph = build_chat_graph(checkpointer=InMemorySaver(serde=checkpoint_serializer()))
+    graph = build_chat_graph()
     runner = ChatTurnRunner(
         graph,
         build_deps(llm, retriever, reranker=reranker),

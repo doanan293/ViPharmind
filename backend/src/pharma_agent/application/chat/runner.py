@@ -96,10 +96,7 @@ class ChatTurnExecution:
         self, queue: asyncio.Queue[ProgressEvent | None], handle: TraceHandle
     ) -> None:
         final: ChatTurnState | None = None
-        config: RunnableConfig = {
-            "configurable": {"thread_id": self.run.run_id},
-            "callbacks": list(handle.callbacks),
-        }
+        config: RunnableConfig = {"callbacks": list(handle.callbacks)}
         modes: list[StreamMode] = ["custom", "values"]
         context = TurnContext(
             deps=self._deps, conversation=self._conversation, pipeline=self._pipeline

@@ -48,7 +48,6 @@ def test_include_name_manages_default_and_corpus_schemas_only() -> None:
     assert include_name(None, "schema", {}) is True
     assert include_name("corpus", "schema", {}) is True
     assert include_name("langfuse", "schema", {}) is False
-    assert include_name("checkpoints", "table", {}) is False
     assert include_name("conversations", "table", {}) is True
 
 
