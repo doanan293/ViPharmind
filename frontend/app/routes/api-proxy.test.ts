@@ -129,3 +129,24 @@ describe("api proxy identity", () => {
     expect(response.headers.get("content-type")).toBe("application/json")
   })
 })
+
+describe("api proxy failures", () => {
+  test("an unreachable backend is a 503 problem the app can explain", async () => {
+    vi.stubEnv("API_INTERNAL_URL", "https://api.example.run.app")
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new TypeError("fetch failed")))
+    )
+    const response = await loader(
+      args(new Request("https://vipharmind.vercel.app/api/v1/users/me"))
+    )
+    expect(response.status).toBe(503)
+    expect(response.headers.get("content-type")).toBe(
+      "application/problem+json"
+    )
+    expect(await response.json()).toMatchObject({
+      status: 503,
+      code: "BACKEND_UNAVAILABLE",
+    })
+  })
+})

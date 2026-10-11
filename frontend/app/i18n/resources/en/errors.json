@@ -50,5 +50,6 @@
   "SYSTEM_COLLECTION_READ_ONLY": "The system collection cannot be changed here.",
   "QUOTA_EXCEEDED": "You have used up your quota.",
   "PUBLISH_IN_PROGRESS": "The collection is already being published.",
-  "PHONE_SIGN_IN_DISABLED": "Phone sign-in is turned off."
+  "PHONE_SIGN_IN_DISABLED": "Phone sign-in is turned off.",
+  "BACKEND_UNAVAILABLE": "The server is temporarily unavailable. Please try again later."
 }
