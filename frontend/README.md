@@ -38,9 +38,11 @@ uncompressed body and adds the shared `X-Vipharmind-Proxy` secret.
 Locally that route never runs, because Vite's dev proxy, nginx and the E2E proxy answer `/api`
 first.
 
-1. Import the GitHub repository in Vercel and set **Root Directory** to `frontend`. Vercel
-   detects React Router; `react-router.config.ts` adds `vercelPreset()` only when the build runs
-   with `VERCEL=1`, so `npm start`, the Dockerfile and the E2E run keep the plain server build.
+1. The Vercel project is `vipharmind` (https://vipharmind.vercel.app), Framework Preset
+   **React Router**, Root Directory `frontend`. Vercel builds React Router without
+   `@vercel/react-router`; the preset is not used, because with React Router 8 its server bundles
+   make the build on Vercel fail (React Router moves a CSS file that the bundle did not write).
+   Deploy from `frontend/` with `vercel deploy --prod`, or connect the GitHub repository.
 2. Environment Variables (Production): `API_INTERNAL_URL` (the Cloud Run URL),
    `PUBLIC_SITE_URL` (`https://<project>.vercel.app`), `THEME_COOKIE_SECRET` and
    `API_PROXY_SECRET` (the same value as the backend's `PHARMA_API__PROXY_SECRET`; the proxy
@@ -50,10 +52,8 @@ first.
 4. Add `https://<project>.vercel.app/auth/google/callback` and `/auth/google/link-callback` to the
    Google OAuth client, and set `PHARMA_AUTH__FRONTEND_URL` on the backend to the same origin.
 
-`@vercel/react-router` declares React Router 7 as its peer; `package.json` overrides that peer
-with the project's React Router 8, and a `VERCEL=1 npm run build` produces a single Node server
-bundle. Do not add `export const config` to a route: a second server bundle makes React Router 8
-move the same CSS file twice and the build fails.
+`.vercelignore` keeps local `build/` and test output out of CLI uploads; the CLI does not read
+`.gitignore`, and an uploaded stale `build/` breaks the build.
 
 ## End-to-end tests
 
