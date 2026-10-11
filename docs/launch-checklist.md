@@ -4,16 +4,33 @@ Những việc chỉ chủ tài khoản làm được (thẻ thanh toán, đăng
 tự; mỗi bước ghi lệnh hoặc chỗ bấm. Kiến trúc: frontend trên Vercel, backend trên Cloud Run, dữ
 liệu trên Neon và Qdrant Cloud, model trên DeepInfra, thư qua Gmail SMTP.
 
+## Trạng thái (cập nhật 2026-10-11)
+
+Đã xong, không mất phí:
+
+- [x] Google Cloud CLI và Vercel CLI cài trên máy, đã đăng nhập.
+- [x] Project Google Cloud `vipharmind` đã tạo (chưa gắn thanh toán).
+- [x] Neon: project ở Singapore, database `neondb`, DSN có pooler trong `backend/.env.production`; đã migrate tới `0020`.
+- [x] Qdrant Cloud: cluster miễn phí `vipharmind` ở AWS US Oregon (gói Free không có châu Á), URL và API key trong `backend/.env.production`. Cluster Free tự tạm dừng sau 1 tuần không có truy vấn; uptime check vào `/health` giữ nó chạy.
+
+**Để sau, cần thẻ hoặc tốn tiền** (làm khi đã có thẻ Visa):
+
+- [ ] Mở lại tài khoản thanh toán Google Cloud `0135D1-DC225E-BD2890` (đang đóng), gắn vào project `vipharmind`, đặt cảnh báo ngân sách 1 USD và 5 USD.
+- [ ] Bật API, Artifact Registry, Cloud Tasks, service account, Workload Identity, Secret Manager, job migrate và service Cloud Run (mục 3).
+- [ ] Nạp corpus lên Neon và Qdrant (mục 2): gọi DeepInfra tính lại embedding cho 24.946 đoạn, khoảng 0,3 USD, vì embedding có sẵn trong bundle mang tên model local `qwen3-embedding:4b-fp16`.
+- [ ] Kiểm tra số dư DeepInfra (mọi câu trả lời trên production đều gọi DeepInfra).
+- [ ] Sau này nếu cần nhanh hơn: chuyển Qdrant sang cluster trả phí ở GCP `asia-southeast1` (cùng khu vực Cloud Run), đổi URL và key rồi nạp lại corpus.
+
 ## 1. Tài khoản và dịch vụ
 
 - [ ] **Google Cloud:** tạo project `vipharmind`, gắn thẻ thanh toán, đặt cảnh báo ngân sách 1 USD
       và 5 USD (Billing → Budgets & alerts).
-- [ ] **Neon:** tạo project ở khu vực Singapore (`aws-ap-southeast-1`), database `vipharmind`, lấy
-      connection string **có pooler** (`-pooler` trong host) và thêm `sslmode=require`.
-- [ ] **Qdrant Cloud:** tạo cluster miễn phí, lấy URL (cổng 6333) và API key.
+- [x] **Neon:** tạo project ở khu vực Singapore (`aws-ap-southeast-1`), lấy connection string
+      **có pooler** (`-pooler` trong host) kèm `sslmode=require`.
+- [x] **Qdrant Cloud:** tạo cluster miễn phí, lấy URL (cổng 6333) và API key.
 - [ ] **DeepInfra:** key đã có; kiểm tra số dư.
 - [ ] **Gmail:** bật xác minh hai bước cho tài khoản gửi thư, tạo App password.
-- [ ] **Vercel:** tạo tài khoản, chưa import repo (làm ở bước 4).
+- [x] **Vercel:** tạo tài khoản (import repo ở bước 4).
 
 ## 2. Nạp dữ liệu lần đầu từ máy mình
 
