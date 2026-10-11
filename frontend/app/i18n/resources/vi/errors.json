@@ -50,5 +50,6 @@
   "SYSTEM_COLLECTION_READ_ONLY": "Bộ tài liệu hệ thống không sửa được ở đây.",
   "QUOTA_EXCEEDED": "Bạn đã dùng hết hạn mức.",
   "PUBLISH_IN_PROGRESS": "Bộ tài liệu đang được xuất bản.",
-  "PHONE_SIGN_IN_DISABLED": "Đăng nhập bằng số điện thoại đang tắt."
+  "PHONE_SIGN_IN_DISABLED": "Đăng nhập bằng số điện thoại đang tắt.",
+  "BACKEND_UNAVAILABLE": "Máy chủ đang tạm ngừng. Vui lòng thử lại sau."
 }

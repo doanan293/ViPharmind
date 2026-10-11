@@ -49,15 +49,33 @@ async function forward(request: Request): Promise<Response> {
     headers.set(PROXY_HEADER, secret)
   }
   const hasBody = request.method !== "GET" && request.method !== "HEAD"
-  const upstream = await fetch(backendUrl(request), {
-    method: request.method,
-    headers,
-    body: hasBody ? request.body : null,
-    // Streams the request body; required by fetch whenever the body is a stream.
-    ...(hasBody ? { duplex: "half" } : {}),
-    redirect: "manual",
-    signal: request.signal,
-  })
+  let upstream: Response
+  try {
+    upstream = await fetch(backendUrl(request), {
+      method: request.method,
+      headers,
+      body: hasBody ? request.body : null,
+      // Streams the request body; required by fetch whenever the body is a stream.
+      ...(hasBody ? { duplex: "half" } : {}),
+      redirect: "manual",
+      signal: request.signal,
+    })
+  } catch {
+    // Down, cold-starting past the timeout, or not configured: answer in the API's own
+    // problem format so the app shows a clear message instead of a bare 500.
+    return Response.json(
+      {
+        type: "about:blank",
+        title: "Backend unavailable",
+        status: 503,
+        code: "BACKEND_UNAVAILABLE",
+      },
+      {
+        status: 503,
+        headers: { "content-type": "application/problem+json" },
+      }
+    )
+  }
   const responseHeaders = new Headers(upstream.headers)
   for (const name of DROPPED_RESPONSE_HEADERS) {
     responseHeaders.delete(name)
