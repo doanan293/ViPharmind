@@ -12,6 +12,14 @@ liệu trên Neon và Qdrant Cloud, model trên DeepInfra, thư qua Gmail SMTP.
 - [x] Project Google Cloud `vipharmind` đã tạo (chưa gắn thanh toán).
 - [x] Neon: project ở Singapore, database `neondb`, DSN có pooler trong `backend/.env.production`; đã migrate tới `0020`.
 - [x] Qdrant Cloud: cluster miễn phí `vipharmind` ở AWS US Oregon (gói Free không có châu Á), URL và API key trong `backend/.env.production`. Cluster Free tự tạm dừng sau 1 tuần không có truy vấn; uptime check vào `/health` giữ nó chạy.
+- [x] Secret production (JWT, CSRF, OTP, proxy) đã sinh trong `backend/.env.production`.
+- [x] Vercel: project `vipharmind`, preset React Router, https://vipharmind.vercel.app chạy; đã đặt `PUBLIC_SITE_URL`, `THEME_COOKIE_SECRET`, `API_PROXY_SECRET`. Còn thiếu `API_INTERNAL_URL` (URL Cloud Run, có khi có thẻ).
+
+Việc miễn phí còn lại, cần bạn làm trên web:
+
+- [ ] Google OAuth client (project `andv-lms`): thêm redirect URI `https://vipharmind.vercel.app/auth/google/callback` và `https://vipharmind.vercel.app/auth/google/link-callback`.
+- [ ] Gmail: bật xác minh hai bước cho tài khoản gửi thư, tạo App password (đưa vào `PHARMA_EMAIL__SMTP_PASSWORD`).
+- [ ] GitHub: Settings → Actions → bật Actions cho repo nếu đang tắt.
 
 **Để sau, cần thẻ hoặc tốn tiền** (làm khi đã có thẻ Visa):
 
