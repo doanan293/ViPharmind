@@ -176,6 +176,7 @@ async def open_container(
                 model=corpus_embedder.model,
                 dimension=corpus_embedder.dimension,
                 alias=settings.retrieval.qdrant_collection,
+                on_disk_vectors=settings.qdrant.on_disk_vectors,
             )
             container.collections = build_collection_service(
                 settings, database.sessions, index=index, clock=clock

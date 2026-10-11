@@ -135,6 +135,9 @@ class QdrantSettings(BaseModel):
     api_key: str | None = None
     timeout_seconds: float = 30.0
     check_compatibility: bool = True
+    # Applies when a collection is created: keeps dense vectors on disk instead of in RAM
+    # (Qdrant Cloud's free tier has 1 GB of RAM).
+    on_disk_vectors: bool = False
 
 
 class LangfuseSettings(BaseModel):

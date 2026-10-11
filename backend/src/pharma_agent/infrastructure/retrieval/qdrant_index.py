@@ -57,8 +57,11 @@ class QdrantVectorIndex:
         model: str,
         dimension: int,
         alias: str = CURRENT_ALIAS,
+        on_disk_vectors: bool = False,
     ) -> None:
         self._client = client
+        # Dense vectors on disk (memory-mapped) when RAM is short, e.g. a small cloud tier.
+        self._on_disk_vectors = on_disk_vectors
         self._model = model
         self._dimension = dimension
         self.collection_name = physical_collection_name(model)
@@ -74,7 +77,9 @@ class QdrantVectorIndex:
                 collection_name=self.collection_name,
                 vectors_config={
                     DENSE_VECTOR_NAME: models.VectorParams(
-                        size=self._dimension, distance=models.Distance.COSINE
+                        size=self._dimension,
+                        distance=models.Distance.COSINE,
+                        on_disk=self._on_disk_vectors,
                     )
                 },
                 sparse_vectors_config={
