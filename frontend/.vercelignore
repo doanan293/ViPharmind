@@ -1,0 +1,12 @@
+# The Vercel CLI does not read .gitignore: keep local build and test output out of uploads,
+# otherwise a stale build/ makes React Router move CSS that is not there.
+node_modules
+build
+.react-router
+.vercel
+.env*
+!.env.example
+test-results
+playwright-report
+.vitest
+__screenshots__

@@ -270,7 +270,7 @@ Giao diện có đúng một nguồn component là shadcn core (style `base-nova
 
 Những file trong `app/components/ui` khác bản registry chỉ vì lint (bỏ `role="group"`/`role="list"`, bỏ click-to-focus của `input-group`, `spinner` là `aria-hidden`) được ghi trong `frontend/README.md`; `shadcn add` đè lên thì khôi phục bản local.
 
-Thư viện mới: `@tiptap/react`, `@tiptap/starter-kit`, phần mở rộng bảng và Markdown của Tiptap, chọn bản chính thức của Tiptap. `@tanstack/react-table` và `avatar`, `breadcrumb` đi kèm block `dashboard-01`. `@tailwindcss/typography`. `@vercel/react-router` cho deploy. Không giữ `@dnd-kit` (kéo thả dòng của block không dùng), `sonner`, `next-themes`, `recharts` khi chưa có endpoint thống kê.
+Thư viện mới: `@tiptap/react`, `@tiptap/starter-kit`, phần mở rộng bảng và Markdown của Tiptap, chọn bản chính thức của Tiptap. `@tanstack/react-table` và `avatar`, `breadcrumb` đi kèm block `dashboard-01`. `@tailwindcss/typography`. Không dùng `@vercel/react-router`: Vercel tự build React Router, còn preset của nó làm hỏng build với React Router 8. Không giữ `@dnd-kit` (kéo thả dòng của block không dùng), `sonner`, `next-themes`, `recharts` khi chưa có endpoint thống kê.
 
 ## 9. Triển khai và ra mắt
 
@@ -278,7 +278,7 @@ Thư viện mới: `@tiptap/react`, `@tiptap/starter-kit`, phần mở rộng b�
 
 | Thành phần | Nơi chạy | Ghi chú |
 | --- | --- | --- |
-| Frontend SSR | Vercel Hobby | `vercelPreset()` trong `react-router.config.ts`; `vercel.json` rewrite `/api/*` sang URL backend để cookie first-party. Tự deploy khi `main` đổi |
+| Frontend SSR | Vercel Hobby (`https://vipharmind.vercel.app`) | Vercel tự nhận React Router, không cần preset; route `/api/*` của React Router chuyển tiếp sang backend để cookie first-party. Deploy bằng `vercel deploy --prod` hoặc nối GitHub |
 | Backend API | Cloud Run, `asia-southeast1` | scale về 0, `max-instances=1` lúc đầu, `concurrency=40`, timeout 600 giây cho stream và job, cảnh báo ngân sách 1 USD |
 | Job xuất bản | Cloud Tasks | queue `ingest`, gọi endpoint nội bộ bằng OIDC |
 | Postgres | Neon miễn phí, Singapore | DB mới dựng bằng migration, không chép DB local |
