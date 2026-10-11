@@ -85,6 +85,7 @@ async def open_corpus_services(
             model=embedder.model,
             dimension=embedder.dimension,
             alias=alias if alias is not None else settings.retrieval.qdrant_collection,
+            on_disk_vectors=settings.qdrant.on_disk_vectors,
         )
         clock = SystemClock()
         corpus = settings.corpus

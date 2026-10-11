@@ -58,9 +58,11 @@ spec:
             - name: PHARMA_RETRIEVAL__EMBEDDING__BASE_URL
               value: https://api.deepinfra.com/v1/openai
             - name: PHARMA_RETRIEVAL__EMBEDDING__MODEL
-              value: Qwen/Qwen3-Embedding-4B
+              value: Qwen/Qwen3-Embedding-8B
             - name: PHARMA_RETRIEVAL__EMBEDDING__DIMENSION
-              value: "2560"
+              value: "4096"
+            - name: PHARMA_QDRANT__ON_DISK_VECTORS
+              value: "true"
             - name: PHARMA_RETRIEVAL__RERANK__PROTOCOL
               value: deepinfra
             - name: PHARMA_RETRIEVAL__RERANK__BASE_URL

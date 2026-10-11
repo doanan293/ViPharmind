@@ -177,3 +177,23 @@ async def test_bm25_mode_matches_terms_inside_the_current_release_only(
     )[0]
     assert upcoming[0].chunk_version_id == chunk_uuid("c3")
     assert chunk_uuid("c1") not in {h.chunk_version_id for h in upcoming}
+
+
+@pytest.mark.parametrize("on_disk", [False, True])
+async def test_a_new_collection_keeps_dense_vectors_where_configured(
+    qdrant_client: AsyncQdrantClient, on_disk: bool
+) -> None:
+    from pharma_agent.infrastructure.retrieval.qdrant_index import QdrantVectorIndex
+
+    index = QdrantVectorIndex(
+        qdrant_client,
+        model=f"fake-on-disk-{on_disk}",
+        dimension=4,
+        alias=f"on_disk_{on_disk}",
+        on_disk_vectors=on_disk,
+    )
+    name = await index.ensure_collection()
+    info = await qdrant_client.get_collection(name)
+    vectors = info.config.params.vectors
+    assert isinstance(vectors, dict)
+    assert bool(vectors[DENSE_VECTOR_NAME].on_disk) is on_disk

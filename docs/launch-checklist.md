@@ -25,7 +25,7 @@ Việc miễn phí còn lại, cần bạn làm trên web:
 
 - [ ] Mở lại tài khoản thanh toán Google Cloud `0135D1-DC225E-BD2890` (đang đóng), gắn vào project `vipharmind`, đặt cảnh báo ngân sách 1 USD và 5 USD.
 - [ ] Bật API, Artifact Registry, Cloud Tasks, service account, Workload Identity, Secret Manager, job migrate và service Cloud Run (mục 3).
-- [ ] Nạp corpus lên Neon và Qdrant (mục 2): gọi DeepInfra tính lại embedding cho 24.946 đoạn, khoảng 0,3 USD, vì embedding có sẵn trong bundle mang tên model local `qwen3-embedding:4b-fp16`.
+- [ ] Nạp tiền DeepInfra, rồi nạp corpus lên Neon và Qdrant (mục 2): gọi DeepInfra tính embedding `Qwen/Qwen3-Embedding-8B` cho 24.946 đoạn, khoảng 0,3–0,5 USD.
 - [ ] Kiểm tra số dư DeepInfra (mọi câu trả lời trên production đều gọi DeepInfra).
 - [ ] Sau này nếu cần nhanh hơn: chuyển Qdrant sang cluster trả phí ở GCP `asia-southeast1` (cùng khu vực Cloud Run), đổi URL và key rồi nạp lại corpus.
 

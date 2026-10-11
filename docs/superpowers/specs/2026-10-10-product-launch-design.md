@@ -38,7 +38,7 @@ Spec này gộp ba mảng còn lại của lộ trình: **tổ chức và phân 
 | Hạn mức mặc định | 200.000 ký tự mỗi tài liệu, 100 tài liệu mỗi collection, 1 MB chữ và 5 collection mỗi người dùng, 5 MB chữ và 20 collection mỗi tổ chức. Superadmin chỉnh riêng cho từng người dùng và tổ chức |
 | Chuẩn hoá dữ liệu | Postgres giữ chữ và cấu trúc. Qdrant giữ vector và payload định tuyến. Bỏ `embedding_cache`, bỏ cột `embedding_text`, bỏ bảng `public.skills` |
 | Dữ liệu `formulary` hiện có | Thành collection công khai của hệ thống, nạp bằng CLI như cũ |
-| Embedding production | Qwen3-Embedding-4B, 2560 chiều, trên DeepInfra. Giống bản đã đánh giá |
+| Embedding production | Qwen3-Embedding-8B, 4096 chiều, trên DeepInfra (người dùng chọn ngày 2026-10-11; bản 4B 2560 chiều là bản đã đánh giá trong luận văn). Vector nằm trên đĩa ở Qdrant (`PHARMA_QDRANT__ON_DISK_VECTORS`) vì gói Free chỉ có 1 GB RAM |
 | Reranker production | Qwen3-Reranker-4B trên DeepInfra, qua endpoint inference của họ |
 | LLM production | Qwen3.5-9B trên DeepInfra cho mọi bước, tắt chế độ suy luận. Giống run `e2e-qwen35-9b` đã đánh giá |
 | SMS | Tắt khi ra mắt bằng `PHARMA_SMS__PROVIDER=none`; tab số điện thoại ẩn. Code giữ nguyên, bật lại khi có nhà cung cấp |
@@ -283,7 +283,7 @@ Thư viện mới: `@tiptap/react`, `@tiptap/starter-kit`, phần mở rộng b�
 | Job xuất bản | Cloud Tasks | queue `ingest`, gọi endpoint nội bộ bằng OIDC |
 | Postgres | Neon miễn phí, Singapore | DB mới dựng bằng migration, không chép DB local |
 | Vector | Qdrant Cloud miễn phí | vùng gần Singapore nhất có sẵn |
-| LLM, embedding, rerank | DeepInfra | Qwen3.5-9B, Qwen3-Embedding-4B, Qwen3-Reranker-4B |
+| LLM, embedding, rerank | DeepInfra | Qwen3.5-9B, Qwen3-Embedding-8B, Qwen3-Reranker-4B |
 | Email | Gmail SMTP | app password của một tài khoản Gmail; giới hạn 500 thư mỗi ngày |
 | SMS | tắt | `PHARMA_SMS__PROVIDER=none` |
 | Google OAuth | credential đã có từ andv-lms | thêm redirect URI mới |
