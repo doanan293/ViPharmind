@@ -95,14 +95,18 @@ Backend chạy trên máy thì đổi các biến embedding và rerank trong `ba
 
 ## Production
 
-Frontend chạy trên Vercel, backend trên Google Cloud Run (một instance, tác vụ xuất bản qua Cloud
-Tasks), Postgres trên Neon (Singapore), vector trên Qdrant Cloud, LLM, embedding và reranker trên
-DeepInfra, thư qua Gmail SMTP. Trình duyệt chỉ gọi origin Vercel; route `/api/*` của frontend chuyển
-tiếp sang Cloud Run nên cookie là first-party.
+Frontend chạy trên Vercel, backend trên Render Free (Docker, Singapore, tác vụ xuất bản chạy
+trong tiến trình API), Postgres trên Neon (Singapore), vector trên Qdrant Cloud, LLM, embedding và
+reranker trên DeepInfra, thư qua Gmail SMTP. Trình duyệt chỉ gọi origin Vercel; route `/api/*` của
+frontend chuyển tiếp sang Render nên cookie là first-party. Gói free của Render ngủ sau 15 phút
+không có request, lần gọi kế tiếp chờ khoảng một phút; cron Vercel gọi `/api/v1/health` mỗi ngày để
+Qdrant free không bị xoá vì không hoạt động.
 
 - Các bước dựng lần đầu và đường scale: `docs/launch-checklist.md`.
-- Backend: `devops/cloud-run/README.md` và workflow `.github/workflows/deploy-backend.yml`
-  (push `main` → build, migrate, deploy).
+- Backend: Render tự build `backend/Dockerfile` khi push `main`. Chạy migration trước bằng
+  `uv run pharma-agent --env-file .env.production migrate` trong `backend/`. Tạo service hoặc đẩy
+  lại biến môi trường từ `backend/.env.production` (kèm `RENDER_API_KEY`):
+  `uv run --with httpx python devops/render/configure.py`.
 - Frontend: mục *Deploy to Vercel* trong `frontend/README.md`.
 - CLI trỏ vào production từ máy mình: `uv run pharma-agent --env-file .env.production <lệnh>`
   (mẫu ở `backend/.env.production.example`).

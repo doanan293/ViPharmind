@@ -1,6 +1,6 @@
-"""Run jobs in the API process: for local development and tests.
+"""Run jobs in the API process: production on Render, local development and tests.
 
-On Cloud Run the CPU is throttled after a response, so production uses Cloud Tasks.
+On Cloud Run the CPU is throttled after a response, so a backend there uses Cloud Tasks instead.
 """
 
 import asyncio

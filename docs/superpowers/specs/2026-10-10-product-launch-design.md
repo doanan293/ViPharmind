@@ -34,7 +34,7 @@ Spec này gộp ba mảng còn lại của lộ trình: **tổ chức và phân 
 | Cách nhập nội dung | Soạn trực tiếp bằng **Tiptap**, hoặc tải lên `.txt` và `.md`. Cả hai cho ra Markdown. Không nhận `.docx` và PDF |
 | Metadata | Bảng thuật ngữ và tên gọi dân gian thuộc collection, quản lý ở hai tab riêng trên trang collection |
 | Đơn vị xuất bản | Cả collection thành một release mới, đúng như pipeline hiện có. Người dùng bấm Xuất bản sau khi soạn xong |
-| Job xuất bản | **Cloud Tasks** gọi ngược backend; job chạy trong request đó. Local và test dùng bộ chạy trong tiến trình |
+| Job xuất bản | Port `JobDispatcher` có hai adapter: bộ chạy trong tiến trình (production trên Render, local, test) và **Cloud Tasks** gọi ngược backend (khi chạy trên Cloud Run) |
 | Hạn mức mặc định | 200.000 ký tự mỗi tài liệu, 100 tài liệu mỗi collection, 1 MB chữ và 5 collection mỗi người dùng, 5 MB chữ và 20 collection mỗi tổ chức. Superadmin chỉnh riêng cho từng người dùng và tổ chức |
 | Chuẩn hoá dữ liệu | Postgres giữ chữ và cấu trúc. Qdrant giữ vector và payload định tuyến. Bỏ `embedding_cache`, bỏ cột `embedding_text`, bỏ bảng `public.skills` |
 | Dữ liệu `formulary` hiện có | Thành collection công khai của hệ thống, nạp bằng CLI như cũ |
@@ -42,8 +42,8 @@ Spec này gộp ba mảng còn lại của lộ trình: **tổ chức và phân 
 | Reranker production | Qwen3-Reranker-4B trên DeepInfra, qua endpoint inference của họ |
 | LLM production | Qwen3.5-9B trên DeepInfra cho mọi bước, tắt chế độ suy luận. Giống run `e2e-qwen35-9b` đã đánh giá |
 | SMS | Tắt khi ra mắt bằng `PHARMA_SMS__PROVIDER=none`; tab số điện thoại ẩn. Code giữ nguyên, bật lại khi có nhà cung cấp |
-| Nơi chạy | Frontend trên **Vercel Hobby** (sản phẩm phi thương mại lúc ra mắt). Backend trên **Google Cloud Run**. Đường lùi cho frontend là Cloud Run bằng Dockerfile hiện có |
-| Dịch vụ xung quanh | Neon Postgres, Qdrant Cloud, DeepInfra, Gmail SMTP, Cloud Tasks, Secret Manager, Artifact Registry |
+| Nơi chạy | Frontend trên **Vercel Hobby** (sản phẩm phi thương mại lúc ra mắt). Backend trên **Render Free** (Docker, Singapore): Google Cloud bắt nạp trước và Docker Space của Hugging Face bắt mua PRO, còn Render miễn phí và không trừ tiền. Đường lùi cho frontend là chạy Dockerfile hiện có trên host khác |
+| Dịch vụ xung quanh | Neon Postgres, Qdrant Cloud, DeepInfra, Gmail SMTP |
 
 ## 3. Bảng quyền
 
@@ -159,8 +159,8 @@ Một migration `0016_organizations_and_ingest` tạo các bảng ở 4.1–4.7,
 2. Soạn tài liệu: trang soạn thảo Tiptap với thanh công cụ gồm tiêu đề các cấp, đậm, nghiêng, danh sách và bảng, cùng các trường tiêu đề, loại tài liệu, nguồn. Hoặc tải lên `.txt`, `.md`; nội dung tải lên mở trong cùng trình soạn thảo để xem lại trước khi lưu.
 3. Lưu tài liệu ghi Markdown vào `source_documents`. Tiptap xuất Markdown qua phần mở rộng Markdown của nó. Tiêu đề Markdown chia tài liệu thành các mục; không có tiêu đề thì cả tài liệu là một mục.
 4. Tab Thuật ngữ và tab Tên gọi dân gian là hai bảng thêm, sửa, xoá dòng.
-5. Bấm **Xuất bản**: backend kiểm tra hạn mức và quyền, tạo `ingest_jobs` ở trạng thái `queued`, đẩy một task lên Cloud Tasks, trả về id job.
-6. Cloud Tasks gọi `POST /internal/ingest-jobs/{id}/run`. Backend dựng `KnowledgeBundle` từ `source_documents`, `glossary_entries`, `colloquial_mappings` của collection, rồi chạy `import_bundle` với `publish=True`. Trạng thái và bước được cập nhật vào `ingest_jobs` sau mỗi bước.
+5. Bấm **Xuất bản**: backend kiểm tra hạn mức và quyền, tạo `ingest_jobs` ở trạng thái `queued`, giao job cho `JobDispatcher`, trả về id job.
+6. Bộ chạy trong tiến trình chạy job ngay trong backend (với Cloud Tasks thì Cloud Tasks gọi `POST /internal/ingest-jobs/{id}/run`). Backend dựng `KnowledgeBundle` từ `source_documents`, `glossary_entries`, `colloquial_mappings` của collection, rồi chạy `import_bundle` với `publish=True`. Trạng thái và bước được cập nhật vào `ingest_jobs` sau mỗi bước.
 7. Giao diện poll job mỗi 2 giây và hiện tiến độ theo bước. Xong thì trang collection hiện release mới là bản đang được tìm kiếm.
 8. Người dùng quay về bản trước bằng nút Quay lại bản trước, dùng `rollback` sẵn có.
 
@@ -170,11 +170,11 @@ Hàm thuần trong domain `corpus`: `build_bundle(collection, documents, glossar
 
 ### 5.3 Job chạy nền
 
-- Port `JobDispatcher` với một phương thức `enqueue(job_id)`. Adapter production đẩy lên Cloud Tasks, đích là endpoint nội bộ, xác thực bằng token OIDC của service account. Adapter local chạy job trong một task asyncio của cùng tiến trình. Test dùng adapter local.
+- Port `JobDispatcher` với một phương thức `enqueue(job_id)`. Adapter trong tiến trình chạy job trong một task asyncio của cùng tiến trình; production trên Render, local và test dùng adapter này. Adapter Cloud Tasks đẩy lên Cloud Tasks, đích là endpoint nội bộ, xác thực bằng token OIDC của service account, dành cho khi backend chạy trên Cloud Run.
 - Endpoint nội bộ từ chối request không có token hợp lệ. Trong local, token là một chuỗi bí mật trong `.env`.
-- Job idempotent: chạy lại thì `import_bundle` tiếp tục release `building`, các chunk đã có trong Qdrant được bỏ qua. Cloud Tasks gọi lại tối đa 3 lần với khoảng cách tăng dần; `attempts` ghi lại số lần. Hết lần thì job thành `failed` kèm lý do ngắn gọn cho người dùng.
+- Job idempotent: chạy lại thì `import_bundle` tiếp tục release `building`, các chunk đã có trong Qdrant được bỏ qua. Bộ chạy (hoặc Cloud Tasks) gọi lại tối đa 3 lần với khoảng cách tăng dần; `attempts` ghi lại số lần. Hết lần thì job thành `failed` kèm lý do ngắn gọn cho người dùng.
 - Một collection chỉ có một job `queued` hoặc `running` tại một thời điểm.
-- Timeout request của Cloud Run cho endpoint này là 600 giây; quá hạn mức ở mục 2 thì không bao giờ tới mức đó.
+- Với Cloud Tasks, timeout request của Cloud Run cho endpoint này là 600 giây; quá hạn mức ở mục 2 thì không bao giờ tới mức đó.
 
 ### 5.4 Hạn mức
 
@@ -279,24 +279,24 @@ Thư viện mới: `@tiptap/react`, `@tiptap/starter-kit`, phần mở rộng b�
 | Thành phần | Nơi chạy | Ghi chú |
 | --- | --- | --- |
 | Frontend SSR | Vercel Hobby (`https://vipharmind.vercel.app`) | Vercel tự nhận React Router, không cần preset; route `/api/*` của React Router chuyển tiếp sang backend để cookie first-party. Deploy bằng `vercel deploy --prod` hoặc nối GitHub |
-| Backend API | Cloud Run, `asia-southeast1` | scale về 0, `max-instances=1` lúc đầu, `concurrency=40`, timeout 600 giây cho stream và job, cảnh báo ngân sách 1 USD |
-| Job xuất bản | Cloud Tasks | queue `ingest`, gọi endpoint nội bộ bằng OIDC |
+| Backend API | Render Free, `singapore` | một instance 512 MB, ngủ sau 15 phút không có request, lần gọi kế tiếp chờ khoảng một phút; dựng bằng `backend/Dockerfile` |
+| Job xuất bản | trong tiến trình API | `PHARMA_JOBS__DISPATCHER=inprocess`; job dở dang được nhận lại theo `stale_after` khi tiến trình khởi động lại |
 | Postgres | Neon miễn phí, Singapore | DB mới dựng bằng migration, không chép DB local |
 | Vector | Qdrant Cloud miễn phí | vùng gần Singapore nhất có sẵn |
 | LLM, embedding, rerank | DeepInfra | Qwen3.5-9B, Qwen3-Embedding-8B, Qwen3-Reranker-4B |
 | Email | Gmail SMTP | app password của một tài khoản Gmail; giới hạn 500 thư mỗi ngày |
 | SMS | tắt | `PHARMA_SMS__PROVIDER=none` |
 | Google OAuth | credential đã có từ andv-lms | thêm redirect URI mới |
-| Secrets | Secret Manager cho backend, Environment Variables trên Vercel cho frontend | |
+| Secrets | Environment Variables trên Render cho backend (đẩy từ `backend/.env.production`), trên Vercel cho frontend | |
 
-Backend là một container không giữ trạng thái: session, rate limit, job, hạn mức đều trong Postgres, nên tăng `max-instances` không đổi gì trong code.
+Backend là một container không giữ trạng thái: session, rate limit, job, hạn mức đều trong Postgres, nên chuyển sang host trả phí hoặc thêm instance không đổi gì trong code.
 
 ### 9.2 Deploy
 
-- Backend: GitHub Actions khi `main` đổi: build image, đẩy lên Artifact Registry, chạy `pharma-agent migrate` bằng một Cloud Run Job, rồi deploy service. Xác thực bằng Workload Identity Federation, không lưu key JSON trong repo. Workflow nằm ở `.github/workflows/deploy-backend.yml`.
+- Backend: Render nhận GitHub, build `backend/Dockerfile` và deploy khi `main` đổi. Gói free không có lệnh chạy trước deploy, nên migration chạy từ máy mình trước khi push: `pharma-agent --env-file .env.production migrate`. `devops/render/configure.py` tạo service và đẩy biến môi trường. Không cài health check path, vì `/health` trả 503 tới khi corpus được nạp; Render chỉ chờ cổng mở.
 - Frontend: Vercel nhận GitHub, build và deploy khi `main` đổi. Preview deploy tắt.
 - Nạp dữ liệu lần đầu: `pharma-agent corpus import` chạy từ máy người dùng với `backend/.env.production` trỏ vào Neon, Qdrant Cloud và DeepInfra, nạp `formulary` thành collection công khai của hệ thống. Tốn khoảng 0,25 USD embedding.
-- `PHARMA_API__TRUSTED_PROXY_HOPS` đo thật sau khi deploy, vì request đi qua cả Vercel lẫn Cloud Run.
+- `PHARMA_API__TRUSTED_PROXY_HOPS=3`, đo thật sau khi deploy: biên của Render nối ba mục vào `X-Forwarded-For` (khách mà Cloudflare thấy, node Cloudflare, proxy nội bộ của Render), proxy Vercel thêm một mục nhờ secret chung.
 
 ### 9.3 Dọn dẹp trước khi ra mắt
 
@@ -308,25 +308,25 @@ Backend là một container không giữ trạng thái: session, rate limit, job
 
 ### 9.4 Giám sát
 
-Log Cloud Run, uptime check của Cloud Monitoring vào `/health` mỗi 5 phút, cảnh báo ngân sách 1 USD và 5 USD, Langfuse tùy chọn.
+Log của Render, cron Vercel gọi `/api/v1/health` mỗi ngày (health đọc collection Qdrant nên cluster free không bị tạm dừng vì không hoạt động), Langfuse tùy chọn.
 
 ### 9.5 Checklist việc người dùng tự làm
 
-1. Tạo project Google Cloud `vipharmind`, gắn thẻ, bật Cloud Run, Cloud Tasks, Artifact Registry, Secret Manager, Cloud Build.
+1. Tạo tài khoản Render bằng GitHub, tạo API key.
 2. Tạo tài khoản Vercel, nhập repo GitHub, đặt Environment Variables theo danh sách trong README frontend.
 3. Tạo project Neon ở Singapore, lấy DSN có pooler.
 4. Tạo cluster Qdrant Cloud miễn phí, lấy URL và API key.
 5. Tạo app password Gmail cho tài khoản gửi thư.
 6. Thêm redirect URI của Vercel vào Google OAuth client đã có.
-7. Nạp các giá trị trên vào Secret Manager theo danh sách trong README backend, và `backend/.env.production` trên máy mình để nạp dữ liệu lần đầu.
+7. Ghi các giá trị trên vào `backend/.env.production` trên máy mình; `devops/render/configure.py` đẩy chúng lên Render.
 8. Chạy `pharma-agent superadmin grant <email của bạn>` trỏ vào production.
 
 ### 9.6 Đường scale
 
 | Thành phần | Nút thắt đầu tiên | Bước nâng | Chi phí |
 | --- | --- | --- | --- |
-| Backend Cloud Run | `max-instances=1` | nâng số instance | theo giây CPU thật dùng |
-| Frontend Vercel | điều khoản Hobby khi thương mại | Vercel Pro, hoặc Cloud Run bằng Dockerfile frontend hiện có | 20 USD/tháng |
+| Backend Render Free | ngủ sau 15 phút, 512 MB, 750 giờ/tháng | Render Starter không ngủ, hoặc Cloud Run với adapter Cloud Tasks | khoảng 7 USD/tháng |
+| Frontend Vercel | điều khoản Hobby khi thương mại | Vercel Pro, hoặc chạy Dockerfile frontend hiện có trên host khác | 20 USD/tháng |
 | Neon | 0,5 GB | gói Launch 10 GB | 19 USD/tháng |
 | Qdrant Cloud | 1 GB, đầy trước Neon | cluster trả phí, hoặc cắt chiều embedding xuống 1024 sau khi đánh giá lại | từ 25 USD/tháng |
 | DeepInfra | không có nút thắt cứng | | khoảng 2 USD mỗi 1.000 lượt hỏi |
@@ -352,7 +352,7 @@ Log Cloud Run, uptime check của Cloud Monitoring vào `/health` mỗi 5 phút,
 1. Mỗi lượt hỏi thêm một truy vấn tính quyền. Một câu SQL có index, nhỏ so với thời gian gọi LLM. Chưa cần cache.
 2. Superadmin đọc hội thoại không ghi nhật ký. Chính sách quyền riêng tư phải nêu rõ trước khi ra mắt; đây là một task của plan.
 3. Qdrant 1 GB đầy trước mọi thứ khác. Trang admin hiện số điểm đang dùng để biết sớm.
-4. Vercel Hobby chỉ hợp lệ khi phi thương mại. Đường lùi là Cloud Run bằng Dockerfile frontend hiện có.
+4. Vercel Hobby chỉ hợp lệ khi phi thương mại. Đường lùi là chạy Dockerfile frontend hiện có trên host khác.
 5. Phạm vi rất lớn. Plan chia theo lớp và mỗi lớp kết thúc bằng commit xanh: dọn corpus và chuẩn hoá, domain `access` và dữ liệu, service tổ chức và nhật ký, service nội dung và job, API, frontend, triển khai, e2e.
 
 ## 12. Ngoài phạm vi

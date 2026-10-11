@@ -1,51 +1,48 @@
 # Checklist ra mắt
 
-Những việc chỉ chủ tài khoản làm được (thẻ thanh toán, đăng nhập dịch vụ, secret). Làm theo thứ
-tự; mỗi bước ghi lệnh hoặc chỗ bấm. Kiến trúc: frontend trên Vercel, backend trên Cloud Run, dữ
-liệu trên Neon và Qdrant Cloud, model trên DeepInfra, thư qua Gmail SMTP.
+Những việc chỉ chủ tài khoản làm được (đăng nhập dịch vụ, nạp tiền, secret). Kiến trúc: frontend
+trên Vercel, backend trên Render Free, dữ liệu trên Neon và Qdrant Cloud, model trên DeepInfra, thư
+qua Gmail SMTP. Mọi dịch vụ đang dùng gói miễn phí; chỉ DeepInfra cần nạp tiền.
 
 ## Trạng thái (cập nhật 2026-10-11)
 
 Đã xong, không mất phí:
 
-- [x] Google Cloud CLI và Vercel CLI cài trên máy, đã đăng nhập.
-- [x] Project Google Cloud `vipharmind` đã tạo (chưa gắn thanh toán).
 - [x] Neon: project ở Singapore, database `neondb`, DSN có pooler trong `backend/.env.production`; đã migrate tới `0020`.
-- [x] Qdrant Cloud: cluster miễn phí `vipharmind` ở AWS US Oregon (gói Free không có châu Á), URL và API key trong `backend/.env.production`. Cluster Free tự tạm dừng sau 1 tuần không có truy vấn; uptime check vào `/health` giữ nó chạy.
-- [x] Secret production (JWT, CSRF, OTP, proxy) đã sinh trong `backend/.env.production`.
-- [x] Vercel: project `vipharmind`, preset React Router, https://vipharmind.vercel.app chạy; đã đặt `PUBLIC_SITE_URL`, `THEME_COOKIE_SECRET`, `API_PROXY_SECRET`. Còn thiếu `API_INTERNAL_URL` (URL Cloud Run, có khi có thẻ).
+- [x] Qdrant Cloud: cluster miễn phí `vipharmind` ở AWS US Oregon (gói Free không có châu Á), URL và API key trong `backend/.env.production`. Cluster Free tự tạm dừng sau 1 tuần không có truy vấn; cron Vercel gọi `/api/v1/health` mỗi ngày giữ nó chạy.
+- [x] Secret production (JWT, CSRF, OTP, proxy, token nội bộ) đã sinh trong `backend/.env.production`.
+- [x] Render: service `vipharmind-api` (Free, Singapore) chạy ở https://vipharmind-api.onrender.com, tự deploy khi push `main`. `/api/v1/health` báo Postgres ổn, `corpus` chưa sẵn sàng vì chưa nạp corpus. Đã đo `PHARMA_API__TRUSTED_PROXY_HOPS=3`: IP thật của khách được nhận đúng cả khi gọi thẳng lẫn qua Vercel.
+- [x] Vercel: project `vipharmind`, preset React Router, Root Directory `frontend`, nối GitHub, https://vipharmind.vercel.app chạy; đã đặt `API_INTERNAL_URL`, `PUBLIC_SITE_URL`, `THEME_COOKIE_SECRET`, `API_PROXY_SECRET`. Đăng nhập sai mật khẩu qua Vercel trả đúng `LOGIN_BAD_CREDENTIALS`.
 
 Việc miễn phí còn lại, cần bạn làm trên web:
 
 - [ ] Google OAuth client (project `andv-lms`): thêm redirect URI `https://vipharmind.vercel.app/auth/google/callback` và `https://vipharmind.vercel.app/auth/google/link-callback`.
-- [ ] Gmail: bật xác minh hai bước cho tài khoản gửi thư, tạo App password (đưa vào `PHARMA_EMAIL__SMTP_PASSWORD`).
-- [ ] GitHub: Settings → Actions → bật Actions cho repo nếu đang tắt.
+- [ ] Gmail: bật xác minh hai bước cho tài khoản gửi thư, tạo App password, ghi `PHARMA_EMAIL__PROVIDER=smtp`, `PHARMA_EMAIL__SENDER`, `PHARMA_EMAIL__SMTP_USERNAME` và `PHARMA_EMAIL__SMTP_PASSWORD` vào `backend/.env.production`, rồi chạy `uv run --with httpx python devops/render/configure.py`. Trước bước này backend chỉ ghi thư ra log, nên chưa đăng ký được bằng email.
 
-**Để sau, cần thẻ hoặc tốn tiền** (làm khi đã có thẻ Visa):
+**Để sau, tốn tiền:**
 
-- [ ] Mở lại tài khoản thanh toán Google Cloud `0135D1-DC225E-BD2890` (đang đóng), gắn vào project `vipharmind`, đặt cảnh báo ngân sách 1 USD và 5 USD.
-- [ ] Bật API, Artifact Registry, Cloud Tasks, service account, Workload Identity, Secret Manager, job migrate và service Cloud Run (mục 3).
-- [ ] Nạp tiền DeepInfra, rồi nạp corpus lên Neon và Qdrant (mục 2): gọi DeepInfra tính embedding `Qwen/Qwen3-Embedding-8B` cho 24.946 đoạn, khoảng 0,3–0,5 USD.
-- [ ] Kiểm tra số dư DeepInfra (mọi câu trả lời trên production đều gọi DeepInfra).
-- [ ] Sau này nếu cần nhanh hơn: chuyển Qdrant sang cluster trả phí ở GCP `asia-southeast1` (cùng khu vực Cloud Run), đổi URL và key rồi nạp lại corpus.
+- [ ] Nạp tiền DeepInfra, rồi nạp corpus lên Neon và Qdrant (mục 2): gọi DeepInfra tính embedding `Qwen/Qwen3-Embedding-8B` cho 24.946 đoạn, khoảng 0,3–0,5 USD. Trước bước này chat chưa trả lời được.
+- [ ] Kiểm tra số dư DeepInfra định kỳ (mọi câu trả lời trên production đều gọi DeepInfra).
 
-## 1. Tài khoản và dịch vụ
+## 1. Deploy backend
 
-- [ ] **Google Cloud:** tạo project `vipharmind`, gắn thẻ thanh toán, đặt cảnh báo ngân sách 1 USD
-      và 5 USD (Billing → Budgets & alerts).
-- [x] **Neon:** tạo project ở khu vực Singapore (`aws-ap-southeast-1`), lấy connection string
-      **có pooler** (`-pooler` trong host) kèm `sslmode=require`.
-- [x] **Qdrant Cloud:** tạo cluster miễn phí, lấy URL (cổng 6333) và API key.
-- [ ] **DeepInfra:** key đã có; kiểm tra số dư.
-- [ ] **Gmail:** bật xác minh hai bước cho tài khoản gửi thư, tạo App password.
-- [x] **Vercel:** tạo tài khoản (import repo ở bước 4).
+Render build `backend/Dockerfile` mỗi khi `main` đổi. Gói free không chạy lệnh trước deploy, nên
+khi có migration mới thì chạy nó từ máy mình trước khi push:
+
+```bash
+cd backend
+uv run pharma-agent --env-file .env.production migrate
+```
+
+Đổi biến môi trường: sửa `backend/.env.production` (hoặc `RENDER_SETTINGS` trong
+`devops/render/configure.py`), rồi từ gốc repo chạy
+`uv run --with httpx python devops/render/configure.py`. Script đẩy toàn bộ `PHARMA_*` lên Render
+và deploy lại; lần đầu nó tạo service.
 
 ## 2. Nạp dữ liệu lần đầu từ máy mình
 
 ```bash
 cd backend
-cp .env.production.example .env.production      # điền DSN Neon, Qdrant, key DeepInfra
-uv run pharma-agent --env-file .env.production migrate
 uv run pharma-agent --env-file .env.production corpus import ../pharma-lab/data/corpus/formulary --collection formulary --publish
 uv run pharma-agent --env-file .env.production check
 ```
@@ -53,43 +50,25 @@ uv run pharma-agent --env-file .env.production check
 Database production bắt đầu trống (chưa có tài khoản, hội thoại). Import tính embedding qua
 DeepInfra; bundle đã có embedding sẵn thì dùng lại, không gọi API.
 
-## 3. Backend trên Cloud Run
+## 3. Kiểm tra sau khi lên
 
-- [ ] Làm hết mục *Tạo tài nguyên một lần* và *Secret* trong `devops/cloud-run/README.md`.
-- [ ] Sửa `PROJECT_ID`, email gửi thư và URL Vercel trong `devops/cloud-run/service.yaml`, tạo job
-      migration và service, rồi chạy workflow `deploy-backend` một lần (Actions → Run workflow).
-- [ ] Lấy URL `run.app` của service, đặt vào `PHARMA_JOBS__BACKEND_URL` trong `service.yaml`,
-      `gcloud run services replace` lại.
-- [ ] `curl https://<url run.app>/api/v1/health` trả `"status": "ok"`.
-
-## 4. Frontend trên Vercel
-
-- [ ] Làm theo mục *Deploy to Vercel* trong `frontend/README.md`: Root Directory `frontend`, bốn biến
-      môi trường, Max Duration 300 s, tắt preview deploy.
-- [ ] Thêm hai redirect URI của Vercel vào OAuth client Google đã có
-      (`/auth/google/callback`, `/auth/google/link-callback`).
-- [ ] Đặt `PHARMA_AUTH__FRONTEND_URL` của backend bằng origin Vercel (trong `service.yaml`).
-
-## 5. Kiểm tra sau khi lên
-
+- [ ] `curl https://vipharmind.vercel.app/api/v1/health` trả `"status": "ok"` (lần đầu sau khi Render ngủ chờ khoảng một phút).
 - [ ] Đăng ký bằng email trên trang Vercel, nhận mã qua Gmail, hỏi một câu và mở trích dẫn `[1]`.
 - [ ] Cấp quyền quản trị cho mình:
       `uv run pharma-agent --env-file .env.production superadmin grant <email của bạn>`, tải lại
       trang và thấy mục **Quản trị**.
-- [ ] Tạo một bộ tài liệu, thêm tài liệu, bấm **Xuất bản**: tác vụ chạy qua Cloud Tasks và kết thúc
-      ở "Đã xuất bản bản 1.".
-- [ ] **Kiểm tra IP người dùng:** sau khi đăng nhập qua Vercel, mở **Cài đặt → Phiên đăng nhập**
-      (gọi `GET /api/v1/account/sessions`); `ip_address` phải là IP thật của bạn. Nếu là IP của
-      Vercel thì `API_PROXY_SECRET` trên Vercel và `PHARMA_API__PROXY_SECRET` trên Cloud Run chưa
-      khớp: sai chỗ này thì giới hạn theo IP gom mọi người vào một IP.
-- [ ] Uptime check của Cloud Monitoring vào `/api/v1/health` mỗi 5 phút, gửi thư khi lỗi.
+- [ ] Tạo một bộ tài liệu, thêm tài liệu, bấm **Xuất bản**: job chạy trong tiến trình backend và kết
+      thúc ở "Đã xuất bản bản 1.".
+- [ ] Mở **Cài đặt → Phiên đăng nhập**: `ip_address` phải là IP thật của bạn. Nếu là IP của
+      Cloudflare hoặc Vercel thì `API_PROXY_SECRET` trên Vercel và `PHARMA_API__PROXY_SECRET` trên
+      Render chưa khớp, hoặc Render đã đổi số proxy và phải đo lại `PHARMA_API__TRUSTED_PROXY_HOPS`.
 
 ## Khi cần scale
 
 | Thành phần | Giới hạn đầu tiên | Bước nâng |
 | --- | --- | --- |
-| Backend Cloud Run | `maxScale: 1` | tăng `maxScale` trong `service.yaml` |
-| Frontend Vercel | điều khoản Hobby khi có thu phí | Vercel Pro (20 USD/tháng) hoặc Cloud Run bằng `frontend/Dockerfile` |
+| Backend Render Free | ngủ sau 15 phút, 512 MB | Render Starter không ngủ (khoảng 7 USD/tháng), hoặc Cloud Run với adapter Cloud Tasks |
+| Frontend Vercel | điều khoản Hobby khi có thu phí | Vercel Pro (20 USD/tháng) hoặc chạy `frontend/Dockerfile` trên host khác |
 | Neon | 0,5 GB | gói Launch 10 GB (19 USD/tháng) |
 | Qdrant Cloud | 1 GB, đầy trước Neon | cluster trả phí (từ 25 USD/tháng) |
 | DeepInfra | không có giới hạn cứng | khoảng 2 USD mỗi 1.000 lượt hỏi |
