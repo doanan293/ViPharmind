@@ -35,7 +35,7 @@ export const LEGAL_TEXT: Record<LegalDocument, Record<Language, LegalText>> = {
     vi: {
       title: "Chính sách quyền riêng tư",
       description:
-        "ViPharMind lưu những dữ liệu nào, lưu ở đâu và ai được đọc chúng.",
+        "ViPharmind lưu những dữ liệu nào, lưu ở đâu và ai được đọc chúng.",
       updated: UPDATED,
       sections: [
         {
@@ -64,7 +64,7 @@ export const LEGAL_TEXT: Record<LegalDocument, Record<Language, LegalText>> = {
         {
           heading: "Nội dung bạn nạp",
           paragraphs: [
-            "Nội dung bạn nạp thuộc về người dùng hoặc tổ chức đã nạp nó. ViPharMind chỉ dùng nội dung đó để trả lời câu hỏi của những người được phép thấy bộ tài liệu.",
+            "Nội dung bạn nạp thuộc về người dùng hoặc tổ chức đã nạp nó. ViPharmind chỉ dùng nội dung đó để trả lời câu hỏi của những người được phép thấy bộ tài liệu.",
           ],
         },
         {
@@ -84,7 +84,7 @@ export const LEGAL_TEXT: Record<LegalDocument, Record<Language, LegalText>> = {
     en: {
       title: "Privacy policy",
       description:
-        "What ViPharMind stores, where it is stored and who can read it.",
+        "What ViPharmind stores, where it is stored and who can read it.",
       updated: UPDATED,
       sections: [
         {
@@ -113,7 +113,7 @@ export const LEGAL_TEXT: Record<LegalDocument, Record<Language, LegalText>> = {
         {
           heading: "Content you upload",
           paragraphs: [
-            "Content you upload belongs to the user or organization that uploaded it. ViPharMind uses it only to answer the questions of people allowed to see the collection.",
+            "Content you upload belongs to the user or organization that uploaded it. ViPharmind uses it only to answer the questions of people allowed to see the collection.",
           ],
         },
         {
@@ -134,13 +134,13 @@ export const LEGAL_TEXT: Record<LegalDocument, Record<Language, LegalText>> = {
   terms: {
     vi: {
       title: "Điều khoản sử dụng",
-      description: "Điều kiện khi dùng ViPharMind để tra cứu thông tin thuốc.",
+      description: "Điều kiện khi dùng ViPharmind để tra cứu thông tin thuốc.",
       updated: UPDATED,
       sections: [
         {
           heading: "Câu trả lời của hệ thống",
           paragraphs: [
-            "ViPharMind trả lời dựa trên các bộ tài liệu bạn được phép thấy và luôn ghi nguồn. Câu trả lời không thay thế tư vấn của dược sĩ hoặc bác sĩ. Hãy kiểm tra nguồn được trích trước khi dùng thông tin cho người bệnh.",
+            "ViPharmind trả lời dựa trên các bộ tài liệu bạn được phép thấy và luôn ghi nguồn. Câu trả lời không thay thế tư vấn của dược sĩ hoặc bác sĩ. Hãy kiểm tra nguồn được trích trước khi dùng thông tin cho người bệnh.",
           ],
         },
         {
@@ -154,7 +154,7 @@ export const LEGAL_TEXT: Record<LegalDocument, Record<Language, LegalText>> = {
           heading: "Nội dung bạn nạp",
           paragraphs: [
             "Chỉ nạp nội dung bạn có quyền sử dụng. Cấm nạp nội dung vi phạm bản quyền, nội dung sai lệch có chủ ý về thuốc, mã độc hoặc dữ liệu cá nhân của người khác khi không được phép.",
-            "Bạn giữ quyền với nội dung của mình. Bạn cho phép ViPharMind lưu và xử lý nội dung đó để trả lời câu hỏi của những người được phép thấy bộ tài liệu.",
+            "Bạn giữ quyền với nội dung của mình. Bạn cho phép ViPharmind lưu và xử lý nội dung đó để trả lời câu hỏi của những người được phép thấy bộ tài liệu.",
           ],
         },
         {
@@ -168,13 +168,13 @@ export const LEGAL_TEXT: Record<LegalDocument, Record<Language, LegalText>> = {
     en: {
       title: "Terms of use",
       description:
-        "The conditions for using ViPharMind to look up drug information.",
+        "The conditions for using ViPharmind to look up drug information.",
       updated: UPDATED,
       sections: [
         {
           heading: "The system's answers",
           paragraphs: [
-            "ViPharMind answers from the collections you are allowed to see and always cites its sources. Its answers do not replace advice from a pharmacist or doctor. Check the cited sources before using the information for a patient.",
+            "ViPharmind answers from the collections you are allowed to see and always cites its sources. Its answers do not replace advice from a pharmacist or doctor. Check the cited sources before using the information for a patient.",
           ],
         },
         {
@@ -188,7 +188,7 @@ export const LEGAL_TEXT: Record<LegalDocument, Record<Language, LegalText>> = {
           heading: "Content you upload",
           paragraphs: [
             "Only upload content you have the right to use. Do not upload content that infringes copyright, deliberately wrong drug information, malware or other people's personal data without permission.",
-            "You keep the rights to your content. You allow ViPharMind to store and process it to answer the questions of people allowed to see the collection.",
+            "You keep the rights to your content. You allow ViPharmind to store and process it to answer the questions of people allowed to see the collection.",
           ],
         },
         {

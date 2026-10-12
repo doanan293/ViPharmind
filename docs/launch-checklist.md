@@ -15,7 +15,7 @@ và backend trên Vercel, dữ liệu trên Neon và Qdrant Cloud, model trên D
 
 Việc miễn phí còn lại, cần bạn làm trên web:
 
-- [ ] Đăng nhập Google (hoãn được, khi chưa có client thì nút Google tự ẩn): mọi app dùng chung project Google Cloud `andimus`. Tạo màn hình đồng ý (External, Publish app), rồi tạo OAuth client Web `ViPharMind` với redirect URI `https://vipharmind.vercel.app/auth/google/callback`, `https://vipharmind.vercel.app/auth/google/link-callback` và hai URI tương ứng trên `http://localhost:3000`. Ghi `PHARMA_AUTH__GOOGLE_CLIENT_ID` và `PHARMA_AUTH__GOOGLE_CLIENT_SECRET` vào `backend/.env.production`, rồi chạy `uv run python devops/vercel/sync_env.py`.
+- [ ] Đăng nhập Google (hoãn được, khi chưa có client thì nút Google tự ẩn): mọi app dùng chung project Google Cloud `andimus`. Tạo màn hình đồng ý (External, Publish app), rồi tạo OAuth client Web `ViPharmind` với redirect URI `https://vipharmind.vercel.app/auth/google/callback`, `https://vipharmind.vercel.app/auth/google/link-callback` và hai URI tương ứng trên `http://localhost:3000`. Ghi `PHARMA_AUTH__GOOGLE_CLIENT_ID` và `PHARMA_AUTH__GOOGLE_CLIENT_SECRET` vào `backend/.env.production`, rồi chạy `uv run python devops/vercel/sync_env.py`.
 - [x] Gửi thư qua Resend: key `andimus` (dùng chung cho các app) đã đặt trên backend, gửi từ `onboarding@resend.dev`; thư thử tới `andoan020903@gmail.com` có trạng thái `sent`.
 - [ ] Domain cho thư: `onboarding@resend.dev` chỉ gửi tới email chủ tài khoản Resend, nên người khác chưa nhận được mã. Mua domain, xác minh `mail.<domain>` trên Resend (bản ghi SPF, DKIM, MX), đổi `PHARMA_EMAIL__SENDER` sang `no-reply@mail.<domain>`, rồi chạy `devops/vercel/sync_env.py`. Không dùng được `*.vercel.app` vì không sửa được DNS của nó.
 

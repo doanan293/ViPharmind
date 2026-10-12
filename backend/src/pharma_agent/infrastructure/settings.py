@@ -260,7 +260,7 @@ class EmailSettings(BaseModel):
     """Where account emails go. `log` writes them to the log: local runs and tests only."""
 
     provider: Literal["log", "resend"] = "log"
-    sender: str = "ViPharMind <no-reply@vipharmind.local>"
+    sender: str = "ViPharmind <no-reply@vipharmind.local>"
     resend_api_key: SecretStr | None = None
     timeout_seconds: float = Field(default=10.0, gt=0)
 

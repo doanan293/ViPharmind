@@ -192,7 +192,7 @@ class EmailSettings(BaseModel):
     """Where account emails go. `log` writes them to the log: local runs and tests only."""
 
     provider: Literal["log", "smtp", "resend"] = "log"
-    sender: str = "ViPharMind <no-reply@vipharmind.local>"
+    sender: str = "ViPharmind <no-reply@vipharmind.local>"
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
     smtp_username: str | None = None
@@ -1805,7 +1805,7 @@ async def test_smtp_sends_a_multipart_message(monkeypatch: pytest.MonkeyPatch) -
         port=587,
         username="an@gmail.com",
         password="app-password",
-        sender="ViPharMind <an@gmail.com>",
+        sender="ViPharmind <an@gmail.com>",
         timeout=5.0,
     )
     await sender.send(
@@ -1814,7 +1814,7 @@ async def test_smtp_sends_a_multipart_message(monkeypatch: pytest.MonkeyPatch) -
     message: EmailMessage = sent["message"]
     assert (
         message["To"] == "bo@example.com"
-        and message["From"] == "ViPharMind <an@gmail.com>"
+        and message["From"] == "ViPharmind <an@gmail.com>"
     )
     assert [part.get_content_type() for part in message.iter_parts()] == [
         "text/plain",
@@ -1846,7 +1846,7 @@ async def test_resend_posts_the_message_and_maps_errors() -> None:
             side_effect=[httpx.Response(200, json={"id": "1"}), httpx.Response(422)]
         )
         sender = ResendEmailSender(
-            api_key="re_key", sender="ViPharMind <no-reply@x.dev>", timeout=5.0
+            api_key="re_key", sender="ViPharmind <no-reply@x.dev>", timeout=5.0
         )
         await sender.send(to="an@example.com", subject="S", text="T", html="H")
         request = route.calls[0].request
@@ -1913,24 +1913,24 @@ def locale_from_accept_language(header: str | None) -> Locale:
 
 _SUBJECTS: dict[OtpPurpose, dict[Locale, str]] = {
     OtpPurpose.VERIFY_EMAIL: {
-        "vi": "Mã xác minh email ViPharMind",
-        "en": "Your ViPharMind verification code",
+        "vi": "Mã xác minh email ViPharmind",
+        "en": "Your ViPharmind verification code",
     },
     OtpPurpose.RESET_PASSWORD: {
-        "vi": "Mã đặt lại mật khẩu ViPharMind",
-        "en": "Your ViPharMind password reset code",
+        "vi": "Mã đặt lại mật khẩu ViPharmind",
+        "en": "Your ViPharmind password reset code",
     },
     OtpPurpose.CHANGE_EMAIL: {
-        "vi": "Xác nhận email mới cho ViPharMind",
-        "en": "Confirm your new ViPharMind email",
+        "vi": "Xác nhận email mới cho ViPharmind",
+        "en": "Confirm your new ViPharmind email",
     },
     OtpPurpose.PHONE_LOGIN: {
-        "vi": "Mã đăng nhập ViPharMind",
-        "en": "Your ViPharMind sign-in code",
+        "vi": "Mã đăng nhập ViPharmind",
+        "en": "Your ViPharmind sign-in code",
     },
     OtpPurpose.CHANGE_PHONE: {
-        "vi": "Xác nhận số điện thoại mới cho ViPharMind",
-        "en": "Confirm your new ViPharMind phone number",
+        "vi": "Xác nhận số điện thoại mới cho ViPharmind",
+        "en": "Confirm your new ViPharmind phone number",
     },
 }
 _BODY: dict[Locale, str] = {
@@ -1941,18 +1941,18 @@ _BODY: dict[Locale, str] = {
 }
 # GSM-7 text without Vietnamese diacritics: one SMS segment instead of three.
 _SMS: dict[Locale, str] = {
-    "vi": "ViPharMind: ma xac minh cua ban la {code}, het han sau {minutes} phut.",
-    "en": "ViPharMind: your code is {code}. It expires in {minutes} minutes.",
+    "vi": "ViPharmind: ma xac minh cua ban la {code}, het han sau {minutes} phut.",
+    "en": "ViPharmind: your code is {code}. It expires in {minutes} minutes.",
 }
 _CHANGED: dict[Locale, tuple[str, str]] = {
     "vi": (
-        "Email ViPharMind của bạn đã được đổi",
-        "Email đăng nhập ViPharMind của bạn vừa được đổi sang {email}. "
+        "Email ViPharmind của bạn đã được đổi",
+        "Email đăng nhập ViPharmind của bạn vừa được đổi sang {email}. "
         "Nếu không phải bạn, hãy đặt lại mật khẩu và liên hệ hỗ trợ.",
     ),
     "en": (
-        "Your ViPharMind email was changed",
-        "The sign-in email of your ViPharMind account was changed to {email}. "
+        "Your ViPharmind email was changed",
+        "The sign-in email of your ViPharmind account was changed to {email}. "
         "If this was not you, reset your password and contact support.",
     ),
 }
@@ -2674,7 +2674,7 @@ async def test_reset_password_sets_the_hash_verifies_email_and_ends_sessions() -
     user = fakes.accounts.add(email=EMAIL)
     fakes.sessions.add(user.id, "t-1")
     await service.request_password_reset(EMAIL, locale="en", client_ip=None)
-    assert fakes.email.sent[-1].subject == "Your ViPharMind password reset code"
+    assert fakes.email.sent[-1].subject == "Your ViPharmind password reset code"
     await service.reset_password(EMAIL, fakes.email.last_code(EMAIL), "new-password-1")
     assert fakes.accounts.passwords[user.id] == "hashed:new-password-1"
     updated = await fakes.accounts.get(user.id)
@@ -4118,7 +4118,7 @@ async def test_registration_uses_the_ui_language(migrated_dsn: str) -> None:
             json={"email": email, "password": PASSWORD},
             headers={"Accept-Language": "en"},
         )
-    assert outbox.email.sent[-1].subject == "Your ViPharMind verification code"
+    assert outbox.email.sent[-1].subject == "Your ViPharmind verification code"
 
 
 async def test_resend_inside_the_cooldown_is_429_with_retry_after(
@@ -4826,7 +4826,7 @@ Thứ tự `texts` ưu tiên SMS sau email; một địa chỉ chỉ nhận mộ
 PHARMA_AUTH__OTP_SECRET=change-me-to-a-random-string-of-32-characters
 # Email: log (local only), smtp (Gmail app password, no domain needed) or resend (needs a verified domain).
 # PHARMA_EMAIL__PROVIDER=smtp
-# PHARMA_EMAIL__SENDER=ViPharMind <you@gmail.com>
+# PHARMA_EMAIL__SENDER=ViPharmind <you@gmail.com>
 # PHARMA_EMAIL__SMTP_USERNAME=you@gmail.com
 # PHARMA_EMAIL__SMTP_PASSWORD=gmail-app-password
 # PHARMA_EMAIL__RESEND_API_KEY=re_...

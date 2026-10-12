@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Đưa ViPharMind lên production với tổ chức và vai trò, collection có chủ sở hữu và mức hiển thị, người dùng tự soạn và xuất bản nội dung qua pipeline hiện có, superadmin và nhật ký, dữ liệu chuẩn hoá giữa Postgres và Qdrant, chạy trên Vercel và Google Cloud.
+**Goal:** Đưa ViPharmind lên production với tổ chức và vai trò, collection có chủ sở hữu và mức hiển thị, người dùng tự soạn và xuất bản nội dung qua pipeline hiện có, superadmin và nhật ký, dữ liệu chuẩn hoá giữa Postgres và Qdrant, chạy trên Vercel và Google Cloud.
 
 **Architecture:** Backend giữ kiến trúc sạch hiện có: domain thuần (`access`, `organizations`, `audit`, `corpus` mở rộng), application theo feature (không import chéo), infrastructure ghép nối (Postgres, Qdrant, DeepInfra, Cloud Tasks), api chỉ chạm infrastructure qua `api/deps.py`. Quyền được tính trong Postgres ở mỗi lượt hỏi và truyền xuống Qdrant dưới dạng bộ lọc release. Frontend thêm các feature `organizations`, `collections`, `audit`, `admin`, `legal` theo luật import một chiều.
 

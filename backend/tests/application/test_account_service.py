@@ -149,7 +149,7 @@ async def test_reset_password_sets_the_hash_verifies_email_and_ends_sessions() -
     user = fakes.accounts.add(email=EMAIL)
     fakes.sessions.add(user.id, "t-1")
     await service.request_password_reset(EMAIL, locale="en", client_ip=None)
-    assert fakes.email.sent[-1].subject == "Your ViPharMind password reset code"
+    assert fakes.email.sent[-1].subject == "Your ViPharmind password reset code"
     await service.reset_password(EMAIL, fakes.email.last_code(EMAIL), "new-password-1")
     assert fakes.accounts.passwords[user.id] == "hashed:new-password-1"
     updated = await fakes.accounts.get(user.id)
