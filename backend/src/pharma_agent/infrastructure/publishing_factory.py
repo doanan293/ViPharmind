@@ -12,7 +12,6 @@ from pharma_agent.application.corpus.service import CorpusService
 from pharma_agent.domain.corpus.ports import Embedder, VectorIndex
 from pharma_agent.domain.corpus.source import JobDispatcher
 from pharma_agent.domain.shared.clock import Clock
-from pharma_agent.infrastructure.jobs.cloud_tasks import CloudTasksDispatcher
 from pharma_agent.infrastructure.jobs.inline import InlineDispatcher
 from pharma_agent.infrastructure.jobs.inprocess import InProcessDispatcher
 from pharma_agent.infrastructure.persistence.postgres.audit_log import PostgresAuditLog
@@ -59,9 +58,7 @@ def build_publishing(
         return await bound[0].run(job_id)
 
     if dispatcher is None:
-        if settings.jobs.dispatcher == "cloud_tasks":
-            dispatcher = CloudTasksDispatcher(settings.jobs)
-        elif settings.jobs.dispatcher == "inline":
+        if settings.jobs.dispatcher == "inline":
             dispatcher = InlineDispatcher(run)
         else:
             dispatcher = InProcessDispatcher(run)

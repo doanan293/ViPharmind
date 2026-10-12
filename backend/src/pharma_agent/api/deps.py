@@ -94,7 +94,7 @@ def require_publishing(container: Container) -> PublishService:
 
 
 def verify_internal_caller(request: Request) -> None:
-    """Only the job runner (in-process token or Cloud Tasks OIDC) may call /internal."""
+    """Only the job runner, holding the internal token, may call /internal."""
     try:
         verify_internal_request(request.headers, request.app.state.jobs_settings)
     except InternalAuthError as exc:

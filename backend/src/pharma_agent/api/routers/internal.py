@@ -15,7 +15,7 @@ def build_internal_router() -> APIRouter:
     async def run_ingest_job(
         job_id: uuid.UUID, _caller: InternalCaller, container: ContainerDep
     ) -> JobView:
-        # Raises while retries remain: the 500 makes Cloud Tasks call again.
+        # Raises while retries remain: the 500 tells the caller to run it again.
         return await require_publishing(container).run(job_id)
 
     return router

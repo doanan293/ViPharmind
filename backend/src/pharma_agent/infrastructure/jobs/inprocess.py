@@ -1,6 +1,7 @@
 """Run jobs in the API process after the request returns: local development and tests.
 
-On Cloud Run the CPU is throttled after a response, so a backend there uses Cloud Tasks instead.
+A serverless host may freeze the process once it has answered, so production on Vercel uses
+the inline dispatcher instead.
 """
 
 import asyncio
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class InProcessDispatcher:
-    """`run` raises while the job has attempts left (as it does for Cloud Tasks), so this
+    """`run` raises while the job has attempts left (a queue would retry it), so this
     calls it again after a pause, like a queue retry, until it returns or `max_runs`."""
 
     def __init__(

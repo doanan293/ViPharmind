@@ -212,7 +212,7 @@ async def test_a_job_no_runner_finished_stops_blocking_after_it_goes_stale() -> 
 
 class FailingDispatcher(RecordingDispatcher):
     async def enqueue(self, job_id: uuid.UUID) -> None:
-        raise RuntimeError("Cloud Tasks unavailable")
+        raise RuntimeError("job queue unavailable")
 
 
 async def test_a_job_that_could_not_be_dispatched_fails_at_once() -> None:

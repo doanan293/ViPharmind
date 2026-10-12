@@ -188,8 +188,9 @@ uv run pharma-agent superadmin grant ban@example.com   # revoke, list
 - Chat tìm trong mọi collection người dùng được thấy; `collection_ids` của hội thoại thu hẹp
   phạm vi. Quyền được đọc lại ở mỗi lượt hỏi.
 - Tài liệu soạn trong app được dựng thành knowledge bundle và nạp bằng đúng pipeline của CLI.
-  `POST /collections/{id}/publish` tạo một job; local chạy ngay trong tiến trình, production
-  qua Cloud Tasks gọi `POST /api/v1/internal/ingest-jobs/{id}/run`.
+  `POST /collections/{id}/publish` tạo một job; local chạy trong tiến trình sau khi trả
+  lời, production trên Vercel chạy ngay trong request xuất bản (`PHARMA_JOBS__DISPATCHER=inline`,
+  tối đa 300 giây).
 
 ## Server E2E
 
