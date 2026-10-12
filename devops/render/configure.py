@@ -16,10 +16,10 @@ API = "https://api.render.com/v1"
 ENV_FILE = Path(__file__).resolve().parents[2] / "backend" / ".env.production"
 REPO = "https://github.com/doanan293/vipharma-rag"
 
-# Render terminates TLS and forwards to $PORT, which the settings read. Its edge appends three X-Forwarded-For
-# entries (the caller seen by Cloudflare, the Cloudflare node, Render's internal proxy), measured
-# on 2026-10-11; the Vercel proxy adds one more through the shared secret. Publish jobs run
-# inside the API process because the free plan has no background workers.
+# Render terminates TLS and forwards to $PORT, which the settings read. Its edge appends three
+# X-Forwarded-For entries (the caller seen by Cloudflare, the Cloudflare node, Render's internal
+# proxy), measured on 2026-10-11; the Vercel proxy adds one more through the shared secret.
+# Publish jobs run inside the API process because the free plan has no background workers.
 RENDER_SETTINGS = {
     "PHARMA_API__HOST": "0.0.0.0",
     "PHARMA_API__TRUSTED_PROXY_HOPS": "3",
