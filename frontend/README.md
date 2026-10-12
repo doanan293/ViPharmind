@@ -30,8 +30,8 @@ A few files in `app/components/ui/` differ from the registry on purpose because 
 
 ## Deploy to Vercel
 
-Production serves the app from Vercel (Hobby, non-commercial) and the API from Render
-(`devops/render/configure.py`). The browser only talks to the Vercel origin, so cookies stay
+Production serves the app from Vercel (Hobby, non-commercial) and the API from the Vercel
+project `vipharmind-api` (a FastAPI Vercel Function; `devops/vercel/sync_env.py` sets its env). The browser only talks to the Vercel origin, so cookies stay
 first-party: `app/routes/api-proxy.ts` forwards `/api/*` to `API_INTERNAL_URL` with the method,
 headers (minus `host` and hop-by-hop ones), body and response, streams included; it asks for an
 uncompressed body and adds the shared `X-Vipharmind-Proxy` secret.
@@ -43,7 +43,7 @@ first.
    `@vercel/react-router`; the preset is not used, because with React Router 8 its server bundles
    make the build on Vercel fail (React Router moves a CSS file that the bundle did not write).
    The GitHub repository is connected, so a push to `main` deploys production.
-2. Environment Variables (Production): `API_INTERNAL_URL` (`https://vipharmind-api.onrender.com`),
+2. Environment Variables (Production): `API_INTERNAL_URL` (`https://vipharmind-api.vercel.app`),
    `PUBLIC_SITE_URL` (`https://<project>.vercel.app`), `THEME_COOKIE_SECRET` and
    `API_PROXY_SECRET` (the same value as the backend's `PHARMA_API__PROXY_SECRET`; the proxy
    sends it in `X-Vipharmind-Proxy` so the backend trusts the client IP it forwards).

@@ -208,7 +208,7 @@ class ApiSettings(BaseModel):
     # The browser reaches the API on the same origin (nginx or the dev proxy): no CORS by default.
     cors_origins: list[str] = Field(default_factory=list)
     # Reverse proxies in front of the API that append to X-Forwarded-For (0 trusts none, so
-    # per-IP limits use the TCP peer). Behind Render set 3.
+    # per-IP limits use the TCP peer). On Vercel set 1.
     trusted_proxy_hops: int = Field(default=0, ge=0)
     # Shared with the frontend's /api proxy (API_PROXY_SECRET there): requests carrying it
     # in X-Vipharmind-Proxy count that proxy as one more trusted hop.
@@ -299,7 +299,7 @@ class Settings(BaseSettings):
     corpus: CorpusSettings = Field(default_factory=CorpusSettings)
     quotas: QuotaSettings = Field(default_factory=QuotaSettings)
     jobs: JobsSettings = Field(default_factory=JobsSettings)
-    # Render and Cloud Run tell the container which port to listen on in PORT (no prefix).
+    # Container hosts tell the server which port to listen on in PORT (no prefix).
     platform_port: int | None = Field(default=None, validation_alias="PORT")
 
     @model_validator(mode="after")
