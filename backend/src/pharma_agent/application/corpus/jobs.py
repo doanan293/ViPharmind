@@ -217,7 +217,7 @@ class PublishService:
         return await self._view(job)
 
     async def run(self, job_id: uuid.UUID) -> JobView:
-        """Do the job. Raises while retries remain, so Cloud Tasks calls again."""
+        """Do the job. Raises while retries remain, so the dispatcher runs it again."""
         job = await self._jobs.get(job_id)
         if job is None:
             raise InvalidInput(f"job {job_id} does not exist")

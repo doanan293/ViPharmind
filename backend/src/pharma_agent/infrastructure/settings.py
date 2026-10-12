@@ -233,20 +233,14 @@ class CorpusSettings(BaseModel):
 class JobsSettings(BaseModel):
     """How publish jobs run (spec §5.3).
 
-    `inprocess` runs them in the API process (local, tests); `inline` runs them inside the
-    publish request (Vercel Functions, which may freeze after a response); `cloud_tasks`
-    queues them on Google Cloud Tasks, which calls the backend back with an OIDC token.
+    `inprocess` runs them in the API process after the request returns (local, tests);
+    `inline` runs them inside the publish request (Vercel Functions, which may freeze once
+    they have answered).
     """
 
-    dispatcher: Literal["inprocess", "inline", "cloud_tasks"] = "inprocess"
-    # inprocess and inline: the X-Internal-Token header of /internal calls.
+    dispatcher: Literal["inprocess", "inline"] = "inprocess"
+    # The X-Internal-Token header that /internal calls must carry.
     internal_token: SecretStr | None = None
-    # cloud_tasks: the public URL of the backend, used as target and OIDC audience.
-    backend_url: str | None = None
-    cloud_tasks_project: str | None = None
-    cloud_tasks_location: str = "asia-southeast1"
-    cloud_tasks_queue: str = "ingest"
-    service_account_email: str | None = None
     max_attempts: int = Field(default=3, ge=1)
     dispatch_deadline_seconds: int = Field(default=600, ge=15, le=1800)
 
