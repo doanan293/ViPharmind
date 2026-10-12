@@ -19,7 +19,7 @@ Mảng 2 trong lộ trình đưa ViPharMind lên production. Mảng 3 (tổ ch�
 | Hình thức xác minh | Mã OTP 6 số, hạn 10 phút, dùng một lần. Không dùng link xác minh của fastapi-users |
 | Tài khoản chỉ có số điện thoại | `user.email` cho phép để trống. Mật khẩu ngẫu nhiên không ai biết (như tài khoản Google), `password_set = false` |
 | Liên kết Google | Chỉ tự liên kết khi email Google trùng một email **đã xác minh**. Email chưa xác minh thì không liên kết, tránh chiếm tài khoản đăng ký trước. Đây là sửa lỗi: router Google hiện bật `associate_by_email=True`, liên kết cả email chưa xác minh |
-| Gửi email | Port `EmailSender`, hai adapter: Gmail API qua HTTPS (production; OAuth client trong project `andimus`) và ghi log cho local/test. SMTP bị bỏ vì Render Free chặn cổng SMTP |
+| Gửi email | Port `EmailSender`, hai adapter: Resend (production) và ghi log cho local/test. SMTP bị bỏ vì Render Free chặn cổng SMTP |
 | Gửi SMS | Port `SmsSender`, adapter ghi log. Nhà cung cấp thật chọn trước khi ra mắt (mảng 5) |
 | Cách gửi | Gửi ngay trong request, không chạy nền, vì Cloud Run giảm CPU sau khi trả response |
 | Giới hạn | Lưu trong Postgres, không phụ thuộc dịch vụ ngoài |
@@ -100,12 +100,12 @@ Thêm `user_agent`, `ip_address`, `last_used_at` để hiển thị danh sách p
 | --- | --- |
 | `domain/account` | Port `EmailSender`, `SmsSender`, `OneTimeCodes`, `RateLimiter`; kiểu `PhoneNumber` chuẩn hoá bằng thư viện `phonenumbers`; `OtpPurpose`, quy tắc "cách đăng nhập cuối cùng" |
 | `application/account/service.py` | `AccountService`, mỗi method là một luồng ở mục 3. Băm và kiểm tra mật khẩu qua `UserManager` của fastapi-users |
-| `infrastructure` | `GmailApiEmailSender` (httpx), `LogEmailSender`, `LogSmsSender`; repository Postgres cho mã và giới hạn; mẫu email tiếng Việt và tiếng Anh theo ngôn ngữ người dùng |
+| `infrastructure` | `ResendEmailSender` (httpx), `LogEmailSender`, `LogSmsSender`; repository Postgres cho mã và giới hạn; mẫu email tiếng Việt và tiếng Anh theo ngôn ngữ người dùng |
 | `api/routers/account.py` | Các route ở mục 6 |
 
 Quy tắc kiến trúc trong `tests/architecture/test_layering.py` áp dụng như với các feature khác.
 
-Settings mới: `auth.otp_secret`; `email.provider` (`log`, `gmail`) cùng client, secret, refresh token Gmail và địa chỉ gửi; `sms.provider` (`log`) và `sms.allowed_country_codes` (mặc định `["VN"]`, chặn gửi SMS tốn tiền ra số nước ngoài).
+Settings mới: `auth.otp_secret`; `email.provider` (`log`, `resend`) cùng API key Resend và địa chỉ gửi; `sms.provider` (`log`) và `sms.allowed_country_codes` (mặc định `["VN"]`, chặn gửi SMS tốn tiền ra số nước ngoài).
 
 Gửi thất bại: mã vừa tạo bị đánh dấu hết hiệu lực, API trả `503` dạng problem, người dùng bấm gửi lại.
 
