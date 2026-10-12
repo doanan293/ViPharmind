@@ -284,7 +284,7 @@ Thư viện mới: `@tiptap/react`, `@tiptap/starter-kit`, phần mở rộng b�
 | Postgres | Neon miễn phí, Singapore | DB mới dựng bằng migration, không chép DB local |
 | Vector | Qdrant Cloud miễn phí | vùng gần Singapore nhất có sẵn |
 | LLM, embedding, rerank | DeepInfra | Qwen3.5-9B, Qwen3-Embedding-8B, Qwen3-Reranker-4B |
-| Email | Gmail API | Render Free chặn cổng SMTP nên gửi qua HTTPS bằng OAuth client Desktop trong `andimus` và refresh token của tài khoản gửi thư; khoảng 500 thư mỗi ngày |
+| Email | Gmail API | gửi qua HTTPS bằng OAuth client Desktop trong `andimus` và refresh token của tài khoản gửi thư (Render Free chặn cổng SMTP); khoảng 500 thư mỗi ngày |
 | SMS | tắt | `PHARMA_SMS__PROVIDER=none` |
 | Google OAuth | OAuth client Web trong project `andimus` | tuỳ chọn; nút Google ẩn khi chưa cấu hình (`google_sign_in_enabled`) |
 | Secrets | Environment Variables trên Render cho backend (đẩy từ `backend/.env.production`), trên Vercel cho frontend | |
@@ -330,7 +330,7 @@ Log của Render, cron Vercel gọi `/api/v1/health` mỗi ngày (health đọc 
 | Neon | 0,5 GB | gói Launch 10 GB | 19 USD/tháng |
 | Qdrant Cloud | 1 GB, đầy trước Neon | cluster trả phí, hoặc cắt chiều embedding xuống 1024 sau khi đánh giá lại | từ 25 USD/tháng |
 | DeepInfra | không có nút thắt cứng | | khoảng 2 USD mỗi 1.000 lượt hỏi |
-| Gmail API | khoảng 500 thư/ngày | Resend với domain riêng | miễn phí 3.000 thư/tháng |
+| Gmail API | khoảng 500 thư/ngày | Google Workspace với domain riêng, cùng Gmail API | khoảng 7 USD/người dùng/tháng |
 
 ## 10. Kiểm thử
 
