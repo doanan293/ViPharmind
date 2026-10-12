@@ -26,6 +26,11 @@
             "title": "Google Linked",
             "type": "boolean"
           },
+          "google_sign_in_enabled": {
+            "default": false,
+            "title": "Google Sign In Enabled",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1688,6 +1693,11 @@
             },
             "title": "Checks",
             "type": "object"
+          },
+          "google_sign_in_enabled": {
+            "default": false,
+            "title": "Google Sign In Enabled",
+            "type": "boolean"
           },
           "phone_sign_in_enabled": {
             "default": true,

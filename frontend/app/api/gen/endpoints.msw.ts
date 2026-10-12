@@ -96,6 +96,7 @@ export const getAccountEmailConfirmResponseMock = (
   ]),
   email_verified: faker.datatype.boolean(),
   google_linked: faker.datatype.boolean(),
+  google_sign_in_enabled: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
   is_superadmin: faker.datatype.boolean(),
@@ -128,6 +129,7 @@ export const getAccountGoogleUnlinkResponseMock = (
   ]),
   email_verified: faker.datatype.boolean(),
   google_linked: faker.datatype.boolean(),
+  google_sign_in_enabled: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
   is_superadmin: faker.datatype.boolean(),
@@ -160,6 +162,7 @@ export const getAccountPhoneConfirmResponseMock = (
   ]),
   email_verified: faker.datatype.boolean(),
   google_linked: faker.datatype.boolean(),
+  google_sign_in_enabled: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
   is_superadmin: faker.datatype.boolean(),
@@ -1312,6 +1315,7 @@ export const getHealthResponseMock = (
   checks: {
     [faker.string.alphanumeric(5)]: faker.datatype.boolean(),
   },
+  google_sign_in_enabled: faker.datatype.boolean(),
   phone_sign_in_enabled: faker.datatype.boolean(),
   reasons: faker.helpers.arrayElement([
     {
@@ -1625,6 +1629,7 @@ export const getUsersCurrentUserResponseMock = (
   ]),
   email_verified: faker.datatype.boolean(),
   google_linked: faker.datatype.boolean(),
+  google_sign_in_enabled: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
   is_superadmin: faker.datatype.boolean(),
@@ -1657,6 +1662,7 @@ export const getUsersPatchCurrentUserResponseMock = (
   ]),
   email_verified: faker.datatype.boolean(),
   google_linked: faker.datatype.boolean(),
+  google_sign_in_enabled: faker.datatype.boolean(),
   id: faker.string.uuid(),
   is_active: faker.datatype.boolean(),
   is_superadmin: faker.datatype.boolean(),

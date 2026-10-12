@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router"
 
-import { FieldSeparator } from "~/components/ui/field"
 import { AuthCard } from "~/features/auth/components/AuthCard"
 import { GoogleButton } from "~/features/auth/components/GoogleButton"
 import { PhoneLoginForm } from "~/features/auth/components/PhoneLoginForm"
@@ -27,7 +26,6 @@ export default function RegisterPage() {
         email={<RegisterForm nextPath={nextPath} />}
         phone={<PhoneLoginForm nextPath={nextPath} intent="register" />}
       />
-      <FieldSeparator>{t("or")}</FieldSeparator>
       <GoogleButton nextPath={nextPath} />
       <LegalConsent />
       <p className="text-center text-sm text-muted-foreground">

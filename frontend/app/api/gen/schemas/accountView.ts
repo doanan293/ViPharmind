@@ -11,6 +11,7 @@ export interface AccountView {
   email: string | null
   email_verified: boolean
   google_linked: boolean
+  google_sign_in_enabled?: boolean
   id: string
   is_active: boolean
   is_superadmin: boolean

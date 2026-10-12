@@ -11,6 +11,7 @@ export function accountView(overrides: Partial<AccountView> = {}): AccountView {
     is_superadmin: false,
     memberships: [],
     phone_sign_in_enabled: true,
+    google_sign_in_enabled: true,
     is_verified: true,
     email_verified: true,
     phone_verified: false,

@@ -53,6 +53,7 @@ def build_account_service(
             otp_secret=settings.auth.require_otp_secret(),
             allowed_sms_regions=frozenset(settings.sms.allowed_country_codes),
             sms_enabled=settings.sms.provider != "none",
+            google_enabled=settings.auth.google_enabled,
         ),
         memberships=PostgresOrganizationRepository(sessions),
     )

@@ -27,8 +27,9 @@ class HealthResponse(BaseModel):
     checks: dict[str, bool]
     # Reason code of each failed check that declares one, e.g. {"corpus": "CORPUS_NOT_READY"}.
     reasons: dict[str, str] = Field(default_factory=dict)
-    # Lets the sign-in pages hide phone sign-in before anyone is signed in.
+    # Let the sign-in pages hide phone and Google sign-in before anyone is signed in.
     phone_sign_in_enabled: bool = True
+    google_sign_in_enabled: bool = False
 
 
 class ProblemItem(BaseModel):
