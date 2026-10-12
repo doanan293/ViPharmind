@@ -51,3 +51,8 @@ testpaths = ["tests"]
 markers = ["integration: needs Docker (run with -m integration)"]
 addopts = ["--import-mode=importlib", "-m", "not integration"]
 filterwarnings = ["error"]
+
+[tool.vercel]
+# Vercel Functions import this FastAPI instance; `pharma-agent serve` stays the way to run
+# the API anywhere else.
+entrypoint = "src.pharma_agent.api.asgi:app"

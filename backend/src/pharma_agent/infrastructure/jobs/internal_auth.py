@@ -16,7 +16,7 @@ class InternalAuthError(Exception):
 
 
 def verify_internal_request(headers: Mapping[str, str], settings: JobsSettings) -> None:
-    if settings.dispatcher == "inprocess":
+    if settings.dispatcher in ("inprocess", "inline"):
         expected = settings.internal_token
         given = headers.get(INTERNAL_TOKEN_HEADER, "")
         if (

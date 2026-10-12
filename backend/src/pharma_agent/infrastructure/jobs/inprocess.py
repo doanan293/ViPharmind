@@ -1,4 +1,4 @@
-"""Run jobs in the API process: production on Render, local development and tests.
+"""Run jobs in the API process after the request returns: local development and tests.
 
 On Cloud Run the CPU is throttled after a response, so a backend there uses Cloud Tasks instead.
 """

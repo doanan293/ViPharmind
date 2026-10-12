@@ -47,3 +47,7 @@ ai-models/
 # Local agent tooling
 .superpowers/
 .worktrees/
+
+# Vercel CLI: project link and `vercel build` output (backend/_uv is its uv cache)
+.vercel/
+backend/_uv/
