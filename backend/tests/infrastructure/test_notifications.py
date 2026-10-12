@@ -22,7 +22,7 @@ async def test_resend_posts_the_message_and_maps_errors() -> None:
             side_effect=[httpx.Response(200, json={"id": "1"}), httpx.Response(422)]
         )
         sender = ResendEmailSender(
-            api_key="re_key", sender="ViPharMind <no-reply@x.dev>", timeout=5.0
+            api_key="re_key", sender="ViPharmind <no-reply@x.dev>", timeout=5.0
         )
         await sender.send(to="an@example.com", subject="S", text="T", html="H")
         request = route.calls[0].request

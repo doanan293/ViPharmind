@@ -23,24 +23,24 @@ TTL_MINUTES = int(CODE_TTL.total_seconds() // 60)
 
 _SUBJECTS: dict[OtpPurpose, dict[Locale, str]] = {
     OtpPurpose.VERIFY_EMAIL: {
-        "vi": "Mã xác minh email ViPharMind",
-        "en": "Your ViPharMind verification code",
+        "vi": "Mã xác minh email ViPharmind",
+        "en": "Your ViPharmind verification code",
     },
     OtpPurpose.RESET_PASSWORD: {
-        "vi": "Mã đặt lại mật khẩu ViPharMind",
-        "en": "Your ViPharMind password reset code",
+        "vi": "Mã đặt lại mật khẩu ViPharmind",
+        "en": "Your ViPharmind password reset code",
     },
     OtpPurpose.CHANGE_EMAIL: {
-        "vi": "Xác nhận email mới cho ViPharMind",
-        "en": "Confirm your new ViPharMind email",
+        "vi": "Xác nhận email mới cho ViPharmind",
+        "en": "Confirm your new ViPharmind email",
     },
     OtpPurpose.PHONE_LOGIN: {
-        "vi": "Mã đăng nhập ViPharMind",
-        "en": "Your ViPharMind sign-in code",
+        "vi": "Mã đăng nhập ViPharmind",
+        "en": "Your ViPharmind sign-in code",
     },
     OtpPurpose.CHANGE_PHONE: {
-        "vi": "Xác nhận số điện thoại mới cho ViPharMind",
-        "en": "Confirm your new ViPharMind phone number",
+        "vi": "Xác nhận số điện thoại mới cho ViPharmind",
+        "en": "Confirm your new ViPharmind phone number",
     },
 }
 _BODY: dict[Locale, str] = {
@@ -51,18 +51,18 @@ _BODY: dict[Locale, str] = {
 }
 # GSM-7 text without Vietnamese diacritics: one SMS segment instead of three.
 _SMS: dict[Locale, str] = {
-    "vi": "ViPharMind: ma xac minh cua ban la {code}, het han sau {minutes} phut.",
-    "en": "ViPharMind: your code is {code}. It expires in {minutes} minutes.",
+    "vi": "ViPharmind: ma xac minh cua ban la {code}, het han sau {minutes} phut.",
+    "en": "ViPharmind: your code is {code}. It expires in {minutes} minutes.",
 }
 _CHANGED: dict[Locale, tuple[str, str]] = {
     "vi": (
-        "Email ViPharMind của bạn đã được đổi",
-        "Email đăng nhập ViPharMind của bạn vừa được đổi sang {email}. "
+        "Email ViPharmind của bạn đã được đổi",
+        "Email đăng nhập ViPharmind của bạn vừa được đổi sang {email}. "
         "Nếu không phải bạn, hãy đặt lại mật khẩu và liên hệ hỗ trợ.",
     ),
     "en": (
-        "Your ViPharMind email was changed",
-        "The sign-in email of your ViPharMind account was changed to {email}. "
+        "Your ViPharmind email was changed",
+        "The sign-in email of your ViPharmind account was changed to {email}. "
         "If this was not you, reset your password and contact support.",
     ),
 }

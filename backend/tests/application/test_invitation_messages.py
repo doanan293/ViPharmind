@@ -11,9 +11,9 @@ def test_invitation_email_carries_the_link_in_both_languages() -> None:
     en = invitation_email(
         organization="Khoa Dược", inviter="An", role=Role.EDITOR, link=link, locale="en"
     )
-    assert vi.subject == "Lời mời tham gia Khoa Dược trên ViPharMind"
+    assert vi.subject == "Lời mời tham gia Khoa Dược trên ViPharmind"
     assert "biên tập viên" in vi.text and link in vi.text
-    assert en.subject == "Join Khoa Dược on ViPharMind" and "editor" in en.text
+    assert en.subject == "Join Khoa Dược on ViPharmind" and "editor" in en.text
     assert 'href="https://app.example/invitations/abc?x=&lt;1&gt;"' in en.html
     assert "<1>" not in en.html
 

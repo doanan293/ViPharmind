@@ -25,13 +25,13 @@ export function LegalPage({
   )
   return (
     <div lang={locale} className="flex min-h-svh flex-col">
-      <title>{`${text.title} · ViPharMind`}</title>
+      <title>{`${text.title} · ViPharmind`}</title>
       <header className="mx-auto w-full max-w-3xl px-4 pt-8 md:px-8">
         <Link
           to={HOME_PATH[locale]}
           className="text-sm font-semibold underline-offset-4 hover:underline"
         >
-          ViPharMind
+          ViPharmind
         </Link>
       </header>
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 md:px-8">

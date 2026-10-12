@@ -49,7 +49,7 @@ async def test_registration_uses_the_ui_language(migrated_dsn: str) -> None:
             json={"email": email, "password": PASSWORD},
             headers={"Accept-Language": "en"},
         )
-    assert outbox.email.sent[-1].subject == "Your ViPharMind verification code"
+    assert outbox.email.sent[-1].subject == "Your ViPharmind verification code"
 
 
 async def test_resend_inside_the_cooldown_is_429_with_retry_after(

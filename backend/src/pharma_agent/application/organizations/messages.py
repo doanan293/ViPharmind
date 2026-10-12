@@ -13,13 +13,13 @@ _ROLES: dict[Locale, dict[Role, str]] = {
 }
 _TEXT: dict[Locale, tuple[str, str, str]] = {
     "vi": (
-        "Lời mời tham gia {organization} trên ViPharMind",
+        "Lời mời tham gia {organization} trên ViPharmind",
         "{inviter} mời bạn tham gia tổ chức {organization} với vai trò {role}. "
         "Lời mời có hạn 7 ngày. Mở liên kết để nhận lời mời: {link}",
         "Xem lời mời",
     ),
     "en": (
-        "Join {organization} on ViPharMind",
+        "Join {organization} on ViPharmind",
         "{inviter} invited you to the organization {organization} as {role}. "
         "The invitation is valid for 7 days. Open the link to accept it: {link}",
         "View the invitation",

@@ -2,7 +2,7 @@
 
 Ngày: 2026-10-10. Trạng thái: đã duyệt qua brainstorming (ba phần), chờ implementation plan.
 
-Mảng 2 trong lộ trình đưa ViPharMind lên production. Mảng 3 (tổ chức, phân quyền, lời mời) dùng lại hạ tầng gửi thư và mã OTP của mảng này.
+Mảng 2 trong lộ trình đưa ViPharmind lên production. Mảng 3 (tổ chức, phân quyền, lời mời) dùng lại hạ tầng gửi thư và mã OTP của mảng này.
 
 ## 1. Mục tiêu
 

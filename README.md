@@ -1,4 +1,4 @@
-# ViPharMind: trợ lý AI tra cứu thuốc cho người Việt
+# ViPharmind: trợ lý AI tra cứu thuốc cho người Việt
 
 | Thư mục | Nội dung |
 | --- | --- |
