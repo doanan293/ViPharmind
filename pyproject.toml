@@ -4,8 +4,9 @@
 members = ["backend", "pharma-lab"]
 
 [tool.uv]
-# One uv version for local runs, the backend image and the uv-lock pre-commit hook.
-required-version = "==0.12.13"
+# Local runs, the backend image and the uv-lock pre-commit hook pin uv 0.12.13; Vercel's
+# Python builder brings its own uv (0.10.11 in October 2026), so only a floor is enforced.
+required-version = ">=0.10.11"
 # ragas needs instructor, which still caps jiter<0.15 (instructor 1.17), while openai
 # >=3.3.1 needs jiter>=0.16. The jiter API instructor uses is unchanged in 0.16+.
 override-dependencies = ["jiter>=0.16.0,<1"]
