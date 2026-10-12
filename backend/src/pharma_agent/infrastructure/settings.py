@@ -233,12 +233,13 @@ class CorpusSettings(BaseModel):
 class JobsSettings(BaseModel):
     """How publish jobs run (spec §5.3).
 
-    `inprocess` runs them in the API process (local, tests); `cloud_tasks` queues them on
-    Google Cloud Tasks, which calls the backend back with an OIDC token.
+    `inprocess` runs them in the API process (local, tests); `inline` runs them inside the
+    publish request (Vercel Functions, which may freeze after a response); `cloud_tasks`
+    queues them on Google Cloud Tasks, which calls the backend back with an OIDC token.
     """
 
-    dispatcher: Literal["inprocess", "cloud_tasks"] = "inprocess"
-    # inprocess: the X-Internal-Token header of /internal calls.
+    dispatcher: Literal["inprocess", "inline", "cloud_tasks"] = "inprocess"
+    # inprocess and inline: the X-Internal-Token header of /internal calls.
     internal_token: SecretStr | None = None
     # cloud_tasks: the public URL of the backend, used as target and OIDC audience.
     backend_url: str | None = None

@@ -274,3 +274,8 @@ def test_retired_email_providers_are_rejected(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("PHARMA_EMAIL__PROVIDER", "smtp")
     with pytest.raises(ValidationError, match="provider"):
         Settings(_env_file=None)
+
+
+def test_jobs_can_run_inline(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PHARMA_JOBS__DISPATCHER", "inline")
+    assert Settings(_env_file=None).jobs.dispatcher == "inline"

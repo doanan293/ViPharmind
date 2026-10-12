@@ -13,6 +13,7 @@ from pharma_agent.domain.corpus.ports import Embedder, VectorIndex
 from pharma_agent.domain.corpus.source import JobDispatcher
 from pharma_agent.domain.shared.clock import Clock
 from pharma_agent.infrastructure.jobs.cloud_tasks import CloudTasksDispatcher
+from pharma_agent.infrastructure.jobs.inline import InlineDispatcher
 from pharma_agent.infrastructure.jobs.inprocess import InProcessDispatcher
 from pharma_agent.infrastructure.persistence.postgres.audit_log import PostgresAuditLog
 from pharma_agent.infrastructure.persistence.postgres.collection_repository import (
@@ -58,11 +59,12 @@ def build_publishing(
         return await bound[0].run(job_id)
 
     if dispatcher is None:
-        dispatcher = (
-            CloudTasksDispatcher(settings.jobs)
-            if settings.jobs.dispatcher == "cloud_tasks"
-            else InProcessDispatcher(run)
-        )
+        if settings.jobs.dispatcher == "cloud_tasks":
+            dispatcher = CloudTasksDispatcher(settings.jobs)
+        elif settings.jobs.dispatcher == "inline":
+            dispatcher = InlineDispatcher(run)
+        else:
+            dispatcher = InProcessDispatcher(run)
     service = PublishService(
         collections=PostgresCollectionRepository(sessions),
         sources=PostgresSourceRepository(sessions),
