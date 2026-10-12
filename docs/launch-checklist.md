@@ -11,12 +11,12 @@ qua Gmail SMTP. Mọi dịch vụ đang dùng gói miễn phí; chỉ DeepInfra 
 - [x] Neon: project ở Singapore, database `neondb`, DSN có pooler trong `backend/.env.production`; đã migrate tới `0020`.
 - [x] Qdrant Cloud: cluster miễn phí `vipharmind` ở AWS US Oregon (gói Free không có châu Á), URL và API key trong `backend/.env.production`. Cluster Free tự tạm dừng sau 1 tuần không có truy vấn; cron Vercel gọi `/api/v1/health` mỗi ngày giữ nó chạy.
 - [x] Secret production (JWT, CSRF, OTP, proxy, token nội bộ) đã sinh trong `backend/.env.production`.
-- [x] Render: service `vipharmind-api` (Free, Singapore) chạy ở https://vipharmind-api.onrender.com, tự deploy khi push `main`. `/api/v1/health` báo Postgres ổn, `corpus` chưa sẵn sàng vì chưa nạp corpus. Đã đo `PHARMA_API__TRUSTED_PROXY_HOPS=3`: IP thật của khách được nhận đúng cả khi gọi thẳng lẫn qua Vercel.
+- [x] Render: service `vipharmind-api` (Free, Singapore) chạy ở https://vipharmind-api.onrender.com, tự deploy khi push `main` (ứng dụng GitHub của Render có quyền đọc repo). `/api/v1/health` báo Postgres ổn, `corpus` chưa sẵn sàng vì chưa nạp corpus. Đã đo `PHARMA_API__TRUSTED_PROXY_HOPS=3`: IP thật của khách được nhận đúng cả khi gọi thẳng lẫn qua Vercel.
 - [x] Vercel: project `vipharmind`, preset React Router, Root Directory `frontend`, nối GitHub, https://vipharmind.vercel.app chạy; đã đặt `API_INTERNAL_URL`, `PUBLIC_SITE_URL`, `THEME_COOKIE_SECRET`, `API_PROXY_SECRET`. Đăng nhập sai mật khẩu qua Vercel trả đúng `LOGIN_BAD_CREDENTIALS`.
 
 Việc miễn phí còn lại, cần bạn làm trên web:
 
-- [ ] Google OAuth client (project `andv-lms`): thêm redirect URI `https://vipharmind.vercel.app/auth/google/callback` và `https://vipharmind.vercel.app/auth/google/link-callback`.
+- [ ] Đăng nhập Google (hoãn được, khi chưa có client thì nút Google tự ẩn): mọi app dùng chung project Google Cloud `andimus`. Tạo màn hình đồng ý (External, Publish app), rồi tạo OAuth client Web `ViPharMind` với redirect URI `https://vipharmind.vercel.app/auth/google/callback`, `https://vipharmind.vercel.app/auth/google/link-callback` và hai URI tương ứng trên `http://localhost:3000`. Ghi `PHARMA_AUTH__GOOGLE_CLIENT_ID` và `PHARMA_AUTH__GOOGLE_CLIENT_SECRET` vào `backend/.env.production`, rồi chạy `devops/render/configure.py`.
 - [ ] Gmail: bật xác minh hai bước cho tài khoản gửi thư, tạo App password, ghi `PHARMA_EMAIL__PROVIDER=smtp`, `PHARMA_EMAIL__SENDER`, `PHARMA_EMAIL__SMTP_USERNAME` và `PHARMA_EMAIL__SMTP_PASSWORD` vào `backend/.env.production`, rồi chạy `uv run --with httpx python devops/render/configure.py`. Trước bước này backend chỉ ghi thư ra log, nên chưa đăng ký được bằng email.
 
 **Để sau, tốn tiền:**
