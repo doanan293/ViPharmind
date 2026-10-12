@@ -22,6 +22,7 @@ async def test_health_ok_and_degraded() -> None:
             "checks": {"postgres": True},
             "reasons": {},
             "phone_sign_in_enabled": True,
+            "google_sign_in_enabled": False,
         }
 
     degraded = build_harness(
@@ -39,6 +40,7 @@ async def test_health_ok_and_degraded() -> None:
             "checks": {"postgres": True, "corpus": False},
             "reasons": {"corpus": "CORPUS_NOT_READY"},
             "phone_sign_in_enabled": True,
+            "google_sign_in_enabled": False,
         }
 
 
@@ -62,3 +64,14 @@ async def test_health_tells_the_sign_in_page_when_sms_is_off(
     async with harness.client() as client:
         body = (await client.get("/api/v1/health")).json()
     assert body["phone_sign_in_enabled"] is False
+
+
+async def test_health_tells_the_sign_in_page_when_google_is_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PHARMA_AUTH__GOOGLE_CLIENT_ID", "client-id")
+    monkeypatch.setenv("PHARMA_AUTH__GOOGLE_CLIENT_SECRET", "client-secret")
+    harness = build_harness(authenticated=False, health={"postgres": _up})
+    async with harness.client() as client:
+        body = (await client.get("/api/v1/health")).json()
+    assert body["google_sign_in_enabled"] is True

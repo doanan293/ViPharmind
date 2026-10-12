@@ -1,8 +1,8 @@
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
-import { useHealth } from "~/api/gen/endpoints"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
+import { useSignInOptions } from "~/features/auth/hooks/use-sign-in-options"
 
 /** Email and phone tabs; phone only once the server says SMS is on. */
 export function SignInMethods({
@@ -13,15 +13,8 @@ export function SignInMethods({
   phone: ReactNode
 }) {
   const { t } = useTranslation("auth")
-  // A degraded check still answers 503 with the same body, so read either.
-  const health = useHealth({
-    query: {
-      meta: { skipAuthRedirect: true },
-      staleTime: 5 * 60_000,
-      retry: false,
-    },
-  })
-  if (health.data?.phone_sign_in_enabled !== true) {
+  const options = useSignInOptions()
+  if (!options.phone) {
     return <div className="flex flex-col gap-4">{email}</div>
   }
   return (

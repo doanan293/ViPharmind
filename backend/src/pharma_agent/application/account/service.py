@@ -92,6 +92,7 @@ class AccountView(BaseModel):
     google_linked: bool
     memberships: list[MembershipView] = []
     phone_sign_in_enabled: bool = True
+    google_sign_in_enabled: bool = False
 
     @classmethod
     def of(
@@ -100,6 +101,7 @@ class AccountView(BaseModel):
         *,
         memberships: Sequence[tuple[Organization, Role]] = (),
         phone_sign_in_enabled: bool = True,
+        google_sign_in_enabled: bool = False,
     ) -> "AccountView":
         return cls(
             id=user.id,
@@ -120,6 +122,7 @@ class AccountView(BaseModel):
                 for organization, role in memberships
             ],
             phone_sign_in_enabled=phone_sign_in_enabled,
+            google_sign_in_enabled=google_sign_in_enabled,
         )
 
 
@@ -143,6 +146,8 @@ class AccountPolicy:
     login_window_seconds: int = 15 * 60
     # False when PHARMA_SMS__PROVIDER=none: phone codes are refused before any send.
     sms_enabled: bool = True
+    # True when a Google OAuth client is configured; the settings page offers linking only then.
+    google_enabled: bool = False
 
 
 class AccountService:
@@ -433,6 +438,7 @@ class AccountService:
             user,
             memberships=memberships,
             phone_sign_in_enabled=self._policy.sms_enabled,
+            google_sign_in_enabled=self._policy.google_enabled,
         )
 
     def _require_sms(self) -> None:

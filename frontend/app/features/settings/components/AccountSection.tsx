@@ -30,10 +30,13 @@ export function AccountSection({ user }: { user: AccountView }) {
           />
         </section>
       ) : null}
-      <section className="flex flex-col gap-2">
-        <h3 className="text-sm font-medium">{t("account.google.heading")}</h3>
-        <GoogleSetting linked={user.google_linked} />
-      </section>
+      {/* Linking needs a Google client; a linked account stays shown so it can be removed. */}
+      {user.google_sign_in_enabled || user.google_linked ? (
+        <section className="flex flex-col gap-2">
+          <h3 className="text-sm font-medium">{t("account.google.heading")}</h3>
+          <GoogleSetting linked={user.google_linked} />
+        </section>
+      ) : null}
       <Separator />
       <section className="flex flex-col gap-2">
         <h3 className="text-sm font-medium">{t("sessions.heading")}</h3>

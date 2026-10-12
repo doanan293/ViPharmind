@@ -39,6 +39,7 @@ def build_health_router() -> APIRouter:
                 if not ok and name in container.health_reasons
             },
             phone_sign_in_enabled=request.app.state.phone_sign_in_enabled,
+            google_sign_in_enabled=request.app.state.google_sign_in_enabled,
         )
         return JSONResponse(
             status_code=200 if healthy else 503, content=body.model_dump()

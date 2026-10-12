@@ -21,6 +21,7 @@ const USER: AccountView = {
   is_superadmin: false,
   memberships: [],
   phone_sign_in_enabled: true,
+  google_sign_in_enabled: true,
   is_verified: false,
   phone_number: null,
   email_verified: true,

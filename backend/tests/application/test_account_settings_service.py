@@ -208,6 +208,7 @@ async def test_the_account_lists_its_organizations() -> None:
         (org.id, "Khoa Dược", Role.EDITOR)
     ]
     assert view.is_superadmin is False and view.phone_sign_in_enabled is True
+    assert view.google_sign_in_enabled is False
 
 
 async def test_phone_codes_are_refused_when_sms_is_off() -> None:
@@ -231,3 +232,10 @@ class FakeMemberships:
         self, user_id: uuid.UUID
     ) -> list[tuple[Organization, Role]]:
         return self.rows.get(user_id, [])
+
+
+async def test_the_account_says_when_google_sign_in_is_configured() -> None:
+    policy = AccountPolicy(otp_secret=OTP_SECRET, google_enabled=True)
+    service, fakes = build_account_service(policy=policy)
+    user = fakes.accounts.add(email="an@example.com", email_verified=True)
+    assert (await service.get_account(user.id)).google_sign_in_enabled is True

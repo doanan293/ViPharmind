@@ -11,6 +11,7 @@ import type { HealthResponseStatus } from "./healthResponseStatus"
 export interface HealthResponse {
   agent: boolean
   checks: HealthResponseChecks
+  google_sign_in_enabled?: boolean
   phone_sign_in_enabled?: boolean
   reasons?: HealthResponseReasons
   status: HealthResponseStatus

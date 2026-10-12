@@ -90,6 +90,7 @@ export const AccountEmailConfirmBody = zod.object({
   email: zod.email(),
 })
 
+export const accountEmailConfirmResponseGoogleSignInEnabledDefault = false
 export const accountEmailConfirmResponseMembershipsDefault = []
 export const accountEmailConfirmResponsePhoneSignInEnabledDefault = true
 
@@ -98,6 +99,9 @@ export const AccountEmailConfirmResponse = zod.object({
   email: zod.union([zod.string(), zod.null()]),
   email_verified: zod.boolean(),
   google_linked: zod.boolean(),
+  google_sign_in_enabled: zod
+    .boolean()
+    .default(accountEmailConfirmResponseGoogleSignInEnabledDefault),
   id: zod.uuid(),
   is_active: zod.boolean(),
   is_superadmin: zod.boolean(),
@@ -122,6 +126,7 @@ export const AccountEmailConfirmResponse = zod.object({
 /**
  * @summary Account:Google.Unlink
  */
+export const accountGoogleUnlinkResponseGoogleSignInEnabledDefault = false
 export const accountGoogleUnlinkResponseMembershipsDefault = []
 export const accountGoogleUnlinkResponsePhoneSignInEnabledDefault = true
 
@@ -130,6 +135,9 @@ export const AccountGoogleUnlinkResponse = zod.object({
   email: zod.union([zod.string(), zod.null()]),
   email_verified: zod.boolean(),
   google_linked: zod.boolean(),
+  google_sign_in_enabled: zod
+    .boolean()
+    .default(accountGoogleUnlinkResponseGoogleSignInEnabledDefault),
   id: zod.uuid(),
   is_active: zod.boolean(),
   is_superadmin: zod.boolean(),
@@ -196,6 +204,7 @@ export const AccountPhoneConfirmBody = zod.object({
     .max(accountPhoneConfirmBodyPhoneMax),
 })
 
+export const accountPhoneConfirmResponseGoogleSignInEnabledDefault = false
 export const accountPhoneConfirmResponseMembershipsDefault = []
 export const accountPhoneConfirmResponsePhoneSignInEnabledDefault = true
 
@@ -204,6 +213,9 @@ export const AccountPhoneConfirmResponse = zod.object({
   email: zod.union([zod.string(), zod.null()]),
   email_verified: zod.boolean(),
   google_linked: zod.boolean(),
+  google_sign_in_enabled: zod
+    .boolean()
+    .default(accountPhoneConfirmResponseGoogleSignInEnabledDefault),
   id: zod.uuid(),
   is_active: zod.boolean(),
   is_superadmin: zod.boolean(),
@@ -1813,11 +1825,15 @@ export const ListMessagesResponse = zod
 /**
  * @summary Health
  */
+export const healthResponseGoogleSignInEnabledDefault = false
 export const healthResponsePhoneSignInEnabledDefault = true
 
 export const HealthResponse = zod.object({
   agent: zod.boolean(),
   checks: zod.record(zod.string(), zod.boolean()),
+  google_sign_in_enabled: zod
+    .boolean()
+    .default(healthResponseGoogleSignInEnabledDefault),
   phone_sign_in_enabled: zod
     .boolean()
     .default(healthResponsePhoneSignInEnabledDefault),
@@ -2352,6 +2368,7 @@ export const OrganizationsMembersSetRoleResponse = zod.void()
 /**
  * @summary Users:Current User
  */
+export const usersCurrentUserResponseGoogleSignInEnabledDefault = false
 export const usersCurrentUserResponseMembershipsDefault = []
 export const usersCurrentUserResponsePhoneSignInEnabledDefault = true
 
@@ -2360,6 +2377,9 @@ export const UsersCurrentUserResponse = zod.object({
   email: zod.union([zod.string(), zod.null()]),
   email_verified: zod.boolean(),
   google_linked: zod.boolean(),
+  google_sign_in_enabled: zod
+    .boolean()
+    .default(usersCurrentUserResponseGoogleSignInEnabledDefault),
   id: zod.uuid(),
   is_active: zod.boolean(),
   is_superadmin: zod.boolean(),
@@ -2393,6 +2413,7 @@ export const UsersPatchCurrentUserBody = zod.object({
     .max(usersPatchCurrentUserBodyDisplayNameMax),
 })
 
+export const usersPatchCurrentUserResponseGoogleSignInEnabledDefault = false
 export const usersPatchCurrentUserResponseMembershipsDefault = []
 export const usersPatchCurrentUserResponsePhoneSignInEnabledDefault = true
 
@@ -2401,6 +2422,9 @@ export const UsersPatchCurrentUserResponse = zod.object({
   email: zod.union([zod.string(), zod.null()]),
   email_verified: zod.boolean(),
   google_linked: zod.boolean(),
+  google_sign_in_enabled: zod
+    .boolean()
+    .default(usersPatchCurrentUserResponseGoogleSignInEnabledDefault),
   id: zod.uuid(),
   is_active: zod.boolean(),
   is_superadmin: zod.boolean(),
