@@ -5,7 +5,6 @@ description = "Pharma AI agent backend over the Vietnamese National Drug Formula
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "aiosmtplib>=4.0,<5",
     "alembic>=1.19,<2",
     "fastapi>=0.141,<1",
     "fastapi-users[oauth,sqlalchemy]>=15.0,<16",

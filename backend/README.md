@@ -80,9 +80,8 @@ Cần `PHARMA_AUTH__JWT_SECRET` và `PHARMA_AUTH__CSRF_SECRET` (mỗi giá trị
 - **Cài đặt tài khoản**: `GET/PATCH /users/me`, `PUT /account/password`,
   `DELETE /account/oauth/google`, `GET/DELETE /account/sessions`.
 - **Gửi mã**: `PHARMA_EMAIL__PROVIDER` là `log` (mã chỉ hiện trong log backend, dùng khi chạy
-  local), `smtp` (Gmail app password, không cần domain), `gmail` (Gmail API qua HTTPS, cho host chặn
-  SMTP như Render Free; refresh token lấy bằng `devops/google/gmail_refresh_token.py`) hoặc
-  `resend`. SMS hiện chỉ có `log`;
+  local), hoặc `gmail` (Gmail API qua HTTPS bằng OAuth client Desktop trong project Google Cloud
+  `andimus`; refresh token lấy bằng `devops/google/gmail_refresh_token.py`). SMS hiện chỉ có `log`;
   `PHARMA_SMS__ALLOWED_COUNTRY_CODES` (mặc định `["VN"]`) giới hạn nước nhận SMS. Cần đặt
   `PHARMA_AUTH__OTP_SECRET` (ít nhất 32 ký tự), nếu thiếu thì các luồng tài khoản bị tắt.
 

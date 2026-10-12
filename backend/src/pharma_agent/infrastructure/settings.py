@@ -264,18 +264,12 @@ class QuotaSettings(BaseModel):
 class EmailSettings(BaseModel):
     """Where account emails go. `log` writes them to the log: local runs and tests only."""
 
-    # `gmail` sends through the Gmail API over HTTPS, for hosts such as Render Free that
-    # block outbound SMTP; `smtp` needs ports 587 or 465.
-    provider: Literal["log", "smtp", "gmail", "resend"] = "log"
+    # `gmail` sends through the Gmail API over HTTPS (production); `log` only logs.
+    provider: Literal["log", "gmail"] = "log"
     sender: str = "ViPharMind <no-reply@vipharmind.local>"
-    smtp_host: str = "smtp.gmail.com"
-    smtp_port: int = 587
-    smtp_username: str | None = None
-    smtp_password: SecretStr | None = None
     gmail_client_id: str | None = None
     gmail_client_secret: SecretStr | None = None
     gmail_refresh_token: SecretStr | None = None
-    resend_api_key: SecretStr | None = None
     timeout_seconds: float = Field(default=10.0, gt=0)
 
 

@@ -233,8 +233,7 @@ def test_rerank_protocol_rejects_completion_logprobs(
 def test_account_settings_defaults() -> None:
     settings = Settings(_env_file=None)
     assert settings.email.provider == "log"
-    assert settings.email.smtp_host == "smtp.gmail.com"
-    assert settings.email.smtp_port == 587
+    assert settings.email.gmail_refresh_token is None
     assert settings.sms.provider == "log"
     assert settings.sms.allowed_country_codes == ["VN"]
     assert settings.auth.otp_secret is None
@@ -250,12 +249,14 @@ def test_otp_secret_needs_32_characters() -> None:
 
 
 def test_email_and_sms_settings_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("PHARMA_EMAIL__PROVIDER", "smtp")
-    monkeypatch.setenv("PHARMA_EMAIL__SMTP_USERNAME", "an@gmail.com")
+    monkeypatch.setenv("PHARMA_EMAIL__PROVIDER", "gmail")
+    monkeypatch.setenv(
+        "PHARMA_EMAIL__GMAIL_CLIENT_ID", "cid.apps.googleusercontent.com"
+    )
     monkeypatch.setenv("PHARMA_SMS__ALLOWED_COUNTRY_CODES", '["VN", "US"]')
     settings = Settings(_env_file=None)
-    assert settings.email.provider == "smtp"
-    assert settings.email.smtp_username == "an@gmail.com"
+    assert settings.email.provider == "gmail"
+    assert settings.email.gmail_client_id == "cid.apps.googleusercontent.com"
     assert settings.sms.allowed_country_codes == ["VN", "US"]
 
 
@@ -268,3 +269,9 @@ def test_an_explicit_api_port_wins_over_port(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setenv("PORT", "8080")
     monkeypatch.setenv("PHARMA_API__PORT", "9000")
     assert Settings(_env_file=None).api.port == 9000
+
+
+def test_retired_email_providers_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PHARMA_EMAIL__PROVIDER", "smtp")
+    with pytest.raises(ValidationError, match="provider"):
+        Settings(_env_file=None)
