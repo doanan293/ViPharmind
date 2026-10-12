@@ -73,9 +73,9 @@ Cần `PHARMA_AUTH__JWT_SECRET` và `PHARMA_AUTH__CSRF_SECRET` (mỗi giá trị
 - **Giới hạn**: gửi mã tối đa 5 lần mỗi giờ cho một địa chỉ (cách nhau 60 giây cho cùng một
   mục đích) và 20 lần mỗi giờ cho một IP; đăng nhập sai 10 lần trong 15 phút theo email hoặc IP.
   Vượt giới hạn trả 429 kèm `Retry-After`.
-  Đếm theo IP cần biết IP thật của khách: phía sau reverse proxy (Render, nginx) đặt
-  `PHARMA_API__TRUSTED_PROXY_HOPS` bằng số proxy tin cậy nối thêm vào `X-Forwarded-For` (Render: 3,
-  đo bằng IP mà bucket rate limit ghi lại).
+  Đếm theo IP cần biết IP thật của khách: phía sau reverse proxy (Vercel, nginx) đặt
+  `PHARMA_API__TRUSTED_PROXY_HOPS` bằng số proxy tin cậy nối thêm vào `X-Forwarded-For` (Vercel: 1,
+  vì Vercel ghi đè header bằng IP người gọi; đo bằng IP mà bucket rate limit ghi lại).
   Mặc định 0 là dùng IP của kết nối TCP và bỏ qua header, để khách không tự giả IP.
 - **Cài đặt tài khoản**: `GET/PATCH /users/me`, `PUT /account/password`,
   `DELETE /account/oauth/google`, `GET/DELETE /account/sessions`.
