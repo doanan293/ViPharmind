@@ -43,7 +43,7 @@ Spec này gộp ba mảng còn lại của lộ trình: **tổ chức và phân 
 | LLM production | Qwen3.5-9B trên DeepInfra cho mọi bước, tắt chế độ suy luận. Giống run `e2e-qwen35-9b` đã đánh giá |
 | SMS | Tắt khi ra mắt bằng `PHARMA_SMS__PROVIDER=none`; tab số điện thoại ẩn. Code giữ nguyên, bật lại khi có nhà cung cấp |
 | Nơi chạy | Frontend trên **Vercel Hobby** (sản phẩm phi thương mại lúc ra mắt). Backend trên **Render Free** (Docker, Singapore): Google Cloud bắt nạp trước và Docker Space của Hugging Face bắt mua PRO, còn Render miễn phí và không trừ tiền. Đường lùi cho frontend là chạy Dockerfile hiện có trên host khác |
-| Dịch vụ xung quanh | Neon Postgres, Qdrant Cloud, DeepInfra, Gmail SMTP |
+| Dịch vụ xung quanh | Neon Postgres, Qdrant Cloud, DeepInfra, Gmail API. Đăng nhập Google và client gửi thư nằm trong project Google Cloud dùng chung `andimus`, nơi quản lý đăng nhập cho mọi app của hệ thống |
 
 ## 3. Bảng quyền
 
@@ -284,9 +284,9 @@ Thư viện mới: `@tiptap/react`, `@tiptap/starter-kit`, phần mở rộng b�
 | Postgres | Neon miễn phí, Singapore | DB mới dựng bằng migration, không chép DB local |
 | Vector | Qdrant Cloud miễn phí | vùng gần Singapore nhất có sẵn |
 | LLM, embedding, rerank | DeepInfra | Qwen3.5-9B, Qwen3-Embedding-8B, Qwen3-Reranker-4B |
-| Email | Gmail SMTP | app password của một tài khoản Gmail; giới hạn 500 thư mỗi ngày |
+| Email | Gmail API | Render Free chặn cổng SMTP nên gửi qua HTTPS bằng OAuth client Desktop trong `andimus` và refresh token của tài khoản gửi thư; khoảng 500 thư mỗi ngày |
 | SMS | tắt | `PHARMA_SMS__PROVIDER=none` |
-| Google OAuth | credential đã có từ andv-lms | thêm redirect URI mới |
+| Google OAuth | OAuth client Web trong project `andimus` | tuỳ chọn; nút Google ẩn khi chưa cấu hình (`google_sign_in_enabled`) |
 | Secrets | Environment Variables trên Render cho backend (đẩy từ `backend/.env.production`), trên Vercel cho frontend | |
 
 Backend là một container không giữ trạng thái: session, rate limit, job, hạn mức đều trong Postgres, nên chuyển sang host trả phí hoặc thêm instance không đổi gì trong code.
@@ -316,8 +316,8 @@ Log của Render, cron Vercel gọi `/api/v1/health` mỗi ngày (health đọc 
 2. Tạo tài khoản Vercel, nhập repo GitHub, đặt Environment Variables theo danh sách trong README frontend.
 3. Tạo project Neon ở Singapore, lấy DSN có pooler.
 4. Tạo cluster Qdrant Cloud miễn phí, lấy URL và API key.
-5. Tạo app password Gmail cho tài khoản gửi thư.
-6. Thêm redirect URI của Vercel vào Google OAuth client đã có.
+5. Trong `andimus`: publish màn hình đồng ý, tạo client Desktop cho việc gửi thư, lấy refresh token bằng `devops/google/gmail_refresh_token.py`.
+6. Tuỳ chọn: tạo client Web trong `andimus` cho đăng nhập Google với redirect URI của Vercel.
 7. Ghi các giá trị trên vào `backend/.env.production` trên máy mình; `devops/render/configure.py` đẩy chúng lên Render.
 8. Chạy `pharma-agent superadmin grant <email của bạn>` trỏ vào production.
 
@@ -330,7 +330,7 @@ Log của Render, cron Vercel gọi `/api/v1/health` mỗi ngày (health đọc 
 | Neon | 0,5 GB | gói Launch 10 GB | 19 USD/tháng |
 | Qdrant Cloud | 1 GB, đầy trước Neon | cluster trả phí, hoặc cắt chiều embedding xuống 1024 sau khi đánh giá lại | từ 25 USD/tháng |
 | DeepInfra | không có nút thắt cứng | | khoảng 2 USD mỗi 1.000 lượt hỏi |
-| Gmail SMTP | 500 thư/ngày | Resend với domain riêng | miễn phí 3.000 thư/tháng |
+| Gmail API | khoảng 500 thư/ngày | Resend với domain riêng | miễn phí 3.000 thư/tháng |
 
 ## 10. Kiểm thử
 

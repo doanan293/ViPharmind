@@ -97,7 +97,7 @@ Backend chạy trên máy thì đổi các biến embedding và rerank trong `ba
 
 Frontend chạy trên Vercel, backend trên Render Free (Docker, Singapore, tác vụ xuất bản chạy
 trong tiến trình API), Postgres trên Neon (Singapore), vector trên Qdrant Cloud, LLM, embedding và
-reranker trên DeepInfra, thư qua Gmail SMTP. Trình duyệt chỉ gọi origin Vercel; route `/api/*` của
+reranker trên DeepInfra, thư qua Gmail API. Trình duyệt chỉ gọi origin Vercel; route `/api/*` của
 frontend chuyển tiếp sang Render nên cookie là first-party. Gói free của Render ngủ sau 15 phút
 không có request, lần gọi kế tiếp chờ khoảng một phút; cron Vercel gọi `/api/v1/health` mỗi ngày để
 Qdrant free không bị xoá vì không hoạt động.

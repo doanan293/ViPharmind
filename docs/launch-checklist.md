@@ -2,7 +2,7 @@
 
 Những việc chỉ chủ tài khoản làm được (đăng nhập dịch vụ, nạp tiền, secret). Kiến trúc: frontend
 trên Vercel, backend trên Render Free, dữ liệu trên Neon và Qdrant Cloud, model trên DeepInfra, thư
-qua Gmail SMTP. Mọi dịch vụ đang dùng gói miễn phí; chỉ DeepInfra cần nạp tiền.
+qua Gmail API (Render Free chặn SMTP). Mọi dịch vụ đang dùng gói miễn phí; chỉ DeepInfra cần nạp tiền.
 
 ## Trạng thái (cập nhật 2026-10-11)
 
@@ -17,7 +17,7 @@ qua Gmail SMTP. Mọi dịch vụ đang dùng gói miễn phí; chỉ DeepInfra 
 Việc miễn phí còn lại, cần bạn làm trên web:
 
 - [ ] Đăng nhập Google (hoãn được, khi chưa có client thì nút Google tự ẩn): mọi app dùng chung project Google Cloud `andimus`. Tạo màn hình đồng ý (External, Publish app), rồi tạo OAuth client Web `ViPharMind` với redirect URI `https://vipharmind.vercel.app/auth/google/callback`, `https://vipharmind.vercel.app/auth/google/link-callback` và hai URI tương ứng trên `http://localhost:3000`. Ghi `PHARMA_AUTH__GOOGLE_CLIENT_ID` và `PHARMA_AUTH__GOOGLE_CLIENT_SECRET` vào `backend/.env.production`, rồi chạy `devops/render/configure.py`.
-- [ ] Gmail: bật xác minh hai bước cho tài khoản gửi thư, tạo App password, ghi `PHARMA_EMAIL__PROVIDER=smtp`, `PHARMA_EMAIL__SENDER`, `PHARMA_EMAIL__SMTP_USERNAME` và `PHARMA_EMAIL__SMTP_PASSWORD` vào `backend/.env.production`, rồi chạy `uv run --with httpx python devops/render/configure.py`. Trước bước này backend chỉ ghi thư ra log, nên chưa đăng ký được bằng email.
+- [ ] Gửi thư qua Gmail API (Render Free chặn cổng SMTP 587/465 nên app password không dùng được): trong project `andimus`, tạo màn hình đồng ý (External, **Publish app**, vì chế độ Testing làm refresh token hết hạn sau 7 ngày) và một OAuth client loại **Desktop app**. Ghi `PHARMA_EMAIL__GMAIL_CLIENT_ID`, `PHARMA_EMAIL__GMAIL_CLIENT_SECRET` và `PHARMA_EMAIL__SENDER` vào `backend/.env.production`, chạy `uv run --with google-auth-oauthlib python devops/google/gmail_refresh_token.py --account <gmail gửi thư>`, mở URL nó in ra và bấm cho phép, rồi chạy `devops/render/configure.py`.
 
 **Để sau, tốn tiền:**
 
@@ -72,4 +72,4 @@ DeepInfra; bundle đã có embedding sẵn thì dùng lại, không gọi API.
 | Neon | 0,5 GB | gói Launch 10 GB (19 USD/tháng) |
 | Qdrant Cloud | 1 GB, đầy trước Neon | cluster trả phí (từ 25 USD/tháng) |
 | DeepInfra | không có giới hạn cứng | khoảng 2 USD mỗi 1.000 lượt hỏi |
-| Gmail SMTP | 500 thư/ngày | Resend với domain riêng |
+| Gmail API | khoảng 500 thư/ngày, gửi bằng Gmail cá nhân | Resend với domain riêng (`PHARMA_EMAIL__PROVIDER=resend`) |
