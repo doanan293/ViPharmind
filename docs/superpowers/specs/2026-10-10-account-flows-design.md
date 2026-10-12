@@ -7,7 +7,7 @@ Mảng 2 trong lộ trình đưa ViPharMind lên production. Mảng 3 (tổ ch�
 ## 1. Mục tiêu
 
 1. Người dùng đăng ký và đăng nhập bằng **email và mật khẩu**, **số điện thoại và mã SMS**, hoặc **Google**. Cả ba gắn vào **một tài khoản duy nhất**.
-2. Mọi bước xác minh dùng **mã OTP 6 số**, theo cách andv-lms đang làm: xác minh email, đặt lại mật khẩu, đổi email, đổi số điện thoại, đăng nhập bằng số điện thoại.
+2. Mọi bước xác minh dùng **mã OTP 6 số**: xác minh email, đặt lại mật khẩu, đổi email, đổi số điện thoại, đăng nhập bằng số điện thoại.
 3. Người dùng tự quản lý cách đăng nhập và phiên đăng nhập trong phần cài đặt.
 4. Đạt mức an toàn cho production: không lưu mã gốc, giới hạn số lần thử và số lần gửi, không để lộ tài khoản nào tồn tại.
 
@@ -19,7 +19,7 @@ Mảng 2 trong lộ trình đưa ViPharMind lên production. Mảng 3 (tổ ch�
 | Hình thức xác minh | Mã OTP 6 số, hạn 10 phút, dùng một lần. Không dùng link xác minh của fastapi-users |
 | Tài khoản chỉ có số điện thoại | `user.email` cho phép để trống. Mật khẩu ngẫu nhiên không ai biết (như tài khoản Google), `password_set = false` |
 | Liên kết Google | Chỉ tự liên kết khi email Google trùng một email **đã xác minh**. Email chưa xác minh thì không liên kết, tránh chiếm tài khoản đăng ký trước. Đây là sửa lỗi: router Google hiện bật `associate_by_email=True`, liên kết cả email chưa xác minh |
-| Gửi email | Port `EmailSender`, ba adapter: SMTP (Gmail app password, dùng khi chưa có domain), Resend, và ghi log cho local/test |
+| Gửi email | Port `EmailSender`, bốn adapter: SMTP (Gmail app password, dùng khi chưa có domain), Gmail API qua HTTPS (khi host chặn SMTP), Resend, và ghi log cho local/test |
 | Gửi SMS | Port `SmsSender`, adapter ghi log. Nhà cung cấp thật chọn trước khi ra mắt (mảng 5) |
 | Cách gửi | Gửi ngay trong request, không chạy nền, vì Cloud Run giảm CPU sau khi trả response |
 | Giới hạn | Lưu trong Postgres, không phụ thuộc dịch vụ ngoài |
