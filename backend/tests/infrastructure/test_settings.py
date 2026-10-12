@@ -233,7 +233,7 @@ def test_rerank_protocol_rejects_completion_logprobs(
 def test_account_settings_defaults() -> None:
     settings = Settings(_env_file=None)
     assert settings.email.provider == "log"
-    assert settings.email.gmail_refresh_token is None
+    assert settings.email.resend_api_key is None
     assert settings.sms.provider == "log"
     assert settings.sms.allowed_country_codes == ["VN"]
     assert settings.auth.otp_secret is None
@@ -249,14 +249,13 @@ def test_otp_secret_needs_32_characters() -> None:
 
 
 def test_email_and_sms_settings_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("PHARMA_EMAIL__PROVIDER", "gmail")
-    monkeypatch.setenv(
-        "PHARMA_EMAIL__GMAIL_CLIENT_ID", "cid.apps.googleusercontent.com"
-    )
+    monkeypatch.setenv("PHARMA_EMAIL__PROVIDER", "resend")
+    monkeypatch.setenv("PHARMA_EMAIL__RESEND_API_KEY", "re_test")
     monkeypatch.setenv("PHARMA_SMS__ALLOWED_COUNTRY_CODES", '["VN", "US"]')
     settings = Settings(_env_file=None)
-    assert settings.email.provider == "gmail"
-    assert settings.email.gmail_client_id == "cid.apps.googleusercontent.com"
+    assert settings.email.provider == "resend"
+    key = settings.email.resend_api_key
+    assert key is not None and key.get_secret_value() == "re_test"
     assert settings.sms.allowed_country_codes == ["VN", "US"]
 
 

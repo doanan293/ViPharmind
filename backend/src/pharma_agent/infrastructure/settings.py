@@ -264,12 +264,9 @@ class QuotaSettings(BaseModel):
 class EmailSettings(BaseModel):
     """Where account emails go. `log` writes them to the log: local runs and tests only."""
 
-    # `gmail` sends through the Gmail API over HTTPS (production); `log` only logs.
-    provider: Literal["log", "gmail"] = "log"
+    provider: Literal["log", "resend"] = "log"
     sender: str = "ViPharMind <no-reply@vipharmind.local>"
-    gmail_client_id: str | None = None
-    gmail_client_secret: SecretStr | None = None
-    gmail_refresh_token: SecretStr | None = None
+    resend_api_key: SecretStr | None = None
     timeout_seconds: float = Field(default=10.0, gt=0)
 
 
