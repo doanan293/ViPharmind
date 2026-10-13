@@ -143,6 +143,20 @@ def test_identity_records_extra_body_only_when_set() -> None:
     assert "extra_body" not in current.role_models["judge"]
 
 
+def test_identity_records_output_cap_only_when_set() -> None:
+    settings = Settings(
+        _env_file=None,
+        langfuse={"public_key": "pk", "secret_key": "sk"},
+        llm={
+            "default": {"api_key": "sk-test", "model": "Qwen/Qwen3.5-9B"},
+            "roles": {"judge": {"max_output_tokens": 512}},
+        },
+    )
+    current = identity(settings)
+    assert current.role_models["judge"]["max_output_tokens"] == 512
+    assert "max_output_tokens" not in current.role_models["answer"]
+
+
 def test_open_run_resumes_only_the_same_identity(tmp_path: Path) -> None:
     settings = base_settings()
     open_run(tmp_path, identity(settings), commit="abc")

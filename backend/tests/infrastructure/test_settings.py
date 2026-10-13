@@ -157,6 +157,30 @@ def test_extra_body_is_unset_by_default() -> None:
     assert settings.llm.resolve(LlmRole.ANSWER).extra_body is None
 
 
+def test_output_cap_is_read_per_role_and_inherits_the_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk")
+    monkeypatch.setenv("PHARMA_LLM__DEFAULT__MODEL", "m")
+    monkeypatch.setenv("PHARMA_LLM__DEFAULT__MAX_OUTPUT_TOKENS", "4096")
+    monkeypatch.setenv("PHARMA_LLM__DEFAULT__MAX_TOKENS_PARAM", "max_tokens")
+    monkeypatch.setenv("PHARMA_LLM__ROLES__JUDGE__MAX_OUTPUT_TOKENS", "512")
+    settings = Settings(_env_file=None)
+    judge = settings.llm.resolve(LlmRole.JUDGE)
+    answer = settings.llm.resolve(LlmRole.ANSWER)
+    assert (judge.max_output_tokens, judge.max_tokens_param) == (512, "max_tokens")
+    assert (answer.max_output_tokens, answer.max_tokens_param) == (4096, "max_tokens")
+
+
+def test_output_cap_is_unset_by_default() -> None:
+    settings = Settings(
+        _env_file=None, llm={"default": {"api_key": "sk", "model": "m"}}
+    )
+    endpoint = settings.llm.resolve(LlmRole.ANSWER)
+    assert endpoint.max_output_tokens is None
+    assert endpoint.max_tokens_param == "max_completion_tokens"
+
+
 def test_embedding_and_rerank_connection_settings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

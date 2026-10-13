@@ -50,6 +50,8 @@ def identity_from_settings(
         # Recorded only when set, so identities of earlier runs stay unchanged.
         if endpoint.extra_body:
             roles[role.value]["extra_body"] = endpoint.extra_body
+        if endpoint.max_output_tokens is not None:
+            roles[role.value]["max_output_tokens"] = endpoint.max_output_tokens
     return RunIdentity(
         golden_sha256=golden_sha256,
         config=config,
