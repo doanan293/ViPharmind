@@ -35,7 +35,7 @@ afterEach(() => {
 
 describe("api proxy", () => {
   test("forwards a GET with its cookie, without the host", async () => {
-    vi.stubEnv("API_INTERNAL_URL", "https://api.example.run.app")
+    vi.stubEnv("API_INTERNAL_URL", "https://api.example.vercel.app")
     const calls = stubBackend(Response.json({ status: "ok" }))
     const response = await loader(
       args(
@@ -49,7 +49,9 @@ describe("api proxy", () => {
       )
     )
     expect(calls).toHaveLength(1)
-    expect(calls[0]?.url).toBe("https://api.example.run.app/api/v1/health?x=1")
+    expect(calls[0]?.url).toBe(
+      "https://api.example.vercel.app/api/v1/health?x=1"
+    )
     const headers = new Headers(calls[0]?.init.headers)
     expect(headers.get("cookie")).toBe("pharma_session=abc")
     expect(headers.has("host")).toBe(false)
@@ -60,7 +62,7 @@ describe("api proxy", () => {
   })
 
   test("forwards a POST body and its CSRF header, and keeps every set-cookie", async () => {
-    vi.stubEnv("API_INTERNAL_URL", "https://api.example.run.app/")
+    vi.stubEnv("API_INTERNAL_URL", "https://api.example.vercel.app/")
     const upstream = new Response(null, { status: 204 })
     upstream.headers.append("set-cookie", "pharma_session=new; HttpOnly")
     upstream.headers.append("set-cookie", "csrftoken=t; Path=/")
@@ -78,7 +80,7 @@ describe("api proxy", () => {
       )
     )
     expect(calls[0]?.url).toBe(
-      "https://api.example.run.app/api/v1/auth/cookie/login"
+      "https://api.example.vercel.app/api/v1/auth/cookie/login"
     )
     expect(calls[0]?.init.method).toBe("POST")
     expect(new Headers(calls[0]?.init.headers).get("x-csrftoken")).toBe("t")
@@ -95,7 +97,7 @@ describe("api proxy", () => {
 
 describe("api proxy identity", () => {
   test("proves it is our proxy with the shared secret and drops a forged one", async () => {
-    vi.stubEnv("API_INTERNAL_URL", "https://api.example.run.app")
+    vi.stubEnv("API_INTERNAL_URL", "https://api.example.vercel.app")
     vi.stubEnv("API_PROXY_SECRET", "s3cret")
     const calls = stubBackend(Response.json({}))
     await loader(
@@ -111,7 +113,7 @@ describe("api proxy identity", () => {
   })
 
   test("drops encoding headers that no longer describe the decoded body", async () => {
-    vi.stubEnv("API_INTERNAL_URL", "https://api.example.run.app")
+    vi.stubEnv("API_INTERNAL_URL", "https://api.example.vercel.app")
     stubBackend(
       new Response("{}", {
         headers: {
@@ -132,7 +134,7 @@ describe("api proxy identity", () => {
 
 describe("api proxy failures", () => {
   test("an unreachable backend is a 503 problem the app can explain", async () => {
-    vi.stubEnv("API_INTERNAL_URL", "https://api.example.run.app")
+    vi.stubEnv("API_INTERNAL_URL", "https://api.example.vercel.app")
     vi.stubGlobal(
       "fetch",
       vi.fn(() => Promise.reject(new TypeError("fetch failed")))

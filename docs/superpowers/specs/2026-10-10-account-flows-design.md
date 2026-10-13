@@ -21,7 +21,7 @@ Mảng 2 trong lộ trình đưa ViPharmind lên production. Mảng 3 (tổ ch�
 | Liên kết Google | Chỉ tự liên kết khi email Google trùng một email **đã xác minh**. Email chưa xác minh thì không liên kết, tránh chiếm tài khoản đăng ký trước. Đây là sửa lỗi: router Google hiện bật `associate_by_email=True`, liên kết cả email chưa xác minh |
 | Gửi email | Port `EmailSender`, hai adapter: Resend (production) và ghi log cho local/test. SMTP bị bỏ vì Render Free chặn cổng SMTP |
 | Gửi SMS | Port `SmsSender`, adapter ghi log. Nhà cung cấp thật chọn trước khi ra mắt (mảng 5) |
-| Cách gửi | Gửi ngay trong request, không chạy nền, vì Cloud Run giảm CPU sau khi trả response |
+| Cách gửi | Gửi ngay trong request, không chạy nền, vì một serverless function có thể bị dừng ngay sau khi trả response |
 | Giới hạn | Lưu trong Postgres, không phụ thuộc dịch vụ ngoài |
 
 ## 3. Luồng
