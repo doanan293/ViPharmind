@@ -61,7 +61,7 @@ def proxied(forwarded: str, secret: str | None) -> Request:
 
 
 def test_our_own_proxy_adds_one_trusted_hop() -> None:
-    # Browser → Vercel (sets the client) → Cloud Run (appends Vercel's egress IP).
+    # Browser → frontend proxy (sets the client) → backend edge (appends the proxy's egress IP).
     header = "198.51.100.1, 76.76.21.9"
     assert (
         client_ip_of(proxied(header, "s3cret"), trusted_hops=1, proxy_secret="s3cret")
@@ -70,7 +70,7 @@ def test_our_own_proxy_adds_one_trusted_hop() -> None:
 
 
 def test_a_caller_without_the_secret_cannot_choose_its_ip() -> None:
-    # Someone calling run.app directly with a forged header: Cloud Run appends the real IP.
+    # Someone calling the backend directly with a forged header: the edge appends the real IP.
     header = "1.2.3.4, 203.0.113.50"
     for secret in (None, "guess"):
         assert (
