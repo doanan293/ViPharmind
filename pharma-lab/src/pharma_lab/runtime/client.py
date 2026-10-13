@@ -100,12 +100,6 @@ class LlamaCppClient:
             last_error.failed_input_index = 0
         raise last_error
 
-    def embeddings_batch(
-        self, texts: list[str], model: str, expected_dimension: int
-    ) -> list[list[float]]:
-        """Explicit batch alias used by Kaggle workers."""
-        return self.embed(texts, model, expected_dimension)
-
     def _embed_once(
         self, texts: list[str], model: str, expected_dimension: int
     ) -> list[list[float]]:

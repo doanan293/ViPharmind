@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import builtins
 import json
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -57,8 +56,6 @@ class QueryEmbeddingCache:
         self.model_sha256 = self.model_sha256
         self.records: dict[tuple[str, str, str], list[float]] = {}
         self.record_metadata: dict[tuple[str, str, str], dict] = {}
-        self.hits = 0
-        self.misses = 0
         self._load()
 
     def _load(self) -> None:
@@ -119,35 +116,6 @@ class QueryEmbeddingCache:
         # the last validated record is authoritative.
         self.records[key] = vector
         self.record_metadata[key] = dict(record)
-
-    def prune_to_queries(self, model: str, rows: list[dict]) -> dict:
-        allowed_keys = {
-            (
-                model,
-                str(row.get("query_id") or ""),
-                query_hash(str(row.get("query") or "")),
-            )
-            for row in rows
-        }
-        kept = {
-            key: vector for key, vector in self.records.items() if key in allowed_keys
-        }
-        removed = len(self.records) - len(kept)
-        if removed == 0:
-            return {"kept": len(kept), "removed": 0}
-
-        self.records = kept
-        self.record_metadata = {key: self.record_metadata[key] for key in kept}
-        if self.records:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            with self.path.open("w", encoding="utf-8") as handle:
-                for model_name, query_id, query_hash_value in sorted(self.records):
-                    key = (model_name, query_id, query_hash_value)
-                    record = dict(self.record_metadata[key])
-                    handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-        elif self.path.exists():
-            self.path.write_text("", encoding="utf-8")
-        return {"kept": len(kept), "removed": removed}
 
     def get(self, model: str, query_id: str, query_text: str) -> list[float] | None:
         key = (model, query_id, query_hash(query_text))
@@ -229,45 +197,3 @@ class QueryEmbeddingCache:
                 f"Query embedding cache is missing {subset.missing} records"
             )
         return str(subset.sha256)
-
-    def compact_to(
-        self,
-        destination: Path,
-        allowed_keys: builtins.set[tuple[str, str, str]],
-    ) -> Path:
-        allowed_models = {item[0] for item in allowed_keys}
-        unexpected = {
-            key
-            for key in self.records
-            if key[0] in allowed_models and key not in allowed_keys
-        }
-        if unexpected:
-            raise QueryEmbeddingCacheError(
-                f"Query cache contains {len(unexpected)} unexpected keys"
-            )
-        destination = Path(destination)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        with destination.open("w", encoding="utf-8") as handle:
-            for key in sorted(allowed_keys):
-                record = self.record_metadata.get(key)
-                if record is None:
-                    continue
-                handle.write(
-                    json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n"
-                )
-        return destination
-
-    def get_or_embed(
-        self,
-        model: str,
-        query_id: str,
-        query_text: str,
-        embed_fn: Callable[[str], list[float]],
-    ) -> list[float]:
-        cached = self.get(model, query_id, query_text)
-        if cached is not None:
-            self.hits += 1
-            return cached
-        self.misses += 1
-        embedding = embed_fn(query_text)
-        return self.set(model, query_id, query_text, embedding)

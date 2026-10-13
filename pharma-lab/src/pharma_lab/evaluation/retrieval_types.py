@@ -23,20 +23,6 @@ class RetrievalCandidate:
     def section_id(self) -> str:
         return str(self.payload.get("section_id") or "")
 
-    def with_rank(
-        self, rank: int, score: float | None = None, source: str | None = None
-    ) -> "RetrievalCandidate":
-        return RetrievalCandidate(
-            chunk_id=self.resolved_chunk_id,
-            score=self.score if score is None else score,
-            rank=rank,
-            source=self.source if source is None else source,
-            payload=self.payload,
-            rerank_score=self.rerank_score,
-            document_text=self.document_text,
-            document_hash=self.document_hash,
-        )
-
     def with_rerank_score(self, rerank_score: float, rank: int) -> "RetrievalCandidate":
         return RetrievalCandidate(
             chunk_id=self.resolved_chunk_id,

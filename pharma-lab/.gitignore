@@ -4,11 +4,6 @@
 tmp/
 temp/
 
-# Local database and vector runtime state
-.qdrant/
-.clickhouse/
-*.vector-cache.lock
-
 # Kaggle local state and job workspaces
 .kaggle/
 pharma-lab-kaggle-*/

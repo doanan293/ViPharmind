@@ -122,10 +122,6 @@ class ManagedLogFollower:
     def _pump_stderr(self, stream: TextIO) -> None:
         self._stderr_parts.extend(stream)
 
-    def wait_for_output_for_test(self) -> None:
-        if self._stdout_thread is not None:
-            self._stdout_thread.join(timeout=1)
-
     def poll_failure(self) -> FollowerFailure | None:
         if self.process is None or self.process.poll() is None:
             return None

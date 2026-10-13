@@ -62,7 +62,7 @@ def compose_llama_cpp_image(compose_file: Path) -> str:
 
 
 def reranker_environment(runtime: RuntimeCandidate) -> dict[str, str]:
-    """Root .env variables that compose.local-models.yaml maps to llama-reranker's LLAMA_ARG_*."""
+    """Shell variables that compose.local-models.yaml maps to llama-reranker's LLAMA_ARG_*."""
     if runtime.logical_batch_size != runtime.physical_batch_size:
         raise ValueError("reranker runtime must use one size for batch and ubatch")
     context = reranker_context_size(

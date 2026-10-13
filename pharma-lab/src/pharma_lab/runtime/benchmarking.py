@@ -89,14 +89,6 @@ class BenchmarkMeasurement:
     def items_per_second(self) -> float:
         return self.items / self.elapsed_seconds if self.elapsed_seconds else math.inf
 
-    @property
-    def characters_per_second(self) -> float:
-        return (
-            self.input_characters / self.elapsed_seconds
-            if self.elapsed_seconds
-            else math.inf
-        )
-
     def to_dict(self) -> dict[str, object]:
         return {
             "candidate": self.candidate.to_dict(),

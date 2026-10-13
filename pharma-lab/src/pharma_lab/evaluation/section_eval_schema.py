@@ -1,5 +1,4 @@
 import re
-from dataclasses import dataclass
 
 DEFAULT_TARGET_ROWS = 10000
 DEFAULT_MIN_ROWS = DEFAULT_TARGET_ROWS
@@ -135,12 +134,6 @@ LEAFLET_CATEGORY_MAP = {
     "brand_manufacturer": ("manufacturer", "leaflet_manufacturer"),
     "brand_product": ("general_info", "leaflet_product"),
 }
-
-
-@dataclass(frozen=True)
-class EvalTaxonomy:
-    intent_category: str
-    source_subcategory: str
 
 
 def taxonomy_for_source_category(category: str, is_leaflet: bool) -> tuple[str, str]:
