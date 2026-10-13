@@ -8,8 +8,8 @@ from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.infrastructure.retrieval.llama_cpp_reranker import (
     NativeReranker,
     NoopReranker,
-    build_reranker,
 )
+from pharma_agent.infrastructure.retrieval.rerankers import build_reranker
 from pharma_agent.infrastructure.settings import RerankSettings
 from tests.domain.factories import chunk_uuid, make_hit
 

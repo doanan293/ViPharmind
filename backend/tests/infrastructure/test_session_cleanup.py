@@ -7,6 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
 from pharma_agent.infrastructure.auth.session_cleanup import (
+    AccountCleanup,
+    clean_account_tables,
     delete_expired_access_tokens,
     delete_stale_account_rows,
 )
@@ -105,3 +107,6 @@ async def test_stale_codes_and_buckets_are_deleted(
 
     assert await delete_stale_account_rows(conninfo) == (1, 1)
     assert await delete_stale_account_rows(conninfo) == (0, 0)
+    assert await clean_account_tables(
+        conninfo, session_lifetime_seconds=LIFETIME
+    ) == AccountCleanup(sessions=0, codes=0, rate_limit_buckets=0)

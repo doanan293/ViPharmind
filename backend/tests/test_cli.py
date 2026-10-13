@@ -23,6 +23,7 @@ from pharma_agent.domain.agent.schemas import (
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.retrieval.ports import RetrievalError
+from pharma_agent.infrastructure.auth.session_cleanup import AccountCleanup
 from pharma_agent.infrastructure.retrieval.llama_cpp_reranker import NoopReranker
 from tests.domain.factories import make_hit
 from tests.fakes import FakeLlm, FakeRetriever, build_deps
@@ -178,15 +179,13 @@ def test_cleanup_sessions_uses_the_session_lifetime(
 ) -> None:
     calls: list[tuple[str, int]] = []
 
-    async def fake_cleanup(conninfo: str, *, lifetime_seconds: int) -> int:
-        calls.append((conninfo, lifetime_seconds))
-        return 4
+    async def fake_cleanup(
+        conninfo: str, *, session_lifetime_seconds: int
+    ) -> AccountCleanup:
+        calls.append((conninfo, session_lifetime_seconds))
+        return AccountCleanup(sessions=4, codes=2, rate_limit_buckets=3)
 
-    async def fake_stale(conninfo: str) -> tuple[int, int]:
-        return 2, 3
-
-    monkeypatch.setattr(cli, "delete_expired_access_tokens", fake_cleanup)
-    monkeypatch.setattr(cli, "delete_stale_account_rows", fake_stale)
+    monkeypatch.setattr(cli, "clean_account_tables", fake_cleanup)
     monkeypatch.setenv("PHARMA_AUTH__SESSION_LIFETIME_SECONDS", "3600")
     monkeypatch.setenv(
         "PHARMA_POSTGRES__DSN", "postgresql+psycopg://u:p@db.example:5432/app"

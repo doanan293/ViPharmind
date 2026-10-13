@@ -92,7 +92,8 @@ async def publish_and_wait(
 ) -> dict[str, object]:
     queued = await client.post(f"{base}/publish", headers=csrf_header(client))
     assert queued.status_code == 202, queued.text
-    assert queued.json()["status"] == "queued"
+    # The response re-reads the job, which the in-process runner may have started.
+    assert queued.json()["status"] in {"queued", "running"}
     await outbox.drain_jobs()
     response = await client.get(f"/api/v1/ingest-jobs/{queued.json()['id']}")
     assert response.status_code == 200, response.text

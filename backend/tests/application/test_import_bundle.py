@@ -16,6 +16,7 @@ from pharma_agent.domain.retrieval.ports import RetrievalError
 from tests.corpus_fixtures import (
     DOSAGE_SECTION,
     FIXTURE_DIR,
+    embedding_texts,
     no_bundle_embeddings,
     small_bundle,
     small_bundle_embeddings,
@@ -43,7 +44,7 @@ async def test_import_takes_vectors_from_the_bundle_then_the_embedder() -> None:
     adapters = CorpusAdapters()
     bundle = small_bundle()
     snapshot = build_snapshot(bundle)
-    texts = snapshot.embedding_texts()
+    texts = embedding_texts(snapshot)
     hashes = sorted(texts)
     bundled = hashes[:2]
     shipped = small_bundle_embeddings(FAKE_EMBEDDING_MODEL, FAKE_EMBEDDING_DIMENSION)
@@ -128,7 +129,7 @@ async def test_ready_unpublished_release_is_reused() -> None:
 async def test_failed_embedding_leaves_building_release_and_rerun_resumes() -> None:
     adapters = CorpusAdapters()
     bundle = small_bundle()
-    texts = build_snapshot(bundle).embedding_texts()
+    texts = embedding_texts(build_snapshot(bundle))
 
     with pytest.raises(RetrievalError):
         await build_importer(adapters, FakeEmbedder(fail_on_batch=2), batch_size=2)(
@@ -181,7 +182,7 @@ async def test_changed_bundle_adds_release_and_rewrites_release_ids() -> None:
         assert adapters.index.release_ids_of(chunk_id) == [second.release.id]
     for chunk_id in old_ids - new_ids:
         assert adapters.index.release_ids_of(chunk_id) == [first.release.id]
-    new_hashes = set(new.embedding_texts()) - set(old.embedding_texts())
+    new_hashes = set(embedding_texts(new)) - set(embedding_texts(old))
     assert sum(len(batch) for batch in embedder.batches) == len(new_hashes)
     collection = await adapters.repository.get_collection("formulary")
     assert collection is not None and collection.current_release_id == second.release.id
@@ -206,7 +207,7 @@ async def test_bundle_vectors_declared_with_other_dims_are_ignored() -> None:
     assert report.release.stats is not None
     assert report.release.stats.embeddings_from_bundle == 0
     assert report.release.stats.embeddings_computed == len(
-        build_snapshot(bundle).embedding_texts()
+        embedding_texts(build_snapshot(bundle))
     )
 
 

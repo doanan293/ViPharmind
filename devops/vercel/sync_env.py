@@ -1,8 +1,8 @@
 """Push the backend's production settings to the Vercel project and redeploy it.
 
-Every PHARMA_* variable in backend/.env.production becomes an encrypted Production
-environment variable of the `vipharmind-api` project, plus the settings below that only
-apply to Vercel. Needs a logged-in Vercel CLI (`vercel login`).
+Every PHARMA_* variable in backend/.env.production, and its CRON_SECRET (the name Vercel
+Cron reads), becomes an encrypted Production environment variable of the `vipharmind-api`
+project, plus the settings below that only apply to Vercel. Needs a logged-in Vercel CLI (`vercel login`).
 
     uv run python devops/vercel/sync_env.py
 """
@@ -21,11 +21,11 @@ PRODUCTION_URL = "https://vipharmind-api.vercel.app"
 
 # Vercel overwrites X-Forwarded-For with the caller's address, and the frontend proxy adds one
 # more hop through the shared secret (measured on 2026-10-12). A function may freeze once it
-# has answered, so publish jobs run inside the request, within the 300 s limit.
+# has answered, so publish jobs run inside the request, within the 300 s maxDuration that
+# the default PHARMA_JOBS__STALE_AFTER_SECONDS (330) outlasts.
 VERCEL_SETTINGS = {
     "PHARMA_API__TRUSTED_PROXY_HOPS": "1",
     "PHARMA_JOBS__DISPATCHER": "inline",
-    "PHARMA_JOBS__DISPATCH_DEADLINE_SECONDS": "300",
     "PHARMA_AUTH__FRONTEND_URL": "https://vipharmind.vercel.app",
     "PHARMA_SMS__PROVIDER": "none",
 }
@@ -70,7 +70,7 @@ def main() -> None:
 
     env = read_env(ENV_FILE)
     variables = {
-        k: v for k, v in env.items() if k.startswith("PHARMA_")
+        k: v for k, v in env.items() if k.startswith("PHARMA_") or k == "CRON_SECRET"
     } | VERCEL_SETTINGS
     for key, value in sorted(variables.items()):
         vercel(

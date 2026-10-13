@@ -27,6 +27,7 @@ from tests.corpus_fixtures import (
     LEAFLET_SECTION,
     PARACETAMOL,
     PHARMACOLOGY_SECTION,
+    embedding_texts,
     small_bundle,
     small_bundle_embeddings,
     with_section_text,
@@ -102,7 +103,7 @@ def test_snapshot_maps_the_fixture_to_rows() -> None:
         for chunk in leaflet_chunks
     )
 
-    assert set(snapshot.embedding_texts()) == set(
+    assert set(embedding_texts(snapshot)) == set(
         small_bundle_embeddings(FAKE_EMBEDDING_MODEL, FAKE_EMBEDDING_DIMENSION)
     )
     stats = snapshot.stats()

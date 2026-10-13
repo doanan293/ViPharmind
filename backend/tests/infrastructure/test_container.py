@@ -25,11 +25,13 @@ async def test_container_with_llm_builds_chat_and_corpus_check(
 ) -> None:
     monkeypatch.setenv("PHARMA_POSTGRES__DSN", migrated_dsn)
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-test")
+    monkeypatch.setenv("PHARMA_LLM__DEFAULT__MODEL", "Qwen/Qwen3.5-9B")
     monkeypatch.setenv("PHARMA_QDRANT__CHECK_COMPATIBILITY", "false")
     # Nothing listens on the discard port, so the Qdrant call fails fast.
     monkeypatch.setenv("PHARMA_QDRANT__URL", "http://127.0.0.1:9")
     async with open_container(Settings(_env_file=None)) as container:
         assert container.chat is not None and container.summarizer is not None
+        assert container.maintenance is not None
         assert set(container.health_checks) == {"postgres", "corpus"}
         assert container.health_reasons == {"corpus": CORPUS_NOT_READY}
         assert await container.health_checks["corpus"]() is False

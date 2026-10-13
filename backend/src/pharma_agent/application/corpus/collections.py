@@ -3,6 +3,7 @@
 import secrets
 import uuid
 from dataclasses import dataclass
+from datetime import timedelta
 
 from pydantic import BaseModel
 
@@ -418,12 +419,20 @@ class CollectionService:
             )
         await self._discard(collection_id)
 
-    async def purge_deleted(self) -> int:
-        """Retire and unindex collections deleted along with their organization."""
-        doomed = await self._collections.deleted_with_releases()
-        for collection_id in doomed:
+    async def purge_deleted(self, *, budget: timedelta | None = None) -> int:
+        """Retire and unindex collections deleted along with their organization.
+
+        With a `budget`, no collection is started once it is spent; the rest wait for the
+        next run, which keeps a scheduled run inside its time limit.
+        """
+        started = self._clock.now()
+        purged = 0
+        for collection_id in await self._collections.deleted_with_releases():
+            if budget is not None and self._clock.now() - started >= budget:
+                break
             await self._discard(collection_id)
-        return len(doomed)
+            purged += 1
+        return purged
 
     async def _discard(self, collection_id: uuid.UUID) -> None:
         if self._sources is not None:

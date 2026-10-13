@@ -23,8 +23,6 @@ EXPECTED_OPERATION_IDS = {
     "submit_feedback",
     "auth:cookie.login",
     "auth:cookie.logout",
-    "auth:jwt.login",
-    "auth:jwt.logout",
     "register:register",
     "users:current_user",
     "users:patch_current_user",
@@ -164,7 +162,6 @@ def test_components_are_clean() -> None:
         "FeedbackView",
         "HealthResponse",
         "Body_auth_cookie_login",
-        "Body_auth_jwt_login",
     } <= set(schemas)
     assert not {"HTTPValidationError", "ValidationError", "ErrorModel"} & set(schemas)
     # OpenAPI 3.1 component keys must match ^[a-zA-Z0-9.\-_]+$.

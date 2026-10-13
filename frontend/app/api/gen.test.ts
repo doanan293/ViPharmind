@@ -5,7 +5,7 @@ import {
   getUsersCurrentUserUrl,
 } from "~/api/gen/endpoints"
 import {
-  getPharmaAgentAPIMock,
+  getViPharmindAPIMock,
   getUsersCurrentUserMockHandler,
 } from "~/api/gen/endpoints.msw"
 import { AuthCookieLoginBody, RegisterRegisterBody } from "~/api/gen/zod"
@@ -37,6 +37,6 @@ describe("generated API client", () => {
     expect(getUsersCurrentUserMockHandler(accountView()).info.path).toBe(
       "*/api/v1/users/me"
     )
-    expect(getPharmaAgentAPIMock().length).toBeGreaterThan(0)
+    expect(getViPharmindAPIMock().length).toBeGreaterThan(0)
   })
 })

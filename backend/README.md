@@ -57,7 +57,6 @@ Cần `PHARMA_AUTH__JWT_SECRET` và `PHARMA_AUTH__CSRF_SECRET` (mỗi giá trị
 - **CSRF**: request có cookie `pharma_session` với method không an toàn (POST, PATCH, PUT, DELETE)
   phải gửi header `x-csrftoken` bằng giá trị cookie `csrftoken` (cookie này có sau request GET
   đầu tiên, ví dụ `/users/me`). Thiếu hoặc sai trả 403 `CSRF_FAILED`.
-- **CLI và test**: bearer JWT qua `/auth/jwt/login`, không bị kiểm tra CSRF.
 - **Google OAuth** (khi đặt `PHARMA_AUTH__GOOGLE_CLIENT_ID` và `PHARMA_AUTH__GOOGLE_CLIENT_SECRET`):
   frontend gọi `GET /api/v1/auth/google/authorize`, Google chuyển về
   `{PHARMA_AUTH__FRONTEND_URL}/auth/google/callback`, frontend gọi
@@ -104,19 +103,6 @@ curl -N -c "$JAR" -b "$JAR" -X POST localhost:8000/api/v1/chat/stream -H "x-csrf
 curl -s -c "$JAR" -b "$JAR" -X POST localhost:8000/api/v1/auth/cookie/logout -H "x-csrftoken: $CSRF"
 ```
 
-Luồng bearer (tài khoản đã xác minh email):
-
-```bash
-TOKEN=$(curl -s -X POST localhost:8000/api/v1/auth/jwt/login \
-  -d 'username=an@example.com&password=S3cure-password!' \
-  | python -c 'import sys, json; print(json.load(sys.stdin)["access_token"])')
-CONVERSATION=$(curl -s -X POST localhost:8000/api/v1/conversations -H "Authorization: Bearer $TOKEN" \
-  | python -c 'import sys, json; print(json.load(sys.stdin)["id"])')
-curl -N -X POST localhost:8000/api/v1/chat/stream -H "Authorization: Bearer $TOKEN" \
-  -H 'content-type: application/json' \
-  -d "{\"message\":\"Paracetamol người lớn uống bao nhiêu?\",\"conversation_id\":\"$CONVERSATION\"}"
-```
-
 ### Dạng stream
 
 `POST /api/v1/chat/stream` theo AI SDK UI Message Stream v1 (encoder `pharma_agent.api.ui_stream`).
@@ -141,7 +127,6 @@ Mọi lỗi REST và lỗi trước khi stream bắt đầu trả `application/p
 | --- | --- |
 | `POST /auth/register` | Đăng ký |
 | `POST /auth/cookie/login`, `POST /auth/cookie/logout` | Đăng nhập, đăng xuất bằng cookie (trình duyệt) |
-| `POST /auth/jwt/login`, `POST /auth/jwt/logout` | Bearer JWT (CLI, test) |
 | `GET /auth/google/authorize`, `GET /auth/google/callback` | Google OAuth, đăng nhập bằng cookie |
 | `GET/PATCH /users/me`, `GET/PATCH/DELETE /users/{id}` | Người dùng hiện tại; quản trị người dùng (superuser) |
 | `POST /chat/stream`, `POST /chat` | Hỏi đáp một lượt (UI Message Stream hoặc JSON) |
@@ -162,16 +147,15 @@ và `user` là người dùng. Các bước của graph, mọi lời gọi LLM v
 của người dùng được ghi thành score `user_feedback` (1 là up, 0 là down) trên cùng trace.
 
 Phiên cookie hết hạn không tự bị xoá khỏi `access_tokens` (fastapi-users chỉ bỏ qua chúng).
-Chạy định kỳ:
+Xoá một tổ chức chỉ đánh dấu các collection của nó là đã xoá (các chunk được hội thoại trích dẫn
+phải còn), nên release và điểm trên Qdrant của chúng cần được thu hồi sau. Trên Vercel, cron
+trong `vercel.json` gọi `GET /api/v1/maintenance/daily` mỗi ngày (20:00 UTC) để làm cả hai việc,
+phần purge có giới hạn thời gian để nằm trong 300 giây; collection còn lại được xử lý ở lần sau.
+Endpoint chỉ nhận header `Authorization: Bearer <CRON_SECRET>` (Vercel tự gửi khi project có biến
+`CRON_SECRET`, không có tiền tố `PHARMA_`) và không nằm trong tài liệu OpenAPI. Chạy tay:
 
 ```bash
 uv run pharma-agent cleanup-sessions
-```
-
-Xoá một tổ chức chỉ đánh dấu các collection của nó là đã xoá (các chunk được hội thoại trích dẫn
-phải còn). Chạy định kỳ để thu hồi release và điểm trên Qdrant của chúng:
-
-```bash
 uv run pharma-agent corpus purge-deleted
 ```
 
@@ -190,7 +174,8 @@ uv run pharma-agent superadmin grant ban@example.com   # revoke, list
 - Tài liệu soạn trong app được dựng thành knowledge bundle và nạp bằng đúng pipeline của CLI.
   `POST /collections/{id}/publish` tạo một job; local chạy trong tiến trình sau khi trả
   lời, production trên Vercel chạy ngay trong request xuất bản (`PHARMA_JOBS__DISPATCHER=inline`,
-  tối đa 300 giây).
+  tối đa 300 giây). Job mở quá `PHARMA_JOBS__STALE_AFTER_SECONDS` giây (mặc định 330) được coi
+  là không còn ai chạy, nên lần xuất bản sau được thay chỗ nó.
 
 ## Server E2E
 

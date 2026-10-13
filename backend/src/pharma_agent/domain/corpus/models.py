@@ -204,11 +204,6 @@ class CorpusSnapshot(_Frozen):
     glossary: list[GlossaryEntry]
     colloquial_mappings: list[ColloquialMappingRecord]
 
-    def embedding_texts(self) -> dict[str, str]:
-        return {
-            chunk.embedding_text_sha256: chunk.embedding_text for chunk in self.chunks
-        }
-
     def stats(self) -> ReleaseStats:
         return ReleaseStats(
             documents=len(self.documents),

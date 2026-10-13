@@ -1,5 +1,7 @@
 """Retention for cookie sessions: fastapi-users ignores expired access tokens but never deletes them."""
 
+from dataclasses import dataclass
+
 from psycopg import AsyncConnection
 
 _DELETE_EXPIRED = """
@@ -42,3 +44,21 @@ async def delete_stale_account_rows(conninfo: str) -> tuple[int, int]:
         codes = await connection.execute(_DELETE_STALE_CODES)
         buckets = await connection.execute(_DELETE_STALE_BUCKETS)
     return codes.rowcount, buckets.rowcount
+
+
+@dataclass(frozen=True)
+class AccountCleanup:
+    sessions: int
+    codes: int
+    rate_limit_buckets: int
+
+
+async def clean_account_tables(
+    conninfo: str, *, session_lifetime_seconds: int
+) -> AccountCleanup:
+    """Everything above in one call: `pharma-agent cleanup-sessions` and daily maintenance."""
+    sessions = await delete_expired_access_tokens(
+        conninfo, lifetime_seconds=session_lifetime_seconds
+    )
+    codes, buckets = await delete_stale_account_rows(conninfo)
+    return AccountCleanup(sessions=sessions, codes=codes, rate_limit_buckets=buckets)

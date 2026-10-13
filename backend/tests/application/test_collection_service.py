@@ -1,4 +1,6 @@
 import uuid
+from collections.abc import Sequence
+from datetime import timedelta
 
 import pytest
 
@@ -185,6 +187,34 @@ async def test_purge_deleted_cleans_collections_of_a_deleted_organization() -> N
     assert await w.service.purge_deleted() == 1
     assert w.adapters.index.points == {}
     assert await w.service.purge_deleted() == 0
+
+
+async def test_purge_deleted_starts_no_collection_once_its_budget_is_spent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    w = World()
+    for title in ("x", "y"):
+        created = await w.service.create(
+            w.owner(), title=title, owner_organization_id=w.org.id
+        )
+        bundle = small_bundle().model_copy(deep=True)
+        bundle.manifest.collection.key = created.key
+        await build_importer(w.adapters, FakeEmbedder())(
+            bundle, embeddings=small_bundle_embeddings, publish=True
+        )
+        w.collections.deleted.add(created.id)
+    delete = w.adapters.index.delete
+
+    async def slow_delete(ids: Sequence[uuid.UUID]) -> None:
+        w.clock.advance(minutes=5)
+        await delete(ids)
+
+    monkeypatch.setattr(w.adapters.index, "delete", slow_delete)
+    budget = timedelta(minutes=1)
+    assert await w.service.purge_deleted(budget=budget) == 1
+    assert await w.service.purge_deleted(budget=budget) == 1
+    assert await w.service.purge_deleted() == 0
+    assert w.adapters.index.points == {}
 
 
 async def test_delete_drops_the_authored_content_so_quotas_stay_honest() -> None:

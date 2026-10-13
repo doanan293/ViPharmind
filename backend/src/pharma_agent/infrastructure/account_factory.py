@@ -6,10 +6,8 @@ from pharma_agent.application.account.service import AccountPolicy, AccountServi
 from pharma_agent.domain.account.ports import EmailSender, SmsSender
 from pharma_agent.domain.shared.clock import Clock
 from pharma_agent.infrastructure.auth.passwords import FastapiUsersPasswordHasher
-from pharma_agent.infrastructure.notifications.factory import (
-    build_email_sender,
-    build_sms_sender,
-)
+from pharma_agent.infrastructure.notifications.factory import build_email_sender
+from pharma_agent.infrastructure.notifications.sms import LogSmsSender
 from pharma_agent.infrastructure.persistence.postgres.account_repository import (
     PostgresAccountRepository,
 )
@@ -41,7 +39,8 @@ def build_account_service(
         codes=PostgresOneTimeCodeStore(sessions),
         limiter=PostgresRateLimiter(sessions, clock),
         email=email if email is not None else build_email_sender(settings.email),
-        sms=sms if sms is not None else build_sms_sender(settings.sms),
+        # The only SMS sender so far; PHARMA_SMS__PROVIDER=none turns phone sign-in off.
+        sms=sms if sms is not None else LogSmsSender(),
         hasher=FastapiUsersPasswordHasher(),
         sessions=PostgresSessionStore(
             sessions,

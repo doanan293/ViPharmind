@@ -1,12 +1,11 @@
-"""Senders chosen by PHARMA_EMAIL__* and PHARMA_SMS__* settings."""
+"""The email sender PHARMA_EMAIL__PROVIDER selects."""
 
-from pharma_agent.domain.account.ports import EmailSender, SmsSender
+from pharma_agent.domain.account.ports import EmailSender
 from pharma_agent.infrastructure.notifications.email import (
     LogEmailSender,
     ResendEmailSender,
 )
-from pharma_agent.infrastructure.notifications.sms import LogSmsSender
-from pharma_agent.infrastructure.settings import EmailSettings, SmsSettings
+from pharma_agent.infrastructure.settings import EmailSettings
 
 
 def build_email_sender(settings: EmailSettings) -> EmailSender:
@@ -19,7 +18,3 @@ def build_email_sender(settings: EmailSettings) -> EmailSender:
             timeout=settings.timeout_seconds,
         )
     return LogEmailSender()
-
-
-def build_sms_sender(settings: SmsSettings) -> SmsSender:
-    return LogSmsSender()

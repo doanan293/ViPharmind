@@ -15,7 +15,9 @@ def build_async_openai(
 
     Importing `langfuse.openai` instruments the OpenAI SDK process-wide, so doing it here,
     when the application is built, makes chat and embedding calls traced from the first
-    request instead of only after some other code happened to import it.
+    request instead of only after some other code happened to import it. Once imported,
+    clients built with `traced=False` in the same process are traced as well: the flag
+    only decides whether this call imports the integration.
     """
     if traced:
         from langfuse.openai import AsyncOpenAI as TracedAsyncOpenAI
