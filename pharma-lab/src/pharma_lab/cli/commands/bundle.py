@@ -33,7 +33,7 @@ from pharma_lab.embeddings.service import (
 bundle_app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
-    help="Export, check and embed knowledge bundles.",
+    help="Export and embed knowledge bundles.",
 )
 
 

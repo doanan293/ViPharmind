@@ -22,7 +22,7 @@ def base_settings() -> Settings:
     return Settings(
         _env_file=None,
         langfuse={"public_key": "pk", "secret_key": "sk"},
-        llm={"default": {"api_key": "sk-test"}},
+        llm={"default": {"api_key": "sk-test", "model": "Qwen/Qwen3.5-9B"}},
     )
 
 
@@ -113,8 +113,8 @@ def test_identity_records_models_without_secrets() -> None:
     settings = base_settings()
     current = identity(settings)
     assert current.role_models["answer"] == {
-        "model": "gpt-5-mini",
-        "reasoning_effort": "low",
+        "model": "Qwen/Qwen3.5-9B",
+        "reasoning_effort": None,
     }
     assert current.rerank["protocol"] == "native_rerank"
     assert "sk-test" not in json.dumps(current.__dict__)
@@ -125,7 +125,7 @@ def test_identity_records_extra_body_only_when_set() -> None:
         _env_file=None,
         langfuse={"public_key": "pk", "secret_key": "sk"},
         llm={
-            "default": {"api_key": "sk-test"},
+            "default": {"api_key": "sk-test", "model": "Qwen/Qwen3.5-9B"},
             "roles": {
                 "answer": {
                     "model": "Qwen/Qwen3.5-9B",
