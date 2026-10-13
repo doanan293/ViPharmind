@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator, Callable, Sequence
 from typing import Any, TypeVar
 
 from openai import OpenAIError
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
 from pharma_agent.domain.llm.port import LlmError
@@ -77,6 +77,12 @@ class OpenAiLlmAdapter:
             )
         except OpenAIError as exc:
             raise LlmError(f"{role.value}: {exc}") from exc
+        except ValidationError as exc:
+            # A server that does not enforce strict json_schema can return JSON of
+            # another shape; the step then degrades like any other LLM failure.
+            raise LlmError(
+                f"{role.value}: output does not match {schema.__name__}"
+            ) from exc
         choice = completion.choices[0]
         parsed = choice.message.parsed
         if parsed is None:
@@ -115,6 +121,8 @@ def _options(endpoint: ResolvedEndpoint) -> dict[str, Any]:
         options["reasoning_effort"] = endpoint.reasoning_effort
     if endpoint.extra_body:
         options["extra_body"] = endpoint.extra_body
+    if endpoint.max_output_tokens is not None:
+        options[endpoint.max_tokens_param] = endpoint.max_output_tokens
     return options
 
 

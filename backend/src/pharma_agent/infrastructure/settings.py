@@ -24,6 +24,10 @@ class LlmEndpoint(BaseModel):
     # Provider-specific request fields passed as the OpenAI SDK's extra_body, e.g.
     # {"chat_template_kwargs": {"enable_thinking": false}} for Qwen on vLLM/DeepInfra.
     extra_body: dict[str, Any] | None = None
+    # Output cap per call, sent only when set: a thinking model spends it on reasoning too.
+    max_output_tokens: int | None = Field(default=None, ge=1)
+    # OpenAI takes max_completion_tokens; DeepInfra documents max_tokens.
+    max_tokens_param: Literal["max_completion_tokens", "max_tokens"] | None = None
 
 
 class ResolvedEndpoint(BaseModel):
@@ -34,6 +38,10 @@ class ResolvedEndpoint(BaseModel):
     model: str
     reasoning_effort: ReasoningEffort = None
     extra_body: dict[str, Any] | None = None
+    max_output_tokens: int | None = None
+    max_tokens_param: Literal["max_completion_tokens", "max_tokens"] = (
+        "max_completion_tokens"
+    )
 
 
 class LlmSettings(BaseModel):
@@ -67,6 +75,11 @@ class LlmSettings(BaseModel):
             model=model,
             reasoning_effort=override.reasoning_effort or self.default.reasoning_effort,
             extra_body=override.extra_body or self.default.extra_body,
+            max_output_tokens=override.max_output_tokens
+            or self.default.max_output_tokens,
+            max_tokens_param=override.max_tokens_param
+            or self.default.max_tokens_param
+            or "max_completion_tokens",
         )
 
 

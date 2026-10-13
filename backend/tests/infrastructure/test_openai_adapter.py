@@ -269,3 +269,76 @@ async def test_extra_body_is_sent_only_for_roles_that_set_it() -> None:
         == no_thinking
     )
     assert "extra_body" not in created[(None, "sk-cloud")].completions.parse_kwargs
+
+
+async def test_output_of_another_shape_becomes_llm_error() -> None:
+    import httpx2
+    from openai import AsyncOpenAI
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200,
+            json={
+                "id": "c1",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "qwen-small",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "message": {"role": "assistant", "content": '{"verdict": 1}'},
+                    }
+                ],
+            },
+        )
+
+    def factory(endpoint, timeout, max_retries):
+        return AsyncOpenAI(
+            api_key=endpoint.api_key,
+            base_url=endpoint.base_url,
+            max_retries=0,
+            http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handler)),
+        )
+
+    settings = LlmSettings(
+        default=LlmEndpoint(base_url="http://llm.test/v1", api_key="k", model="m")
+    )
+    adapter = OpenAiLlmAdapter(settings, client_factory=factory)
+    with pytest.raises(LlmError, match="does not match Verdict"):
+        await adapter.structured(LlmRole.GUARDRAIL, [user("u")], Verdict)
+
+
+async def test_output_cap_is_sent_only_when_set_under_the_configured_name() -> None:
+    created: dict[tuple, FakeClient] = {}
+
+    def factory(endpoint, timeout, max_retries):
+        client = FakeClient()
+        created[(endpoint.base_url, endpoint.api_key)] = client
+        return client
+
+    settings = LlmSettings(
+        default=LlmEndpoint(api_key="sk-cloud", model="qwen-small"),
+        roles={
+            LlmRole.JUDGE: LlmEndpoint(max_output_tokens=512),
+            LlmRole.ANSWER: LlmEndpoint(
+                base_url="http://open/v1",
+                api_key="open",
+                max_output_tokens=4096,
+                max_tokens_param="max_tokens",
+            ),
+        },
+    )
+    adapter = OpenAiLlmAdapter(settings, client_factory=factory)
+    await adapter.structured(LlmRole.GUARDRAIL, [user("a")], Verdict)
+    guardrail_kwargs = dict(created[(None, "sk-cloud")].completions.parse_kwargs)
+    await adapter.structured(LlmRole.JUDGE, [user("b")], Verdict)
+    judge_kwargs = created[(None, "sk-cloud")].completions.parse_kwargs
+    _ = [d async for d in adapter.stream(LlmRole.ANSWER, [user("hi")])]
+    answer_kwargs = created[("http://open/v1", "open")].completions.create_kwargs
+
+    assert "max_completion_tokens" not in guardrail_kwargs
+    assert "max_tokens" not in guardrail_kwargs
+    assert judge_kwargs["max_completion_tokens"] == 512
+    assert answer_kwargs["max_tokens"] == 4096
+    assert "max_completion_tokens" not in answer_kwargs
