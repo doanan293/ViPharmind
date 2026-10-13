@@ -5,7 +5,7 @@
 | `pharma-lab/` | Công cụ offline: nguồn nội bộ (Dược thư Quốc gia, tờ hướng dẫn sử dụng thuốc) → knowledge bundle, embedding trên Kaggle, đánh giá retrieval |
 | `backend/` | Backend AI agent (LangGraph, OpenAI SDK, Qdrant) |
 | `frontend/` | Web app (React Router, SSR) |
-| `devops/` | Cấu hình cho image bên thứ ba mà compose dùng: nginx, CLIProxyAPI |
+| `devops/` | Cấu hình cho image bên thứ ba mà compose dùng (nginx, CLIProxyAPI) và `devops/vercel/sync_env.py` đẩy biến môi trường production lên Vercel |
 | `compose.yaml` | Stack local: Postgres, Qdrant, backend, frontend, nginx. Model gọi DeepInfra theo `backend/.env` |
 | `compose.local-models.yaml` | Override: embedding và reranker llama.cpp chạy CPU trên máy |
 | `compose.gemini-proxy.yaml` | Override: LLM là Gemini qua CLIProxyAPI |
@@ -17,10 +17,12 @@ giá trị mặc định ngay trong file compose, muốn ghi đè thì đặt bi
 `WEB_PORT=8081 docker compose up -d`. Ba file cấu hình của repo là `backend/.env`, `frontend/.env` và
 `pharma-lab/.env`, mỗi file có `.env.example` bên cạnh.
 
-Mặc định LLM, embedding và reranker đều gọi DeepInfra (Qwen3.5-9B, Qwen3-Embedding-4B,
-Qwen3-Reranker-4B), giống production. Tạo `backend/.env` từ `backend/.env.example`, điền cùng một key
-DeepInfra vào ba biến `..._API_KEY`, rồi `PHARMA_AUTH__JWT_SECRET`, `PHARMA_AUTH__CSRF_SECRET`,
-`PHARMA_AUTH__OTP_SECRET` và `PHARMA_JOBS__INTERNAL_TOKEN`.
+Mặc định LLM, embedding và reranker đều gọi DeepInfra (Qwen3.5-9B, Qwen3-Embedding-4B 2560 chiều,
+Qwen3-Reranker-4B). Production cũng gọi DeepInfra nhưng embedding là Qwen3-Embedding-8B 4096 chiều
+(`backend/.env.production.example`). Corpus phải được import bằng đúng model embedding mà backend
+dùng, nên corpus import ở local không dùng được cho production và ngược lại. Tạo `backend/.env` từ
+`backend/.env.example`, điền cùng một key DeepInfra vào ba biến `..._API_KEY`, rồi
+`PHARMA_AUTH__JWT_SECRET`, `PHARMA_AUTH__CSRF_SECRET` và `PHARMA_AUTH__OTP_SECRET`.
 
 Cách làm việc hằng ngày: chỉ chạy dữ liệu trong Docker, backend và frontend chạy trên máy.
 
@@ -69,8 +71,8 @@ Backend chạy trên máy thì đổi các biến embedding và rerank trong `ba
   classifier (có tensor `cls.output.weight`); đặt `LLAMA_RERANKER_PROTOCOL=none` để bỏ rerank.
 - Reranker trên CPU: `LLAMA_RERANKER_PARALLEL` (`-np`), `LLAMA_RERANKER_UBATCH_SIZE` (dùng chung cho `-b`
   và `-ub`, tối thiểu 4096 và phải chứa được prompt dài nhất), `LLAMA_RERANKER_CONTEXT_SIZE` (`-c`, bằng
-  `-ub` nhân số slot cộng một) và `LLAMA_RERANKER_THREADS`; `RERANK_TIMEOUT_SECONDS` là timeout của
-  backend cho một request rerank. Đo lại cho máy khác trong `pharma-lab/`:
+  `-ub × (số slot + 1)`: một batch vật lý cộng prompt cuối của mỗi slot, mặc định 4096 × 5 = 20480)
+  và `LLAMA_RERANKER_THREADS`; `RERANK_TIMEOUT_SECONDS` là timeout của backend cho một request rerank. Đo lại cho máy khác trong `pharma-lab/`:
   `uv run pharma-lab rerank --run hybrid-qwen4b-p50-k30-rrf2 --backend local --benchmark --model qwen3-reranker:4b-fp16`,
   rồi đặt các biến trong dòng `env=` lệnh in ra, với `RERANK_TIMEOUT_SECONDS` ít nhất gấp đôi
   `latency_p95_seconds`.

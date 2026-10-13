@@ -9,14 +9,15 @@ và backend trên Vercel, dữ liệu trên Neon và Qdrant Cloud, model trên D
 
 - [x] Neon: project ở Singapore, database `neondb`, DSN có pooler trong `backend/.env.production`; đã migrate tới `0020`.
 - [x] Qdrant Cloud: cluster miễn phí `vipharmind` ở AWS US Oregon (gói Free không có châu Á), URL và API key trong `backend/.env.production`. Cluster Free tự tạm dừng sau 1 tuần không có truy vấn; cron Vercel gọi `/api/v1/health` mỗi ngày giữ nó chạy.
-- [x] Secret production (JWT, CSRF, OTP, proxy, token nội bộ) đã sinh trong `backend/.env.production`.
-- [x] Backend trên Vercel: project `vipharmind-api` (FastAPI Function, region `sin1`, Large Functions, nối GitHub) chạy ở https://vipharmind-api.vercel.app, tự deploy khi push `main`. Không ngủ như Render; khởi động lạnh khoảng 10 giây, sau đó dưới 1 giây. `/api/v1/health` báo Postgres ổn, `corpus` chưa sẵn sàng vì chưa nạp corpus. Đã đo `PHARMA_API__TRUSTED_PROXY_HOPS=1`: IP thật của khách được nhận đúng cả khi gọi thẳng lẫn qua frontend.
+- [x] Secret production (JWT, CSRF, OTP, proxy) đã sinh trong `backend/.env.production`.
+- [x] Backend trên Vercel: project `vipharmind-api` (FastAPI Function, region `sin1`, Large Functions, nối GitHub) chạy ở https://vipharmind-api.vercel.app, tự deploy khi push `main`. Khởi động lạnh khoảng 10 giây, sau đó dưới 1 giây. `/api/v1/health` báo Postgres ổn, `corpus` chưa sẵn sàng vì chưa nạp corpus. Đã đo `PHARMA_API__TRUSTED_PROXY_HOPS=1`: IP thật của khách được nhận đúng cả khi gọi thẳng lẫn qua frontend.
 - [x] Vercel: project `vipharmind`, preset React Router, Root Directory `frontend`, nối GitHub, https://vipharmind.vercel.app chạy; đã đặt `API_INTERNAL_URL`, `PUBLIC_SITE_URL`, `THEME_COOKIE_SECRET`, `API_PROXY_SECRET`. Đăng nhập sai mật khẩu qua Vercel trả đúng `LOGIN_BAD_CREDENTIALS`.
 
 Việc miễn phí, đã làm hoặc còn lại:
 
 - [x] Đăng nhập Google: OAuth client Web `ViPharmind` trong project Google Cloud `andimus` (dùng chung cho mọi app; màn hình đồng ý tên Andimus đã publish, trang chủ và chính sách ở https://andimus.vercel.app). Redirect URI `https://vipharmind.vercel.app/auth/google/callback`, `https://vipharmind.vercel.app/auth/google/link-callback` và hai URI tương ứng trên `http://localhost:3000`. Đã thử đăng nhập Google thật trên production. Đổi client: sửa `PHARMA_AUTH__GOOGLE_CLIENT_ID`/`_SECRET` trong `backend/.env.production` rồi chạy `uv run python devops/vercel/sync_env.py`.
-- [x] Gửi thư qua Resend: key `andimus` (dùng chung cho các app) đã đặt trên backend, gửi từ `onboarding@resend.dev`; thư thử tới `andoan020903@gmail.com` có trạng thái `sent`.
+- [x] Gửi thư qua Resend: key `andimus` (dùng chung cho các app) đã đặt trên backend, gửi từ `onboarding@resend.dev`; thư thử tới email của tài khoản Resend có trạng thái `sent`.
+- [ ] Cron bảo trì của backend: Vercel gọi job bảo trì của `vipharmind-api` mỗi ngày (`cleanup-sessions` và `corpus purge-deleted`) kèm header `Authorization: Bearer <CRON_SECRET>`. Sinh `CRON_SECRET` (ví dụ `openssl rand -hex 32`) và đặt làm biến môi trường Production của project `vipharmind-api`, rồi redeploy; thiếu biến này thì cron bị từ chối.
 - [ ] Domain cho thư: `onboarding@resend.dev` chỉ gửi tới email chủ tài khoản Resend, nên người khác chưa nhận được mã. Mua domain, xác minh `mail.<domain>` trên Resend (bản ghi SPF, DKIM, MX), đổi `PHARMA_EMAIL__SENDER` sang `no-reply@mail.<domain>`, rồi chạy `devops/vercel/sync_env.py`. Không dùng được `*.vercel.app` vì không sửa được DNS của nó.
 
 **Để sau, tốn tiền:**
