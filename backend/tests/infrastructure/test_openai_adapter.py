@@ -67,11 +67,12 @@ def make_adapter() -> tuple[OpenAiLlmAdapter, dict[tuple, FakeClient]]:
         return client
 
     settings = LlmSettings(
-        default=LlmEndpoint(api_key="sk-cloud"),
+        default=LlmEndpoint(api_key="sk-cloud", model="qwen-small"),
         roles={
+            LlmRole.GUARDRAIL: LlmEndpoint(reasoning_effort="minimal"),
             LlmRole.ANSWER: LlmEndpoint(
                 base_url="http://local/v1", api_key="local", model="qwen"
-            )
+            ),
         },
     )
     return OpenAiLlmAdapter(settings, client_factory=factory), created
@@ -86,7 +87,7 @@ async def test_structured_uses_parse_with_role_model_and_schema() -> None:
     assert usage == LlmUsage(prompt_tokens=12, completion_tokens=3)
     client = created[(None, "sk-cloud")]
     kwargs = client.completions.parse_kwargs
-    assert kwargs["model"] == "gpt-5-nano"
+    assert kwargs["model"] == "qwen-small"
     assert kwargs["response_format"] is Verdict
     assert kwargs["reasoning_effort"] == "minimal"
     assert kwargs["messages"] == [
@@ -104,7 +105,7 @@ async def test_stream_yields_text_then_usage_and_uses_role_endpoint() -> None:
     assert client.completions.create_kwargs["model"] == "qwen"
     assert client.completions.create_kwargs["stream"] is True
     assert client.completions.create_kwargs["stream_options"] == {"include_usage": True}
-    # A custom model gets no reasoning_effort unless configured, so any server accepts the call.
+    # A role gets no reasoning_effort unless configured, so any server accepts the call.
     assert "reasoning_effort" not in client.completions.create_kwargs
 
 
@@ -142,7 +143,7 @@ async def test_real_sdk_client_against_mocked_http() -> None:
         "id": "c1",
         "object": "chat.completion",
         "created": 0,
-        "model": "gpt-5-nano",
+        "model": "qwen-small",
         "choices": [
             {
                 "index": 0,
@@ -200,7 +201,10 @@ async def test_real_sdk_client_against_mocked_http() -> None:
         )
 
     settings = LlmSettings(
-        default=LlmEndpoint(base_url="http://llm.test/v1", api_key="k")
+        default=LlmEndpoint(
+            base_url="http://llm.test/v1", api_key="k", model="qwen-small"
+        ),
+        roles={LlmRole.ANSWER: LlmEndpoint(model="qwen-large", reasoning_effort="low")},
     )
     adapter = OpenAiLlmAdapter(settings, client_factory=factory)
     result, usage = await adapter.structured(LlmRole.GUARDRAIL, [user("u")], Verdict)
@@ -211,11 +215,9 @@ async def test_real_sdk_client_against_mocked_http() -> None:
     assert calls[0]["response_format"]["json_schema"]["strict"] is True
     assert "".join(d.text for d in deltas) == "Xin chào"
     assert deltas[-1].usage == LlmUsage(prompt_tokens=3, completion_tokens=2)
-    assert calls[1]["model"] == "gpt-5-mini"
-    assert (calls[0]["reasoning_effort"], calls[1]["reasoning_effort"]) == (
-        "minimal",
-        "low",
-    )
+    assert (calls[0]["model"], calls[1]["model"]) == ("qwen-small", "qwen-large")
+    assert "reasoning_effort" not in calls[0]
+    assert calls[1]["reasoning_effort"] == "low"
 
 
 async def test_reasoning_tokens_reported_outside_completion_tokens_are_counted() -> (
@@ -249,7 +251,7 @@ async def test_extra_body_is_sent_only_for_roles_that_set_it() -> None:
 
     no_thinking = {"chat_template_kwargs": {"enable_thinking": False}}
     settings = LlmSettings(
-        default=LlmEndpoint(api_key="sk-cloud"),
+        default=LlmEndpoint(api_key="sk-cloud", model="qwen-small"),
         roles={
             LlmRole.ANSWER: LlmEndpoint(
                 base_url="http://open/v1",

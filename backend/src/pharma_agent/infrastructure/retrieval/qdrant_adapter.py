@@ -24,7 +24,7 @@ RELEASE_IDS_KEY = "release_ids"
 
 
 class OpenAiEmbedder:
-    """Query embeddings through an OpenAI-compatible /v1/embeddings endpoint (llama.cpp here)."""
+    """Embeddings through an OpenAI-compatible /v1/embeddings endpoint (DeepInfra, llama.cpp)."""
 
     def __init__(self, client: Any, *, model: str, dimension: int) -> None:
         self._client = client

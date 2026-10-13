@@ -1,8 +1,11 @@
 """Run a job inside the request that queued it: production on Vercel Functions.
 
 A serverless function may be frozen once its response is sent, so a background task could
-stop half-way. Here `enqueue` returns only after the job finished or used its runs, within
-the function's max duration; a job cut off by that limit is picked up again as stale.
+stop half-way. Here `enqueue` returns only after the job finished or used its runs. Every
+run and retry happens inside that one request, so Vercel's maxDuration bounds them all; the
+job's stale window (`PHARMA_JOBS__STALE_AFTER_SECONDS`, longer than maxDuration) counts from
+its first run, so a job only looks stale once its request is gone, and a later publish then
+takes it over.
 """
 
 import asyncio
@@ -15,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class InlineDispatcher:
     """`run` raises while the job has attempts left, so it is called again after a short
-    pause, like a queue retry, until it returns or `max_runs` is reached."""
+    pause until it returns or `max_runs` (the job's max attempts) is reached."""
 
     def __init__(
         self,

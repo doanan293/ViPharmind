@@ -1,3 +1,4 @@
+import hmac
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Annotated
@@ -28,10 +29,7 @@ from pharma_agent.infrastructure.auth.users import (
     SessionLogin,
 )
 from pharma_agent.infrastructure.container import Container
-from pharma_agent.infrastructure.jobs.internal_auth import (
-    InternalAuthError,
-    verify_internal_request,
-)
+from pharma_agent.infrastructure.maintenance import Maintenance, MaintenanceReport
 from pharma_agent.infrastructure.organizations_factory import OrganizationServices
 from pharma_agent.infrastructure.persistence.postgres.tables import UserTable
 
@@ -93,15 +91,23 @@ def require_publishing(container: Container) -> PublishService:
     return container.publishing.service
 
 
-def verify_internal_caller(request: Request) -> None:
-    """Only the job runner, holding the internal token, may call /internal."""
-    try:
-        verify_internal_request(request.headers, request.app.state.jobs_settings)
-    except InternalAuthError as exc:
-        raise HTTPException(status_code=401, detail="UNAUTHORIZED") from exc
+def require_maintenance(container: Container) -> Maintenance:
+    if container.maintenance is None:
+        raise ServiceNotConfigured("maintenance is not configured")
+    return container.maintenance
 
 
-InternalCaller = Annotated[None, Depends(verify_internal_caller)]
+def verify_cron_caller(request: Request) -> None:
+    """Only Vercel Cron, sending `Authorization: Bearer <CRON_SECRET>`, gets through."""
+    secret: str | None = request.app.state.cron_secret
+    given = request.headers.get("authorization", "")
+    if secret is None or not hmac.compare_digest(
+        given.encode(), f"Bearer {secret}".encode()
+    ):
+        raise HTTPException(status_code=401, detail="UNAUTHORIZED")
+
+
+CronCaller = Annotated[None, Depends(verify_cron_caller)]
 
 
 def require_collections(container: Container) -> CollectionService:
@@ -166,4 +172,4 @@ RequestLocale = Annotated[Locale, Depends(request_locale)]
 ClientIp = Annotated[str | None, Depends(client_ip)]
 CurrentSessionToken = Annotated[str | None, Depends(current_session_token)]
 
-__all__ = ["SessionLogin"]
+__all__ = ["MaintenanceReport", "SessionLogin"]

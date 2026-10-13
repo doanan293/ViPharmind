@@ -1,4 +1,4 @@
-"""Cookie sessions (DatabaseStrategy over access_tokens) and bearer JWT against real Postgres."""
+"""Cookie sessions (DatabaseStrategy over access_tokens) against real Postgres."""
 
 import pytest
 from sqlalchemy import text
@@ -88,23 +88,12 @@ async def test_cookie_session_needs_the_csrf_header_on_unsafe_requests(
         assert accepted.json()["display_name"] == "An"
 
 
-async def test_bearer_jwt_still_authorizes_without_csrf_or_sessions(
-    migrated_dsn: str,
-) -> None:
+async def test_there_is_no_bearer_login(migrated_dsn: str) -> None:
     email = new_email()
-    async with postgres_app(migrated_dsn) as (client, database, outbox):
+    async with postgres_app(migrated_dsn) as (client, _, outbox):
         await verified_register(client, outbox, email)
         client.cookies.clear()
-        before = await sessions_for(database, email)
         login = await client.post(
             "/api/v1/auth/jwt/login", data={"username": email, "password": PASSWORD}
         )
-        assert login.status_code == 200, login.text
-        headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
-        client.cookies.clear()
-        patched = await client.patch(
-            "/api/v1/users/me", json={"display_name": "Bình"}, headers=headers
-        )
-        assert patched.status_code == 200, patched.text
-        assert patched.json()["display_name"] == "Bình"
-        assert await sessions_for(database, email) == before
+        assert login.status_code == 404

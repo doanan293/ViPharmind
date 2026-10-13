@@ -58,10 +58,11 @@ def build_publishing(
         return await bound[0].run(job_id)
 
     if dispatcher is None:
-        if settings.jobs.dispatcher == "inline":
-            dispatcher = InlineDispatcher(run)
+        jobs = settings.jobs
+        if jobs.dispatcher == "inline":
+            dispatcher = InlineDispatcher(run, max_runs=jobs.max_attempts)
         else:
-            dispatcher = InProcessDispatcher(run)
+            dispatcher = InProcessDispatcher(run, max_runs=jobs.max_attempts)
     service = PublishService(
         collections=PostgresCollectionRepository(sessions),
         sources=PostgresSourceRepository(sessions),
@@ -88,11 +89,8 @@ def build_publishing(
         tx=PostgresTransactionFactory(sessions),
         clock=clock,
         max_attempts=settings.jobs.max_attempts,
-        # Every attempt may run to the dispatch deadline, plus time for queue backoff.
-        stale_after=timedelta(
-            seconds=settings.jobs.dispatch_deadline_seconds * settings.jobs.max_attempts
-            + 600
-        ),
+        # Every attempt runs inside the runner's lifetime, which this window outlasts.
+        stale_after=timedelta(seconds=settings.jobs.stale_after_seconds),
     )
     bound.append(service)
     return Publishing(service=service, dispatcher=dispatcher)

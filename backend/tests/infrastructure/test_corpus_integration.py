@@ -25,6 +25,7 @@ from pharma_agent.infrastructure.settings import Settings
 from tests.corpus_fixtures import (
     DOSAGE_SECTION,
     LEAFLET_SECTION,
+    embedding_texts,
     small_bundle,
     small_bundle_embeddings,
     with_renamed_documents,
@@ -116,7 +117,7 @@ async def test_import_indexes_points_without_text_and_is_idempotent(
     assert report.outcome is ImportOutcome.IMPORTED
     assert release.status is ReleaseStatus.READY and release.published_at is not None
     assert release.stats is not None
-    assert release.stats.embeddings_from_bundle == len(snapshot.embedding_texts())
+    assert release.stats.embeddings_from_bundle == len(embedding_texts(snapshot))
     assert release.stats.embeddings_computed == 0
     assert await stack.index.count_release(release.id) == len(snapshot.release_chunks)
     assert await alias_target(stack.client) == PHYSICAL

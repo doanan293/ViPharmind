@@ -8,12 +8,9 @@ from pharma_agent.infrastructure.notifications.email import (
     LogEmailSender,
     ResendEmailSender,
 )
-from pharma_agent.infrastructure.notifications.factory import (
-    build_email_sender,
-    build_sms_sender,
-)
+from pharma_agent.infrastructure.notifications.factory import build_email_sender
 from pharma_agent.infrastructure.notifications.sms import LogSmsSender
-from pharma_agent.infrastructure.settings import EmailSettings, SmsSettings
+from pharma_agent.infrastructure.settings import EmailSettings
 
 
 async def test_resend_posts_the_message_and_maps_errors() -> None:
@@ -43,4 +40,3 @@ def test_factories_follow_settings() -> None:
     assert isinstance(build_email_sender(resend), ResendEmailSender)
     with pytest.raises(ValueError, match="RESEND_API_KEY"):
         build_email_sender(EmailSettings(provider="resend"))
-    assert isinstance(build_sms_sender(SmsSettings()), LogSmsSender)

@@ -2,6 +2,7 @@ import asyncio
 import uuid
 from collections.abc import Sequence
 from dataclasses import replace
+from datetime import timedelta
 
 import pytest
 
@@ -31,6 +32,8 @@ from tests.organization_fakes import (
     InMemoryTransactions,
     actor,
 )
+
+STALE_AFTER = timedelta(seconds=330)
 
 
 class BrokenEmbedder(FakeEmbedder):
@@ -87,6 +90,7 @@ class World:
             tx=tx,
             clock=self.clock,
             max_attempts=2,
+            stale_after=STALE_AFTER,
         )
 
     def editor(self) -> Actor:
@@ -202,7 +206,10 @@ async def test_a_job_no_runner_finished_stops_blocking_after_it_goes_stale() -> 
     with pytest.raises(PublishInProgress):
         await w.service.publish(w.editor(), collection)
 
-    w.clock.advance(hours=2)
+    w.clock.advance(seconds=STALE_AFTER.total_seconds() - 1)
+    with pytest.raises(PublishInProgress):
+        await w.service.publish(w.editor(), collection)
+    w.clock.advance(seconds=2)
     fresh = await w.service.publish(w.editor(), collection)
     assert fresh.id != stuck.id
     old = await w.jobs.get(stuck.id)
@@ -213,6 +220,27 @@ async def test_a_job_no_runner_finished_stops_blocking_after_it_goes_stale() -> 
 class FailingDispatcher(RecordingDispatcher):
     async def enqueue(self, job_id: uuid.UUID) -> None:
         raise RuntimeError("job queue unavailable")
+
+
+class RunningDispatcher(RecordingDispatcher):
+    """Runs the job before `enqueue` returns, like the inline dispatcher."""
+
+    def __init__(self, service: PublishService) -> None:
+        super().__init__()
+        self._service = service
+
+    async def enqueue(self, job_id: uuid.UUID) -> None:
+        await super().enqueue(job_id)
+        await self._service.run(job_id)
+
+
+async def test_publish_answers_with_the_state_an_inline_run_reached() -> None:
+    w = World()
+    collection = await w.collection_with_a_document()
+    w.service._dispatcher = RunningDispatcher(w.service)
+    done = await w.service.publish(w.editor(), collection)
+    assert done.status is JobStatus.READY and done.release_number == 1
+    assert done.attempts == 1 and done.finished_at is not None
 
 
 async def test_a_job_that_could_not_be_dispatched_fails_at_once() -> None:

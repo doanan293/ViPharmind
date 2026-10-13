@@ -27,7 +27,6 @@ from pharma_agent.infrastructure.observability.langfuse_retrieval import (
 )
 from pharma_agent.infrastructure.openai_client import build_async_openai
 from pharma_agent.infrastructure.persistence.postgres.database import Database
-from pharma_agent.infrastructure.retrieval.llama_cpp_reranker import build_reranker
 from pharma_agent.infrastructure.retrieval.postgres_corpus import (
     PostgresCorpusReader,
     PostgresHydrator,
@@ -36,6 +35,7 @@ from pharma_agent.infrastructure.retrieval.qdrant_adapter import (
     OpenAiEmbedder,
     QdrantHybridRetriever,
 )
+from pharma_agent.infrastructure.retrieval.rerankers import build_reranker
 from pharma_agent.infrastructure.settings import RetrievalSettings, Settings
 
 

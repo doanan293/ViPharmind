@@ -1,8 +1,8 @@
 """Import a knowledge bundle as a new corpus release (spec C §8.2).
 
-The only ingest path: the CLI calls it today and a future upload API will call the same
-service. Every step is idempotent on hashed ids, so rerunning after a failure resumes the
-`building` release from the embedding cache and the points already indexed.
+The only ingest path: `pharma-agent corpus import` and the publish jobs of authored
+collections both call it. Every step is idempotent on hashed ids, so rerunning after a
+failure resumes the `building` release and embeds only the chunks Qdrant does not hold yet.
 """
 
 import uuid

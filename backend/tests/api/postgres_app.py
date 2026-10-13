@@ -19,6 +19,7 @@ from pharma_agent.infrastructure.collections_factory import (
 )
 from pharma_agent.infrastructure.container import Container
 from pharma_agent.infrastructure.jobs.inprocess import InProcessDispatcher
+from pharma_agent.infrastructure.maintenance import Maintenance
 from pharma_agent.infrastructure.organizations_factory import (
     build_organization_services,
 )
@@ -63,7 +64,6 @@ async def postgres_app(
     *,
     auth: dict[str, object] | None = None,
     api: dict[str, object] | None = None,
-    jobs: dict[str, object] | None = None,
     index: VectorIndex | None = None,
 ) -> AsyncGenerator[tuple[httpx.AsyncClient, Database, AppOutbox]]:
     """`index` replaces the in-memory vector index, for tests on a real Qdrant."""
@@ -83,7 +83,6 @@ async def postgres_app(
         },
         postgres={"dsn": dsn},
         api=api or {},
-        jobs=jobs or {},
         retrieval={
             "embedding": {
                 "model": FAKE_EMBEDDING_MODEL,
@@ -104,6 +103,9 @@ async def postgres_app(
             clock=SystemClock(),
         )
         outbox.publishing = publishing
+        collections = build_collection_service(
+            resolved, database.sessions, index=vectors, clock=SystemClock()
+        )
         yield Container(
             sessions=database.sessions,
             conversations=ConversationService(
@@ -126,10 +128,13 @@ async def postgres_app(
             content=build_content_service(
                 resolved, database.sessions, clock=SystemClock()
             ),
-            collections=build_collection_service(
-                resolved, database.sessions, index=vectors, clock=SystemClock()
-            ),
+            collections=collections,
             publishing=publishing,
+            maintenance=Maintenance(
+                conninfo=resolved.postgres.conninfo,
+                session_lifetime_seconds=resolved.auth.session_lifetime_seconds,
+                collections=collections,
+            ),
         )
 
     try:

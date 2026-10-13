@@ -9,8 +9,7 @@ from collections.abc import Sequence
 import httpx
 
 from pharma_agent.domain.retrieval.models import Hit
-from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError
-from pharma_agent.infrastructure.settings import RerankSettings
+from pharma_agent.domain.retrieval.ports import RetrievalError
 
 
 def document_text(hit: Hit) -> str:
@@ -75,25 +74,3 @@ class NativeReranker:
 class NoopReranker:
     async def rerank(self, query: str, hits: Sequence[Hit], top_n: int) -> list[Hit]:
         return sorted(hits, key=lambda h: h.fusion_score, reverse=True)[:top_n]
-
-
-def build_reranker(settings: RerankSettings) -> Reranker:
-    if settings.protocol == "none":
-        return NoopReranker()
-    headers = (
-        {"Authorization": f"Bearer {settings.api_key}"} if settings.api_key else None
-    )
-    http = httpx.AsyncClient(
-        base_url=settings.base_url, timeout=settings.timeout_seconds, headers=headers
-    )
-    if settings.protocol == "deepinfra":
-        from pharma_agent.infrastructure.retrieval.deepinfra_reranker import (
-            DeepInfraReranker,
-        )
-
-        return DeepInfraReranker(
-            http, model=settings.model, max_concurrent=settings.max_concurrent
-        )
-    return NativeReranker(
-        http, model=settings.model, max_concurrent=settings.max_concurrent
-    )

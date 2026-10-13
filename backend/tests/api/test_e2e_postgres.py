@@ -1,4 +1,5 @@
-"""HTTP → auth → ChatService → Postgres repository, with the fake LLM/retriever of Plan 1."""
+"""HTTP → cookie session → ChatService → Postgres repository, with the fake LLM/retriever
+of Plan 1."""
 
 import uuid
 from collections.abc import AsyncGenerator
@@ -36,7 +37,7 @@ from pharma_agent.infrastructure.persistence.postgres.tables import (
 from pharma_agent.infrastructure.settings import Settings
 from tests.api.asgi import running
 from tests.api.harness import ui_chunks
-from tests.api.postgres_app import AppOutbox
+from tests.api.postgres_app import AppOutbox, csrf_header
 from tests.api.test_chat_api import script_turn
 from tests.contract.invariants import assert_stream_invariants
 from tests.corpus_rows import hit_for, seed_cited_release
@@ -112,7 +113,7 @@ async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
         assert duplicate.status_code == 400
         assert duplicate.json()["code"] == "REGISTER_USER_ALREADY_EXISTS"
         wrong_password = await client.post(
-            "/api/v1/auth/jwt/login",
+            "/api/v1/auth/cookie/login",
             data={"username": email, "password": "wrong-password"},
         )
         assert wrong_password.status_code == 400
@@ -128,11 +129,14 @@ async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
         assert verified.status_code == 204, verified.text
         client.cookies.clear()
         login = await client.post(
-            "/api/v1/auth/jwt/login", data={"username": email, "password": password}
+            "/api/v1/auth/cookie/login",
+            data={"username": email, "password": password},
         )
-        headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
-        me = await client.get("/api/v1/users/me", headers=headers)
+        assert login.status_code == 204, login.text
+        me = await client.get("/api/v1/users/me")
         assert me.json()["display_name"] == "An"
+        # The first GET set the CSRF cookie that unsafe requests echo in a header.
+        headers = csrf_header(client)
 
         response = await client.post(
             "/api/v1/chat/stream",
@@ -145,11 +149,9 @@ async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
         message_id = str(chunks[0]["messageId"])
         assert chunks[-1]["messageMetadata"]["persisted"] is True
 
-        listed = await client.get("/api/v1/conversations", headers=headers)
+        listed = await client.get("/api/v1/conversations")
         assert [item["id"] for item in listed.json()["items"]] == [conversation_id]
-        messages = await client.get(
-            f"/api/v1/conversations/{conversation_id}/messages", headers=headers
-        )
+        messages = await client.get(f"/api/v1/conversations/{conversation_id}/messages")
         assert [m["role"] for m in messages.json()["items"]] == ["user", "assistant"]
 
         async with database_holder["db"].sessions() as session:

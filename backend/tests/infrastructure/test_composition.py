@@ -29,6 +29,7 @@ async def test_build_application_wires_real_adapters(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-test")
+    monkeypatch.setenv("PHARMA_LLM__DEFAULT__MODEL", "Qwen/Qwen3.5-9B")
     monkeypatch.setenv("PHARMA_SKILLS_DIR", str(tmp_path))
     monkeypatch.setenv("PHARMA_QDRANT__CHECK_COMPATIBILITY", "false")
     app = build_application(Settings(_env_file=None))
@@ -44,6 +45,7 @@ async def test_build_application_respects_rerank_none(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-test")
+    monkeypatch.setenv("PHARMA_LLM__DEFAULT__MODEL", "Qwen/Qwen3.5-9B")
     monkeypatch.setenv("PHARMA_RETRIEVAL__RERANK__PROTOCOL", "none")
     monkeypatch.setenv("PHARMA_SKILLS_DIR", str(tmp_path))
     monkeypatch.setenv("PHARMA_QDRANT__CHECK_COMPATIBILITY", "false")
@@ -64,6 +66,7 @@ async def test_langfuse_traces_embeddings_and_rerank(
     public_key = f"pk-test-{uuid4().hex}"
     environment = {
         "PHARMA_LLM__DEFAULT__API_KEY": "sk-test",
+        "PHARMA_LLM__DEFAULT__MODEL": "Qwen/Qwen3.5-9B",
         "PHARMA_SKILLS_DIR": str(tmp_path),
         "PHARMA_QDRANT__CHECK_COMPATIBILITY": "false",
         "PHARMA_LANGFUSE__PUBLIC_KEY": public_key,

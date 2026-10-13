@@ -32,20 +32,16 @@ def test_routes_without_google() -> None:
     router = auth_router(settings)
     assert router.url_path_for("auth:cookie.login") == "/auth/cookie/login"
     assert router.url_path_for("auth:cookie.logout") == "/auth/cookie/logout"
-    assert router.url_path_for("auth:jwt.login") == "/auth/jwt/login"
-    assert router.url_path_for("auth:jwt.logout") == "/auth/jwt/logout"
     assert router.url_path_for("register:register") == "/auth/register"
-    with pytest.raises(NoMatchFound):
-        router.url_path_for("users:current_user")
+    for name in ("auth:jwt.login", "auth:jwt.logout", "users:current_user"):
+        with pytest.raises(NoMatchFound):
+            router.url_path_for(name)
     for name in ("oauth:google.cookie.authorize", "oauth:google.cookie.callback"):
         with pytest.raises(NoMatchFound):
             router.url_path_for(name)
     auth = build_auth(settings, no_sessions)
     assert auth.google is None
-    assert [backend.name for backend in auth.users.authenticator.backends] == [
-        "cookie",
-        "jwt",
-    ]
+    assert [backend.name for backend in auth.users.authenticator.backends] == ["cookie"]
 
 
 def test_cookie_backend_follows_session_settings() -> None:

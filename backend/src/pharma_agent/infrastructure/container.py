@@ -31,6 +31,7 @@ from pharma_agent.infrastructure.collections_factory import (
     build_content_service,
 )
 from pharma_agent.infrastructure.composition import Application, build_application
+from pharma_agent.infrastructure.maintenance import Maintenance
 from pharma_agent.infrastructure.observability.langfuse_tracing import LangfuseTracing
 from pharma_agent.infrastructure.openai_client import build_async_openai
 from pharma_agent.infrastructure.organizations_factory import (
@@ -72,6 +73,7 @@ class Container:
     collections: CollectionService | None = None
     content: ContentService | None = None
     publishing: Publishing | None = None
+    maintenance: Maintenance | None = None
     chat: ChatService | None = None
     summarizer: SummarizeConversation | None = None
     feedback: FeedbackService | None = None
@@ -159,7 +161,9 @@ async def open_container(
             corpus_embedder = embedder
             if corpus_embedder is None:
                 embedding = settings.retrieval.embedding
-                # Publishing embeds documents, not chat turns: no Langfuse tracing.
+                # Publishing embeds documents, not chat turns, so this client does not ask
+                # for tracing. With Langfuse on, the chat side instruments the OpenAI SDK
+                # process-wide, so these calls are recorded too.
                 embed_client = build_async_openai(
                     api_key=embedding.api_key,
                     base_url=embedding.base_url,
@@ -180,6 +184,11 @@ async def open_container(
             )
             container.collections = build_collection_service(
                 settings, database.sessions, index=index, clock=clock
+            )
+            container.maintenance = Maintenance(
+                conninfo=settings.postgres.conninfo,
+                session_lifetime_seconds=settings.auth.session_lifetime_seconds,
+                collections=container.collections,
             )
             container.publishing = build_publishing(
                 settings,

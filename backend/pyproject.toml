@@ -1,7 +1,7 @@
 [project]
 name = "pharma-agent"
 version = "0.1.0"
-description = "Pharma AI agent backend over the Vietnamese National Drug Formulary corpus"
+description = "ViPharmind backend: a pharma AI agent over a multi-collection pharma corpus"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

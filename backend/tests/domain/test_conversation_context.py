@@ -35,5 +35,5 @@ def test_trims_oldest_turns_to_fit_max_chars() -> None:
 def test_summary_alone_is_cut_to_max_chars() -> None:
     context = context_for_rephrase("s" * 500, [], max_turns=4, max_chars=100)
     assert len(context.summary) == 100 and context.turns == []
-    assert context.is_empty is False
-    assert context_for_rephrase("", [], max_turns=4, max_chars=100).is_empty is True
+    empty = context_for_rephrase("", [], max_turns=4, max_chars=100)
+    assert empty.summary == "" and empty.turns == []

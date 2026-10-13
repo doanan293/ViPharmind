@@ -1,7 +1,7 @@
 """CSRF protection for cookie sessions with starlette-csrf (double submit cookie).
 
-Only unsafe requests that carry the session cookie are checked, so bearer clients (CLI,
-tests) are unaffected. The middleware answers before routing, so FastAPI's exception
+Only unsafe requests that carry the session cookie are checked; anonymous requests such
+as registration or login need no token. The middleware answers before routing, so FastAPI's exception
 handlers never see a CSRF failure; the documented `_get_error_response` hook renders it
 with the same problem helper those handlers use.
 """

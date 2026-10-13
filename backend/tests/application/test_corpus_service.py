@@ -19,6 +19,7 @@ from pharma_agent.domain.retrieval.ports import RetrievalError
 from tests.corpus_fixtures import (
     DOSAGE_SECTION,
     LEAFLET_SECTION,
+    embedding_texts,
     small_bundle,
     small_bundle_embeddings,
     with_renamed_documents,
@@ -184,7 +185,7 @@ async def test_reindex_rebuilds_every_point_with_fresh_embeddings() -> None:
     assert s.adapters.index.release_ids_of(shared) == sorted([r1.id, r2.id])
     embedded = sorted(text for batch in s.embedder.batches for text in batch)
     assert embedded == sorted(
-        {**snapshot1.embedding_texts(), **snapshot2.embedding_texts()}.values()
+        {**embedding_texts(snapshot1), **embedding_texts(snapshot2)}.values()
     )
 
 

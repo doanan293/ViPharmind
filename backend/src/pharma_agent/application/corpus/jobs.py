@@ -1,8 +1,9 @@
 """Publishing authored content through a background job (spec §5.1, §5.3).
 
-`publish` only records a queued job and hands it to the dispatcher. `run` does the work
-when the dispatcher calls back: it is idempotent, so a retry after a failure resumes the
-same release, and a call for a finished job changes nothing.
+`publish` records a queued job and hands it to the dispatcher, which runs it later or,
+inline, before `publish` answers. `run` does the work when the dispatcher calls back: it
+is idempotent, so a retry after a failure resumes the same release, and a call for a
+finished job changes nothing.
 """
 
 import logging
@@ -94,7 +95,7 @@ class PublishService:
         tx: TransactionFactory,
         clock: Clock,
         max_attempts: int = 3,
-        stale_after: timedelta = timedelta(minutes=40),
+        stale_after: timedelta,
     ) -> None:
         self._collections = collections
         self._sources = sources
@@ -196,7 +197,8 @@ class PublishService:
                 )
             )
             raise
-        return await self._view(job)
+        # The dispatcher may have started or, inline, finished the job: report its state.
+        return await self._view(await self._jobs.get(job.id) or job)
 
     def _is_stale(self, job: IngestJob) -> bool:
         started = job.started_at or job.created_at

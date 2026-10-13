@@ -69,10 +69,6 @@ class ConversationContext(BaseModel):
     summary: str = ""
     turns: list[Turn] = Field(default_factory=list)
 
-    @property
-    def is_empty(self) -> bool:
-        return not self.summary and not self.turns
-
 
 class ConversationSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")

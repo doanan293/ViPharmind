@@ -78,7 +78,7 @@ def _replace_refs(node: object, renames: dict[str, str]) -> None:
 def _name_body_schemas(document: dict[str, Any]) -> None:
     """Name form bodies `Body_<operation id>` with only [A-Za-z0-9_] characters.
 
-    FastAPI titles them after the operation id; for ids like `auth:jwt.login` it
+    FastAPI titles them after the operation id; for ids like `auth:cookie.login` it
     shortens the component to `login`, or module-qualifies it on a name clash.
     """
     schemas: dict[str, Any] = document.get("components", {}).get("schemas", {})

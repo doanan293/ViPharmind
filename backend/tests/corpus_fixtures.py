@@ -30,6 +30,7 @@ from pharma_agent.domain.corpus.bundle import (
 )
 from pharma_agent.domain.corpus.chunking import chunk_section
 from pharma_agent.domain.corpus.identity import sha256_hex
+from pharma_agent.domain.corpus.models import CorpusSnapshot
 from tests.fakes import FAKE_EMBEDDING_MODEL, fake_vector
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "knowledge_bundle_small"
@@ -304,6 +305,13 @@ def small_bundle_embeddings(model: str, dims: int) -> dict[str, list[float]]:
 def no_bundle_embeddings(model: str, dims: int) -> dict[str, list[float]]:
     """A bundle that ships no vectors for any model."""
     return {}
+
+
+def embedding_texts(snapshot: CorpusSnapshot) -> dict[str, str]:
+    """Every distinct text the snapshot's chunks embed, keyed by its sha256."""
+    return {
+        chunk.embedding_text_sha256: chunk.embedding_text for chunk in snapshot.chunks
+    }
 
 
 def with_section_text(

@@ -450,24 +450,6 @@
         "title": "AuditPage",
         "type": "object"
       },
-      "BearerResponse": {
-        "properties": {
-          "access_token": {
-            "title": "Access Token",
-            "type": "string"
-          },
-          "token_type": {
-            "title": "Token Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "access_token",
-          "token_type"
-        ],
-        "title": "BearerResponse",
-        "type": "object"
-      },
       "Body_auth_cookie_login": {
         "properties": {
           "client_id": {
@@ -525,65 +507,6 @@
           "password"
         ],
         "title": "Body_auth_cookie_login",
-        "type": "object"
-      },
-      "Body_auth_jwt_login": {
-        "properties": {
-          "client_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Client Id"
-          },
-          "client_secret": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "format": "password",
-            "title": "Client Secret"
-          },
-          "grant_type": {
-            "anyOf": [
-              {
-                "pattern": "^password$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Grant Type"
-          },
-          "password": {
-            "format": "password",
-            "title": "Password",
-            "type": "string"
-          },
-          "scope": {
-            "default": "",
-            "title": "Scope",
-            "type": "string"
-          },
-          "username": {
-            "title": "Username",
-            "type": "string"
-          }
-        },
-        "required": [
-          "username",
-          "password"
-        ],
-        "title": "Body_auth_jwt_login",
         "type": "object"
       },
       "Body_documents_upload": {
@@ -3182,20 +3105,11 @@
         "in": "cookie",
         "name": "pharma_session",
         "type": "apiKey"
-      },
-      "OAuth2PasswordBearer": {
-        "flows": {
-          "password": {
-            "scopes": {},
-            "tokenUrl": "/api/v1/auth/jwt/login"
-          }
-        },
-        "type": "oauth2"
       }
     }
   },
   "info": {
-    "title": "Pharma Agent API",
+    "title": "ViPharmind API",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
@@ -3269,9 +3183,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Audit:Mine",
@@ -3351,9 +3262,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Account:Email.Request",
@@ -3430,9 +3338,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Account:Email.Confirm",
@@ -3479,9 +3384,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Account:Google.Unlink",
@@ -3541,9 +3443,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Account:Password.Change",
@@ -3623,9 +3522,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Account:Phone.Request",
@@ -3702,9 +3598,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Account:Phone.Confirm",
@@ -3734,9 +3627,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Account:Sessions.Revoke Others",
@@ -3775,9 +3665,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Account:Sessions.List",
@@ -3838,9 +3725,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Account:Sessions.Revoke",
@@ -3928,9 +3812,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Admin:Audit",
@@ -3991,9 +3872,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Admin:Collections.List",
@@ -4068,9 +3946,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Admin:Ingest Jobs.List",
@@ -4158,9 +4033,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Admin:Organizations.List",
@@ -4239,9 +4111,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Admin:Organizations.Update",
@@ -4346,9 +4215,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Admin:Users.List",
@@ -4427,9 +4293,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Admin:Users.Update",
@@ -4527,9 +4390,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Admin:Users.Conversations",
@@ -4637,9 +4497,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Admin:Conversations.Messages",
@@ -4729,9 +4586,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Auth:Cookie.Logout",
@@ -4900,9 +4754,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Oauth-Associate:Google.Authorize",
@@ -5016,9 +4867,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Oauth-Associate:Google.Callback",
@@ -5173,98 +5021,6 @@
           }
         },
         "summary": "Oauth:Google.Cookie.Callback",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v1/auth/jwt/login": {
-      "post": {
-        "operationId": "auth:jwt.login",
-        "requestBody": {
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_auth_jwt_login"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiOTIyMWZmYzktNjQwZi00MzcyLTg2ZDMtY2U2NDJjYmE1NjAzIiwiYXVkIjoiZmFzdGFwaS11c2VyczphdXRoIiwiZXhwIjoxNTcxNTA0MTkzfQ.M10bjOe45I5Ncu_uXvOmVV8QxnL-nZfcH96U90JaocI",
-                  "token_type": "bearer"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/BearerResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Auth:Jwt.Login",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v1/auth/jwt/logout": {
-      "post": {
-        "operationId": "auth:jwt.logout",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Missing token or inactive user."
-          }
-        },
-        "security": [
-          {
-            "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Auth:Jwt.Logout",
         "tags": [
           "auth"
         ]
@@ -5595,9 +5351,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Chat",
@@ -5674,9 +5427,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Chat Stream",
@@ -5743,9 +5493,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:List",
@@ -5820,9 +5567,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Create",
@@ -5908,9 +5652,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Quota",
@@ -5982,9 +5723,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Delete",
@@ -6061,9 +5799,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Get",
@@ -6150,9 +5885,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Update",
@@ -6235,9 +5967,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Colloquial.Get",
@@ -6332,9 +6061,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Colloquial.Put",
@@ -6417,9 +6143,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Documents:List",
@@ -6506,9 +6229,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Documents:Create",
@@ -6607,9 +6327,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Documents:Upload",
@@ -6691,9 +6408,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Documents:Delete",
@@ -6780,9 +6494,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Documents:Get",
@@ -6879,9 +6590,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Documents:Update",
@@ -6964,9 +6672,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Glossary.Get",
@@ -7061,9 +6766,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Glossary.Put",
@@ -7152,9 +6854,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Publish",
@@ -7237,9 +6936,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Releases",
@@ -7318,9 +7014,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Rollback",
@@ -7403,9 +7096,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Collections:Sections",
@@ -7505,9 +7195,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "List Conversations",
@@ -7572,9 +7259,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Create Conversation",
@@ -7646,9 +7330,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Delete Conversation",
@@ -7725,9 +7406,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Get Conversation",
@@ -7814,9 +7492,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Update Conversation",
@@ -7926,9 +7601,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "List Messages",
@@ -8043,9 +7715,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Jobs:Get",
@@ -8181,9 +7850,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Invitations:Accept",
@@ -8257,9 +7923,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Invitations:Decline",
@@ -8349,9 +8012,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Get Message Citation",
@@ -8440,9 +8100,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Submit Feedback",
@@ -8513,9 +8170,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Organizations:List",
@@ -8590,9 +8244,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Organizations:Create",
@@ -8674,9 +8325,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Organizations:Delete",
@@ -8753,9 +8401,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Organizations:Get",
@@ -8842,9 +8487,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Organizations:Rename",
@@ -8952,9 +8594,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Audit:Organization",
@@ -9037,9 +8676,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Invitations:List",
@@ -9156,9 +8792,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Invitations:Create",
@@ -9277,9 +8910,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Invitations:Approve",
@@ -9378,9 +9008,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Invitations:Reject",
@@ -9499,9 +9126,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Invitations:Resend",
@@ -9600,9 +9224,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Invitations:Revoke",
@@ -9684,9 +9305,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Organizations:Leave",
@@ -9769,9 +9387,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Organizations:Members.List",
@@ -9863,9 +9478,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Organizations:Members.Remove",
@@ -9965,9 +9577,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Organizations:Members.Set Role",
@@ -10004,9 +9613,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Users:Current User",
@@ -10061,9 +9667,6 @@
         "security": [
           {
             "APIKeyCookie": []
-          },
-          {
-            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Users:Patch Current User",

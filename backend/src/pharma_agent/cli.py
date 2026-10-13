@@ -19,12 +19,10 @@ from pharma_agent.domain.corpus.bundle import (
     read_bundle_embeddings,
 )
 from pharma_agent.domain.corpus.models import ReleaseSummary
+from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.retrieval.models import Hit, HydrateStrategy, page_label
 from pharma_agent.domain.shared.errors import DomainError
-from pharma_agent.infrastructure.auth.session_cleanup import (
-    delete_expired_access_tokens,
-    delete_stale_account_rows,
-)
+from pharma_agent.infrastructure.auth.session_cleanup import clean_account_tables
 from pharma_agent.infrastructure.auth.superadmin import (
     list_superadmins,
     set_superadmin,
@@ -145,16 +143,18 @@ def check() -> None:
         raise typer.Exit(code=1)
 
 
+def _llm_status(settings: Settings) -> tuple[str, bool, str]:
+    if not settings.llm.configured:
+        return ("llm", False, "missing PHARMA_LLM__DEFAULT__API_KEY")
+    try:
+        models = {settings.llm.resolve(role).model for role in LlmRole}
+    except ValueError as exc:
+        return ("llm", False, str(exc))
+    return ("llm", True, ", ".join(sorted(models)))
+
+
 async def _check(settings: Settings) -> list[tuple[str, bool, str]]:
-    results: list[tuple[str, bool, str]] = [
-        (
-            "llm",
-            settings.llm.configured,
-            "api key configured"
-            if settings.llm.configured
-            else "missing PHARMA_LLM__DEFAULT__API_KEY",
-        )
-    ]
+    results: list[tuple[str, bool, str]] = [_llm_status(settings)]
     retrieval = build_retrieval_service(settings)
     embedding = settings.retrieval.embedding
     try:
@@ -275,14 +275,15 @@ def cleanup_sessions() -> None:
     """Xóa phiên đăng nhập hết hạn, mã OTP và bộ đếm giới hạn cũ."""
     settings = load_settings()
     lifetime = settings.auth.session_lifetime_seconds
-    deleted = asyncio.run(
-        delete_expired_access_tokens(
-            settings.postgres.conninfo, lifetime_seconds=lifetime
+    cleanup = asyncio.run(
+        clean_account_tables(
+            settings.postgres.conninfo, session_lifetime_seconds=lifetime
         )
     )
-    typer.echo(f"deleted {deleted} sessions older than {lifetime} seconds")
-    codes, buckets = asyncio.run(delete_stale_account_rows(settings.postgres.conninfo))
-    typer.echo(f"deleted {codes} codes and {buckets} rate limit buckets")
+    typer.echo(f"deleted {cleanup.sessions} sessions older than {lifetime} seconds")
+    typer.echo(
+        f"deleted {cleanup.codes} codes and {cleanup.rate_limit_buckets} rate limit buckets"
+    )
 
 
 superadmin_app = typer.Typer(
@@ -495,7 +496,11 @@ def corpus_gc(
 def corpus_reindex(
     collection: str = typer.Option(..., "--collection", help="Key của collection"),
 ) -> None:
-    """Dựng lại point Qdrant của các release chưa retire từ Postgres và embedding cache."""
+    """Dựng lại point Qdrant của các release chưa retire từ chunk trong Postgres.
+
+    Không có embedding cache: mọi chunk được embed lại qua model embedding hiện tại, nên
+    lệnh này tốn tiền gọi API với corpus lớn.
+    """
 
     async def action(services: CorpusServices) -> None:
         report = await services.releases.reindex(collection)

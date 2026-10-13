@@ -25,9 +25,9 @@ from pharma_agent.api.routers.conversations import build_conversations_router
 from pharma_agent.api.routers.documents import build_documents_router
 from pharma_agent.api.routers.feedback import build_feedback_router
 from pharma_agent.api.routers.health import build_health_router
-from pharma_agent.api.routers.internal import build_internal_router
 from pharma_agent.api.routers.invitations import build_invitations_router
 from pharma_agent.api.routers.jobs import build_jobs_router
+from pharma_agent.api.routers.maintenance import build_maintenance_router
 from pharma_agent.api.routers.organizations import build_organizations_router
 from pharma_agent.infrastructure.auth.users import build_auth, include_auth_routes
 from pharma_agent.infrastructure.container import ContainerFactory, open_container
@@ -49,7 +49,7 @@ def create_app(
             yield
 
     app = PharmaAgentAPI(
-        title="Pharma Agent API",
+        title="ViPharmind API",
         version="0.1.0",
         lifespan=lifespan,
         generate_unique_id_function=lambda route: route.name,
@@ -61,7 +61,11 @@ def create_app(
         if resolved.api.proxy_secret is None
         else resolved.api.proxy_secret.get_secret_value()
     )
-    app.state.jobs_settings = resolved.jobs
+    app.state.cron_secret = (
+        None
+        if resolved.cron_secret is None
+        else resolved.cron_secret.get_secret_value()
+    )
     app.state.phone_sign_in_enabled = resolved.sms.provider != "none"
     app.state.google_sign_in_enabled = resolved.auth.google_enabled
     install_csrf(app, resolved.auth)
@@ -93,6 +97,6 @@ def create_app(
     api.include_router(build_documents_router(current_actor))
     api.include_router(build_jobs_router(current_actor))
     api.include_router(build_admin_router(superadmin_dependency(current_actor)))
-    api.include_router(build_internal_router())
+    api.include_router(build_maintenance_router())
     app.include_router(api)
     return app

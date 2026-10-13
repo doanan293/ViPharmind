@@ -1,5 +1,10 @@
-"""fastapi-users wiring: cookie sessions for browsers, JWT bearer for CLI and tests,
-registration, current user and Google OAuth."""
+"""fastapi-users wiring: cookie sessions backed by the access_tokens table, registration,
+current user and Google OAuth.
+
+Every session is a database row, so logging out or revoking a session takes effect at
+once. PHARMA_AUTH__JWT_SECRET only signs the short-lived OAuth state and the user
+manager's reset and verification tokens; there is no JWT login.
+"""
 
 import logging
 import uuid
@@ -17,12 +22,7 @@ from fastapi_users import (
     exceptions,
     schemas,
 )
-from fastapi_users.authentication import (
-    AuthenticationBackend,
-    BearerTransport,
-    CookieTransport,
-    JWTStrategy,
-)
+from fastapi_users.authentication import AuthenticationBackend, CookieTransport
 from fastapi_users.authentication.strategy.db import DatabaseStrategy
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
@@ -43,7 +43,6 @@ from pharma_agent.infrastructure.settings import AuthSettings
 
 logger = logging.getLogger(__name__)
 
-LOGIN_URL = "/api/v1/auth/jwt/login"
 SESSION_COOKIE_NAME = "pharma_session"
 # `last_used_at` is written at most this often, not on every authenticated request.
 SESSION_TOUCH_INTERVAL = timedelta(minutes=5)
@@ -262,7 +261,6 @@ class TrackedDatabaseStrategy(DatabaseStrategy[UserTable, uuid.UUID, AccessToken
 class Auth:
     users: FastAPIUsers[UserTable, uuid.UUID]
     cookie_backend: AuthenticationBackend[UserTable, uuid.UUID]
-    jwt_backend: AuthenticationBackend[UserTable, uuid.UUID]
     current_active_user: Callable[..., Any]
     login_session: Callable[..., Any]
     google: GoogleOAuth2 | None
@@ -314,11 +312,6 @@ def build_auth(
             ip_address=_client_ip(request) or "",
         )
 
-    def get_jwt_strategy() -> JWTStrategy[UserTable, uuid.UUID]:
-        return JWTStrategy(
-            secret=secret, lifetime_seconds=settings.jwt_lifetime_seconds
-        )
-
     cookie_backend = AuthenticationBackend(
         name="cookie",
         transport=CookieTransport(
@@ -341,17 +334,12 @@ def build_auth(
 
         return login
 
-    jwt_backend = AuthenticationBackend(
-        name="jwt",
-        transport=BearerTransport(tokenUrl=LOGIN_URL),
-        get_strategy=get_jwt_strategy,
-    )
     # False positive: pyrefly 1.3.0 orders the type parameters of the generic alias
     # `UserManagerDependency[UP, ID]` by TypeVar declaration order (ID, UP) instead of
     # first appearance, so it expects BaseUserManager[UUID, UserTable]. Types are correct.
     users = FastAPIUsers[UserTable, uuid.UUID](
         get_user_manager,  # pyrefly: ignore[bad-argument-type]
-        [cookie_backend, jwt_backend],
+        [cookie_backend],
     )
     google = None
     if (
@@ -365,7 +353,6 @@ def build_auth(
     return Auth(
         users=users,
         cookie_backend=cookie_backend,
-        jwt_backend=jwt_backend,
         current_active_user=users.current_user(active=True),
         login_session=get_session_login,
         google=google,
@@ -380,9 +367,6 @@ def include_auth_routes(router: APIRouter, auth: Auth) -> None:
         auth.users.get_auth_router(auth.cookie_backend),
         prefix="/auth/cookie",
         tags=["auth"],
-    )
-    router.include_router(
-        auth.users.get_auth_router(auth.jwt_backend), prefix="/auth/jwt", tags=["auth"]
     )
     router.include_router(
         auth.users.get_register_router(UserRead, UserCreate),

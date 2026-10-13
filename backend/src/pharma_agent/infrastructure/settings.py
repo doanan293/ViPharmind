@@ -8,39 +8,18 @@ from pydantic import (
     SecretStr,
     ValidationInfo,
     field_validator,
-    model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.llm.models import LlmRole
 
-DEFAULT_ROLE_MODELS: dict[LlmRole, str] = {
-    LlmRole.GUARDRAIL: "gpt-5-nano",
-    LlmRole.REPHRASE: "gpt-5-nano",
-    LlmRole.SUMMARIZER: "gpt-5-nano",
-    LlmRole.JUDGE: "gpt-5-mini",
-    LlmRole.REFINE: "gpt-5-mini",
-    LlmRole.ANSWER: "gpt-5-mini",
-}
-
-# Applied only while a role runs its built-in model: these are reasoning models whose default
-# effort ("medium") bills hidden reasoning tokens. Custom models get no reasoning_effort unless
-# it is set explicitly, because many OpenAI-compatible servers reject the parameter.
-DEFAULT_ROLE_REASONING: dict[LlmRole, ReasoningEffort] = {
-    LlmRole.GUARDRAIL: "minimal",
-    LlmRole.REPHRASE: "minimal",
-    LlmRole.SUMMARIZER: "minimal",
-    LlmRole.JUDGE: "low",
-    LlmRole.REFINE: "low",
-    LlmRole.ANSWER: "low",
-}
-
 
 class LlmEndpoint(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
     model: str | None = None
+    # Sent only when set: many OpenAI-compatible servers reject the parameter.
     reasoning_effort: ReasoningEffort = None
     # Provider-specific request fields passed as the OpenAI SDK's extra_body, e.g.
     # {"chat_template_kwargs": {"enable_thinking": false}} for Qwen on vLLM/DeepInfra.
@@ -77,15 +56,16 @@ class LlmSettings(BaseModel):
                 f"no api_key for LLM role {role.value}: set PHARMA_LLM__DEFAULT__API_KEY"
             )
         model = override.model or self.default.model
-        effort = override.reasoning_effort or self.default.reasoning_effort
-        if model is None:
-            model = DEFAULT_ROLE_MODELS[role]
-            effort = effort or DEFAULT_ROLE_REASONING[role]
+        if not model:
+            raise ValueError(
+                f"no model for LLM role {role.value}: set PHARMA_LLM__DEFAULT__MODEL "
+                f"or PHARMA_LLM__ROLES__{role.name}__MODEL"
+            )
         return ResolvedEndpoint(
             base_url=override.base_url or self.default.base_url,
             api_key=api_key,
             model=model,
-            reasoning_effort=effort,
+            reasoning_effort=override.reasoning_effort or self.default.reasoning_effort,
             extra_body=override.extra_body or self.default.extra_body,
         )
 
@@ -163,7 +143,6 @@ class PostgresSettings(BaseModel):
 
 class AuthSettings(BaseModel):
     jwt_secret: SecretStr | None = None
-    jwt_lifetime_seconds: int = 7 * 24 * 3600
     session_lifetime_seconds: int = Field(default=7 * 24 * 3600, ge=60)
     # Browsers accept Secure cookies on http://localhost, so this stays on in development.
     cookie_secure: bool = True
@@ -239,10 +218,11 @@ class JobsSettings(BaseModel):
     """
 
     dispatcher: Literal["inprocess", "inline"] = "inprocess"
-    # The X-Internal-Token header that /internal calls must carry.
-    internal_token: SecretStr | None = None
     max_attempts: int = Field(default=3, ge=1)
-    dispatch_deadline_seconds: int = Field(default=600, ge=15, le=1800)
+    # An open job older than this has no runner left, so the next publish takes over. It
+    # must outlast any runner: Vercel stops an inline publish request after its maxDuration
+    # (300 s in backend/vercel.json). Raise it when `inprocess` embeds on slow hardware.
+    stale_after_seconds: int = Field(default=330, ge=60)
 
 
 class QuotaSettings(BaseModel):
@@ -299,11 +279,13 @@ class Settings(BaseSettings):
     corpus: CorpusSettings = Field(default_factory=CorpusSettings)
     quotas: QuotaSettings = Field(default_factory=QuotaSettings)
     jobs: JobsSettings = Field(default_factory=JobsSettings)
-    # Container hosts tell the server which port to listen on in PORT (no prefix).
-    platform_port: int | None = Field(default=None, validation_alias="PORT")
+    # Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` only from a variable with
+    # exactly that name, so this one has no PHARMA_ prefix. Unset, maintenance is refused.
+    cron_secret: SecretStr | None = Field(default=None, validation_alias="CRON_SECRET")
 
-    @model_validator(mode="after")
-    def _listen_on_the_platform_port(self) -> "Settings":
-        if self.platform_port is not None and "port" not in self.api.model_fields_set:
-            self.api.port = self.platform_port
-        return self
+    @field_validator("cron_secret")
+    @classmethod
+    def _cron_secret_length(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and len(value.get_secret_value()) < 32:
+            raise ValueError("CRON_SECRET must be at least 32 characters")
+        return value

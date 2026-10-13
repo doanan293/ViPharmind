@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 class InProcessDispatcher:
-    """`run` raises while the job has attempts left (a queue would retry it), so this
-    calls it again after a pause, like a queue retry, until it returns or `max_runs`."""
+    """`run` raises while the job has attempts left, so this calls it again after a
+    pause until it returns or `max_runs` (the job's max attempts) is reached."""
 
     def __init__(
         self,

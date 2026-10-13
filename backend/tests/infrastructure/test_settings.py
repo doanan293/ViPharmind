@@ -7,6 +7,7 @@ from pharma_agent.infrastructure.settings import Settings
 
 def test_defaults_match_spec(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-test")
+    monkeypatch.delenv("PHARMA_LLM__DEFAULT__MODEL", raising=False)
     settings = Settings(_env_file=None)
     assert settings.retrieval.qdrant_collection == "chunks_current"
     assert settings.retrieval.collections == ["formulary"]
@@ -23,14 +24,16 @@ def test_defaults_match_spec(monkeypatch: pytest.MonkeyPatch) -> None:
     assert (
         settings.budget.max_llm_calls == 10 and settings.budget.deadline_seconds == 90
     )
-    assert settings.llm.resolve(LlmRole.GUARDRAIL).model == "gpt-5-nano"
-    assert settings.llm.resolve(LlmRole.ANSWER).model == "gpt-5-mini"
-    assert settings.llm.resolve(LlmRole.ANSWER).api_key == "sk-test"
+    # No built-in model: a role without one fails at startup instead of guessing.
+    with pytest.raises(ValueError, match="PHARMA_LLM__ROLES__ANSWER__MODEL"):
+        settings.llm.resolve(LlmRole.ANSWER)
     assert settings.langfuse.enabled is False
+    assert settings.jobs.stale_after_seconds == 330
 
 
 def test_role_override_and_nested_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-cloud")
+    monkeypatch.setenv("PHARMA_LLM__DEFAULT__MODEL", "Qwen/Qwen3.5-9B")
     monkeypatch.setenv(
         "PHARMA_LLM__ROLES__ANSWER__BASE_URL", "http://localhost:8000/v1"
     )
@@ -51,7 +54,7 @@ def test_role_override_and_nested_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert (judge.base_url, judge.api_key, judge.model) == (
         None,
         "sk-cloud",
-        "gpt-5-mini",
+        "Qwen/Qwen3.5-9B",
     )
     assert settings.retrieval.rerank.protocol == "none"
     assert settings.qdrant.url == "http://qdrant:6333"
@@ -101,24 +104,36 @@ def test_short_jwt_secret_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
         Settings(_env_file=None)
 
 
-def test_reasoning_effort_defaults_apply_only_to_built_in_models(
+def test_reasoning_effort_is_sent_only_when_set(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-cloud")
-    monkeypatch.setenv("PHARMA_LLM__ROLES__ANSWER__MODEL", "qwen3-8b")
+    monkeypatch.setenv("PHARMA_LLM__DEFAULT__MODEL", "Qwen/Qwen3.5-9B")
     monkeypatch.setenv("PHARMA_LLM__ROLES__JUDGE__REASONING_EFFORT", "medium")
     settings = Settings(_env_file=None)
-    assert settings.llm.resolve(LlmRole.GUARDRAIL).reasoning_effort == "minimal"
-    assert settings.llm.resolve(LlmRole.SUMMARIZER).reasoning_effort == "minimal"
-    assert settings.llm.resolve(LlmRole.REFINE).reasoning_effort == "low"
+    assert settings.llm.resolve(LlmRole.GUARDRAIL).reasoning_effort is None
     assert settings.llm.resolve(LlmRole.JUDGE).reasoning_effort == "medium"
-    assert settings.llm.resolve(LlmRole.ANSWER).reasoning_effort is None
+    monkeypatch.setenv("PHARMA_LLM__DEFAULT__REASONING_EFFORT", "low")
+    settings = Settings(_env_file=None)
+    assert settings.llm.resolve(LlmRole.ANSWER).reasoning_effort == "low"
+    assert settings.llm.resolve(LlmRole.JUDGE).reasoning_effort == "medium"
+
+
+def test_a_role_override_supplies_its_own_model() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm={"default": {"api_key": "sk"}, "roles": {"answer": {"model": "big"}}},
+    )
+    assert settings.llm.resolve(LlmRole.ANSWER).model == "big"
+    with pytest.raises(ValueError, match="no model for LLM role judge"):
+        settings.llm.resolve(LlmRole.JUDGE)
 
 
 def test_role_extra_body_is_read_from_json_and_inherits_the_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-cloud")
+    monkeypatch.setenv("PHARMA_LLM__DEFAULT__MODEL", "Qwen/Qwen3.5-9B")
     monkeypatch.setenv(
         "PHARMA_LLM__DEFAULT__EXTRA_BODY", '{"chat_template_kwargs": {"x": 1}}'
     )
@@ -136,7 +151,9 @@ def test_role_extra_body_is_read_from_json_and_inherits_the_default(
 
 
 def test_extra_body_is_unset_by_default() -> None:
-    settings = Settings(_env_file=None, llm={"default": {"api_key": "sk"}})
+    settings = Settings(
+        _env_file=None, llm={"default": {"api_key": "sk", "model": "m"}}
+    )
     assert settings.llm.resolve(LlmRole.ANSWER).extra_body is None
 
 
@@ -259,23 +276,8 @@ def test_email_and_sms_settings_from_env(monkeypatch: pytest.MonkeyPatch) -> Non
     assert settings.sms.allowed_country_codes == ["VN", "US"]
 
 
-def test_the_platform_port_sets_the_api_port(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("PORT", "8080")
-    assert Settings(_env_file=None).api.port == 8080
-
-
-def test_an_explicit_api_port_wins_over_port(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("PORT", "8080")
-    monkeypatch.setenv("PHARMA_API__PORT", "9000")
-    assert Settings(_env_file=None).api.port == 9000
-
-
-def test_retired_email_providers_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("PHARMA_EMAIL__PROVIDER", "smtp")
-    with pytest.raises(ValidationError, match="provider"):
-        Settings(_env_file=None)
-
-
 def test_jobs_can_run_inline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PHARMA_JOBS__DISPATCHER", "inline")
-    assert Settings(_env_file=None).jobs.dispatcher == "inline"
+    monkeypatch.setenv("PHARMA_JOBS__STALE_AFTER_SECONDS", "900")
+    jobs = Settings(_env_file=None).jobs
+    assert (jobs.dispatcher, jobs.stale_after_seconds) == ("inline", 900)
