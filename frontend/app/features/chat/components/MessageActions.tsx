@@ -5,10 +5,6 @@ import { useTranslation } from "react-i18next"
 
 import { useSubmitFeedback } from "~/api/gen/endpoints"
 import type { MessageFeedback } from "~/api/gen/schemas"
-import {
-  FeedbackDialog,
-  type FeedbackReason,
-} from "~/components/elements/feedback-dialog"
 import { Button } from "~/components/ui/button"
 import {
   Dialog,
@@ -22,6 +18,7 @@ import { cn } from "~/lib/utils"
 
 import { composeFeedbackNote } from "../lib/feedback-note"
 
+import { FeedbackDialog, type FeedbackReason } from "./elements/feedback-dialog"
 export type MessageActionsProps = {
   conversationId: string
   messageId: string

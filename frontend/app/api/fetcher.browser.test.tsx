@@ -2,6 +2,7 @@ import { http, HttpResponse } from "msw"
 import { afterEach, describe, expect, test } from "vitest"
 
 import { fetcher } from "~/api/fetcher"
+import { ApiError } from "~/api/problem"
 
 import { worker } from "../../tests/msw/browser"
 
@@ -54,5 +55,46 @@ describe("fetcher in the browser", () => {
     document.documentElement.lang = "en"
     await fetcher("/api/v1/probe")
     expect(language).toBe("en")
+  })
+
+  test("throws ApiError built from problem+json", async () => {
+    worker.use(
+      http.get("/api/v1/conversations/7f0c", () =>
+        HttpResponse.json(
+          {
+            type: "urn:pharma-agent:problem:conversation-not-found",
+            title: "Conversation not found",
+            status: 404,
+            code: "CONVERSATION_NOT_FOUND",
+          },
+          {
+            status: 404,
+            headers: { "Content-Type": "application/problem+json" },
+          }
+        )
+      )
+    )
+
+    const request = fetcher("/api/v1/conversations/7f0c")
+
+    await expect(request).rejects.toBeInstanceOf(ApiError)
+    await expect(request).rejects.toHaveProperty("status", 404)
+    await expect(request).rejects.toHaveProperty(
+      "code",
+      "CONVERSATION_NOT_FOUND"
+    )
+  })
+
+  test("resolves null for an empty 204 response", async () => {
+    worker.use(
+      http.post(
+        "/api/v1/auth/cookie/logout",
+        () => new HttpResponse(null, { status: 204 })
+      )
+    )
+
+    await expect(
+      fetcher("/api/v1/auth/cookie/logout", { method: "POST" })
+    ).resolves.toBeNull()
   })
 })

@@ -57,7 +57,7 @@ import {
  * made generic: callers pass columns and rows. The block's row drag, row selection, demo
  * tabs and detail drawer are removed; sorting, the column picker and pagination stay.
  */
-export const dataTableFeatures = tableFeatures({
+const dataTableFeatures = tableFeatures({
   columnVisibilityFeature,
   rowPaginationFeature,
   rowSortingFeature,
@@ -65,7 +65,7 @@ export const dataTableFeatures = tableFeatures({
   sortedRowModel: createSortedRowModel(),
 })
 
-export type DataTableFeatures = typeof dataTableFeatures
+type DataTableFeatures = typeof dataTableFeatures
 
 export function dataTableColumns<TData extends RowData>() {
   return createColumnHelper<DataTableFeatures, TData>()

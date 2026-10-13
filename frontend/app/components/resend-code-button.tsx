@@ -12,7 +12,7 @@ function isRateLimited(error: unknown): boolean {
 }
 
 /** The backend's minimum gap between two codes to the same address. */
-export const RESEND_COOLDOWN_SECONDS = 60
+const RESEND_COOLDOWN_SECONDS = 60
 
 export function ResendCodeButton({
   onResend,

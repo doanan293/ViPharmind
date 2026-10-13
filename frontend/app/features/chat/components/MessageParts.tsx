@@ -1,9 +1,6 @@
 import { type ReactNode, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
-import { AgentStatus } from "~/components/elements/agent-status"
-import { ErrorState } from "~/components/elements/error-state"
-import { GuardrailNotice } from "~/components/elements/guardrail-notice"
 import { Bubble, BubbleContent } from "~/components/ui/bubble"
 import { Marker, MarkerContent } from "~/components/ui/marker"
 import { Message, MessageContent, MessageFooter } from "~/components/ui/message"
@@ -20,6 +17,9 @@ import {
 } from "../lib/message-view"
 
 import { AnswerMarkdown } from "./AnswerMarkdown"
+import { AgentStatus } from "./elements/agent-status"
+import { ErrorState } from "./elements/error-state"
+import { GuardrailNotice } from "./elements/guardrail-notice"
 import { EvidencePanel } from "./EvidencePanel"
 import { SourcesList } from "./SourcesList"
 

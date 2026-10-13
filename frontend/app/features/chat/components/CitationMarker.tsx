@@ -1,10 +1,10 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { Citation } from "~/components/elements/inline-citation"
 import { parseCiteIndex } from "~/features/chat/lib/cite-markers"
 
 import { useMessageCitations } from "./citation-context"
+import { Citation } from "./elements/inline-citation"
 import { usePageText } from "../lib/citation-format"
 
 export function CitationMarker(props: Record<string, unknown>) {

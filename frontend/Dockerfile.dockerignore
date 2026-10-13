@@ -1,10 +1,14 @@
 node_modules
 build
 .react-router
+.vercel
 tests
-docs
 coverage
 playwright-report
 test-results
+.vitest
+**/__screenshots__
 .env
 .env.*
+Dockerfile
+Dockerfile.dockerignore

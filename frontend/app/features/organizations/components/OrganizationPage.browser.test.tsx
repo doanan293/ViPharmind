@@ -145,6 +145,37 @@ describe("OrganizationPage", () => {
     await expect.element(page.getByLabelText("Vai trò của Bình")).toBeVisible()
   })
 
+  test("owners confirm before removing a member", async () => {
+    serve("owner")
+    let removed = 0
+    worker.use(
+      http.delete(`*/api/v1/organizations/${ORG}/members/${OTHER}`, () => {
+        removed += 1
+        return new HttpResponse(null, { status: 204 })
+      })
+    )
+    await open()
+    await page.getByRole("button", { name: "Xoá Bình" }).click()
+    const dialog = page.getByRole("alertdialog")
+    await expect
+      .element(dialog.getByText("Bình sẽ không còn truy cập tổ chức."))
+      .toBeVisible()
+    await dialog.getByRole("button", { name: "Huỷ" }).click()
+    await expect.element(dialog).not.toBeInTheDocument()
+    expect(removed).toBe(0)
+
+    const loadsBeforeRemove = served.members
+    await page.getByRole("button", { name: "Xoá Bình" }).click()
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Xoá", exact: true })
+      .click()
+    await expect.poll(() => removed).toBe(1)
+    await expect.element(page.getByRole("alertdialog")).not.toBeInTheDocument()
+    // The list reloads after the removal; wait for it before the handlers reset.
+    await expect.poll(() => served.members).toBe(loadsBeforeRemove + 1)
+  })
+
   test("a member's invitation waits for approval and an owner approves it", async () => {
     serve("member")
     const created: unknown[] = []

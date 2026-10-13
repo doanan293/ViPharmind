@@ -10,8 +10,7 @@
     "title": "Tạo tổ chức",
     "name": "Tên tổ chức",
     "submit": "Tạo",
-    "nameRequired": "Nhập tên tổ chức.",
-    "nameTooLong": "Tên tối đa 100 ký tự."
+    "nameRequired": "Nhập tên tổ chức."
   },
   "role": {
     "owner": "Chủ sở hữu",
@@ -46,10 +45,10 @@
     "name": "Tên",
     "email": "Email",
     "role": "Vai trò",
-    "joined": "Tham gia",
     "remove": "Xoá {{name}}",
     "removeTitle": "Xoá thành viên?",
     "removeDescription": "{{name}} sẽ không còn truy cập tổ chức.",
+    "removeConfirm": "Xoá",
     "roleOf": "Vai trò của {{name}}",
     "you": "bạn"
   },
@@ -93,7 +92,6 @@
     "register": "Tạo tài khoản",
     "accept": "Tham gia",
     "decline": "Từ chối",
-    "joined": "Bạn đã tham gia {{organization}}.",
     "declined": "Bạn đã từ chối lời mời.",
     "wrongEmail": "Lời mời này dành cho {{email}}, nhưng bạn đang đăng nhập bằng tài khoản khác.",
     "signOut": "Đăng xuất",

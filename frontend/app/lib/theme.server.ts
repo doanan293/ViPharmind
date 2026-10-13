@@ -14,7 +14,7 @@ export const themeSessionResolver = createThemeSessionResolver(
       maxAge: ONE_YEAR_SECONDS,
       // The cookie only holds "light" or "dark". React Router warns about unsigned
       // session cookies, so it is signed; the value is not sensitive.
-      secrets: [process.env.THEME_COOKIE_SECRET ?? "pharma-agent-theme"],
+      secrets: [process.env.THEME_COOKIE_SECRET ?? "vipharmind-theme"],
     },
   })
 )

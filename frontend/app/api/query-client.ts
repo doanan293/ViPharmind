@@ -20,7 +20,7 @@ export function shouldRetry(failureCount: number, error: Error): boolean {
   return failureCount < MAX_RETRIES
 }
 
-export function redirectToLogin(): void {
+function redirectToLogin(): void {
   const { pathname, search } = window.location
   if (pathname === "/login" || pathname === "/register") {
     return

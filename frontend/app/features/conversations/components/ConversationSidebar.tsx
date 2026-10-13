@@ -33,7 +33,7 @@ import { Alert, AlertDescription } from "~/components/ui/alert"
 import { DeleteConversationDialog } from "./DeleteConversationDialog"
 import { RenameConversationDialog } from "./RenameConversationDialog"
 
-export const CONVERSATION_PAGE_SIZE = 20
+const CONVERSATION_PAGE_SIZE = 20
 
 type PendingAction = {
   kind: "rename" | "delete"

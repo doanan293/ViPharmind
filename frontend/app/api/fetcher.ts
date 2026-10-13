@@ -2,25 +2,15 @@ import { toApiError } from "~/api/problem"
 import { CSRF_HEADER, readCsrfToken } from "~/lib/csrf"
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"])
-const DEFAULT_API_INTERNAL_URL = "http://127.0.0.1:8000"
-
-/** Same origin in the browser; the backend's internal URL when a loader calls the API. */
-export function apiBaseUrl(): string {
-  if (typeof document !== "undefined") {
-    return ""
-  }
-  return process.env.API_INTERNAL_URL ?? DEFAULT_API_INTERNAL_URL
-}
-
-/** The UI language, so codes and notices arrive in it. Loaders on the server send none. */
+/** The UI language, so codes and notices arrive in it. */
 function uiLanguage(): string | undefined {
-  if (typeof document === "undefined") {
-    return undefined
-  }
   return document.documentElement.lang || undefined
 }
 
-/** orval mutator for every generated request. */
+/**
+ * orval mutator for every generated request. Requests run only in the browser (route
+ * clientLoaders and TanStack Query), so the relative /api URL stays on the page's origin.
+ */
 export async function fetcher<T>(url: string, init?: RequestInit): Promise<T> {
   const method = (init?.method ?? "GET").toUpperCase()
   const headers = new Headers(init?.headers)
@@ -38,7 +28,7 @@ export async function fetcher<T>(url: string, init?: RequestInit): Promise<T> {
     }
   }
 
-  const response = await fetch(`${apiBaseUrl()}${url}`, {
+  const response = await fetch(url, {
     ...init,
     method,
     headers,

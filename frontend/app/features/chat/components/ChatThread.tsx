@@ -20,7 +20,7 @@ import { NewChat } from "./NewChat"
 import { toPharmaMessage } from "../lib/chat-messages"
 import { readInitialQuestion } from "../lib/location-state"
 
-export const HISTORY_PAGE_SIZE = 30
+const HISTORY_PAGE_SIZE = 30
 
 export type ChatThreadProps = {
   conversationId: string | undefined

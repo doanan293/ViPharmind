@@ -40,7 +40,6 @@ export const NAMESPACES = [
   "collections",
   "admin",
 ] as const
-export type Namespace = (typeof NAMESPACES)[number]
 
 export const resources = {
   vi: {
@@ -95,7 +94,7 @@ export function localeFromPath(pathname: string): Language | null {
 }
 
 /** Public pages besides the landing page; each also exists under `/en`. */
-export const PUBLIC_PAGE_PATHS = ["/privacy", "/terms"] as const
+const PUBLIC_PAGE_PATHS = ["/privacy", "/terms"] as const
 
 /** Public pages get their language from the URL so SSR, prerendered files and hreflang agree. */
 export function publicPageLocale(pathname: string): Language | null {

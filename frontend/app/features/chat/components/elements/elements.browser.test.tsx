@@ -2,7 +2,7 @@ import { useState } from "react"
 import { describe, expect, test, vi } from "vitest"
 import { page, userEvent } from "vitest/browser"
 
-import { renderWithProviders } from "../../../tests/chat/render"
+import { renderWithProviders } from "../../../../../tests/chat/render"
 
 import { AgentStatus } from "./agent-status"
 import { ErrorState } from "./error-state"
