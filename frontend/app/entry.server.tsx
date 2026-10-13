@@ -32,11 +32,9 @@ export default function handleRequest(
     let statusCode = responseStatusCode
     const userAgent = request.headers.get("user-agent")
 
-    // Bots and SPA mode wait for all content so crawlers get the full page.
+    // Bots wait for all content so crawlers get the full page.
     const readyOption: keyof RenderToPipeableStreamOptions =
-      (userAgent !== null && isbot(userAgent)) || routerContext.isSpaMode
-        ? "onAllReady"
-        : "onShellReady"
+      userAgent !== null && isbot(userAgent) ? "onAllReady" : "onShellReady"
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined = setTimeout(
       () => {

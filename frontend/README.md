@@ -1,6 +1,6 @@
-# pharma-agent-web
+# vipharmind-web
 
-The web frontend of the pharma AI agent: a React Router application with server rendering for the public pages and client-only chat and settings pages behind sign-in.
+The web frontend of ViPharmind: a React Router application with server rendering for the public pages and client-only chat and settings pages behind sign-in.
 
 ## Structure
 
@@ -18,13 +18,14 @@ Dependency rules:
 
 ## UI components
 
-Every widget comes from shadcn (style `base-nova`, on Base UI). Before building anything, check the registry with `npx shadcn@latest view <name>`; when a component or a block exists, install it with `npx shadcn@latest add <name>` and adapt the files the CLI writes (API data, translated labels, unused parts removed). Never retype a block as a new component. No second registry (no AI Elements) and no other UI library while shadcn or an installed package covers the need. Spec §8.1 has the full table.
+Every widget comes from shadcn (style `base-nova`, on Base UI). Before building anything, check the registry with `npx shadcn@latest view <name>`; when a component or a block exists, install it with `npx shadcn@latest add <name>` and adapt the files the CLI writes (API data, translated labels, unused parts removed). Never retype a block as a new component. No second registry (no AI Elements) and no other UI library while shadcn or an installed package covers the need. The list below records which shadcn component or block covers each part of the UI; keep it current when that changes.
 
 - App shell and admin dashboard: the `dashboard-01` block. `features/shell/components/{AppSidebar,NavMain,NavSecondary,NavUser,SiteHeader}.tsx` are its `app-sidebar`, `nav-*` and `site-header`; `app/components/section-cards.tsx` and `app/components/data-table.tsx` are its cards and data table (TanStack Table), made generic. The block's row drag, row selection, chart, demo data, `sonner` and `next-themes` are not kept.
 - Chat: shadcn's own `message`, `bubble`, `marker`, `message-scroller`, `input-group`; citations `hover-card`; sources `collapsible` + `item`.
 - Lists `item` and `empty`; errors `alert` or `FieldError`; forms react-hook-form + zod + `field`; multi-value fields and multi-selects `combobox` with chips; editor toolbar `toggle`, `button-group`, `tooltip`; rendered Markdown the Tailwind typography plugin (`prose`).
 - The only UI that is not shadcn: Tiptap (the document editor) and Streamdown (renders answer Markdown); shadcn has neither.
-- Shared compositions on top of shadcn live in `app/components/` (`tags-input`, `name-form`, `code-step`, `otp-code-field`).
+- Shared compositions on top of shadcn live in `app/components/` (`tags-input`, `name-form`, `code-step`, `otp-code-field`, `section-cards`, `data-table`).
+- Chat-only compositions on top of shadcn live in `app/features/chat/components/elements/` (`agent-status`, `error-state`, `feedback-dialog`, `guardrail-notice`, `inline-citation`, `retrieval-chunks`, `sources`).
 
 A few files in `app/components/ui/` differ from the registry on purpose because `npm run lint` (jsx-a11y) forbids the registry's version. `role="group"`/`role="list"` are dropped from `input-group`, `field`, `item` and `button-group`, and the addon click-to-focus handler is dropped from `input-group`. `spinner` is `aria-hidden` (callers wrap it in `<output>`), and `toggle-group` builds its gap style without a type assertion. When `shadcn add` offers to overwrite these files, keep the local version.
 
@@ -92,4 +93,4 @@ npx playwright show-report                    # HTML report of the last run
 | Frontend           | `npm run build && npm start`                                  | 3100             |
 | One-origin proxy   | `node tests/e2e/proxy.ts`                                     | 3200 (`baseURL`) |
 
-In production nginx gives the browser one origin (`/api/*` to FastAPI, everything else to React Router). `tests/e2e/proxy.ts` does the same with http-proxy-3, so cookies, CSRF and streaming behave as deployed and no test-only code enters the app. Locally, servers already running on these ports are reused; with `CI` set, Playwright always starts fresh ones.
+In production the Vercel `api-proxy` route gives the browser one origin (`/api/*` to FastAPI, everything else to React Router); nginx plays that part only in the local compose stack. `tests/e2e/proxy.ts` does the same with http-proxy-3, so cookies, CSRF and streaming behave as deployed and no test-only code enters the app. Locally, servers already running on these ports are reused; with `CI` set, Playwright always starts fresh ones.

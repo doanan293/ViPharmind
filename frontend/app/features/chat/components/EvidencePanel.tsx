@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react"
 
 import type { EvidenceData } from "~/api/gen/schemas"
-import { RetrievalChunks } from "~/components/elements/retrieval-chunks"
 import { usePageText } from "~/features/chat/lib/citation-format"
+
+import { RetrievalChunks } from "./elements/retrieval-chunks"
 
 export type EvidencePanelProps = {
   items: EvidenceData["items"]

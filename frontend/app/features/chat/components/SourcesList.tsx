@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react"
 
 import type { PharmaSourceMetadata } from "~/api/gen/schemas"
-import { Sources } from "~/components/elements/sources"
+
+import { Sources } from "./elements/sources"
 
 export type SourcesListProps = {
   sources: readonly PharmaSourceMetadata[]

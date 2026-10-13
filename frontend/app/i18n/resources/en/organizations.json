@@ -10,8 +10,7 @@
     "title": "Create an organization",
     "name": "Organization name",
     "submit": "Create",
-    "nameRequired": "Enter a name.",
-    "nameTooLong": "At most 100 characters."
+    "nameRequired": "Enter a name."
   },
   "role": {
     "owner": "Owner",
@@ -46,10 +45,10 @@
     "name": "Name",
     "email": "Email",
     "role": "Role",
-    "joined": "Joined",
     "remove": "Remove {{name}}",
     "removeTitle": "Remove the member?",
     "removeDescription": "{{name}} will lose access to the organization.",
+    "removeConfirm": "Remove",
     "roleOf": "Role of {{name}}",
     "you": "you"
   },
@@ -93,7 +92,6 @@
     "register": "Create an account",
     "accept": "Join",
     "decline": "Decline",
-    "joined": "You joined {{organization}}.",
     "declined": "You declined the invitation.",
     "wrongEmail": "This invitation is for {{email}}, but you are signed in with another account.",
     "signOut": "Sign out",

@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router"
 
 import type { MessageFeedback, MessagePage } from "~/api/gen/schemas"
-import { ErrorState } from "~/components/elements/error-state"
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -45,6 +44,7 @@ import { readStreamProblem } from "../lib/stream-problem"
 
 import { AgentUnavailableBanner } from "./AgentUnavailableBanner"
 import { Composer } from "./Composer"
+import { ErrorState } from "./elements/error-state"
 import { MessageActions } from "./MessageActions"
 import { MessageParts } from "./MessageParts"
 import { OlderMessagesLoader } from "./OlderMessagesLoader"

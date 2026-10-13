@@ -13,6 +13,11 @@ describe("safeNextPath", () => {
     ["https://evil.example/", "/chat"],
     ["//evil.example/", "/chat"],
     ["/\\evil.example", "/chat"],
+    ["/\t/evil.example", "/chat"],
+    ["/\n/evil.example", "/chat"],
+    ["/\r/evil.example", "/chat"],
+    ["/settings\u0000", "/chat"],
+    ["/settings\u007f", "/chat"],
   ] as const)("%s -> %s", (value, expected) => {
     expect(safeNextPath(value)).toBe(expected)
   })

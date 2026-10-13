@@ -6,4 +6,4 @@ playwright-report/
 test-results/
 package-lock.json
 openapi.json
-public/mockServiceWorker.js
+tests/public/mockServiceWorker.js

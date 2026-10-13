@@ -31,6 +31,8 @@ export default defineConfig({
       {
         extends: true,
         plugins: [tailwindcss()],
+        // The MSW service worker is served only to browser tests, never shipped from public/.
+        publicDir: "tests/public",
         // Vite reuses its optimizer cache without scanning imports, so a dependency a browser
         // test imports for the first time is optimized mid-run and reloads the page. Force a
         // fresh pre-bundle that scans every browser test and setup file before tests start.
