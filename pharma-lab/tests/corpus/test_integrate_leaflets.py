@@ -3,6 +3,7 @@ from pathlib import Path
 from pharma_lab.corpus.crawling.integrate_leaflets import (
     heading_slug,
     integrate_drug_file,
+    separate_leaflet_heading_runs,
     split_leaflet_sections,
 )
 
@@ -17,17 +18,20 @@ PAGE = (
 )
 
 
-def test_split_keeps_level_four_subheadings_inside_their_parent() -> None:
+def test_split_gives_level_four_items_their_own_part() -> None:
     parts = split_leaflet_sections(PAGE)
     assert [part.heading for part in parts] == [
         "Thành phần",
         "Công dụng (Chỉ định)",
         "Cách dùng - Liều dùng",
+        "Quá liều",
         "Lưu ý",
         "Lưu ý",
     ]
-    assert "#### - Quá liều" in parts[2].markdown
-    assert parts[2].markdown.startswith("### 3. Cách dùng - Liều dùng")
+    assert (
+        parts[2].markdown == "### 3. Cách dùng - Liều dùng\n\nNgười lớn 1 đến 3 g/ngày."
+    )
+    assert parts[3].markdown == "#### - Quá liều\n\nCó thể gây tiêu chảy."
 
 
 def test_split_without_headings_returns_one_general_part() -> None:
@@ -60,8 +64,9 @@ def test_integrate_drug_file_emits_one_section_per_heading(tmp_path: Path) -> No
         "leaflet:thuoc-bo:abanuti-1g:01-thanh-phan",
         "leaflet:thuoc-bo:abanuti-1g:02-cong-dung-chi-dinh",
         "leaflet:thuoc-bo:abanuti-1g:03-cach-dung-lieu-dung",
-        "leaflet:thuoc-bo:abanuti-1g:04-luu-y",
+        "leaflet:thuoc-bo:abanuti-1g:04-qua-lieu",
         "leaflet:thuoc-bo:abanuti-1g:05-luu-y",
+        "leaflet:thuoc-bo:abanuti-1g:06-luu-y",
     ]
     first = sections[0]
     assert first["page_id"] == "leaflet:thuoc-bo:abanuti-1g"
@@ -77,3 +82,27 @@ def test_integrate_drug_file_emits_one_section_per_heading(tmp_path: Path) -> No
     assert chunks[0]["id"] == "leaflet:thuoc-bo:abanuti-1g:01-thanh-phan:chunk-001"
     assert chunks[0]["section_id"] == first["id"]
     assert chunks[0]["page_id"] == first["page_id"]
+
+
+def test_parent_without_own_text_is_dropped(tmp_path: Path) -> None:
+    root = tmp_path / "md"
+    (root / "thuoc").mkdir(parents=True)
+    (root / "thuoc" / "x.md").write_text(
+        "# Thuốc X\n\n### 1. Thành phần\n\nA 1 mg.\n\n"
+        "### 7. Thông tin thêm\n\n#### - Bảo quản\n\nDưới 30 độ C.",
+        encoding="utf-8",
+    )
+    sections, _chunks = integrate_drug_file(
+        root / "thuoc" / "x.md", markdown_root=root, mappings={}
+    )
+    assert [section["section"] for section in sections] == ["Thành phần", "Bảo quản"]
+
+
+def test_heading_run_separator_keeps_level_four_headings_whole() -> None:
+    text = (
+        "### 7. Thông tin thêm\n\n#### - Bảo quản\n\nDưới 30 độ C.- Hạn dùngXem bao bì."
+    )
+    cleaned = separate_leaflet_heading_runs(text)
+    assert "#### - Bảo quản\n" in cleaned
+    assert not any(line.strip() == "####" for line in cleaned.splitlines())
+    assert "\n- Hạn dùng\nXem bao bì." in cleaned
