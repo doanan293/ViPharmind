@@ -6,11 +6,8 @@ from pharma_lab.evaluation.metrics_service import (
 )
 
 
-def test_accumulate_breakdown_metrics_groups_each_dimension_independently():
-    breakdowns = {
-        "eval_group": defaultdict(lambda: defaultdict(float)),
-        "difficulty": defaultdict(lambda: defaultdict(float)),
-    }
+def test_accumulate_breakdown_metrics_groups_rows_by_eval_group():
+    breakdowns = {"eval_group": defaultdict(lambda: defaultdict(float))}
     hits = {
         "hit@3": 1,
         "hit@5": 1,
@@ -24,8 +21,7 @@ def test_accumulate_breakdown_metrics_groups_each_dimension_independently():
         breakdowns,
         hits,
         {
-            "eval_group": "patient_natural",
-            "difficulty": "easy",
+            "eval_group": "leaflet_short",
             "answer_mode": "multi_required",
         },
     )
@@ -33,25 +29,21 @@ def test_accumulate_breakdown_metrics_groups_each_dimension_independently():
         breakdowns,
         {**hits, "hit@3": 0, "mrr": 0.25},
         {
-            "eval_group": "patient_natural",
-            "difficulty": "hard",
+            "eval_group": "leaflet_short",
             "answer_mode": "single",
         },
     )
     accumulate_breakdown_metrics(
         breakdowns,
         hits,
-        {"eval_group": "", "difficulty": None, "answer_mode": "single"},
+        {"eval_group": "", "answer_mode": "single"},
     )
 
-    patient = breakdowns["eval_group"]["patient_natural"]
-    assert patient["count"] == 2
-    assert patient["hit@3"] == 1
-    assert patient["mrr"] == 0.75
-    assert breakdowns["difficulty"]["easy"]["count"] == 1
-    assert breakdowns["difficulty"]["hard"]["count"] == 1
+    short = breakdowns["eval_group"]["leaflet_short"]
+    assert short["count"] == 2
+    assert short["hit@3"] == 1
+    assert short["mrr"] == 0.75
     assert breakdowns["eval_group"]["unknown"]["count"] == 1
-    assert breakdowns["difficulty"]["unknown"]["count"] == 1
 
 
 def test_markdown_breakdown_tables_renders_only_compact_metrics():
@@ -79,16 +71,6 @@ def test_markdown_breakdown_tables_renders_only_compact_metrics():
                 "mrr@10": 1.0,
             },
         },
-        "difficulty": {
-            "easy": {
-                "count": 1,
-                "hit@3": 0,
-                "hit@5": 1,
-                "hit@10": 1,
-                "hit@30": 1,
-                "mrr": 0.2,
-            },
-        },
     }
 
     rendered = markdown_breakdown_tables(breakdowns)
@@ -106,7 +88,7 @@ def test_markdown_breakdown_tables_renders_only_compact_metrics():
         "| chunk_level_retrieval | 2 | 50.00% | 100.00% | 100.00% | 100.00% | 0.7500 "
         "| 0.7500 | 0.3750 |" in rendered
     )
-    assert "## Breakdown by difficulty" in rendered
+    assert "## Breakdown by difficulty" not in rendered
     assert "| leaflet |" not in rendered
     assert "| chunk_risk |" not in rendered
     assert "Complete-evidence" not in rendered

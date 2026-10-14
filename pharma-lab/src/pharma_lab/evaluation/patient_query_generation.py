@@ -93,20 +93,6 @@ PATIENT_QUERY_TEMPLATES = {
     ),
 }
 
-CATEGORY_DIFFICULTY = {
-    "brand_ingredient": "easy",
-    "brand_indication": "easy",
-    "brand_product": "easy",
-    "brand_dosage": "medium",
-    "brand_contraindication": "medium",
-    "brand_adr": "medium",
-    "brand_precaution": "medium",
-    "brand_interaction": "medium",
-    "brand_storage": "medium",
-    "brand_manufacturer": "medium",
-    "brand_pharmacology": "hard",
-}
-
 
 @dataclass(frozen=True)
 class PatientQueryCandidate:
@@ -238,8 +224,7 @@ def row_for_candidate(candidate: PatientQueryCandidate, template_index: int) -> 
         "query": normalize_spaces(query),
         "category": candidate.category,
         "expected_section_id": candidate.section_id,
-        "difficulty": CATEGORY_DIFFICULTY.get(candidate.category, "medium"),
-        "notes": f"leaflet patient query for {candidate.category}",
+        "notes": f"short leaflet template query for {candidate.category}",
     }
 
 

@@ -1,4 +1,5 @@
 import json
+import random
 import re
 import unicodedata
 from collections import defaultdict
@@ -12,7 +13,6 @@ from pharma_lab.config.paths import (
 from pharma_lab.corpus.metadata.payload_layers import compact_colloquial_mapping
 from pharma_lab.evaluation.section_eval_schema import (
     ALLOWED_ANSWER_MODES,
-    ALLOWED_DIFFICULTIES,
     ALLOWED_EVAL_GROUPS,
     ALLOWED_INTENT_CATEGORIES,
     ALLOWED_QUERY_FORMS,
@@ -26,7 +26,7 @@ from pharma_lab.evaluation.section_eval_schema import (
     FORMULARY_QUERY_FORM_TARGETS,
     LEAFLET_ALIAS_ANSWER_MODE_TARGETS,
     LEAFLET_QUERY_FORM_TARGETS,
-    NOISY_CONFUSER_QUERY_FORM_TARGETS,
+    NOISY_QUERY_FORM_TARGETS,
     answer_mode_for_expected_ids,
     clean_query_label,
     normalize_eval_tags,
@@ -282,7 +282,6 @@ def make_row(
     source_subcategory: str,
     section: dict,
     expected_chunk_role: str,
-    difficulty: str,
     notes: str,
     expected_section_ids: list[str] | None = None,
     answer_mode: str = "single",
@@ -319,35 +318,17 @@ def make_row(
         ),
         "expected_chunk_role": expected_chunk_role,
         "retrieval_granularity": retrieval_granularity,
-        "difficulty": difficulty,
         "eval_tags": normalize_eval_tags(base_tags),
         "notes": notes,
     }
 
 
-def unique_query(query: str, section: dict, seen_queries: set[str]) -> str:
+def unique_query(query: str, seen_queries: set[str]) -> str | None:
+    """A question already used for another section drops the candidate; no label is appended."""
     normalized = normalize_spaces(query)
-    if normalized.lower() not in seen_queries:
-        return normalized
-    label = clean_query_label(
-        section_label(section), max_chars=64
-    ) or clean_query_label(section.get("id", ""), max_chars=64)
-    with_label = f"{normalized} ({label})"
-    if with_label.lower() not in seen_queries:
-        return with_label
-    section_id = str(section.get("id", ""))
-    short_id = section_id.rsplit(":", 1)[-1] or section_id
-    if len(short_id) > 32:
-        short_id = f"{short_id[:29]}..."
-    with_id = f"{normalized} [{short_id}]"
-    if with_id.lower() not in seen_queries:
-        return with_id
-    suffix = 2
-    while True:
-        candidate = f"{with_id} #{suffix}"
-        if candidate.lower() not in seen_queries:
-            return candidate
-        suffix += 1
+    if not normalized or normalized.lower() in seen_queries:
+        return None
+    return normalized
 
 
 def curated_query_for_section(section: dict, category: str) -> str:
@@ -376,7 +357,7 @@ def curated_query_for_section(section: dict, category: str) -> str:
     if category == "dosage_form":
         return f"Các dạng thuốc và hàm lượng thương mại của {title} là gì?"
     if category == "brand_lookup":
-        return "Tra cứu biệt dược và hoạt chất tương ứng trong Dược thư"
+        return f"{title} có những tên biệt dược nào?"
     if category == "atc_appendix":
         return "Tra cứu phân loại thuốc theo mã ATC"
     if category == "table_lookup":
@@ -441,9 +422,9 @@ PARAPHRASE_TEMPLATES = {
         "Nồng độ và hàm lượng thương mại của {title} ra sao?",
     ],
     "brand_lookup": [
-        "Biệt dược này chứa hoạt chất nào?",
-        "Tra tên thuốc thương mại ra hoạt chất tương ứng",
-        "Tìm hoạt chất từ tên biệt dược trong Dược thư",
+        "{brand} là biệt dược của hoạt chất nào?",
+        "{brand} chứa hoạt chất gì?",
+        "Thuốc {brand} tương ứng với hoạt chất nào trong Dược thư?",
     ],
     "atc_appendix": [
         "Tra mã ATC của nhóm thuốc này",
@@ -513,8 +494,8 @@ NATURAL_TEMPLATES = {
         "{title} dạng viên hay dạng tiêm?",
     ],
     "brand_lookup": [
-        "tên biệt dược này là hoạt chất gì?",
-        "xem giúp biệt dược này chứa thuốc gì",
+        "{brand} là thuốc gì vậy?",
+        "xem giúp {brand} chứa hoạt chất gì",
     ],
     "atc_appendix": [
         "xem mã ATC của thuốc này",
@@ -582,8 +563,8 @@ CLINICAL_TEMPLATES = {
         "Chế phẩm {title} có những hàm lượng kê đơn nào?",
     ],
     "brand_lookup": [
-        "Người bệnh đưa tên biệt dược, cần tra hoạt chất tương ứng ở đâu?",
-        "Khi chỉ có tên thương mại, làm sao tra ra hoạt chất trong Dược thư?",
+        "Người bệnh đang dùng {brand}, hoạt chất của thuốc này là gì?",
+        "Biệt dược {brand} có hoạt chất gốc là gì?",
     ],
     "atc_appendix": [
         "Cần phân nhóm thuốc theo ATC để báo cáo, tra ở mục nào?",
@@ -603,52 +584,6 @@ CLINICAL_TEMPLATES = {
     ],
 }
 
-CONFUSER_TEMPLATES = {
-    "indication": [
-        "Trong các thuốc cùng nhóm, {title} dùng cho chỉ định nào?",
-        "Đừng nhầm với thuốc tương tự, {title} điều trị tình trạng gì?",
-    ],
-    "contraindication": [
-        "So với các thuốc gần giống, trường hợp nào phải tránh {title}?",
-        "Những chống chỉ định riêng của {title} là gì?",
-    ],
-    "dosage": [
-        "Không nhầm liều với thuốc cùng nhóm, {title} dùng liều thế nào?",
-        "Liều của {title} khác gì cần tra trong Dược thư?",
-    ],
-    "adr": [
-        "Tác dụng phụ nào của {title} dễ bị nhầm với thuốc khác?",
-        "Cần phân biệt ADR của {title} với thuốc cùng nhóm ra sao?",
-    ],
-    "interaction": [
-        "Tương tác của {title} có gì cần phân biệt với thuốc khác?",
-        "Dùng {title} cùng thuốc khác có nguy cơ nào dễ bị bỏ sót?",
-    ],
-    "pregnancy": [
-        "Trong nhóm thuốc này, {title} có lưu ý gì khi mang thai hoặc cho con bú?",
-        "Đừng suy từ thuốc khác, {title} dùng cho phụ nữ có thai thế nào?",
-    ],
-    "brand_lookup": [
-        "Tên biệt dược gần giống nhau, hoạt chất tương ứng là gì?",
-        "Tránh nhầm tên thương mại, tra hoạt chất ở đâu?",
-    ],
-    "atc_appendix": [
-        "Các nhóm ATC dễ nhầm, thuốc này thuộc mã nào?",
-        "Phân loại ATC nào phù hợp khi thuốc có tên gần giống?",
-    ],
-    "table_lookup": [
-        "Bảng nào giúp phân biệt thông tin trong {label}?",
-        "Tra bảng {label} để tránh nhầm dữ liệu",
-    ],
-    "general_guidance": [
-        "Quy định nào trong {label} dễ bị nhầm khi áp dụng?",
-        "Cần phân biệt hướng dẫn ở {label} với mục khác thế nào?",
-    ],
-    "drug_fact": [
-        "{title} khác thuốc gần giống ở thông tin dược thư nào?",
-        "Tránh nhầm {title} với thuốc tên gần giống, cần tra mục nào?",
-    ],
-}
 
 LEAFLET_QUERY_TEMPLATES = {
     "brand_product": ("{title} là thuốc gì?", "brand_product"),
@@ -722,24 +657,29 @@ def styled_query_for_section(
 ) -> str:
     if query_style == "template":
         return curated_query_for_section(section, category)
+    if category == "brand_lookup" and not brand_names:
+        return ""
     if query_style == "paraphrase":
         templates = PARAPHRASE_TEMPLATES
     elif query_style == "clinical":
         templates = CLINICAL_TEMPLATES
-    elif query_style == "confuser":
-        templates = CONFUSER_TEMPLATES
     else:
         templates = NATURAL_TEMPLATES
     options = templates.get(category) or templates["drug_fact"]
 
     title = normalize_spaces(section.get("title", ""))
-    if query_style in ("natural", "clinical", "noisy") and aliases:
+    if query_style in ("natural", "clinical", "noisy", "typo") and aliases:
         title = aliases[variant_index % len(aliases)]
+    brand = brand_names[variant_index % len(brand_names)] if brand_names else title
 
     label = section_label(section)
-    query = options[variant_index % len(options)].format(title=title, label=label)
+    query = options[variant_index % len(options)].format(
+        title=title, label=label, brand=brand
+    )
     if query_style == "noisy":
         return noisy_query(query)
+    if query_style == "typo":
+        return typo_query(query, seed=variant_index)
     return query
 
 
@@ -765,6 +705,65 @@ def noisy_query(query: str) -> str:
     for source, target in replacements.items():
         noisy = noisy.replace(source, target)
     return normalize_spaces(noisy)
+
+
+_TYPO_PROTECTED = re.compile(r"\d|mg|ml|mcg|iu|%")
+
+
+def typo_query(query: str, seed: int) -> str:
+    """One or two typing slips (swap, drop, double a letter) on long words; numbers and units stay."""
+    rng = random.Random(seed)
+    words = query.split()
+    candidates = [
+        index
+        for index, word in enumerate(words)
+        if len(word) >= 5 and not _TYPO_PROTECTED.search(word.lower())
+    ]
+    if not candidates:
+        return query
+    for index in rng.sample(candidates, k=min(2, len(candidates))):
+        word = words[index]
+        position = rng.randrange(1, len(word) - 1)
+        kind = rng.choice(("swap", "drop", "double"))
+        if kind == "swap":
+            word = (
+                word[: position - 1]
+                + word[position]
+                + word[position - 1]
+                + word[position + 1 :]
+            )
+        elif kind == "drop":
+            word = word[:position] + word[position + 1 :]
+        else:
+            word = word[: position + 1] + word[position] + word[position + 1 :]
+        words[index] = word
+    return " ".join(words)
+
+
+def widen_duplicate_text_rows(rows: list[dict], chunks: list[dict]) -> list[dict]:
+    """A gold chunk whose text also exists in another section (same drug, other strength)
+    makes that section acceptable too."""
+    owners: dict[str, set[str]] = defaultdict(set)
+    text_by_chunk: dict[str, str] = {}
+    for chunk in chunks:
+        key = normalize_spaces(chunk_body_text(chunk)).lower()
+        if not key:
+            continue
+        owners[key].add(str(chunk.get("section_id")))
+        text_by_chunk[chunk_identifier(chunk)] = key
+    for row in rows:
+        chunk_id = row.get("expected_chunk_id") or ""
+        if not chunk_id or row.get("answer_mode") != "single":
+            continue
+        primary = row["expected_section_id"]
+        others = sorted(owners.get(text_by_chunk.get(chunk_id, ""), set()) - {primary})
+        if not others:
+            continue
+        row["expected_section_ids"] = [primary, *others]
+        row["query_intent_count"] = len(row["expected_section_ids"])
+        row["answer_mode"] = "any_acceptable"
+        row["eval_tags"] = [*row.get("eval_tags", []), "duplicate_text"]
+    return rows
 
 
 def clean_markdown_preview(value: str) -> str:
@@ -796,9 +795,6 @@ def auto_query_for_chunk(chunk: dict, section: dict, category: str) -> str:
         return "Tra cứu biệt dược trong mục lục hoạt chất"
     if is_leaflet_section(section) or category.startswith("brand_"):
         query, _style = leaflet_query_for_category(section, category)
-        label = chunk_context_label(chunk)
-        if label and label.lower() not in query.lower():
-            return f"{query} (phần {label})"
         return query
     if chunk.get("chunk_content_type") == "table" or chunk.get("chunk_role") == "table":
         return f"Bảng trong mục {section_label(section)} nói về thông tin gì?"
@@ -867,12 +863,10 @@ def allocate_quotas(
 
     patient_quota = min(patient_count, target_rows)
     remaining_target = target_rows - patient_quota
-    scalable_keys = [
-        key for key in DEFAULT_EVAL_GROUP_QUOTAS if key != "patient_natural"
-    ]
+    scalable_keys = [key for key in DEFAULT_EVAL_GROUP_QUOTAS if key != "leaflet_short"]
     scalable_base_total = sum(DEFAULT_EVAL_GROUP_QUOTAS[key] for key in scalable_keys)
 
-    quotas = {"patient_natural": patient_quota}
+    quotas = {"leaflet_short": patient_quota}
     raw = {
         key: (DEFAULT_EVAL_GROUP_QUOTAS[key] / scalable_base_total) * remaining_target
         for key in scalable_keys
@@ -1176,7 +1170,9 @@ def build_multi_intent_eval_rows(
         if drug_anchor.lower() not in query_text.lower():
             query_text = f"{drug_anchor}: {query_text}"
 
-        query = unique_query(query_text, primary_section, seen_queries)
+        query = unique_query(query_text, seen_queries)
+        if query is None:
+            continue
 
         row = make_row(
             f"multi-intent-{len(rows) + 1:04d}",
@@ -1188,7 +1184,6 @@ def build_multi_intent_eval_rows(
             "formulary_multi_intent",
             primary_section,
             primary_role,
-            "hard",
             "multi-section query generated from paired final RAG sections",
             expected_section_ids=[primary_section["id"], secondary_section["id"]],
             answer_mode="multi_required",
@@ -1256,11 +1251,23 @@ def leaflet_candidates(
     )
 
 
+def display_product_name(section: dict) -> str:
+    """Shortest product name of a leaflet (brand, strength, form), not the shop title."""
+    names = [
+        normalize_spaces(str(name))
+        for name in (section.get("colloquial_mapping") or {}).get("product_names", [])
+        if str(name).strip()
+    ]
+    if names:
+        return min(names, key=len)
+    return normalize_spaces(section.get("title", ""))
+
+
 def leaflet_query_for_category(section: dict, category: str) -> tuple[str, str]:
     template, style = LEAFLET_QUERY_TEMPLATES.get(
         category, LEAFLET_QUERY_TEMPLATES["brand_product"]
     )
-    return template.format(title=normalize_spaces(section.get("title", ""))), style
+    return template.format(title=display_product_name(section)), style
 
 
 def first_chunk_for_leaflet_category(chunks: list[dict], category: str) -> dict | None:
@@ -1288,20 +1295,20 @@ def query_form_for_style(query_style: str) -> str:
         "brand_storage",
     }:
         return "brand_template"
-    if query_style == "patient_natural":
-        return "patient"
+    if query_style == "leaflet_short":
+        return "leaflet_short"
     if query_style == "colloquial_alias":
         return "colloquial_alias"
     return query_style
 
 
 def eval_group_for_row(query_form: str, section: dict, source_hint: str = "") -> str:
-    if query_form == "patient":
-        return "patient_natural"
+    if query_form == "leaflet_short":
+        return "leaflet_short"
     if query_form == "multi_intent":
         return "multi_intent"
-    if query_form in {"noisy", "confuser"}:
-        return "noisy_confuser"
+    if query_form in {"noisy", "typo"}:
+        return "noisy"
     if query_form == "chunk_coverage" or source_hint == "coverage":
         return "chunk_risk"
     if query_form in {"brand_template", "colloquial_alias"} or is_leaflet_section(
@@ -1328,10 +1335,6 @@ def make_leaflet_row(
     category: str,
 ) -> dict:
     query, style = leaflet_query_for_category(section, category)
-    if chunk:
-        label = leaflet_label_for_category(chunk_body_text(chunk), category)
-        if label and label.lower() not in query.lower():
-            query = f"{query} (phần {label})"
     expected_chunk_id = chunk_identifier(chunk) if chunk else ""
     expected_chunk_index = chunk.get("chunk_index", -1) if chunk else -1
     role = chunk.get("chunk_role", "prose") if chunk else "prose"
@@ -1350,7 +1353,6 @@ def make_leaflet_row(
         source_subcategory=source_subcategory,
         section=section,
         expected_chunk_role=role,
-        difficulty="medium",
         notes=f"coverage leaflet subsection {category}",
         expected_chunk_id=expected_chunk_id,
         expected_chunk_index=expected_chunk_index,
@@ -1425,10 +1427,6 @@ def make_colloquial_alias_row(
         category, COLLOQUIAL_ALIAS_QUERY_TEMPLATES["brand_product"]
     )
     query = template.format(alias=alias)
-    if chunk:
-        label = leaflet_label_for_category(chunk_body_text(chunk), category)
-        if label and label.lower() not in query.lower():
-            query = f"{query} (phần {label})"
     expected_chunk_id = chunk_identifier(chunk) if chunk else ""
     expected_chunk_index = chunk.get("chunk_index", -1) if chunk else -1
     role = chunk.get("chunk_role", "prose") if chunk else "prose"
@@ -1446,7 +1444,6 @@ def make_colloquial_alias_row(
         source_subcategory=source_subcategory,
         section=section,
         expected_chunk_role=role,
-        difficulty="medium",
         notes=f"colloquial alias query generated from product_aliases for {category}",
         expected_chunk_id=expected_chunk_id,
         expected_chunk_index=expected_chunk_index,
@@ -1475,7 +1472,6 @@ def make_colloquial_alias_any_acceptable_row(
         source_subcategory=source_subcategory,
         section=section,
         expected_chunk_role="prose",
-        difficulty="medium",
         notes="ambiguous colloquial alias query generated from product_aliases",
         expected_section_ids=expected_section_ids,
         answer_mode=answer_mode_for_expected_ids(expected_section_ids),
@@ -1535,7 +1531,7 @@ def generate_rows(
     for row in patient_rows:
         if accumulator.add(row):
             patient_count += 1
-        if patient_count >= quotas["patient_natural"]:
+        if patient_count >= quotas["leaflet_short"]:
             break
 
     def append_section_row(
@@ -1563,11 +1559,9 @@ def generate_rows(
                 aliases=section_aliases,
             )
 
-        query = unique_query(
-            query_text,
-            section,
-            accumulator.seen_queries,
-        )
+        query = unique_query(query_text, accumulator.seen_queries)
+        if query is None:
+            return False
 
         section_chunks = chunks_by_section.get(section["id"], [])
         if section_chunks:
@@ -1601,7 +1595,6 @@ def generate_rows(
             source_subcategory,
             section,
             expected_role,
-            difficulty,
             f"{query_style} query generated from final RAG section metadata",
             expected_chunk_id=expected_chunk_id,
             expected_chunk_index=expected_chunk_index,
@@ -1624,9 +1617,10 @@ def generate_rows(
         role = chunk.get("chunk_role") or expected_role
         query = unique_query(
             auto_query_for_chunk(chunk, section, category),
-            section,
             accumulator.seen_queries,
         )
+        if query is None:
+            return False
 
         expected_chunk_id = chunk_identifier(chunk)
         expected_chunk_index = chunk.get("chunk_index", 0)
@@ -1655,7 +1649,6 @@ def generate_rows(
             source_subcategory,
             section,
             role,
-            difficulty,
             notes or f"generated from chunk {chunk_identifier(chunk)}",
             expected_chunk_id=expected_chunk_id,
             expected_chunk_index=expected_chunk_index,
@@ -1717,10 +1710,12 @@ def generate_rows(
                 category,
                 alias,
             )
-            row["query"] = unique_query(row["query"], section, accumulator.seen_queries)
-            if accumulator.add(row):
-                alias_single_count += 1
-                leaflet_count += 1
+            query = unique_query(row["query"], accumulator.seen_queries)
+            if query is not None:
+                row["query"] = query
+                if accumulator.add(row):
+                    alias_single_count += 1
+                    leaflet_count += 1
         alias_index += 1
         alias_attempts += 1
 
@@ -1742,7 +1737,9 @@ def generate_rows(
 
     alias_any_count = 0
     alias_any_index = 0
-    while alias_any_count < alias_any_target:
+    while alias_any_count < alias_any_target and alias_any_index < len(
+        ambiguous_alias_groups
+    ):
         group = ambiguous_alias_groups[alias_any_index % len(ambiguous_alias_groups)]
         expected_ids = list(group["section_ids"])
         section = sections_by_id[expected_ids[0]]
@@ -1752,10 +1749,12 @@ def generate_rows(
             str(group["alias"]),
             expected_ids,
         )
-        row["query"] = unique_query(row["query"], section, accumulator.seen_queries)
-        if accumulator.add(row):
-            alias_any_count += 1
-            leaflet_count += 1
+        query = unique_query(row["query"], accumulator.seen_queries)
+        if query is not None:
+            row["query"] = query
+            if accumulator.add(row):
+                alias_any_count += 1
+                leaflet_count += 1
         alias_any_index += 1
 
     if strict_alias_targets and alias_any_count != alias_any_target:
@@ -1765,14 +1764,21 @@ def generate_rows(
 
     leaflet_items = spread_items(all_leaflet_items, leaflet_template_target)
     leaflet_index = 0
-    while leaflet_count < quotas["leaflet"] and leaflet_items:
-        section, chunk, category = leaflet_items[leaflet_index % len(leaflet_items)]
+    # Each candidate has one fixed question, so one pass over the list is enough.
+    while (
+        leaflet_count < quotas["leaflet"]
+        and leaflet_items
+        and leaflet_index < len(leaflet_items)
+    ):
+        section, chunk, category = leaflet_items[leaflet_index]
         row = make_leaflet_row(
             f"leaflet-{leaflet_count + 1:04d}", section, chunk, category
         )
-        row["query"] = unique_query(row["query"], section, accumulator.seen_queries)
-        if accumulator.add(row):
-            leaflet_count += 1
+        query = unique_query(row["query"], accumulator.seen_queries)
+        if query is not None:
+            row["query"] = query
+            if accumulator.add(row):
+                leaflet_count += 1
         leaflet_index += 1
 
     chunk_risk_count = 0
@@ -1780,8 +1786,10 @@ def generate_rows(
         chunk_risk_candidates(chunks, sections_by_id), quotas["chunk_risk"]
     )
     chunk_risk_index = 0
-    while chunk_risk_count < quotas["chunk_risk"] and chunk_risk_items:
-        chunk, section = chunk_risk_items[chunk_risk_index % len(chunk_risk_items)]
+    while chunk_risk_count < quotas["chunk_risk"] and chunk_risk_index < len(
+        chunk_risk_items
+    ):
+        chunk, section = chunk_risk_items[chunk_risk_index]
         category, difficulty, expected_role = category_for_section(
             section, chunks_by_section.get(section["id"], [])
         )
@@ -1804,9 +1812,7 @@ def generate_rows(
         chunk_risk_index += 1
 
     style_targets = weighted_targets(FORMULARY_QUERY_FORM_TARGETS, quotas["formulary"])
-    style_targets.update(
-        weighted_targets(NOISY_CONFUSER_QUERY_FORM_TARGETS, quotas["noisy_confuser"])
-    )
+    style_targets.update(weighted_targets(NOISY_QUERY_FORM_TARGETS, quotas["noisy"]))
     style_counts = dict.fromkeys(style_targets, 0)
 
     lexical_target = style_targets.get("lexical", 0)
@@ -1847,9 +1853,11 @@ def generate_rows(
             seen_auto_sections.add(section["id"])
 
     lexical_index = 0
-    while style_counts["lexical"] < lexical_target and auto_candidates:
+    while style_counts["lexical"] < lexical_target and lexical_index < len(
+        auto_candidates
+    ):
         chunk, section, category, difficulty, expected_role = auto_candidates[
-            lexical_index % len(auto_candidates)
+            lexical_index
         ]
         if append_auto_row(
             chunk,
@@ -1869,7 +1877,7 @@ def generate_rows(
         "natural",
         "clinical",
         "noisy",
-        "confuser",
+        "typo",
     ):
         target = style_targets.get(query_style, 0)
         variant_round = 0
@@ -1898,18 +1906,19 @@ def generate_rows(
         formulary_section_items, chunks_by_section, target_count=multi_target
     )
     for row in multi_rows:
-        primary_sec = sections_by_id.get(row["expected_section_ids"][0], {})
-        row["query"] = unique_query(row["query"], primary_sec, accumulator.seen_queries)
-        accumulator.add(row)
+        query = unique_query(row["query"], accumulator.seen_queries)
+        if query is not None:
+            row["query"] = query
+            accumulator.add(row)
 
     fill_count = 0
     fill_candidates = auto_candidate_chunks(
         chunks, sections_by_id, chunks_by_section, effective_target
     )
     fill_index = 0
-    while accumulator.remaining(effective_target) and fill_candidates:
+    while accumulator.remaining(effective_target) and fill_index < len(fill_candidates):
         chunk, section, category, difficulty, expected_role = fill_candidates[
-            fill_index % len(fill_candidates)
+            fill_index
         ]
         if append_auto_row(
             chunk,
@@ -1981,7 +1990,7 @@ def validate_required_eval_groups(
         "search_index",
         "chunk_window",
         "multi_intent",
-        "noisy_confuser",
+        "noisy",
     }
     missing = sorted(required - observed)
     if missing:
@@ -2087,7 +2096,6 @@ def validate_rows(
             ("intent_category", ALLOWED_INTENT_CATEGORIES),
             ("answer_mode", ALLOWED_ANSWER_MODES),
             ("retrieval_granularity", ALLOWED_RETRIEVAL_GRANULARITIES),
-            ("difficulty", ALLOWED_DIFFICULTIES),
         ):
             if row[field] not in allowed:
                 raise ValueError(f"row {index} has unknown {field}: {row[field]}")
@@ -2159,12 +2167,12 @@ def validate_rows(
     if len(rows) >= 100:
         required_query_forms = (
             set(FORMULARY_QUERY_FORM_TARGETS)
-            | set(NOISY_CONFUSER_QUERY_FORM_TARGETS)
+            | set(NOISY_QUERY_FORM_TARGETS)
             | set(LEAFLET_QUERY_FORM_TARGETS)
             | {"brand_template", "chunk_coverage", "multi_intent"}
         )
-        if "patient_natural" in eval_groups:
-            required_query_forms.add("patient")
+        if "leaflet_short" in eval_groups:
+            required_query_forms.add("leaflet_short")
         missing_query_forms = sorted(required_query_forms - query_forms)
         if missing_query_forms:
             raise ValueError(
@@ -2243,7 +2251,6 @@ def load_patient_queries(
         query = item["query"]
         category = item["category"]
         section_id = item["expected_section_id"]
-        difficulty = item["difficulty"]
         notes = item["notes"]
         if section_id not in sections_by_id:
             raise ValueError(
@@ -2271,7 +2278,7 @@ def load_patient_queries(
         granularity = retrieval_granularity_for_row(
             section, first_chunk, expected_chunk_role
         )
-        tags = ["patient", category]
+        tags = ["leaflet_short", category]
         if len(expected_ids) > 1:
             tags.append("brand_overlap")
         if granularity == "chunk_window":
@@ -2281,14 +2288,13 @@ def load_patient_queries(
         row = make_row(
             query_id=query_id,
             query=query,
-            eval_group="patient_natural",
+            eval_group="leaflet_short",
             source_family=source_family_for_section(section),
-            query_form="patient",
+            query_form="leaflet_short",
             intent_category=intent_category,
             source_subcategory=source_subcategory,
             section=section,
             expected_chunk_role=expected_chunk_role,
-            difficulty=difficulty,
             notes=notes,
             expected_section_ids=expected_ids,
             answer_mode=answer_mode,
@@ -2332,19 +2338,20 @@ def build_jsonl(
         target_rows=target_rows,
         patient_rows=patient_rows,
     )
+    rows = widen_duplicate_text_rows(rows, chunks)
 
     required_groups = {
         "formulary",
         "leaflet",
         "chunk_risk",
         "multi_intent",
-        "noisy_confuser",
+        "noisy",
         "table",
         "search_index",
         "chunk_window",
     }
     if patient_rows:
-        required_groups.add("patient_natural")
+        required_groups.add("leaflet_short")
     validate_rows(
         rows,
         sections,
