@@ -309,7 +309,9 @@ CHAT_MODELS = {
     # Qwen3.5-9B (Apache 2.0) converted from the BF16 GGUF to F16, because T4 GPUs have
     # no bfloat16 kernels; the derivation is in docs/guides/e2e-evaluation.md. At 17.9 GB
     # it is split over both T4s. Only 8 of its 32 layers keep a KV cache (32 KiB per
-    # token), so four 16k-token slots fit next to the weights on each GPU.
+    # token), so four 32k-token slots take 4 GiB of KV cache in total, 2 GiB per GPU
+    # next to about 9 GB of weights. 32k leaves room for a ReAct conversation, whose
+    # tool results accumulate in one request.
     "qwen3.5:9b-f16": ModelSpec(
         name="qwen3.5:9b-f16",
         kind=ModelKind.CHAT,
@@ -323,7 +325,7 @@ CHAT_MODELS = {
             server_slots=4,
             concurrency=4,
             request_batch_size=1,
-            context_per_slot=16384,
+            context_per_slot=32768,
             logical_batch_size=2048,
             physical_batch_size=512,
         ),
