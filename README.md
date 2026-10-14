@@ -92,8 +92,22 @@ Backend chạy trên máy thì đổi các biến embedding và rerank trong `ba
 
    Nhà cung cấp khác dùng cờ tương ứng (`--codex-login`, `--claude-login`, ...), cổng callback đổi
    được bằng `--oauth-callback-port`.
+
+   Nếu đã đăng nhập bằng ProxyPal trên Windows thì không cần đăng nhập lại: ProxyPal lưu đúng các
+   file credential của CLIProxyAPI trong `C:\Users\<user>\.cli-proxy-api`, chỉ cần chép chúng vào
+   volume (lệnh thay toàn bộ file `.json` cũ trong volume bằng bộ hiện tại của ProxyPal):
+
+   ```bash
+   docker run --rm -v vipharmind_cli_proxy_auth:/a -v /mnt/c/Users/<user>/.cli-proxy-api:/src:ro alpine \
+     sh -c 'rm -f /a/*.json && cp /src/*.json /a/ && chmod 600 /a/*.json'
+   ```
+
+   `config.yaml` cũng có thể lấy từ `%APPDATA%\ProxyPal\proxy-config.yaml` (giữ khối `payload`,
+   đổi `host` thành `""` và `auth-dir` thành `/root/.cli-proxy-api`). Credential là token OAuth
+   có hạn, ProxyPal tự làm mới khi chạy, nên chép lại khi proxy của compose báo `auth_unavailable`.
 3. `docker compose -f compose.yaml -f compose.gemini-proxy.yaml up -d`. Hai override dùng chung
-   được: thêm cả `-f compose.local-models.yaml`.
+   được: thêm cả `-f compose.local-models.yaml`. `GET /v1/models` với key trong `config.yaml`
+   liệt kê model gọi được; model Codex chỉ gồm những model tài khoản ChatGPT được dùng.
 
 ## Production
 

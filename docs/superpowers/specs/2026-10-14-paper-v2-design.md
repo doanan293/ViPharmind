@@ -81,14 +81,27 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   không có API hosted nên phải tự host trên Kaggle T4 qua `strands-decider serve` (cùng endpoint).
   Bài v2 chạy được trọn vẹn chỉ với Jev.
 
-### 2.1b Mọi LLM gọi qua OpenRouter
+### 2.1b Mọi LLM gọi qua API: model mở qua OpenRouter, model thương mại qua cli-proxy-api
 
-- Backend đổi endpoint mặc định của LLM sang `https://openrouter.ai/api/v1`; mỗi vai trò ghim model
-  bằng id OpenRouter (`qwen/qwen3.5-9b`, `openai/gpt-6-luna`, ...). Không tự host LLM nữa, kể cả
-  Qwen3.5-9B; run v1 tự host được giữ làm tham chiếu lịch sử và bài ghi rõ khác biệt.
-- `extra_body` mỗi vai trò mang `provider: {order: [<slug>], allow_fallbacks: false,
-  require_parameters: true}` để một model luôn đi một provider, một precision. Qwen3.5-9B ghim
-  DeepInfra bf16. Response của OpenRouter ghi provider thực tế, lưu vào `answers.jsonl`.
+- Không tự host LLM nữa, kể cả Qwen3.5-9B; run v1 tự host được giữ làm tham chiếu lịch sử và bài
+  ghi rõ khác biệt. Mỗi vai trò có `BASE_URL`, `API_KEY` và `MODEL` riêng như hiện nay, nên hai
+  đường dưới đây trộn được trong một run.
+- **Model mở** (Qwen3.5-9B, Qwen3.8-27B, DeepSeek V4.1 Flash) qua `https://openrouter.ai/api/v1`
+  với id OpenRouter. `extra_body` mang `provider: {order: [<slug>], allow_fallbacks: false,
+  require_parameters: true}` để một model luôn đi một provider, một precision; Qwen3.5-9B ghim
+  DeepInfra bf16. Response của OpenRouter ghi provider thực tế, lưu vào `answers.jsonl`. Dự án chưa
+  có key OpenRouter; đặt vào `backend/.env` và `pharma-lab/.env` theo `.env.example`.
+- **Model thương mại** (Gemini 3.8 Flash, gemini-3.1-flash-lite, GPT-6 Luna, GPT-6 Sol, Claude
+  Haiku 5.5) qua service `cli-proxy-api` của compose, endpoint `http://127.0.0.1:8317/v1`, key
+  `proxypal-local`, như v1 đã dùng cho Gemini. Credential OAuth lấy từ ProxyPal trên Windows và
+  chép vào volume `vipharmind_cli_proxy_auth` (README, mục CLIProxyAPI); đã đồng bộ ngày 2026-10-14
+  với ba credential Antigravity, Claude và Codex. Đã gọi thử structured output thành công với
+  `gemini-3.8-flash-high`, `gemini-3.1-flash-lite`, `gpt-6-luna`, `gpt-6-sol`, `gpt-6-astra`,
+  `claude-haiku-5-5`, `claude-sonnet-5-5`; `gpt-6.1-sol` bị tài khoản ChatGPT từ chối, nên model
+  nặng của bài là GPT-6 Sol (cùng giá niêm yết 2/10 USD).
+- Chi phí trong bài luôn tính theo giá niêm yết nhân token, kể cả với model thương mại đi qua
+  proxy thuê bao, và bài nói rõ điều đó. Tiền thật phải trả chỉ phát sinh ở OpenRouter cho ba model
+  mở và ở Jev.
 - Embedding query: OpenRouter có `qwen/qwen3-embedding-4b`; trước khi dùng phải chạy kiểm tra tương
   đương trên 1.000 câu benchmark (Hit@10 và MRR@10 so với cache embedding llama.cpp fp16 của v1,
   chấp nhận chênh dưới 0,3 điểm). Không đạt thì embedding ở DeepInfra như production hiện nay.
@@ -155,7 +168,7 @@ công bằng:
 - `pharma_lab/e2e/pricing.py`: bảng giá theo id model và provider, đọc từ OpenRouter ngày
   2026-10-14, ghi nguồn và ngày, USD mỗi triệu token vào/ra: Qwen3.5-9B 0,10/0,15 (DeepInfra bf16);
   Qwen3.8-27B 0,04/2,30; DeepSeek V4.1 Flash 0,021/0,89; Gemini 3.8 Flash 0,75/3,75; GPT-6 Luna
-  0,10/0,50; GPT-6.1 Sol 2/10; gemini-3.1-flash-lite 0,25/1,50; Jev 0,042/0; Qwen3-Reranker-4B và
+  0,10/0,50; GPT-6 Sol 2/10; gemini-3.1-flash-lite 0,25/1,50; Jev 0,042/0; Qwen3-Reranker-4B và
   embedding theo giá DeepInfra hoặc OpenRouter tại ngày chạy. Mọi chi phí là giá niêm yết, không có
   mô hình giờ GPU vì không tự host.
 - Metric mới: `usd_per_turn`, `usd_per_1000_turns`, `llm_seconds_per_turn`, `retrieval_seconds_per_turn`,
@@ -228,7 +241,7 @@ Bộ sáu model dùng xuyên suốt bài (giá USD mỗi triệu token vào/ra, 
 | Mở, rẻ | DeepSeek V4.1 Flash | 0,021 / 0,89 | họ mở ngoài Qwen |
 | Thương mại, rẻ | Gemini 3.8 Flash | 0,75 / 3,75 | nối với v1 |
 | Thương mại, rẻ | GPT-6 Luna | 0,10 / 0,50 | model rẻ nhất của OpenAI |
-| Nặng, trần tham chiếu | GPT-6.1 Sol | 2 / 10 | giới hạn trên của chất lượng |
+| Nặng, trần tham chiếu | GPT-6 Sol | 2 / 10 | giới hạn trên của chất lượng; GPT-6 Astra (10 / 50) cũng gọi được nếu muốn trần cao hơn |
 
 | Cấu hình | G, J | R | P, A | Ghi chú |
 | --- | --- | --- | --- | --- |
@@ -335,10 +348,11 @@ Mỗi pha là một plan riêng, chạy xong mới sang pha sau trừ khi ghi kh
 Tiêu chí chấp nhận mỗi pha: lint, type và test của backend và pharma-lab xanh; run có `run.json` đầy đủ
 identity; báo cáo sinh bằng lệnh có sẵn chứ không chép tay; số liệu vào bài chỉ từ file báo cáo.
 
-Ngân sách tiền token, ước theo 11.600 token mỗi lượt của full agent v1 và ReAct gấp đôi: năm model rẻ
-nhân ba run (A2, A3, ReAct) khoảng 25 USD; GPT-6.1 Sol ba run khoảng 60 USD; quét τ và ablation trên
-Qwen3.5-9B và GPT-6 Luna khoảng 10 USD; chấm judge bằng gemini-3.1-flash-lite cho toàn bộ khoảng 20
-USD; Jev dưới 2 USD. Tổng dưới 150 USD. Mỗi run chạy thử 20 item trước khi chạy đủ.
+Ngân sách tiền thật, ước theo 11.600 token mỗi lượt của full agent v1 và ReAct gấp đôi: ba model mở
+trên OpenRouter nhân ba run (A2, A3, ReAct) cộng quét τ và ablation trên Qwen3.5-9B khoảng 15 USD;
+Jev dưới 2 USD. Model thương mại, kể cả GPT-6 Sol, và judge gemini-3.1-flash-lite đi qua proxy thuê
+bao nên không tốn thêm; giá niêm yết của chúng (khoảng 60 USD cho GPT-6 Sol, 20 USD cho judge) chỉ
+xuất hiện trong bảng chi phí của bài. Mỗi run chạy thử 20 item trước khi chạy đủ.
 
 ## 8. Rủi ro
 
@@ -353,6 +367,9 @@ USD; Jev dưới 2 USD. Tổng dưới 150 USD. Mỗi run chạy thử 20 item t
   đương trước (§2.1b), không đạt thì giữ DeepInfra.
 - Provider trên OpenRouter có thể đổi giá hoặc rút model giữa chừng: ghi provider và giá vào từng
   run, chạy mỗi cấu hình trọn trong một đợt.
+- Credential OAuth của cli-proxy-api hết hạn hoặc tài khoản ChatGPT, Claude đổi danh sách model được
+  dùng: proxy trả `auth_unavailable`, khi đó chép lại credential từ ProxyPal; `pin_judge` và run
+  identity vẫn ghi tên model nên run tiếp tục được sau khi khôi phục.
 - Độ trễ đo từ Việt Nam tới gateway Mỹ: mọi model cùng điều kiện nên so sánh được, nhưng số tuyệt đối
   gồm mạng; ghi rõ trong bài.
 - Giấy phép và điều khoản Jev về công bố benchmark: kiểm tra Master Customer Agreement trước khi công bố.
