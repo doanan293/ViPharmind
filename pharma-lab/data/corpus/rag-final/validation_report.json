@@ -390,22 +390,10 @@
       "category": "duplicates",
       "message": "Sections have exact duplicate normalized text",
       "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-      "record_id": "leaflet:thuoc-khang-sinh:klacid-mr-500mg:10-dac-diem",
-      "record_type": "section_group",
-      "severity": "suspect",
-      "snippet": "leaflet:thuoc-khang-sinh:klacid-mr-500mg:10-dac-diem, leaflet:thuoc-khang-sinh:klacid-mr-500mg:12-dac-diem",
-      "source": "Tờ hướng dẫn sử dụng",
-      "source_evidence": ""
-    },
-    {
-      "auto_fixable": false,
-      "category": "duplicates",
-      "message": "Sections have exact duplicate normalized text",
-      "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
       "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:01-thanh-phan",
       "record_type": "section_group",
       "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:01-thanh-phan, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:20-thanh-phan",
+      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:01-thanh-phan, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:17-thanh-phan",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
     },
@@ -417,7 +405,7 @@
       "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:02-cong-dung-chi-dinh",
       "record_type": "section_group",
       "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:02-cong-dung-chi-dinh, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:21-cong-dung-chi-dinh",
+      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:02-cong-dung-chi-dinh, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:18-cong-dung-chi-dinh",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
     },
@@ -429,7 +417,7 @@
       "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:03-cach-dung-lieu-dung",
       "record_type": "section_group",
       "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:03-cach-dung-lieu-dung, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:22-cach-dung-lieu-dung",
+      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:03-cach-dung-lieu-dung, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:19-cach-dung-lieu-dung",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
     },
@@ -441,7 +429,7 @@
       "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:04-qua-lieu",
       "record_type": "section_group",
       "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:04-qua-lieu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:23-qua-lieu",
+      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:04-qua-lieu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:20-qua-lieu",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
     },
@@ -453,7 +441,7 @@
       "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:05-chong-chi-dinh",
       "record_type": "section_group",
       "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:05-chong-chi-dinh, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:24-chong-chi-dinh",
+      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:05-chong-chi-dinh, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:21-chong-chi-dinh",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
     },
@@ -465,7 +453,7 @@
       "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:06-tac-dung-phu",
       "record_type": "section_group",
       "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:06-tac-dung-phu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:25-tac-dung-phu",
+      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:06-tac-dung-phu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:22-tac-dung-phu",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
     },
@@ -477,7 +465,7 @@
       "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:08-than-trong-khi-su-dung",
       "record_type": "section_group",
       "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:08-than-trong-khi-su-dung, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:27-than-trong-khi-su-dung",
+      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:08-than-trong-khi-su-dung, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:24-than-trong-khi-su-dung",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
     },
@@ -489,7 +477,7 @@
       "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:09-thai-ky-va-cho-con-bu",
       "record_type": "section_group",
       "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:09-thai-ky-va-cho-con-bu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:28-thai-ky-va-cho-con-bu",
+      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:09-thai-ky-va-cho-con-bu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:25-thai-ky-va-cho-con-bu",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
     },
@@ -501,7 +489,7 @@
       "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:10-kha-nang-lai-xe-va-van-hanh-may-moc",
       "record_type": "section_group",
       "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:10-kha-nang-lai-xe-va-van-hanh-may-moc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:29-kha-nang-lai-xe-va-van-hanh-may-moc",
+      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:10-kha-nang-lai-xe-va-van-hanh-may-moc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:26-kha-nang-lai-xe-va-van-hanh-may-moc",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
     },
@@ -513,7 +501,7 @@
       "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:11-tuong-tac-thuoc",
       "record_type": "section_group",
       "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:11-tuong-tac-thuoc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:30-tuong-tac-thuoc",
+      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:11-tuong-tac-thuoc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:27-tuong-tac-thuoc",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
     },
@@ -525,19 +513,7 @@
       "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:13-duoc-dong-hoc-tac-dong-cua-co-the-voi-thuoc",
       "record_type": "section_group",
       "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:13-duoc-dong-hoc-tac-dong-cua-co-the-voi-thuoc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:32-duoc-dong-hoc-tac-dong-cua-co-the-voi-thuoc",
-      "source": "Tờ hướng dẫn sử dụng",
-      "source_evidence": ""
-    },
-    {
-      "auto_fixable": false,
-      "category": "duplicates",
-      "message": "Sections have exact duplicate normalized text",
-      "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-      "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:18-han-dung",
-      "record_type": "section_group",
-      "severity": "suspect",
-      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:18-han-dung, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:37-han-dung",
+      "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:13-duoc-dong-hoc-tac-dong-cua-co-the-voi-thuoc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:29-duoc-dong-hoc-tac-dong-cua-co-the-voi-thuoc",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
     },
@@ -594,30 +570,6 @@
       "category": "duplicates",
       "message": "Sections have exact duplicate normalized text",
       "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-      "record_id": "leaflet:vitamin-va-khoang-chat:spring-leaf-kids-mega-milky-calcium-bo-sung-canxi-cho-be:07-bao-quan",
-      "record_type": "section_group",
-      "severity": "suspect",
-      "snippet": "leaflet:vitamin-va-khoang-chat:spring-leaf-kids-mega-milky-calcium-bo-sung-canxi-cho-be:07-bao-quan, leaflet:vitamin-va-khoang-chat:springleaf-kids-mega-milky-calcium-60-vien:07-bao-quan",
-      "source": "Tờ hướng dẫn sử dụng",
-      "source_evidence": ""
-    },
-    {
-      "auto_fixable": false,
-      "category": "duplicates",
-      "message": "Sections have exact duplicate normalized text",
-      "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-      "record_id": "leaflet:vitamin-va-khoang-chat:spring-leaf-kids-mega-milky-calcium-bo-sung-canxi-cho-be:10-nha-san-xuat",
-      "record_type": "section_group",
-      "severity": "suspect",
-      "snippet": "leaflet:vitamin-va-khoang-chat:spring-leaf-kids-mega-milky-calcium-bo-sung-canxi-cho-be:10-nha-san-xuat, leaflet:vitamin-va-khoang-chat:springleaf-kids-mega-milky-calcium-60-vien:10-nha-san-xuat",
-      "source": "Tờ hướng dẫn sử dụng",
-      "source_evidence": ""
-    },
-    {
-      "auto_fixable": false,
-      "category": "duplicates",
-      "message": "Sections have exact duplicate normalized text",
-      "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
       "record_id": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:01-thanh-phan",
       "record_type": "section_group",
       "severity": "suspect",
@@ -660,61 +612,25 @@
       "snippet": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:04-doi-tuong-su-dung, leaflet:vitamin-va-khoang-chat:vien-uong-bo-sung-canxi-spring-leaf-liquid-calcium-plus-vitamin-d3-lo-60v:04-doi-tuong-su-dung",
       "source": "Tờ hướng dẫn sử dụng",
       "source_evidence": ""
-    },
-    {
-      "auto_fixable": false,
-      "category": "duplicates",
-      "message": "Sections have exact duplicate normalized text",
-      "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-      "record_id": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:06-bao-quan",
-      "record_type": "section_group",
-      "severity": "suspect",
-      "snippet": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:06-bao-quan, leaflet:vitamin-va-khoang-chat:vien-uong-bo-sung-canxi-spring-leaf-liquid-calcium-plus-vitamin-d3-lo-60v:06-bao-quan",
-      "source": "Tờ hướng dẫn sử dụng",
-      "source_evidence": ""
-    },
-    {
-      "auto_fixable": false,
-      "category": "duplicates",
-      "message": "Sections have exact duplicate normalized text",
-      "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-      "record_id": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:08-han-su-dung",
-      "record_type": "section_group",
-      "severity": "suspect",
-      "snippet": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:08-han-su-dung, leaflet:vitamin-va-khoang-chat:vien-uong-bo-sung-canxi-spring-leaf-liquid-calcium-plus-vitamin-d3-lo-60v:08-han-su-dung",
-      "source": "Tờ hướng dẫn sử dụng",
-      "source_evidence": ""
-    },
-    {
-      "auto_fixable": false,
-      "category": "duplicates",
-      "message": "Sections have exact duplicate normalized text",
-      "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-      "record_id": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:09-nha-san-xuat",
-      "record_type": "section_group",
-      "severity": "suspect",
-      "snippet": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:09-nha-san-xuat, leaflet:vitamin-va-khoang-chat:vien-uong-bo-sung-canxi-spring-leaf-liquid-calcium-plus-vitamin-d3-lo-60v:09-nha-san-xuat",
-      "source": "Tờ hướng dẫn sử dụng",
-      "source_evidence": ""
     }
   ],
   "metrics": {
     "canonical_block_count": 10079,
     "canonical_section_count": 9920,
-    "chunk_count": 49733,
+    "chunk_count": 42574,
     "chunk_sources": {
       "Dược thư Quốc gia Việt Nam (Xuất bản lần thứ 2) - Nhà xuất bản Y học, Hà Nội, 2018": 11157,
-      "Tờ hướng dẫn sử dụng": 38576
+      "Tờ hướng dẫn sử dụng": 31417
     },
     "curated_table_count": 258,
     "duplicate_review_count": 0,
     "leaflet_markdown_file_count": 2407,
     "rag_interim_chunk_count": 11019,
     "rag_interim_section_count": 9932,
-    "section_count": 41724,
+    "section_count": 34559,
     "section_sources": {
       "Dược thư Quốc gia Việt Nam (Xuất bản lần thứ 2) - Nhà xuất bản Y học, Hà Nội, 2018": 9920,
-      "Tờ hướng dẫn sử dụng": 31804
+      "Tờ hướng dẫn sử dụng": 24639
     },
     "table_block_count": 159
   },
@@ -1112,22 +1028,10 @@
           "category": "duplicates",
           "message": "Sections have exact duplicate normalized text",
           "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-          "record_id": "leaflet:thuoc-khang-sinh:klacid-mr-500mg:10-dac-diem",
-          "record_type": "section_group",
-          "severity": "suspect",
-          "snippet": "leaflet:thuoc-khang-sinh:klacid-mr-500mg:10-dac-diem, leaflet:thuoc-khang-sinh:klacid-mr-500mg:12-dac-diem",
-          "source": "Tờ hướng dẫn sử dụng",
-          "source_evidence": ""
-        },
-        {
-          "auto_fixable": false,
-          "category": "duplicates",
-          "message": "Sections have exact duplicate normalized text",
-          "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
           "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:01-thanh-phan",
           "record_type": "section_group",
           "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:01-thanh-phan, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:20-thanh-phan",
+          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:01-thanh-phan, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:17-thanh-phan",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
         },
@@ -1139,7 +1043,7 @@
           "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:02-cong-dung-chi-dinh",
           "record_type": "section_group",
           "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:02-cong-dung-chi-dinh, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:21-cong-dung-chi-dinh",
+          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:02-cong-dung-chi-dinh, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:18-cong-dung-chi-dinh",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
         },
@@ -1151,7 +1055,7 @@
           "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:03-cach-dung-lieu-dung",
           "record_type": "section_group",
           "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:03-cach-dung-lieu-dung, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:22-cach-dung-lieu-dung",
+          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:03-cach-dung-lieu-dung, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:19-cach-dung-lieu-dung",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
         },
@@ -1163,7 +1067,7 @@
           "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:04-qua-lieu",
           "record_type": "section_group",
           "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:04-qua-lieu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:23-qua-lieu",
+          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:04-qua-lieu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:20-qua-lieu",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
         },
@@ -1175,7 +1079,7 @@
           "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:05-chong-chi-dinh",
           "record_type": "section_group",
           "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:05-chong-chi-dinh, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:24-chong-chi-dinh",
+          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:05-chong-chi-dinh, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:21-chong-chi-dinh",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
         },
@@ -1187,7 +1091,7 @@
           "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:06-tac-dung-phu",
           "record_type": "section_group",
           "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:06-tac-dung-phu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:25-tac-dung-phu",
+          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:06-tac-dung-phu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:22-tac-dung-phu",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
         },
@@ -1199,7 +1103,7 @@
           "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:08-than-trong-khi-su-dung",
           "record_type": "section_group",
           "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:08-than-trong-khi-su-dung, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:27-than-trong-khi-su-dung",
+          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:08-than-trong-khi-su-dung, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:24-than-trong-khi-su-dung",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
         },
@@ -1211,7 +1115,7 @@
           "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:09-thai-ky-va-cho-con-bu",
           "record_type": "section_group",
           "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:09-thai-ky-va-cho-con-bu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:28-thai-ky-va-cho-con-bu",
+          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:09-thai-ky-va-cho-con-bu, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:25-thai-ky-va-cho-con-bu",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
         },
@@ -1223,7 +1127,7 @@
           "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:10-kha-nang-lai-xe-va-van-hanh-may-moc",
           "record_type": "section_group",
           "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:10-kha-nang-lai-xe-va-van-hanh-may-moc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:29-kha-nang-lai-xe-va-van-hanh-may-moc",
+          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:10-kha-nang-lai-xe-va-van-hanh-may-moc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:26-kha-nang-lai-xe-va-van-hanh-may-moc",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
         },
@@ -1235,7 +1139,7 @@
           "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:11-tuong-tac-thuoc",
           "record_type": "section_group",
           "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:11-tuong-tac-thuoc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:30-tuong-tac-thuoc",
+          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:11-tuong-tac-thuoc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:27-tuong-tac-thuoc",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
         },
@@ -1247,19 +1151,7 @@
           "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:13-duoc-dong-hoc-tac-dong-cua-co-the-voi-thuoc",
           "record_type": "section_group",
           "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:13-duoc-dong-hoc-tac-dong-cua-co-the-voi-thuoc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:32-duoc-dong-hoc-tac-dong-cua-co-the-voi-thuoc",
-          "source": "Tờ hướng dẫn sử dụng",
-          "source_evidence": ""
-        },
-        {
-          "auto_fixable": false,
-          "category": "duplicates",
-          "message": "Sections have exact duplicate normalized text",
-          "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-          "record_id": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:18-han-dung",
-          "record_type": "section_group",
-          "severity": "suspect",
-          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:18-han-dung, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:37-han-dung",
+          "snippet": "leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:13-duoc-dong-hoc-tac-dong-cua-co-the-voi-thuoc, leaflet:thuoc-ve-than-kinh:aricept-evess-5mg-tab-h-28v:29-duoc-dong-hoc-tac-dong-cua-co-the-voi-thuoc",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
         },
@@ -1316,30 +1208,6 @@
           "category": "duplicates",
           "message": "Sections have exact duplicate normalized text",
           "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-          "record_id": "leaflet:vitamin-va-khoang-chat:spring-leaf-kids-mega-milky-calcium-bo-sung-canxi-cho-be:07-bao-quan",
-          "record_type": "section_group",
-          "severity": "suspect",
-          "snippet": "leaflet:vitamin-va-khoang-chat:spring-leaf-kids-mega-milky-calcium-bo-sung-canxi-cho-be:07-bao-quan, leaflet:vitamin-va-khoang-chat:springleaf-kids-mega-milky-calcium-60-vien:07-bao-quan",
-          "source": "Tờ hướng dẫn sử dụng",
-          "source_evidence": ""
-        },
-        {
-          "auto_fixable": false,
-          "category": "duplicates",
-          "message": "Sections have exact duplicate normalized text",
-          "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-          "record_id": "leaflet:vitamin-va-khoang-chat:spring-leaf-kids-mega-milky-calcium-bo-sung-canxi-cho-be:10-nha-san-xuat",
-          "record_type": "section_group",
-          "severity": "suspect",
-          "snippet": "leaflet:vitamin-va-khoang-chat:spring-leaf-kids-mega-milky-calcium-bo-sung-canxi-cho-be:10-nha-san-xuat, leaflet:vitamin-va-khoang-chat:springleaf-kids-mega-milky-calcium-60-vien:10-nha-san-xuat",
-          "source": "Tờ hướng dẫn sử dụng",
-          "source_evidence": ""
-        },
-        {
-          "auto_fixable": false,
-          "category": "duplicates",
-          "message": "Sections have exact duplicate normalized text",
-          "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
           "record_id": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:01-thanh-phan",
           "record_type": "section_group",
           "severity": "suspect",
@@ -1382,60 +1250,24 @@
           "snippet": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:04-doi-tuong-su-dung, leaflet:vitamin-va-khoang-chat:vien-uong-bo-sung-canxi-spring-leaf-liquid-calcium-plus-vitamin-d3-lo-60v:04-doi-tuong-su-dung",
           "source": "Tờ hướng dẫn sử dụng",
           "source_evidence": ""
-        },
-        {
-          "auto_fixable": false,
-          "category": "duplicates",
-          "message": "Sections have exact duplicate normalized text",
-          "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-          "record_id": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:06-bao-quan",
-          "record_type": "section_group",
-          "severity": "suspect",
-          "snippet": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:06-bao-quan, leaflet:vitamin-va-khoang-chat:vien-uong-bo-sung-canxi-spring-leaf-liquid-calcium-plus-vitamin-d3-lo-60v:06-bao-quan",
-          "source": "Tờ hướng dẫn sử dụng",
-          "source_evidence": ""
-        },
-        {
-          "auto_fixable": false,
-          "category": "duplicates",
-          "message": "Sections have exact duplicate normalized text",
-          "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-          "record_id": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:08-han-su-dung",
-          "record_type": "section_group",
-          "severity": "suspect",
-          "snippet": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:08-han-su-dung, leaflet:vitamin-va-khoang-chat:vien-uong-bo-sung-canxi-spring-leaf-liquid-calcium-plus-vitamin-d3-lo-60v:08-han-su-dung",
-          "source": "Tờ hướng dẫn sử dụng",
-          "source_evidence": ""
-        },
-        {
-          "auto_fixable": false,
-          "category": "duplicates",
-          "message": "Sections have exact duplicate normalized text",
-          "recommended_action": "Inspect duplicate sections before removing; repeated medical language can be intentional.",
-          "record_id": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:09-nha-san-xuat",
-          "record_type": "section_group",
-          "severity": "suspect",
-          "snippet": "leaflet:vitamin-va-khoang-chat:springleaf-liquid-calcium-plus-vitamin-d3-200-vien:09-nha-san-xuat, leaflet:vitamin-va-khoang-chat:vien-uong-bo-sung-canxi-spring-leaf-liquid-calcium-plus-vitamin-d3-lo-60v:09-nha-san-xuat",
-          "source": "Tờ hướng dẫn sử dụng",
-          "source_evidence": ""
         }
       ],
       "metrics": {
         "canonical_block_count": 10079,
         "canonical_section_count": 9920,
-        "chunk_count": 49733,
+        "chunk_count": 42574,
         "chunk_sources": {
           "Dược thư Quốc gia Việt Nam (Xuất bản lần thứ 2) - Nhà xuất bản Y học, Hà Nội, 2018": 11157,
-          "Tờ hướng dẫn sử dụng": 38576
+          "Tờ hướng dẫn sử dụng": 31417
         },
         "curated_table_count": 258,
         "leaflet_markdown_file_count": 2407,
         "rag_interim_chunk_count": 11019,
         "rag_interim_section_count": 9932,
-        "section_count": 41724,
+        "section_count": 34559,
         "section_sources": {
           "Dược thư Quốc gia Việt Nam (Xuất bản lần thứ 2) - Nhà xuất bản Y học, Hà Nội, 2018": 9920,
-          "Tờ hướng dẫn sử dụng": 31804
+          "Tờ hướng dẫn sử dụng": 24639
         }
       },
       "ok": true,
@@ -1443,7 +1275,7 @@
         "accepted": 32,
         "auto_fixable": 0,
         "blocking": 0,
-        "suspect": 26
+        "suspect": 19
       },
       "warnings": []
     },
@@ -1452,9 +1284,9 @@
       "findings": [],
       "metrics": {
         "canonical_block_count": 10079,
-        "chunk_count": 49733,
+        "chunk_count": 42574,
         "duplicate_review_count": 0,
-        "section_count": 41724,
+        "section_count": 34559,
         "table_block_count": 159
       },
       "ok": true,

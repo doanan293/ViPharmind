@@ -277,3 +277,46 @@ def test_edited_judgments_are_rejected(tmp_path: Path) -> None:
 def test_missing_judgments_name_the_command_that_builds_them(tmp_path: Path) -> None:
     with pytest.raises(ArtifactContractError, match="pharma-lab evaluation judgments"):
         load_judgments(tmp_path / "missing.judgments.jsonl", evaluation_sha256="e" * 64)
+
+
+def test_a_leaflet_split_by_heading_is_judged_as_one_page() -> None:
+    page = "leaflet:thuoc-tri-tieu-duong:acarbose-a"
+    chunks = [
+        _chunk("drug:acarbose:lieu-luong-va-cach-dung", 1, "ACARBOSE", "Uống 50 mg."),
+        _chunk(
+            f"{page}:01-thanh-phan",
+            1,
+            "Acarbose A 50 mg",
+            "# Acarbose A 50 mg\n\n### 1. Thành phần\n\nMỗi viên chứa:\n\nAcarbose 50 mg.",
+        ),
+        _chunk(
+            f"{page}:03-cach-dung-lieu-dung",
+            1,
+            "Acarbose A 50 mg",
+            "# Acarbose A 50 mg\n\n### 3. Cách dùng - Liều dùng\n\nUống 50 mg mỗi ngày.",
+        ),
+    ]
+    rows = [
+        {
+            "query_id": "q-dosage",
+            "eval_group": "formulary",
+            "answer_mode": "single",
+            "retrieval_granularity": "section",
+            "expected_section_id": "drug:acarbose:lieu-luong-va-cach-dung",
+        }
+    ]
+
+    judgments = build_judgments(rows, chunks)
+
+    assert judgments == [
+        {
+            "query_id": "q-dosage",
+            "intents": [
+                {
+                    "section_id": "drug:acarbose:lieu-luong-va-cach-dung",
+                    "intent": "dosage",
+                    "accepted_chunk_ids": [f"{page}:03-cach-dung-lieu-dung:chunk-001"],
+                }
+            ],
+        }
+    ]

@@ -38,6 +38,9 @@ def strip_hint(text: str) -> str:
 def _candidates(corpus: CorpusText, key: str) -> list[str]:
     if key in corpus.sections:
         return [key]
+    if key.startswith("leaflet:") and key.count(":") > 2:
+        # A subsection key from an earlier split: search its whole page.
+        key = ":".join(key.split(":")[:3])
     return sorted(
         section
         for section, document in corpus.section_documents.items()
