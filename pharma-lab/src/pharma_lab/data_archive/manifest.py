@@ -8,7 +8,7 @@ from typing import Any
 
 ARCHIVE_SCHEMA = "seed-data-archive-v1"
 ARCHIVE_MANIFEST_NAME = "archive-manifest.json"
-PART_PREFIX = "seed-pipeline-data.tar.zst.part-"
+PART_PREFIX = "vipharmind-data.tar.zst.part-"
 _PART_NAME = re.compile(rf"{re.escape(PART_PREFIX)}\d{{4}}")
 
 
