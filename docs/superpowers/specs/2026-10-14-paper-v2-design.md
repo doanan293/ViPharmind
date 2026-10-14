@@ -204,9 +204,10 @@ công bằng:
 
 - **Corpus:** tách mỗi tờ hướng dẫn theo heading markdown có sẵn thành section con (p50 16 heading
   mỗi tờ), chuẩn hóa tên heading về bộ intent bằng bảng ánh xạ trong `relevance_judgments.py`,
-  header context `<sản phẩm> > <heading>`. Bump `CHUNKER_VERSION`, re-embed qua API, release mới.
-  Giữ `MAX_CHUNK_CHARS = 3000`; không ablation kích thước chunk, bài biện minh bằng thống kê token
-  (p50 657 token, 78 % section một chunk).
+  header context `<sản phẩm> > <heading>`. Re-embed trên Kaggle như v1 (bundle embed chỉ có backend
+  local và Kaggle; cache theo sha của text nên chỉ chunk leaflet mới tốn GPU), release mới sinh từ
+  digest bundle, `CHUNKER_VERSION` giữ nguyên. Giữ `MAX_CHUNK_CHARS = 3000`; không ablation kích
+  thước chunk, bài biện minh bằng thống kê token (p50 657 token, 78 % section một chunk).
 - **Benchmark retrieval:** sinh lại từ release mới. Bỏ mọi hậu tố "(phần ...)" và đáp án trong
   ngoặc; chunk_coverage hỏi theo intent của heading chứa chunk; leaflet dùng tên sản phẩm chuẩn hóa
   (thương hiệu, hàm lượng, dạng) thay tiêu đề marketing; patient_natural đổi tên thành
@@ -216,9 +217,10 @@ công bằng:
   phẩm có chunk trùng văn bản. Giữ 10.000 câu và sáu nhóm.
 - **Golden e2e:** giữ nguyên nội dung, chỉ viết lại 50 item có hậu tố "(phần ...)"; gold section
   của item leaflet ánh xạ sang section con mới; chạy `golden check`.
-- **Hệ quả:** mọi số retrieval v1 vô hiệu; chạy lại bảng retrieval với sáu embedding qua API và
-  bốn reranker trên Kaggle (bỏ BGE-reranker-v2-gemma); bài có đoạn "so với v1" nói rõ v1 có gợi ý
-  trong câu hỏi.
+- **Hệ quả:** mọi số retrieval v1 vô hiệu; chạy lại bảng retrieval với năm embedding tự host và
+  bốn reranker trên Kaggle (bỏ BGE-reranker-v2-gemma; bỏ OpenAI text-embedding-3-large vì run v1 là
+  run nhập từ pipeline cũ, không tái lập được); bài có đoạn "so với v1" nói rõ v1 có gợi ý trong
+  câu hỏi.
 
 ### 3.1 Lớp hội thoại của benchmark retrieval
 
