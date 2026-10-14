@@ -59,7 +59,12 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   - Guard, một request mỗi lượt: noul `is_attack`, `is_about_medicines`, `is_smalltalk_or_meta`, cộng
     16 noul `asks_<intent>` cho 16 intent cụ thể của `ALLOWED_INTENT_CATEGORIES`. State gồm lịch sử và
     lượt mới nhất. Regex screen hiện có vẫn chạy trước. Ngưỡng khởi điểm theo cookbook guardrail của
-    vendor (0,35 review, 0,70 block) và được chỉnh trên tập giữ lại (§3.3).
+    vendor (0,35 review, 0,70 block) và được chỉnh trên tập giữ lại (§3.3). Lưu ý: TypeSafe không có
+    model hay endpoint guardrail chuyên biệt; cookbook "Guardrails for LLMs" chỉ là một battery câu hỏi
+    noul và score trên Jev tổng quát, và các đo đạc độc lập cho thấy prompt injection là task Jev yếu
+    nhất (0,741 so với 0,767 của Qwen3.8-27B; Red Hat 86,35 % so với 89,01 % của DeBERTa 200M). Bài
+    báo cáo recall tấn công của guard ở nhiều ngưỡng, và decision model không bao giờ là cổng an toàn
+    duy nhất.
   - Judge, một request mỗi vòng tìm kiếm: noul `covers_<intent>` cho từng intent đã hỏi,
     `sufficient_overall`, `evidence_conflict`, `wrong_drug`. State gồm câu hỏi gốc, standalone query,
     danh sách intent đã hỏi, và evidence dạng mảng có id. Ánh xạ về `JudgeDecision`: `answer` khi
