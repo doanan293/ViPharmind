@@ -84,9 +84,8 @@ def document_for_section(row: Mapping[str, Any]) -> DocumentRecord:
     title = str(row["title"])
     source_title = str(row.get("source") or "")
     if section_key.startswith(LEAFLET_SECTION_PREFIX):
-        _leaflet_path(section_key)
         return DocumentRecord(
-            key=section_key,
+            key=leaflet_document_key(row),
             kind=DocumentKind.LEAFLET,
             title=title,
             source=SourceInfo(title=source_title),
@@ -238,10 +237,20 @@ class _MappingCollector:
 
 
 def _leaflet_path(section_key: str) -> tuple[str, str]:
-    category, _, slug = section_key.removeprefix(LEAFLET_SECTION_PREFIX).rpartition(":")
-    if not category or not slug:
+    """(category, slug) of the leaflet page a page or subsection key belongs to."""
+    parts = section_key.removeprefix(LEAFLET_SECTION_PREFIX).split(":")
+    if len(parts) < 2 or not parts[0] or not parts[1]:
         raise ValueError(f"Leaflet section key is malformed: {section_key}")
-    return category, slug
+    return parts[0], parts[1]
+
+
+def leaflet_document_key(row: Mapping[str, Any]) -> str:
+    """Key of the leaflet page: ``page_id`` when present, else the page part of the key."""
+    page_id = str(row.get("page_id") or "")
+    if page_id:
+        return page_id
+    category, slug = _leaflet_path(str(row["id"]))
+    return f"{LEAFLET_SECTION_PREFIX}{category}:{slug}"
 
 
 def _blocks_by_section(

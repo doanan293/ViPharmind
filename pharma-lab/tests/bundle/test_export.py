@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -189,3 +190,68 @@ def test_collection_title_describes_the_content() -> None:
     assert COLLECTION_TITLE == (
         "Dược thư Quốc gia Việt Nam và tờ hướng dẫn sử dụng thuốc"
     )
+
+
+EFFERALGAN = "leaflet:thuoc:efferalgan-500-11600"
+_EFFERALGAN_TITLE = "Efferalgan 500 mg (hộp 16 viên)"
+
+
+def _subsection_row(index: int, heading: str, slug: str, body: str) -> dict:
+    return {
+        "id": f"{EFFERALGAN}:{index:02d}-{slug}",
+        "page_id": EFFERALGAN,
+        "content_type": "brand_page",
+        "title": _EFFERALGAN_TITLE,
+        "section": heading,
+        "text": f"# {_EFFERALGAN_TITLE}\n\n### {index}. {heading}\n\n{body}",
+        "source": "Tờ hướng dẫn sử dụng",
+        "context_path": [heading],
+        "context_header": f"{_EFFERALGAN_TITLE}\n> {heading}",
+        "colloquial_mapping": {"product_names": ["Efferalgan 500 mg"]},
+        "start_page": 0,
+        "end_page": 0,
+        "warnings": [],
+        "hydrate_strategy": "full_section",
+        "section_char_count": 80,
+    }
+
+
+def test_export_groups_leaflet_subsections_under_one_document(tmp_path: Path) -> None:
+    rag_final = tmp_path / "rag-final"
+    shutil.copytree(FIXTURE, rag_final)
+    with (rag_final / "sections.jsonl").open("a", encoding="utf-8") as handle:
+        for row in (
+            _subsection_row(1, "Thành phần", "thanh-phan", "Paracetamol 500 mg."),
+            _subsection_row(
+                2, "Cách dùng - Liều dùng", "cach-dung-lieu-dung", "1 viên mỗi 6 giờ."
+            ),
+        ):
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+    export_bundle(
+        ExportRequest(
+            rag_final_dir=rag_final,
+            glossary_path=FIXTURE / "term_glossary.json",
+            mappings_path=FIXTURE / "colloquial_mappings.json",
+            output_dir=tmp_path / "bundle",
+        )
+    )
+    bundle = read_bundle(tmp_path / "bundle")
+
+    documents = {document.key: document for document in bundle.documents}
+    assert documents[EFFERALGAN].kind is DocumentKind.LEAFLET
+    assert documents[EFFERALGAN].title == _EFFERALGAN_TITLE
+    subsections = [s for s in bundle.sections if s.document_key == EFFERALGAN]
+    assert [s.key for s in subsections] == [
+        f"{EFFERALGAN}:01-thanh-phan",
+        f"{EFFERALGAN}:02-cach-dung-lieu-dung",
+    ]
+    assert [s.ordinal for s in subsections] == [1, 2]
+    assert subsections[1].heading == "Cách dùng - Liều dùng"
+    assert subsections[1].context_path == ["Cách dùng - Liều dùng"]
+    mapping = next(
+        m
+        for m in bundle.colloquial_mappings
+        if f"{EFFERALGAN}:01-thanh-phan" in m.section_keys
+    )
+    assert f"{EFFERALGAN}:02-cach-dung-lieu-dung" in mapping.section_keys
+    assert mapping.product_names.count("Efferalgan 500 mg") == 1
