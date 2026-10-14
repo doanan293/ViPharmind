@@ -21,18 +21,24 @@ Khung đặt vấn đề lấy từ Fensore et al. 2025: RAG chuyên ngành ch�
 retrieval đã tốt, giữ chất lượng đó với độ trễ và chi phí thấp nhất bằng cách nào. Bốn đóng góp:
 
 1. **Tách quyết định khỏi sinh văn bản.** Các bước chỉ ra quyết định (guard, judge đủ bằng chứng,
-   phủ theo intent) chạy trên decision model không sinh văn bản trả về xác suất đã hiệu chuẩn (Jev
-   thương mại và Strands Decider 2B open weights); các bước sinh văn bản (rephrase, refine, answer) chạy
-   trên LLM nhỏ. Đo cái gì được, cái gì mất, và hiệu chuẩn của decision model trên tiếng Việt.
+   phủ theo intent) chạy trên decision model Jev, không sinh văn bản mà trả về xác suất đã hiệu
+   chuẩn; các bước sinh văn bản (rephrase, refine, answer) chạy trên LLM nhỏ. Đo cái gì được, cái gì mất, và hiệu chuẩn của decision model trên tiếng Việt.
 2. **Refinement theo độ tin cậy.** Vòng retrieve-more chỉ chạy khi xác suất "đủ bằng chứng" của judge
    dưới ngưỡng τ. Quét τ cho đường Pareto chi phí, độ trễ so với truthfulness, theo giao thức báo cáo
    của Qian et al. 2026.
-3. **Graph routing so với agent ReAct trên bộ model rẻ.** Cùng corpus, retriever, tool, ngân sách và
-   định dạng trả lời; chỉ khác ai điều khiển. Sáu model gọi qua API: ba model mở rẻ, hai model thương
-   mại rẻ và một model nặng làm trần tham chiếu. Với mỗi model, kiến trúc nào cho chất lượng cao nhất
-   trên mỗi USD và mỗi giây, và model nặng hơn có đổi kết luận không.
+3. **Graph routing so với agent ReAct trên model rẻ.** Cùng corpus, retriever, tool, ngân sách và
+   định dạng trả lời; chỉ khác ai điều khiển. Với mỗi model, kiến trúc nào cho chất lượng cao nhất
+   trên mỗi USD và mỗi giây, và model nặng có đổi kết luận không.
 4. **Benchmark và đánh giá.** Benchmark retrieval 10.000 câu thêm lớp hội thoại; bộ e2e 500 item mở
    rộng an toàn lên 50 item mỗi loại; mọi cấu hình báo chất lượng, giây và USD.
+
+Bài cố ý chỉ dùng ba LLM: cặp của v1 gồm một model mở rẻ (Qwen3.5-9B) và một model thương mại rẻ
+(Gemini 3.8 Flash), cộng một model nặng (Claude Opus 5.5) làm trần tham chiếu. Đóng góp của bài nằm ở
+kiến trúc (decision model, refinement theo ngưỡng, graph routing so với ReAct), không ở việc xếp hạng
+model; so sánh model đã có nhiều bài làm và không mang tính mới. Giữ cặp v1 cho phép mọi số v2 nối
+thẳng với v1, và mỗi phát hiện về kiến trúc được kiểm trên cả một model mở lẫn một model thương mại.
+Opus 5.5 trả lời câu hỏi mà reviewer chắc chắn đặt ra: lợi thế của kiến trúc trên model rẻ có còn
+khi generator đã mạnh, và model rẻ cộng Jev cách trần bao xa với chi phí bao nhiêu.
 
 Định vị bắt buộc trong Related Work: Anthropic 2024 (định nghĩa workflow và agent); Ferrazzi et al.
 2026 và Kumar et al. 2026 (workflow so với agent, phải đối chiếu rõ khác biệt: cùng tool và giao diện,
@@ -47,7 +53,7 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
 
 - Thêm `LlmEndpoint.provider: Literal["openai", "systemone"] = "openai"` trong settings, cùng
   `base_url`, `api_key`, `model` dùng chung. `systemone` là giao thức `POST /v1/systemone`
-  `{state, model, questions}` mà cả Jev lẫn Strands Decider 2B cùng nói.
+  `{state, model, questions}` của Jev.
 - Adapter mới `infrastructure/llm/systemone_adapter.py` chỉ cài `structured()` cho hai vai trò
   GUARDRAIL và JUDGE; `stream()` raise `LlmError`. Lỗi HTTP và parse thành `LlmError` để giữ hành vi
   fail-open của guard và `judge_failed` hiện có. Usage lấy từ `usage.input_tokens` của phản hồi.
@@ -74,50 +80,68 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   - Grader (đánh giá, không thuộc pipeline): per-key-fact choice supported/missing/contradicted, harm,
     abstention, injection. Đây là thí nghiệm phụ "decision model làm judge đánh giá" (§4.E), judge chính
     của bài vẫn là gemini-3.1-flash-lite để so sánh được với v1.
-- Giới hạn cần tôn trọng: 64k token mỗi request, 32k cho state cộng câu hỏi dài nhất; evidence 24.000
+- Giới hạn cần tôn trọng: 64k token mỗi request, 32k cho state cộng câu hỏi dài nhất (OpenRouter ghi
+  ngữ cảnh 32.000, nên lấy 32k làm trần thực tế); evidence 24.000
   ký tự tiếng Việt ước 7 đến 16k token. Việc đầu tiên của plan là đo `usage.input_tokens` cho một khối
   evidence 24.000 ký tự. Câu hỏi viết bằng tiếng Anh, nội dung tiếng Việt nằm trong state.
-- Strands Decider 2B là đối chứng open weights **tùy chọn**, chỉ làm ở pha 4 nếu còn thời gian, vì
-  không có API hosted nên phải tự host trên Kaggle T4 qua `strands-decider serve` (cùng endpoint).
-  Bài v2 chạy được trọn vẹn chỉ với Jev.
+- Bài chỉ dùng một decision model là Jev. Không chạy decision model thứ hai, kể cả bản open weights;
+  Related Work nhắc các model cùng loại và Limitations ghi Jev là closed weights.
 
-### 2.1b Mọi LLM gọi qua API: model mở qua OpenRouter, model thương mại qua cli-proxy-api
+### 2.1b Đường gọi model: lab tự host trên Kaggle hoặc qua cli-proxy-api, production qua OpenRouter
 
-- Không tự host LLM nữa, kể cả Qwen3.5-9B; run v1 tự host được giữ làm tham chiếu lịch sử và bài
-  ghi rõ khác biệt. Mỗi vai trò có `BASE_URL`, `API_KEY` và `MODEL` riêng như hiện nay, nên hai
-  đường dưới đây trộn được trong một run.
-- **Model mở** (Qwen3.5-9B, Qwen3.8-27B, DeepSeek V4.1 Flash) qua `https://openrouter.ai/api/v1`
-  với id OpenRouter. `extra_body` mang `provider: {order: [<slug>], allow_fallbacks: false,
-  require_parameters: true}` để một model luôn đi một provider, một precision; Qwen3.5-9B ghim
-  DeepInfra bf16. Response của OpenRouter ghi provider thực tế, lưu vào `answers.jsonl`. Dự án chưa
-  có key OpenRouter; đặt vào `backend/.env` và `pharma-lab/.env` theo `.env.example`.
-- **Model thương mại** (Gemini 3.8 Flash, gemini-3.1-flash-lite, GPT-6 Luna, Claude Opus 5.5) qua
-  service `cli-proxy-api` của compose (image `eceasy/cli-proxy-api:v8.0.28`, bản cũ v7.3.0 giả lập
-  Claude Code quá cũ để gọi Opus 5.5), endpoint `http://127.0.0.1:8317/v1`, key `proxypal-local`,
-  như v1 đã dùng cho Gemini. Credential OAuth lấy từ ProxyPal trên Windows và
-  chép vào volume `vipharmind_cli_proxy_auth` (README, mục CLIProxyAPI); đã đồng bộ ngày 2026-10-14
-  với ba credential Antigravity, Claude và Codex. Đã gọi thử structured output thành công với
-  `gemini-3.8-flash-high`, `gemini-3.1-flash-lite`, `gpt-6-luna`, `gpt-6-sol`, `gpt-6-astra`,
-  `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5`; `gpt-6.1-sol` bị tài khoản ChatGPT từ
-  chối. Quota ChatGPT hạn chế nên GPT chỉ giữ Luna, model nặng của bài là Claude Opus 5.5.
-- **Reasoning tắt hoặc thấp nhất có thể ở mọi model**, ghi rõ trong bài: GPT-6 Luna
-  `reasoning_effort: none` (0 token reasoning); Gemini 3.8 Flash qua Antigravity chỉ có id
-  `gemini-3.8-flash-high` và override payload trong `config.yaml` đặt `thinkingLevel: low`, mức thấp
-  nhất model nhận (`minimal` bị từ chối), đo được 0 token reasoning; gemini-3.1-flash-lite không
-  thinking; Claude Opus 5.5 không cho tắt thinking, dùng adaptive với `reasoning_effort: minimal`;
-  Qwen3.5-9B và Qwen3.8-27B `chat_template_kwargs.enable_thinking: false`; DeepSeek V4.1 Flash
-  `reasoning: {enabled: false}` trên OpenRouter. Khác với v1, nơi Gemini chạy thinking high, nên
-  A1 chạy lại ở mức low và bài giữ số v1 làm tham chiếu lịch sử.
+- Lab (pharma-lab, mọi run của bài) chỉ dùng OpenRouter cho Jev. Model mở tự host trên Kaggle như
+  v1, model thương mại đi qua `cli-proxy-api`. Production (backend triển khai) gọi LLM qua OpenRouter;
+  vì cả hai đều là endpoint tương thích OpenAI nên khác nhau chỉ ở cấu hình, không ở mã. Mỗi vai trò
+  có `BASE_URL`, `API_KEY` và `MODEL` riêng như hiện nay, nên hai đường của lab trộn được trong một
+  run.
+- **Model mở** (Qwen3.5-9B) tự host trên Kaggle bằng `pharma-lab e2e llm-server --model
+  qwen3.5:9b-f16`: llama.cpp GGUF F16 chia trên hai T4, 4 slot mỗi slot 16.384 token, tunnel
+  cloudflared, đúng cấu hình của run v1 (`docs/guides/e2e-evaluation.md`). Nhờ vậy run Qwen v2 nối
+  thẳng với run v1 mà không đổi precision hay provider.
+- **Model thương mại** (Gemini 3.8 Flash, gemini-3.1-flash-lite, Claude Opus 5.5) qua service
+  `cli-proxy-api` của compose (image `eceasy/cli-proxy-api:v8.0.28`, bản cũ v7.3.0 giả lập Claude
+  Code quá cũ để gọi Opus 5.5), endpoint `http://127.0.0.1:8317/v1`, key `proxypal-local`, như v1 đã
+  dùng cho Gemini. Credential OAuth Antigravity và Claude lấy từ ProxyPal trên Windows và chép vào
+  volume `vipharmind_cli_proxy_auth` (README, mục CLIProxyAPI); đã đồng bộ ngày 2026-10-14. Đã gọi
+  thử structured output thành công với `gemini-3.8-flash-high`, `gemini-3.1-flash-lite` và
+  `claude-opus-5-5`.
+- **Reasoning tắt hoặc thấp nhất có thể ở mọi model**, ghi rõ trong bài: Claude Opus 5.5 không cho
+  tắt thinking (`reasoning_effort: none` bị từ chối với "thinking.type.disabled is not supported for
+  this model", kiểm lại ngày 2026-10-14), nên dùng adaptive với `reasoning_effort: minimal`, đo được
+  0 token reasoning trên câu ngắn; bài báo số token reasoning thực tế của Opus. Gemini 3.8 Flash qua
+  Antigravity chỉ có id `gemini-3.8-flash-high` và override payload trong `config.yaml` đặt
+  `thinkingLevel: low`, mức thấp nhất model nhận (`minimal` bị từ chối), đo được 0 token reasoning;
+  Qwen3.5-9B `chat_template_kwargs.enable_thinking: false`.
+  Khác với v1, nơi Gemini chạy thinking high, nên A1 chạy lại ở mức low và bài giữ số v1 làm tham
+  chiếu lịch sử.
 - Chi phí trong bài luôn tính theo giá niêm yết nhân token, kể cả với model thương mại đi qua
-  proxy thuê bao, và bài nói rõ điều đó. Tiền thật phải trả chỉ phát sinh ở OpenRouter cho ba model
-  mở và ở Jev.
-- Embedding query: OpenRouter có `qwen/qwen3-embedding-4b`; trước khi dùng phải chạy kiểm tra tương
-  đương trên 1.000 câu benchmark (Hit@10 và MRR@10 so với cache embedding llama.cpp fp16 của v1,
-  chấp nhận chênh dưới 0,3 điểm). Không đạt thì embedding ở DeepInfra như production hiện nay.
-- Reranker: OpenRouter không có endpoint rerank, nên Qwen3-Reranker-4B gọi DeepInfra qua
-  `PHARMA_RETRIEVAL__RERANK__PROTOCOL=deepinfra` đã có.
-- Jev: gọi thẳng `api.typesafe.ai` bằng SDK chính thức, vì bản qua OpenRouter chưa công bố giá.
-- Judge đánh giá: gemini-3.1-flash-lite cũng qua OpenRouter; `judge.json` ghi thêm provider.
+  proxy thuê bao, kể cả Opus 5.5, và kể cả Qwen3.5-9B tự host: Qwen tính theo giá niêm yết trên
+  OpenRouter (DeepInfra bf16), tức đúng giá production sẽ trả, không theo giờ GPU Kaggle. Bài nói
+  rõ điều đó. Tiền thật phải trả chỉ phát sinh ở Jev qua OpenRouter.
+- Embedding query: llama.cpp `qwen3-embedding:4b-fp16` chạy local qua `compose.local-models.yaml`
+  như v1, khớp với index đã dựng.
+- Reranker: Qwen3-Reranker-4B tự host trên Kaggle bằng `pharma-lab e2e rerank-server` ở một kernel
+  riêng như v1, vì hai T4 của kernel LLM đã dành cho Qwen3.5-9B.
+- Jev: qua OpenRouter, cả ở lab lẫn production, bằng SDK chính thức của TypeSafe với `base_url`
+  `https://openrouter.ai/api` và id `~typesafe/jev-latest` (danh sách model OpenRouter ngày
+  2026-10-14 hiện id `typesafe/jev-router`, giá ghi -1, tức OpenRouter không công bố giá cố định).
+  Key OpenRouter đặt trong `backend/.env` và `pharma-lab/.env` theo `.env.example`. Ba hệ quả cho
+  thiết kế: id `latest` không ghim được phiên bản, nên mỗi run ghi phiên bản model mà phản hồi trả
+  về và dừng nếu phiên bản đổi giữa run; ngữ cảnh OpenRouter ghi 32.000 token, nên trần evidence
+  của judge phải nằm dưới mức đó (đo ở bước đầu của pha 1); chi phí trong bài tính theo giá niêm yết
+  của TypeSafe 0,042 USD mỗi triệu token vào, còn tiền thật lấy từ trường usage và cost của
+  OpenRouter. Đây là dịch vụ ngoài trả tiền duy nhất của lab.
+- Judge đánh giá: gemini-3.1-flash-lite qua cli-proxy-api; `judge.json` ghi thêm provider. Reasoning
+  của judge (RAGAS và judge cấu trúc, hằng `JUDGE_REASONING` trong `judging/structured.py`) đổi từ
+  `medium` của v1 sang `none`, vì judge gọi rất nhiều lần mỗi item. Qua proxy, flash-lite có thinking
+  thật ở `medium` (291 token reasoning trên một câu tính liều) còn `low` và `none` đều 0 token, nên
+  chỉ có hai mức thực sự khác nhau. Trước khi đổi, chấm lại các item dược sĩ đã chấm mù của v1
+  (`e2e-gemini` và `e2e-qwen35-9b`, `calibration/grades.jsonl`) bằng `none` vào một run root riêng,
+  không ghi đè judgments v1, rồi so κ và AC1 với người chấm ở `medium`. Chênh không đáng kể thì dùng
+  `none` và chấm lại toàn bộ run v1 bằng `none` để mọi số v1 và v2 cùng một judge; tụt rõ thì giữ
+  `medium` và bài ghi lý do. Phép thử nhanh ngày 2026-10-14 cho thấy rủi ro là thật: một câu tính
+  thể tích (400 mg từ ống 250 mg/5 ml) đúng 8 ml ở `medium` nhưng sai 6,4 ml ở cả `none` và `low`,
+  ba lần gọi như nhau.
 
 ### 2.2 Judge-refine kiểu quyết định
 
@@ -175,17 +199,19 @@ công bằng:
 - `AnswerRecord.steps: list[{kind, outcome, started_at, seconds}]` từ `AgentRun.actions[*].at`;
   `SearchResult` thêm `retrieval_seconds` và `rerank_seconds`.
 - `pharma_lab/e2e/pricing.py`: bảng giá theo id model và provider, đọc từ OpenRouter ngày
-  2026-10-14, ghi nguồn và ngày, USD mỗi triệu token vào/ra: Qwen3.5-9B 0,10/0,15 (DeepInfra bf16);
-  Qwen3.8-27B 0,04/2,30; DeepSeek V4.1 Flash 0,021/0,89; Gemini 3.8 Flash 0,75/3,75; GPT-6 Luna
-  0,10/0,50; Claude Opus 5.5 4/20 (claude.com/pricing, prompt dưới 100k token); gemini-3.1-flash-lite
-  0,25/1,50; Jev 0,042/0; Qwen3-Reranker-4B và
-  embedding theo giá DeepInfra hoặc OpenRouter tại ngày chạy. Mọi chi phí là giá niêm yết, không có
-  mô hình giờ GPU vì không tự host.
+  2026-10-14, ghi nguồn và ngày, USD mỗi triệu token vào/ra: Qwen3.5-9B 0,10/0,15 (giá DeepInfra bf16
+  trên OpenRouter, dùng cho run tự host);
+  Gemini 3.8 Flash 0,75/3,75; Claude Opus 5.5 4/20 (claude.com/pricing, prompt dưới 100k token);
+  gemini-3.1-flash-lite 0,25/1,50; Jev 0,042/0; Qwen3-Reranker-4B và
+  embedding theo giá DeepInfra tại ngày chạy. Mọi chi phí là giá niêm yết, không có mô hình giờ
+  GPU, kể cả cho thành phần tự host trên Kaggle.
 - Metric mới: `usd_per_turn`, `usd_per_1000_turns`, `llm_seconds_per_turn`, `retrieval_seconds_per_turn`,
   `decision_seconds_per_turn`, `cost_of_pass` (USD chia tỷ lệ perfect, theo Erol et al.). Bảng
   `cost.csv|tex`.
 - Giao thức đo: run đo latency chạy với concurrency 1 trên cùng máy và cùng endpoint, ghi vùng địa lý
-  và ngày; run lấy chất lượng có thể chạy concurrency 4 nhưng latency lấy từ run concurrency 1. Báo
+  và ngày. Latency của Qwen3.5-9B là latency trên hai T4 Kaggle qua tunnel, còn Gemini và Opus là
+  latency API qua proxy, nên bài chỉ so latency giữa các kiến trúc trên cùng một model (A2 so với
+  A3, graph so với ReAct), không xếp hạng latency giữa các model; run lấy chất lượng có thể chạy concurrency 4 nhưng latency lấy từ run concurrency 1. Báo
   p50 và p95. Mỗi lời gọi decision model đo client-side.
 
 ### 2.6 Công tắc và biến thể khác
@@ -252,8 +278,8 @@ công bằng:
 - Ngưỡng guard và judge không được chỉnh trên bộ golden. Dùng một tập hiệu chuẩn riêng lấy từ benchmark
   retrieval: 300 câu có gold section, với evidence do pipeline lấy về, nhãn "đủ bằng chứng" tính từ gold
   (top-k có chứa gold section hay không, và với đa intent là có đủ mọi section không); cộng 100 câu tấn
-  công và ngoài phạm vi sinh thêm cho guard. Báo AUROC, ECE, và độ chính xác tại ngưỡng chọn, cho Jev
-  và Decider 2B, kèm kiểm tra xoay thứ tự lựa chọn và tỷ lệ lật quyết định khi gọi lặp 3 lần.
+  công và ngoài phạm vi sinh thêm cho guard. Báo AUROC, ECE, và độ chính xác tại ngưỡng chọn của Jev,
+  kèm kiểm tra xoay thứ tự lựa chọn và tỷ lệ lật quyết định khi gọi lặp 3 lần.
 - Hiệu chuẩn judge đánh giá bằng dược sĩ chấm mù giữ giao thức v1, mở rộng mẫu cho các cấu hình mới
   (50 item mỗi cấu hình chính) và báo tương quan lỗi giữa judge và người chấm theo Rao và Callison-Burch.
 
@@ -264,24 +290,21 @@ golden và cùng judge đánh giá.
 
 ### A. Phân vai theo loại model (đóng góp 1)
 
-Bộ sáu model dùng xuyên suốt bài (giá USD mỗi triệu token vào/ra, OpenRouter 2026-10-14):
+Ba model dùng xuyên suốt bài (giá USD mỗi triệu token vào/ra, ngày 2026-10-14): cặp của v1 để mọi
+số nối được với v1, cộng một model nặng làm trần (lý do ở §1):
 
-| Nhóm | Model | Giá | Vai trò trong bài |
+| Nhóm | Model | Giá | Đường gọi |
 | --- | --- | --- | --- |
-| Mở, rẻ | Qwen3.5-9B | 0,10 / 0,15 | nối với v1 |
-| Mở, rẻ | Qwen3.8-27B | 0,04 / 2,30 | Qwen dense mới nhất |
-| Mở, rẻ | DeepSeek V4.1 Flash | 0,021 / 0,89 | họ mở ngoài Qwen |
-| Thương mại, rẻ | Gemini 3.8 Flash | 0,75 / 3,75 | nối với v1 |
-| Thương mại, rẻ | GPT-6 Luna | 0,10 / 0,50 | model rẻ nhất của OpenAI; model GPT duy nhất vì quota ChatGPT hạn chế |
-| Nặng, trần tham chiếu | Claude Opus 5.5 | 4 / 20 | giới hạn trên của chất lượng |
+| Mở, rẻ | Qwen3.5-9B | 0,10 / 0,15 | tự host Kaggle, llama.cpp F16 trên 2 T4 |
+| Thương mại, rẻ | Gemini 3.8 Flash | 0,75 / 3,75 | cli-proxy-api, thinking low |
+| Nặng, trần tham chiếu | Claude Opus 5.5 | 4 / 20 | cli-proxy-api, adaptive effort minimal |
 
 | Cấu hình | G, J | R | P, A | Ghi chú |
 | --- | --- | --- | --- | --- |
-| A1 gemini (v1) | gemini-3.1-flash-lite, 3.8-flash | LLM | 3.1-flash-lite, 3.8-flash | đã có, chạy lại qua OpenRouter |
-| A2 llm-only, mỗi model | cùng model | LLM | cùng model | sáu run, mọi vai trò trên một LLM |
-| A3 jev + mỗi model | Jev | template | cùng model | sáu run, cấu hình chính của bài |
+| A1 gemini (v1) | gemini-3.1-flash-lite, 3.8-flash | LLM | 3.1-flash-lite, 3.8-flash | đã có, chạy lại ở thinking low |
+| A2 llm-only, mỗi model | cùng model | LLM | cùng model | ba run, mọi vai trò trên một LLM |
+| A3 jev + mỗi model | Jev | template | cùng model | ba run, cấu hình chính của bài |
 | A4 jev + qwen9b, refine LLM | Jev | LLM | Qwen3.5-9B | tách tác dụng của refine template |
-| A5 decider2b + qwen9b | Decider 2B | template | Qwen3.5-9B | tùy chọn, cần tự host |
 
 Kết quả: bảng chính v2 với truthfulness, nugget recall, hallucination, severe harm, faithfulness,
 citation recall, các metric an toàn, giây mỗi lượt p50 và p95, USD mỗi 1.000 lượt; hình teaser
@@ -293,16 +316,18 @@ truthfulness theo giây và theo USD, mỗi cấu hình một điểm; hình tá
   dải với độ tin cậy nói ra của LLM judge.
 - Báo theo Qian et al. 2026: đường biên chất lượng so với chi phí và so với độ trễ, tỷ lệ refine thực
   tế, chi phí của chính bước judge, độ ổn định của τ khi chuyển model (τ chọn trên Qwen3.5-9B áp sang
-  các model còn lại của A3), tỷ lệ gây hại khi bỏ refine.
+  Gemini 3.8 Flash và Claude Opus 5.5, chỉ ở τ đã chọn), tỷ lệ gây hại khi bỏ refine. Không quét
+  τ trên Opus 5.5.
 - Phân tích tương quan lỗi: judge nói "đủ" nhưng câu trả lời thiếu key fact, theo nhóm câu hỏi.
 
-### C. Graph routing so với ReAct trên bộ sáu model (đóng góp 3)
+### C. Graph routing so với ReAct trên ba model (đóng góp 3)
 
 Hai nhánh dùng cùng một LLM cho mọi vai trò, để khác biệt chỉ còn là ai điều khiển. Nhánh graph
-routing là A2 của model đó; nhánh ReAct là một run mới cùng model. Các cấu hình có decision model
-(A3) không thuộc so sánh này mà được vẽ thêm như điểm tham chiếu. Câu hỏi của bài không còn là "cỡ
-nào thì ReAct bắt kịp" mà là "với mỗi model rẻ và với model nặng, kiến trúc nào cho chất lượng cao
-nhất trên mỗi USD và mỗi giây", cộng một nhận xét về xu hướng theo sức mạnh model.
+routing là A2 của model đó; nhánh ReAct là một run mới cùng model, nên có ba run ReAct (Qwen3.5-9B,
+Gemini 3.8 Flash và Claude Opus 5.5). Các cấu hình có decision model (A3) không thuộc so sánh này mà
+được vẽ thêm như điểm tham chiếu. Câu hỏi của bài là "với một model rẻ, mở hay thương mại, kiến trúc
+nào cho chất lượng cao nhất trên mỗi USD và mỗi giây, và kết luận có giữ khi model đủ mạnh như Opus
+5.5 không", không phải "cỡ model nào thì ReAct bắt kịp".
 
 - Giữ cố định: tool, retriever, reranker, mức bằng chứng, định dạng trả lời, reasoning effort, nhiệt độ,
   judge đánh giá. Giao diện gọi được nêu rõ: structured output cho pipeline, native tool calling cho
@@ -311,7 +336,8 @@ nhất trên mỗi USD và mỗi giây", cộng một nhận xét về xu hướ
   (graph routing và ReAct); bảng thất bại của ReAct theo loại (chạm trần vòng, tool call sai định
   dạng, gọi trùng, trả lời không trích dẫn); cùng kết quả trên 50 item nhiều lượt và 50 item injection
   vì ReAct không có rephrase và guard chỉ ở ngoài.
-- Mọi model qua OpenRouter với provider ghim cố định (§2.1b), ghi rõ provider và precision trong bài.
+- Qwen3.5-9B tự host trên Kaggle, Gemini 3.8 Flash và Claude Opus 5.5 qua cli-proxy-api (§2.1b);
+  bài ghi rõ phần cứng, precision và mức thinking.
 
 ### D. Retrieval
 
@@ -358,7 +384,8 @@ nhất trên mỗi USD và mỗi giây", cộng một nhận xét về xu hướ
 - Limitations viết theo `03-jev-typesafe.md` §8 và `05-literature-survey.md` §H: closed weights, early
   access, giá có thể được trợ, hiệu chuẩn vendor tự khai, tiếng Việt không có số liệu công bố, tấn công
   kênh lựa chọn và ngữ cảnh tự nhiên, decision model không phải cổng an toàn duy nhất, độ trễ đo từ
-  Việt Nam đến endpoint Mỹ.
+  Việt Nam đến endpoint Mỹ, kết quả kiến trúc chỉ kiểm trên ba model, Opus 5.5 không tắt được
+  thinking nên chạy ở mức thấp nhất thay vì tắt hẳn.
 - Table 2 gọn lại (bỏ MRR@30, bỏ Hit@30 ở khối reranker) để nhường chỗ cho hàng mới.
 
 ## 7. Thứ tự thực hiện
@@ -367,14 +394,14 @@ Mỗi pha là một plan riêng, chạy xong mới sang pha sau trừ khi ghi kh
 pha có thể gối nhau ở phần mã vì pha 0 không phụ thuộc dữ liệu, nhưng mọi run đo đều chờ pha D.
 
 0. **Pha D, dữ liệu.** §3.0: tách leaflet theo heading, release mới, sinh lại benchmark, viết lại 50
-   item golden, chạy lại bảng retrieval (sáu embedding qua API, bốn reranker trên Kaggle). Mọi pha
+   item golden, chạy lại bảng retrieval (năm embedding và bốn reranker trên Kaggle). Mọi pha
    sau chạy trên release và benchmark này.
-1. **Pha 0, hạ tầng đo và chuyển API.** §2.1b (OpenRouter cho mọi LLM, provider ghim, kiểm tra tương
-   đương embedding, reranker DeepInfra), §2.5 và §2.6 (trừ enrichment), `e2e compare`, pricing,
-   steps latency, bảng cost. Xác nhận bằng cách chạy lại A1 và A2 Qwen3.5-9B qua OpenRouter và so với
-   bảng v1 có thêm cột giây và USD.
+1. **Pha 0, hạ tầng đo.** §2.1b (Opus 5.5 qua cli-proxy-api, kiểm tra reasoning `none` của judge
+   trên nhãn dược sĩ v1), §2.5 và §2.6 (trừ enrichment), `e2e compare`, pricing, steps latency, bảng
+   cost. Xác nhận bằng cách chạy lại A1 và A2 Qwen3.5-9B (tự host Kaggle) và so với bảng v1 có thêm
+   cột giây và USD.
 2. **Pha 1, decision model.** §2.1, §2.2, §2.3, §3.3. Đo token Vietnamese trên Jev; chạy tập hiệu
-   chuẩn; chọn τ; chạy A2 và A3 cho sáu model, A4, và quét B. Kết quả đóng góp 1 và 2.
+   chuẩn; chọn τ; chạy A2 và A3 cho ba model, A4, và quét B. Kết quả đóng góp 1 và 2.
 3. **Pha 2, ReAct.** §2.4 và ma trận C. Có thể chạy song song pha 1 vì không chung mã, chỉ chung hạn
    mức API.
 4. **Pha 3, retrieval.** §3.1, D1 đến D6, enrichment §2.6. D1 và D6 làm trước vì rẻ.
@@ -384,31 +411,37 @@ pha có thể gối nhau ở phần mã vì pha 0 không phụ thuộc dữ li�
 Tiêu chí chấp nhận mỗi pha: lint, type và test của backend và pharma-lab xanh; run có `run.json` đầy đủ
 identity; báo cáo sinh bằng lệnh có sẵn chứ không chép tay; số liệu vào bài chỉ từ file báo cáo.
 
-Ngân sách tiền thật, ước theo 11.600 token mỗi lượt của full agent v1 và ReAct gấp đôi: ba model mở
-trên OpenRouter nhân ba run (A2, A3, ReAct) cộng quét τ và ablation trên Qwen3.5-9B khoảng 15 USD;
-Jev dưới 2 USD. Model thương mại, kể cả Claude Opus 5.5, và judge gemini-3.1-flash-lite đi qua proxy
-thuê bao nên không tốn thêm; giá niêm yết của chúng (khoảng 120 USD cho Opus 5.5, 20 USD cho judge)
-chỉ xuất hiện trong bảng chi phí của bài. Quota ChatGPT thấp nên các run GPT-6 Luna xếp sau cùng và
-chạy thử 20 item trước. Mỗi run chạy thử 20 item trước khi chạy đủ.
+Ngân sách tiền thật, ước theo 11.600 token mỗi lượt của full agent v1 và ReAct gấp đôi: chỉ Jev qua
+OpenRouter, dưới 2 USD theo giá niêm yết, cộng phí OpenRouter nếu có. Qwen3.5-9B và reranker chạy trên quota GPU Kaggle; mọi run Qwen (A2, A3, A4, ReAct,
+quét τ, ablation) phải xếp theo quota tuần của các account Kaggle, và run ReAct cần kiểm trước xem
+16.384 token mỗi slot có đủ cho 6 vòng tool không, nếu không thì phục vụ 2 slot 32.768 token.
+Gemini 3.8 Flash, Claude Opus 5.5 và judge gemini-3.1-flash-lite đi qua proxy thuê bao nên không
+tốn thêm; giá niêm yết của chúng (khoảng 120 USD cho ba run Opus 5.5, 20 USD cho judge) chỉ xuất
+hiện trong bảng chi phí của bài. Quota Claude có hạn nên các run Opus 5.5 xếp sau run của hai model
+rẻ. Mỗi run chạy thử 20 item trước khi chạy đủ.
 
 ## 8. Rủi ro
 
-- Jev early access, giới hạn và giá có thể đổi: ghim phiên bản, lưu phản hồi thô, chạy pha 1 sớm.
+- Jev early access, giới hạn và giá có thể đổi, và id `~typesafe/jev-latest` trên OpenRouter có thể
+  trỏ sang phiên bản mới giữa chừng: ghi phiên bản trả về mỗi lời gọi, dừng run nếu phiên bản đổi,
+  lưu phản hồi thô, chạy pha 1 sớm.
 - Jev tiếng Việt: người dùng đã thử ổn, nhưng tập hiệu chuẩn §3.3 là bằng chứng trong bài. Nếu AUROC
-  thấp thì Decider 2B và LLM judge là đối chứng, và kết quả vẫn là finding.
+  thấp thì LLM judge (A2) là đối chứng, và kết quả vẫn là finding.
 - Nhiều noul trong một request thiên về "có": ngưỡng chỉnh trên tập giữ lại, báo AUROC thay vì chỉ độ
   chính xác tại 0,5.
 - Model rẻ có thể gọi tool kém trong ReAct: đó là kết quả, nhưng phải tách lỗi harness khỏi lỗi model
   bằng bảng thất bại theo loại và biến thể có và không có chặn gọi trùng.
-- Embedding query qua OpenRouter có thể lệch với index đã dựng bằng llama.cpp fp16: kiểm tra tương
-  đương trước (§2.1b), không đạt thì giữ DeepInfra.
-- Provider trên OpenRouter có thể đổi giá hoặc rút model giữa chừng: ghi provider và giá vào từng
-  run, chạy mỗi cấu hình trọn trong một đợt.
-- Credential OAuth của cli-proxy-api hết hạn hoặc tài khoản ChatGPT, Claude đổi danh sách model được
-  dùng: proxy trả `auth_unavailable`, khi đó chép lại credential từ ProxyPal; `pin_judge` và run
-  identity vẫn ghi tên model nên run tiếp tục được sau khi khôi phục.
-- Độ trễ đo từ Việt Nam tới gateway Mỹ: mọi model cùng điều kiện nên so sánh được, nhưng số tuyệt đối
-  gồm mạng; ghi rõ trong bài.
+- Quota GPU Kaggle và giới hạn thời gian mỗi phiên kernel: mỗi run chạy được tiếp sau khi kernel
+  khởi động lại vì harness đã ghi `answers.jsonl` từng item; xếp run Qwen theo quota và ưu tiên
+  cấu hình chính (A2, A3, ReAct) trước quét τ và ablation.
+- Ngữ cảnh 16.384 token mỗi slot có thể không đủ cho ReAct khi kết quả tool cộng dồn: ghi số lượt
+  chạm trần ngữ cảnh vào bảng thất bại; giảm slot để tăng ngữ cảnh nếu cần (§7).
+- Credential OAuth Antigravity hoặc Claude của cli-proxy-api hết hạn, hết quota, hoặc đổi danh sách
+  model được dùng: proxy trả `auth_unavailable`, khi đó chép lại credential từ ProxyPal; `pin_judge`
+  và run identity vẫn ghi tên model nên run tiếp tục được sau khi khôi phục.
+- Độ trễ đo từ Việt Nam tới endpoint ở xa (tunnel Kaggle, gateway của proxy): số tuyệt đối gồm
+  mạng, và Qwen trên T4 không cùng phần cứng với model thương mại; bài chỉ so latency giữa kiến
+  trúc trên cùng một model (§2.5).
 - Giấy phép và điều khoản Jev về công bố benchmark: kiểm tra Master Customer Agreement trước khi công bố.
 
 ## 9. Ngoài phạm vi
