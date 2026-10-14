@@ -7,7 +7,7 @@
 services:
   # OpenAI-compatible LLM gateway. Setup: devops/cli-proxy-api/config.example.yaml.
   cli-proxy-api:
-    image: eceasy/cli-proxy-api:v7.3.0
+    image: eceasy/cli-proxy-api:v8.0.28
     ports:
       - "${CLI_PROXY_API_PORT:-8317}:8317"
     environment:

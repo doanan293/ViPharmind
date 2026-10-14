@@ -91,14 +91,23 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   require_parameters: true}` để một model luôn đi một provider, một precision; Qwen3.5-9B ghim
   DeepInfra bf16. Response của OpenRouter ghi provider thực tế, lưu vào `answers.jsonl`. Dự án chưa
   có key OpenRouter; đặt vào `backend/.env` và `pharma-lab/.env` theo `.env.example`.
-- **Model thương mại** (Gemini 3.8 Flash, gemini-3.1-flash-lite, GPT-6 Luna, GPT-6 Sol, Claude
-  Haiku 5.5) qua service `cli-proxy-api` của compose, endpoint `http://127.0.0.1:8317/v1`, key
-  `proxypal-local`, như v1 đã dùng cho Gemini. Credential OAuth lấy từ ProxyPal trên Windows và
+- **Model thương mại** (Gemini 3.8 Flash, gemini-3.1-flash-lite, GPT-6 Luna, Claude Opus 5.5) qua
+  service `cli-proxy-api` của compose (image `eceasy/cli-proxy-api:v8.0.28`, bản cũ v7.3.0 giả lập
+  Claude Code quá cũ để gọi Opus 5.5), endpoint `http://127.0.0.1:8317/v1`, key `proxypal-local`,
+  như v1 đã dùng cho Gemini. Credential OAuth lấy từ ProxyPal trên Windows và
   chép vào volume `vipharmind_cli_proxy_auth` (README, mục CLIProxyAPI); đã đồng bộ ngày 2026-10-14
   với ba credential Antigravity, Claude và Codex. Đã gọi thử structured output thành công với
   `gemini-3.8-flash-high`, `gemini-3.1-flash-lite`, `gpt-6-luna`, `gpt-6-sol`, `gpt-6-astra`,
-  `claude-haiku-5-5`, `claude-sonnet-5-5`; `gpt-6.1-sol` bị tài khoản ChatGPT từ chối, nên model
-  nặng của bài là GPT-6 Sol (cùng giá niêm yết 2/10 USD).
+  `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5`; `gpt-6.1-sol` bị tài khoản ChatGPT từ
+  chối. Quota ChatGPT hạn chế nên GPT chỉ giữ Luna, model nặng của bài là Claude Opus 5.5.
+- **Reasoning tắt hoặc thấp nhất có thể ở mọi model**, ghi rõ trong bài: GPT-6 Luna
+  `reasoning_effort: none` (0 token reasoning); Gemini 3.8 Flash qua Antigravity chỉ có id
+  `gemini-3.8-flash-high` và override payload trong `config.yaml` đặt `thinkingLevel: low`, mức thấp
+  nhất model nhận (`minimal` bị từ chối), đo được 0 token reasoning; gemini-3.1-flash-lite không
+  thinking; Claude Opus 5.5 không cho tắt thinking, dùng adaptive với `reasoning_effort: minimal`;
+  Qwen3.5-9B và Qwen3.8-27B `chat_template_kwargs.enable_thinking: false`; DeepSeek V4.1 Flash
+  `reasoning: {enabled: false}` trên OpenRouter. Khác với v1, nơi Gemini chạy thinking high, nên
+  A1 chạy lại ở mức low và bài giữ số v1 làm tham chiếu lịch sử.
 - Chi phí trong bài luôn tính theo giá niêm yết nhân token, kể cả với model thương mại đi qua
   proxy thuê bao, và bài nói rõ điều đó. Tiền thật phải trả chỉ phát sinh ở OpenRouter cho ba model
   mở và ở Jev.
@@ -168,7 +177,8 @@ công bằng:
 - `pharma_lab/e2e/pricing.py`: bảng giá theo id model và provider, đọc từ OpenRouter ngày
   2026-10-14, ghi nguồn và ngày, USD mỗi triệu token vào/ra: Qwen3.5-9B 0,10/0,15 (DeepInfra bf16);
   Qwen3.8-27B 0,04/2,30; DeepSeek V4.1 Flash 0,021/0,89; Gemini 3.8 Flash 0,75/3,75; GPT-6 Luna
-  0,10/0,50; GPT-6 Sol 2/10; gemini-3.1-flash-lite 0,25/1,50; Jev 0,042/0; Qwen3-Reranker-4B và
+  0,10/0,50; Claude Opus 5.5 4/20 (claude.com/pricing, prompt dưới 100k token); gemini-3.1-flash-lite
+  0,25/1,50; Jev 0,042/0; Qwen3-Reranker-4B và
   embedding theo giá DeepInfra hoặc OpenRouter tại ngày chạy. Mọi chi phí là giá niêm yết, không có
   mô hình giờ GPU vì không tự host.
 - Metric mới: `usd_per_turn`, `usd_per_1000_turns`, `llm_seconds_per_turn`, `retrieval_seconds_per_turn`,
@@ -240,8 +250,8 @@ Bộ sáu model dùng xuyên suốt bài (giá USD mỗi triệu token vào/ra, 
 | Mở, rẻ | Qwen3.8-27B | 0,04 / 2,30 | Qwen dense mới nhất |
 | Mở, rẻ | DeepSeek V4.1 Flash | 0,021 / 0,89 | họ mở ngoài Qwen |
 | Thương mại, rẻ | Gemini 3.8 Flash | 0,75 / 3,75 | nối với v1 |
-| Thương mại, rẻ | GPT-6 Luna | 0,10 / 0,50 | model rẻ nhất của OpenAI |
-| Nặng, trần tham chiếu | GPT-6 Sol | 2 / 10 | giới hạn trên của chất lượng; GPT-6 Astra (10 / 50) cũng gọi được nếu muốn trần cao hơn |
+| Thương mại, rẻ | GPT-6 Luna | 0,10 / 0,50 | model rẻ nhất của OpenAI; model GPT duy nhất vì quota ChatGPT hạn chế |
+| Nặng, trần tham chiếu | Claude Opus 5.5 | 4 / 20 | giới hạn trên của chất lượng |
 
 | Cấu hình | G, J | R | P, A | Ghi chú |
 | --- | --- | --- | --- | --- |
@@ -257,7 +267,7 @@ truthfulness theo giây và theo USD, mỗi cấu hình một điểm; hình tá
 
 ### B. Refinement theo độ tin cậy (đóng góp 2)
 
-- Trên A3 với Qwen3.5-9B và với GPT-6 Luna: τ ∈ {0, 0,3, 0,5, 0,7, 0,9, 1}. Trên A2 Qwen3.5-9B: cùng
+- Trên A3 với Qwen3.5-9B và với Gemini 3.8 Flash: τ ∈ {0, 0,3, 0,5, 0,7, 0,9, 1}. Trên A2 Qwen3.5-9B: cùng
   dải với độ tin cậy nói ra của LLM judge.
 - Báo theo Qian et al. 2026: đường biên chất lượng so với chi phí và so với độ trễ, tỷ lệ refine thực
   tế, chi phí của chính bước judge, độ ổn định của τ khi chuyển model (τ chọn trên Qwen3.5-9B áp sang
@@ -350,9 +360,10 @@ identity; báo cáo sinh bằng lệnh có sẵn chứ không chép tay; số li
 
 Ngân sách tiền thật, ước theo 11.600 token mỗi lượt của full agent v1 và ReAct gấp đôi: ba model mở
 trên OpenRouter nhân ba run (A2, A3, ReAct) cộng quét τ và ablation trên Qwen3.5-9B khoảng 15 USD;
-Jev dưới 2 USD. Model thương mại, kể cả GPT-6 Sol, và judge gemini-3.1-flash-lite đi qua proxy thuê
-bao nên không tốn thêm; giá niêm yết của chúng (khoảng 60 USD cho GPT-6 Sol, 20 USD cho judge) chỉ
-xuất hiện trong bảng chi phí của bài. Mỗi run chạy thử 20 item trước khi chạy đủ.
+Jev dưới 2 USD. Model thương mại, kể cả Claude Opus 5.5, và judge gemini-3.1-flash-lite đi qua proxy
+thuê bao nên không tốn thêm; giá niêm yết của chúng (khoảng 120 USD cho Opus 5.5, 20 USD cho judge)
+chỉ xuất hiện trong bảng chi phí của bài. Quota ChatGPT thấp nên các run GPT-6 Luna xếp sau cùng và
+chạy thử 20 item trước. Mỗi run chạy thử 20 item trước khi chạy đủ.
 
 ## 8. Rủi ro
 
