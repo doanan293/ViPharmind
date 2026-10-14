@@ -123,7 +123,7 @@ Stage production tự benchmark một lần nếu chưa có profile hợp lệ v
 
 ## Archive dữ liệu
 
-Mọi file dưới `data/` mà Git bỏ qua (trừ `data/work/`) được lưu trong dataset Kaggle private `<owner>/seed-pipeline-data`, `<owner>` là username của profile `--kaggle-account`. `push` đóng gói thành các phần `seed-pipeline-data.tar.zst.part-NNNN` (tối đa 1.900 MiB mỗi phần) cùng `archive-manifest.json` ghi sha256 từng phần và từng file, dựng ở `data/work/archive/`, rồi tạo dataset hoặc version mới.
+Mọi file dưới `data/` mà Git bỏ qua (trừ `data/work/`) được lưu trong dataset Kaggle private `<owner>/vipharmind-data`, `<owner>` là username của profile `--kaggle-account`. Mỗi `push` tạo một version mới của dataset; `pull --version N` lấy lại version N (mặc định version mới nhất). `push` đóng gói thành các phần `vipharmind-data.tar.zst.part-NNNN` (tối đa 1.900 MiB mỗi phần) cùng `archive-manifest.json` ghi sha256 từng phần và từng file, dựng ở `data/work/archive/`, rồi tạo dataset hoặc version mới.
 
 ```bash
 uv run pharma-lab data push --kaggle-account acc1 --message "Rebuild evaluation runs"

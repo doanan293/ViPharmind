@@ -24,9 +24,9 @@ from pharma_lab.integrations.kaggle.dataset_service import (
 )
 from pharma_lab.integrations.kaggle.job_lock import kaggle_job_lock
 
-# Kept from the project's former name: renaming the Kaggle dataset would mean re-uploading it.
-DATASET_SLUG = "seed-pipeline-data"
-DATASET_TITLE = "Seed pipeline data"
+# Each push is a Kaggle dataset version; data/README.md maps git tags to version numbers.
+DATASET_SLUG = "vipharmind-data"
+DATASET_TITLE = "ViPharmind data archive"
 
 
 @dataclass(frozen=True)
@@ -113,19 +113,26 @@ def push_data(
 
 
 def pull_data(
-    *, project_root: Path, dataset: DatasetService, force: bool
+    *,
+    project_root: Path,
+    dataset: DatasetService,
+    force: bool,
+    version: int | None = None,
 ) -> PullResult:
+    """Restore data/ from the latest archive version, or from `version`."""
     staging = archive_dir(project_root)
     reference = f"{dataset.owner}/{DATASET_SLUG}"
     with kaggle_job_lock(staging):
         dataset.require_ready(reference, "`pharma-lab data push`")
         manifest = read_archive_manifest(
-            dataset.download_file(reference, ARCHIVE_MANIFEST_NAME, staging)
+            dataset.download_file(
+                reference, ARCHIVE_MANIFEST_NAME, staging, version=version
+            )
         )
         downloaded = 0
         for part in manifest.parts:
             if not part_matches(staging / part.name, part):
-                dataset.download_file(reference, part.name, staging)
+                dataset.download_file(reference, part.name, staging, version=version)
                 downloaded += 1
         result = unpack_archive(
             staging, manifest, Path(project_root) / "data", force=force

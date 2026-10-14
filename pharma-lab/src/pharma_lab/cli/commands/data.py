@@ -62,10 +62,19 @@ def pull(
     ctx: typer.Context,
     kaggle_account: Annotated[str | None, typer.Option("--kaggle-account")] = None,
     force: Annotated[bool, typer.Option("--force")] = False,
+    version: Annotated[
+        int | None,
+        typer.Option(
+            "--version", min=1, help="Kaggle dataset version; latest if omitted."
+        ),
+    ] = None,
 ) -> None:
     def run() -> CommandResult:
         result = pull_data(
-            project_root=PROJECT_ROOT, dataset=_dataset(kaggle_account), force=force
+            project_root=PROJECT_ROOT,
+            dataset=_dataset(kaggle_account),
+            force=force,
+            version=version,
         )
         return CommandResult(
             "data pull",

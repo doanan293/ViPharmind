@@ -70,7 +70,7 @@ def test_push_then_pull_restores_the_ignored_files(tmp_path: Path) -> None:
     )
 
     assert (pushed.reference, pushed.version, pushed.file_count) == (
-        "owner/seed-pipeline-data",
+        "owner/vipharmind-data",
         1,
         len(FILES),
     )
@@ -139,3 +139,61 @@ def test_push_drops_files_when_removal_is_allowed(tmp_path: Path) -> None:
     )
 
     assert (trimmed.version, trimmed.file_count) == (2, len(FILES) - 1)
+
+
+class VersionedFakeKaggle(FakeKaggle):
+    """Keeps every pushed version; a versioned download reads that version."""
+
+    def __init__(self, remote: Path) -> None:
+        super().__init__(remote)
+        self.versions: dict[int, Path] = {}
+
+    def run(self, args, /, capture_output=False, *, live_output=False):
+        result = super().run(args, capture_output, live_output=live_output)
+        if args[1:3] in (["datasets", "create"], ["datasets", "version"]):
+            snapshot = self.remote.parent / f"v{self.version}"
+            shutil.copytree(self.remote, snapshot)
+            self.versions[self.version] = snapshot
+        return result
+
+    def download_version(
+        self, reference: str, filename: str, destination: Path, version: int
+    ) -> Path:
+        del reference
+        destination.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(self.versions[version] / filename, destination / filename)
+        return destination / filename
+
+
+def test_the_archive_lives_in_the_vipharmind_data_dataset(tmp_path: Path) -> None:
+    kaggle = FakeKaggle(tmp_path / "remote")
+    pushed = push_data(
+        project_root=make_project(tmp_path / "source"),
+        dataset=DatasetService(kaggle, "owner"),
+        message="First",
+        now=NOW,
+    )
+    assert pushed.reference == "owner/vipharmind-data"
+    assert all(
+        path.name.startswith("vipharmind-data.tar.zst.part-")
+        for path in kaggle.remote.iterdir()
+        if "part-" in path.name
+    )
+
+
+def test_pull_restores_an_earlier_version(tmp_path: Path) -> None:
+    kaggle = VersionedFakeKaggle(tmp_path / "remote")
+    dataset = DatasetService(
+        kaggle, "owner", version_downloader=kaggle.download_version
+    )
+    source = make_project(tmp_path / "source")
+    push_data(project_root=source, dataset=dataset, message="v1", now=NOW)
+    first = dict(FILES)
+    changed = next(iter(FILES))
+    (source / "data" / changed).write_bytes(b"second version")
+    push_data(project_root=source, dataset=dataset, message="v2", now=NOW)
+
+    clone = make_project(tmp_path / "clone", with_data=False)
+    pull_data(project_root=clone, dataset=dataset, force=False, version=1)
+
+    assert (clone / "data" / changed).read_bytes() == first[changed]

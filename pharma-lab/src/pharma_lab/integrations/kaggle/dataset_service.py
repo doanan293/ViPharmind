@@ -5,10 +5,13 @@ import subprocess
 import tempfile
 import time
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol
+
+import requests
 
 from pharma_lab.integrations.kaggle.api import (
     config_view_command,
@@ -76,10 +79,64 @@ def _is_not_found(error: KaggleCommandError) -> bool:
     return "404" in detail or "not found" in detail
 
 
+VersionDownloader = Callable[[str, str, Path, int], Path]
+KAGGLE_DOWNLOAD_URL = (
+    "https://www.kaggle.com/api/v1/datasets/download/{reference}/{filename}"
+)
+
+
+def rest_version_downloader(token: str | None) -> VersionDownloader:
+    """Download one file of a given dataset version through the Kaggle REST API; the
+    CLI only downloads the latest version."""
+
+    def download(
+        reference: str, filename: str, destination: Path, version: int
+    ) -> Path:
+        if not token:
+            raise KaggleRemoteStateError(
+                "a versioned download needs KAGGLE_API_TOKEN for the account"
+            )
+        destination = Path(destination)
+        destination.mkdir(parents=True, exist_ok=True)
+        target = destination / filename
+        temporary = target.with_name(f".{filename}.part")
+        url = KAGGLE_DOWNLOAD_URL.format(reference=reference, filename=filename)
+        with requests.get(
+            url,
+            params={"datasetVersionNumber": version},
+            headers={"Authorization": f"Bearer {token}"},
+            stream=True,
+            timeout=600,
+        ) as response:
+            response.raise_for_status()
+            with temporary.open("wb") as handle:
+                for block in response.iter_content(chunk_size=1 << 20):
+                    handle.write(block)
+        if zipfile.is_zipfile(temporary):
+            with zipfile.ZipFile(temporary) as archive:
+                archive.extract(filename, destination)
+            temporary.unlink()
+        else:
+            temporary.replace(target)
+        return target
+
+    return download
+
+
 class DatasetService:
-    def __init__(self, runner: DatasetCommandRunner, owner: str):
+    def __init__(
+        self,
+        runner: DatasetCommandRunner,
+        owner: str,
+        *,
+        version_downloader: VersionDownloader | None = None,
+    ):
         self.runner = runner
         self.owner = owner
+        environment = getattr(runner, "environment", None) or {}
+        self._version_downloader = version_downloader or rest_version_downloader(
+            environment.get("KAGGLE_API_TOKEN")
+        )
 
     def status(self, reference: str) -> str:
         return parse_dataset_status(
@@ -225,7 +282,16 @@ class DatasetService:
                 )
             return payload
 
-    def download_file(self, reference: str, filename: str, destination: Path) -> Path:
+    def download_file(
+        self,
+        reference: str,
+        filename: str,
+        destination: Path,
+        *,
+        version: int | None = None,
+    ) -> Path:
+        if version is not None:
+            return self._version_downloader(reference, filename, destination, version)
         destination = Path(destination)
         destination.mkdir(parents=True, exist_ok=True)
         self.runner.run(dataset_file_download_command(reference, filename, destination))
