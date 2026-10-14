@@ -100,7 +100,7 @@ Dùng stack của mục 2 và biến môi trường của mục 3, rồi trong `
 uv run pharma-lab retrieve --run hybrid-qwen4b-p50-k30-rrf2-sample1000 --retriever hybrid --prefetch-k 50 --candidate-k 30 --rrf-k 2 --sample 1000 --sample-seed 0
 ```
 
-Mẫu gồm 10% mỗi `eval_group`: 500 `formulary`, 250 `leaflet`, 100 `chunk_risk`, 50 `patient_natural`, 50 `noisy_confuser`, 50 `multi_intent`, tổng 30.000 cặp.
+Mẫu gồm 10% mỗi `eval_group`: 500 `formulary`, 250 `leaflet`, 100 `chunk_risk`, 50 `leaflet_short`, 50 `noisy`, 50 `multi_intent`, tổng 30.000 cặp.
 
 ### File GGUF tiếng Việt y tế
 

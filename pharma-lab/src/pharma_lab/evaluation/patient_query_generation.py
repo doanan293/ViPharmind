@@ -163,7 +163,9 @@ def build_patient_query_candidates(
         product_name = display_product_name(section)
         if not product_name:
             continue
-        key = (section["id"], category)
+        # Sibling sections of one page share an intent (Cách dùng, Liều dùng); one
+        # question per page and intent, the siblings are accepted by the builder.
+        key = (str(section.get("page_id") or section["id"]), category)
         if key in seen:
             continue
         seen.add(key)

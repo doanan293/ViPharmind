@@ -3,6 +3,7 @@ import random
 import re
 import unicodedata
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
 
 from pharma_lab.config.paths import (
@@ -77,9 +78,15 @@ LEAFLET_CATEGORY_RULES = [
     ("brand_indication", ("công dụng", "chỉ định")),
     (
         "brand_dosage",
-        ("cách dùng", "liều dùng", "cách dùng - liều dùng", "cách dùng -liều dùng"),
+        (
+            "cách dùng",
+            "liều dùng",
+            "cách dùng - liều dùng",
+            "cách dùng -liều dùng",
+            "hướng dẫn sử dụng",
+        ),
     ),
-    ("brand_adr", ("tác dụng phụ",)),
+    ("brand_adr", ("tác dụng phụ", "xử trí adr")),
     (
         "brand_precaution",
         ("lưu ý", "thận trọng", "thai kỳ", "cho con bú", "lái xe", "vận hành máy móc"),
@@ -766,6 +773,44 @@ def widen_duplicate_text_rows(rows: list[dict], chunks: list[dict]) -> list[dict
     return rows
 
 
+def leaflet_intent(section: dict) -> str:
+    categories = [
+        category
+        for category in leaflet_categories_for_text(section.get("text", ""))
+        if category != "brand_product"
+    ]
+    return categories[0] if categories else ""
+
+
+def widen_leaflet_intent_siblings(
+    rows: list[dict], sections_by_id: dict[str, dict]
+) -> list[dict]:
+    """A generic leaflet question ("X dùng liều thế nào?") is answered by every section
+    of that page with the same intent (Cách dùng and Liều dùng), so all are accepted."""
+    siblings: dict[tuple[str, str], list[str]] = defaultdict(list)
+    for section_id, section in sorted(sections_by_id.items()):
+        intent = leaflet_intent(section) if is_leaflet_section(section) else ""
+        if intent:
+            siblings[(leaflet_page_id(section), intent)].append(section_id)
+    for row in rows:
+        primary = sections_by_id.get(row["expected_section_id"])
+        if (
+            primary is None
+            or not is_leaflet_section(primary)
+            or row.get("answer_mode") != "single"
+        ):
+            continue
+        group = siblings.get((leaflet_page_id(primary), leaflet_intent(primary)), [])
+        others = [section_id for section_id in group if section_id != primary["id"]]
+        if not others:
+            continue
+        row["expected_section_ids"] = [primary["id"], *others]
+        row["query_intent_count"] = len(row["expected_section_ids"])
+        row["answer_mode"] = "any_acceptable"
+        row["eval_tags"] = [*row.get("eval_tags", []), "same_intent_sections"]
+    return rows
+
+
 def clean_markdown_preview(value: str) -> str:
     cleaned = re.sub(r"(?m)^#{1,6}\s*", "", value or "")
     cleaned = re.sub(r"\*\*([^*]+)\*\*", r"\1", cleaned)
@@ -794,6 +839,11 @@ def auto_query_for_chunk(chunk: dict, section: dict, category: str) -> str:
             return f"{brand_match.group(1)} là biệt dược của hoạt chất nào?"
         return "Tra cứu biệt dược trong mục lục hoạt chất"
     if is_leaflet_section(section) or category.startswith("brand_"):
+        if is_leaflet_section(section) and not category.startswith("brand_"):
+            category = leaflet_intent(section)
+            if not category:
+                # "Đặc điểm", "Mã ATC": no lookup intent, so no generic question.
+                return ""
         query, _style = leaflet_query_for_category(section, category)
         return query
     if chunk.get("chunk_content_type") == "table" or chunk.get("chunk_role") == "table":
@@ -1212,12 +1262,38 @@ def is_chunk_risk(chunk: dict) -> bool:
     )
 
 
+def leaflet_page_id(section: dict) -> str:
+    return str(section.get("page_id") or section.get("id") or "")
+
+
+def leaflet_representative_sections(sections: Iterable[dict]) -> dict[str, str]:
+    """Page id -> the section that answers "what is this product": the indication
+    section when the page has one, else its first section."""
+    by_page: dict[str, list[dict]] = defaultdict(list)
+    for section in sections:
+        if is_leaflet_section(section):
+            by_page[leaflet_page_id(section)].append(section)
+    representatives = {}
+    for page, items in by_page.items():
+        ordered = sorted(items, key=lambda item: str(item["id"]))
+        indication = [
+            item
+            for item in ordered
+            if "brand_indication" in leaflet_categories_for_text(item.get("text", ""))
+        ]
+        representatives[page] = str((indication or ordered)[0]["id"])
+    return representatives
+
+
 def leaflet_candidates(
     sections_by_id: dict[str, dict],
     chunks_by_section: dict[str, list[dict]],
 ) -> list[tuple[dict, dict | None, str]]:
     candidates = []
     seen: set[tuple[str, str, str]] = set()
+    representatives = set(
+        leaflet_representative_sections(sections_by_id.values()).values()
+    )
     for section in sorted(sections_by_id.values(), key=lambda item: item["id"]):
         if not is_leaflet_section(section):
             continue
@@ -1225,8 +1301,12 @@ def leaflet_candidates(
             chunks_by_section.get(section["id"], []),
             key=lambda item: (item.get("chunk_index", 0), chunk_identifier(item)),
         )
-        section_categories = leaflet_categories_for_text(section.get("text", ""))
-        if "brand_product" not in section_categories:
+        section_categories = [
+            category
+            for category in leaflet_categories_for_text(section.get("text", ""))
+            if category != "brand_product"
+        ]
+        if section["id"] in representatives:
             section_categories.append("brand_product")
 
         for category in section_categories:
@@ -1389,12 +1469,15 @@ def normalize_alias_key(alias: str) -> str:
 
 
 def build_colloquial_alias_overlap_index(sections: list[dict]) -> dict[str, dict]:
+    """Aliases shared by several leaflet pages; each page is listed by its
+    representative section (see leaflet_representative_sections)."""
+    representatives = leaflet_representative_sections(sections)
     grouped: dict[str, dict] = {}
     for section in sorted(sections, key=lambda item: str(item.get("id") or "")):
         if not is_leaflet_section(section):
             continue
-        section_id = str(section.get("id") or "")
-        if not section_id:
+        page = leaflet_page_id(section)
+        if not page:
             continue
         for alias in product_aliases_for_section(section):
             alias_key = normalize_alias_key(alias)
@@ -1403,7 +1486,7 @@ def build_colloquial_alias_overlap_index(sections: list[dict]) -> dict[str, dict
             entry = grouped.setdefault(
                 alias_key, {"alias": alias, "section_ids": set()}
             )
-            entry["section_ids"].add(section_id)
+            entry["section_ids"].add(representatives[page])
 
     overlap = {}
     for alias_key, entry in sorted(grouped.items()):
@@ -1615,6 +1698,8 @@ def generate_rows(
         notes: str | None = None,
     ) -> bool:
         role = chunk.get("chunk_role") or expected_role
+        if is_leaflet_section(section) and not category.startswith("brand_"):
+            category = leaflet_intent(section)
         query = unique_query(
             auto_query_for_chunk(chunk, section, category),
             accumulator.seen_queries,
@@ -1675,6 +1760,11 @@ def generate_rows(
     )
     ambiguous_alias_keys = set(ambiguous_alias_index)
     strict_alias_targets = effective_target >= DEFAULT_TARGET_ROWS
+    # Each shared alias gives one question, so there are at most that many
+    # any_acceptable rows; the remainder goes to single-answer alias rows.
+    shortfall = max(0, alias_any_target - len(ambiguous_alias_index))
+    alias_any_target -= shortfall
+    alias_single_target += shortfall
 
     single_alias_items = [
         item
@@ -1762,7 +1852,13 @@ def generate_rows(
             f"could only generate {alias_any_count} any_acceptable colloquial alias rows"
         )
 
-    leaflet_items = spread_items(all_leaflet_items, leaflet_template_target)
+    # Spread picks are tried first; the rest of the pool backs up picks whose
+    # question was already used, so the group still reaches its quota.
+    spread = spread_items(all_leaflet_items, leaflet_template_target)
+    spread_ids = {id(item) for item in spread}
+    leaflet_items = spread + [
+        item for item in all_leaflet_items if id(item) not in spread_ids
+    ]
     leaflet_index = 0
     # Each candidate has one fixed question, so one pass over the list is enough.
     while (
@@ -1794,7 +1890,7 @@ def generate_rows(
             section, chunks_by_section.get(section["id"], [])
         )
         if is_leaflet_section(section):
-            category = infer_leaflet_category(chunk_body_text(chunk))
+            category = leaflet_intent(section)
             difficulty = "medium"
             expected_role = chunk.get("chunk_role") or "prose"
         if append_auto_row(
@@ -2339,6 +2435,9 @@ def build_jsonl(
         patient_rows=patient_rows,
     )
     rows = widen_duplicate_text_rows(rows, chunks)
+    rows = widen_leaflet_intent_siblings(
+        rows, {section["id"]: section for section in sections if section.get("id")}
+    )
 
     required_groups = {
         "formulary",
