@@ -95,8 +95,9 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   có `BASE_URL`, `API_KEY` và `MODEL` riêng như hiện nay, nên hai đường của lab trộn được trong một
   run.
 - **Model mở** (Qwen3.5-9B) tự host trên Kaggle bằng `pharma-lab e2e llm-server --model
-  qwen3.5:9b-f16`: llama.cpp GGUF F16 chia trên hai T4, 4 slot mỗi slot 16.384 token, tunnel
-  cloudflared, đúng cấu hình của run v1 (`docs/guides/e2e-evaluation.md`). Nhờ vậy run Qwen v2 nối
+  qwen3.5:9b-f16`: llama.cpp GGUF F16 chia trên hai T4, 4 slot mỗi slot 32.768 token (v1 dùng
+  16.384; nâng lên cho hội thoại ReAct, không đổi đầu ra của các lời gọi ngắn hơn), tunnel
+  cloudflared, cùng model, precision và phần cứng với run v1 (`docs/guides/e2e-evaluation.md`). Nhờ vậy run Qwen v2 nối
   thẳng với run v1 mà không đổi precision hay provider.
 - **Model thương mại** (Gemini 3.8 Flash, gemini-3.1-flash-lite, Claude Opus 5.5) qua service
   `cli-proxy-api` của compose (image `eceasy/cli-proxy-api:v8.0.28`, bản cũ v7.3.0 giả lập Claude
@@ -413,8 +414,7 @@ identity; báo cáo sinh bằng lệnh có sẵn chứ không chép tay; số li
 
 Ngân sách tiền thật, ước theo 11.600 token mỗi lượt của full agent v1 và ReAct gấp đôi: chỉ Jev qua
 OpenRouter, dưới 2 USD theo giá niêm yết, cộng phí OpenRouter nếu có. Qwen3.5-9B và reranker chạy trên quota GPU Kaggle; mọi run Qwen (A2, A3, A4, ReAct,
-quét τ, ablation) phải xếp theo quota tuần của các account Kaggle, và run ReAct cần kiểm trước xem
-16.384 token mỗi slot có đủ cho 6 vòng tool không, nếu không thì phục vụ 2 slot 32.768 token.
+quét τ, ablation) phải xếp theo quota tuần của các account Kaggle.
 Gemini 3.8 Flash, Claude Opus 5.5 và judge gemini-3.1-flash-lite đi qua proxy thuê bao nên không
 tốn thêm; giá niêm yết của chúng (khoảng 120 USD cho ba run Opus 5.5, 20 USD cho judge) chỉ xuất
 hiện trong bảng chi phí của bài. Quota Claude có hạn nên các run Opus 5.5 xếp sau run của hai model
@@ -434,8 +434,9 @@ rẻ. Mỗi run chạy thử 20 item trước khi chạy đủ.
 - Quota GPU Kaggle và giới hạn thời gian mỗi phiên kernel: mỗi run chạy được tiếp sau khi kernel
   khởi động lại vì harness đã ghi `answers.jsonl` từng item; xếp run Qwen theo quota và ưu tiên
   cấu hình chính (A2, A3, ReAct) trước quét τ và ablation.
-- Ngữ cảnh 16.384 token mỗi slot có thể không đủ cho ReAct khi kết quả tool cộng dồn: ghi số lượt
-  chạm trần ngữ cảnh vào bảng thất bại; giảm slot để tăng ngữ cảnh nếu cần (§7).
+- Bốn slot 32.768 token trên hai T4 là tính toán (KV cache 4 GiB, 2 GiB mỗi GPU cạnh khoảng 9 GB
+  weights), chưa đo: lần khởi động đầu của `e2e llm-server` ở pha 0 xác nhận server lên được; nếu
+  hết VRAM thì giảm còn 3 slot. ReAct vẫn ghi số lượt chạm trần ngữ cảnh vào bảng thất bại.
 - Credential OAuth Antigravity hoặc Claude của cli-proxy-api hết hạn, hết quota, hoặc đổi danh sách
   model được dùng: proxy trả `auth_unavailable`, khi đó chép lại credential từ ProxyPal; `pin_judge`
   và run identity vẫn ghi tên model nên run tiếp tục được sau khi khôi phục.

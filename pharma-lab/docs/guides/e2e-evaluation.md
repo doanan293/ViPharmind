@@ -52,7 +52,7 @@ echo "863a67e28486f4c3ad7a30c49614a398d5a07caf8d0067a018d0e5f0abf79f2d  ai-model
 
 Kích thước và sha256 của file F16 được ghi trong catalog (`qwen3.5:9b-f16`). So từng tensor với file BF16: 250/427 tensor được đổi (8,95 tỉ giá trị, trọng số lớn nhất 1,07), sai lệch tuyệt đối lớn nhất 3,0×10⁻⁸, 17.320 giá trị nhỏ hơn khoảng 3×10⁻⁸ bị làm tròn về 0; các tensor F32 giữ nguyên. Chạy thử bằng `server-b10920` trên CPU cho output JSON đúng schema và không sinh phần suy luận khi `enable_thinking` là `false`. Lần chạy stage đầu tiên tự đưa file lên dataset Kaggle `vector-cache-gguf-qwen3-5-9b-f16`. Bản llama.cpp trên Kaggle (b9637) đã hỗ trợ kiến trúc `qwen35`.
 
-*Phục vụ trên Kaggle.* Model 17,9 GB được chia đôi trên hai T4 (4 slot, mỗi slot 16.384 token). Hai GPU dành cho LLM, nên reranker chạy ở một kernel khác:
+*Phục vụ trên Kaggle.* Model 17,9 GB được chia đôi trên hai T4 (4 slot, mỗi slot 32.768 token). Hai GPU dành cho LLM, nên reranker chạy ở một kernel khác:
 
 ```bash
 uv run pharma-lab e2e llm-server --model qwen3.5:9b-f16 --hours 10 --kaggle-account auto
