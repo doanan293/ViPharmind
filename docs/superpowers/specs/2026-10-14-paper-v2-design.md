@@ -192,13 +192,33 @@ công bằng:
 
 - `PipelineOptions.guard: bool` cho ablation không guard.
 - `settings_for` cho các biến thể retriever e2e: `bm25`, `dense`, `hybrid k=60`.
-- `EnrichmentOptions(header, glossary, colloquial)` trong `chunk_section`, hậu tố `CHUNKER_VERSION`
-  riêng mỗi biến thể, re-embed và import thành release riêng với alias Qdrant riêng. Bỏ hẳn colloquial
-  cần sửa `_MappingCollector.add_leaflet` để không tự thêm product names.
+- `EnrichmentOptions(header, glossary, colloquial)` trong `chunk_section`, một biến thể tắt cả ba,
+  hậu tố `CHUNKER_VERSION` riêng, re-embed và import thành release riêng với alias Qdrant riêng. Bỏ
+  colloquial cần sửa `_MappingCollector.add_leaflet` để không tự thêm product names.
 - Sửa mã cho khớp bài hoặc sửa bài cho khớp mã: `rerank.top_n` 8 và `max_candidates` 40. Quyết định:
   giữ mã, sửa bài, vì mọi run v1 đã dùng giá trị này.
 
 ## 3. Dữ liệu và benchmark
+
+### 3.0 Sửa dữ liệu trước mọi run mới (theo `docs/research/paper-v2/07-dataset-review.md`)
+
+- **Corpus:** tách mỗi tờ hướng dẫn theo heading markdown có sẵn thành section con (p50 16 heading
+  mỗi tờ), chuẩn hóa tên heading về bộ intent bằng bảng ánh xạ trong `relevance_judgments.py`,
+  header context `<sản phẩm> > <heading>`. Bump `CHUNKER_VERSION`, re-embed qua API, release mới.
+  Giữ `MAX_CHUNK_CHARS = 3000`; không ablation kích thước chunk, bài biện minh bằng thống kê token
+  (p50 657 token, 78 % section một chunk).
+- **Benchmark retrieval:** sinh lại từ release mới. Bỏ mọi hậu tố "(phần ...)" và đáp án trong
+  ngoặc; chunk_coverage hỏi theo intent của heading chứa chunk; leaflet dùng tên sản phẩm chuẩn hóa
+  (thương hiệu, hàm lượng, dạng) thay tiêu đề marketing; patient_natural đổi tên thành
+  leaflet_short và mô tả đúng là template ngắn; bỏ nhóm confuser, 200 câu chuyển cho noisy dưới
+  dạng lỗi gõ sinh tự động bên cạnh 300 câu bỏ dấu; bỏ trường difficulty; tách general_info thành
+  intent cụ thể (overdose, storage, pharmacology, general_info); mở rộng any_acceptable cho sản
+  phẩm có chunk trùng văn bản. Giữ 10.000 câu và sáu nhóm.
+- **Golden e2e:** giữ nguyên nội dung, chỉ viết lại 50 item có hậu tố "(phần ...)"; gold section
+  của item leaflet ánh xạ sang section con mới; chạy `golden check`.
+- **Hệ quả:** mọi số retrieval v1 vô hiệu; chạy lại bảng retrieval với sáu embedding qua API và
+  bốn reranker trên Kaggle (bỏ BGE-reranker-v2-gemma); bài có đoạn "so với v1" nói rõ v1 có gợi ý
+  trong câu hỏi.
 
 ### 3.1 Lớp hội thoại của benchmark retrieval
 
@@ -294,8 +314,8 @@ nhất trên mỗi USD và mỗi giây", cộng một nhận xét về xu hướ
 ### D. Retrieval
 
 - D1 dense Qwen3-Emb-4B + Qwen3-Reranker-4B, so với hybrid + reranker (trả lời "sao phải hybrid").
-- D2 ablation enrichment: bỏ header, bỏ glossary, bỏ colloquial, mỗi thứ một lần, trên hybrid + rerank;
-  phân theo nhóm, nhất là noisy và leaflet.
+- D2 ablation enrichment: một biến thể duy nhất không enrichment (không header, glossary, colloquial)
+  trên hybrid + rerank; phân theo nhóm, nhất là noisy và leaflet.
 - D3 bảng retrieval theo nhóm câu hỏi và độ khó cho các cấu hình chính.
 - D4 cột chi phí dense: số tham số và tốc độ encode query trên T4, thay cho chỉ có dimension.
 - D5 chiến lược truy vấn hội thoại Q0 đến Q6 (§3.1).
@@ -341,8 +361,12 @@ nhất trên mỗi USD và mỗi giây", cộng một nhận xét về xu hướ
 
 ## 7. Thứ tự thực hiện
 
-Mỗi pha là một plan riêng, chạy xong mới sang pha sau trừ khi ghi khác.
+Mỗi pha là một plan riêng, chạy xong mới sang pha sau trừ khi ghi khác. Pha D đứng trước pha 0; hai
+pha có thể gối nhau ở phần mã vì pha 0 không phụ thuộc dữ liệu, nhưng mọi run đo đều chờ pha D.
 
+0. **Pha D, dữ liệu.** §3.0: tách leaflet theo heading, release mới, sinh lại benchmark, viết lại 50
+   item golden, chạy lại bảng retrieval (sáu embedding qua API, bốn reranker trên Kaggle). Mọi pha
+   sau chạy trên release và benchmark này.
 1. **Pha 0, hạ tầng đo và chuyển API.** §2.1b (OpenRouter cho mọi LLM, provider ghim, kiểm tra tương
    đương embedding, reranker DeepInfra), §2.5 và §2.6 (trừ enrichment), `e2e compare`, pricing,
    steps latency, bảng cost. Xác nhận bằng cách chạy lại A1 và A2 Qwen3.5-9B qua OpenRouter và so với
