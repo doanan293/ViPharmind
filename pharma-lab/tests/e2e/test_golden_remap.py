@@ -121,3 +121,31 @@ def test_remap_leaves_formulary_items_unchanged() -> None:
     result = remap_item(item, corpus, _chunks_for(corpus))
     assert result.item == item
     assert result.notes == []
+
+
+def test_remap_follows_a_subsection_that_no_longer_exists_to_its_page() -> None:
+    merged = f"{PAGE}:07-thong-tin-them"
+    corpus = CorpusText(
+        sections={merged: f"# Pramital 20 mg\n\n### 7. Thông tin thêm\n\n{QUOTE}"},
+        section_documents={merged: PAGE},
+        titles=CORPUS.titles,
+    )
+    item = GoldenItem.model_validate(
+        {
+            **_item().model_dump(mode="json"),
+            "gold_section_ids": [f"{PAGE}:13-bao-quan"],
+            "reference": {
+                "answer": QUOTE,
+                "key_facts": [
+                    {
+                        "fact": "x",
+                        "evidence_quote": QUOTE,
+                        "section_id": f"{PAGE}:13-bao-quan",
+                    }
+                ],
+            },
+        }
+    )
+    result = remap_item(item, corpus, _chunks_for(corpus))
+    assert result.item.gold_section_ids == [merged]
+    assert result.item.reference.key_facts[0].section_id == merged

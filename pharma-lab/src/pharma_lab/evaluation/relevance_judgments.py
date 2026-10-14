@@ -384,7 +384,14 @@ def _accepted_leaflet_chunks(
     drug_titles: dict[str, str] = {}
     for row in chunk_rows:
         section_id = str(row["section_id"])
-        sections[section_id].append(row)
+        # A leaflet split by heading is judged as one page: its active ingredients are
+        # read from the "Thành phần" section and apply to every other section.
+        group = (
+            ":".join(section_id.split(":")[:3])
+            if section_id.startswith("leaflet:")
+            else section_id
+        )
+        sections[group].append(row)
         if section_id.startswith("drug:"):
             drug_titles.setdefault(section_id.split(":")[1], str(row["title"]))
     drugs_by_first_token: defaultdict[str, list[str]] = defaultdict(list)
@@ -396,7 +403,9 @@ def _accepted_leaflet_chunks(
     for section_id, rows in sections.items():
         if not section_id.startswith("leaflet:"):
             continue
-        ordered = sorted(rows, key=lambda row: int(row["chunk_index"]))
+        ordered = sorted(
+            rows, key=lambda row: (str(row["section_id"]), int(row["chunk_index"]))
+        )
         texts = [str(row["chunk_text"]) for row in ordered]
         ingredients = active_ingredients("\n".join(texts))
         if ingredients is None:

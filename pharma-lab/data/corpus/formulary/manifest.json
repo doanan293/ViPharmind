@@ -6,8 +6,8 @@
   },
   "generator": {
     "name": "pharma-lab",
-    "version": "0.3.1",
-    "build_id": "c11eed6827bdd4f2"
+    "version": "0.3.2",
+    "build_id": "fd9dad22a3fa9c61"
   },
   "source_digests": {
     "source_pdf_sha256": "2aa81c846a5e760f82658c46816ab63174204a7d95b3e2755b6565288e53d0d1",
@@ -19,23 +19,23 @@
     "curated_table_overrides_sha256": "6c3b043b9f3dd1d17107bea9b33c62d58c454c50a779632963f8d6daf6089474"
   },
   "document_count": 3120,
-  "section_count": 41724,
+  "section_count": 34559,
   "files": {
     "documents.jsonl": {
       "sha256": "27565698b3d4852c243583752b3e6d91cccda2a33d102fbcf6bffe4c517c20a2",
       "bytes": 778280
     },
     "sections.jsonl": {
-      "sha256": "2afb9b22a3b6738111d9140375ceecc19c36e7823be90ce8dea37697e621fafe",
-      "bytes": 73208969
+      "sha256": "20ad380a6ac584e625b5ebccaea14533f21aa5ef960bffffba4bc32f0ab1cbd0",
+      "bytes": 70013265
     },
     "glossary.json": {
       "sha256": "bcedbf996455ddde29070de1b4151d911c452a8d2a12309e056f31d0636091f6",
       "bytes": 22283
     },
     "colloquial_mappings.json": {
-      "sha256": "5d3fd9be322a28f5fe4dea579b610abac3da832d2ea70003d1d50fd332a9ec12",
-      "bytes": 3285436
+      "sha256": "22afc235c6f37e0dfb536abb6d0b900d122317ee066065c778bef00ed0dbafd9",
+      "bytes": 2734642
     }
   },
   "embeddings": []
