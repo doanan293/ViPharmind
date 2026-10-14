@@ -13,6 +13,7 @@ nguồn đã mở và mức xác minh (VERIFIED / PARTIAL / UNVERIFIED hoặc [V
 | `04-advisor-papers.md` | Ba bài thầy gửi (Rewrite-Retrieve-Read, CHIQ, Fensore 2025) đọc toàn văn, số liệu, prompt gốc, hàm ý | Benchmark hội thoại và so sánh chiến lược viết lại (§3.1, §4.D), khung luận điểm Fensore |
 | `05-literature-survey.md` | Khảo sát 2023-2026 theo sáu luồng: workflow so với agent, adaptive retrieval và gating, chi phí và độ trễ, guardrail và judge nhỏ, decision model, RAG hội thoại, tiếng Việt; kế hoạch trích dẫn | Related work, định vị đóng góp, limitations |
 | `06-repo-map.md` | Bản đồ kỹ thuật backend và pharma-lab: graph, budget, port LLM, cấu hình e2e, identity, latency, báo cáo, và khoảng trống cho từng thí nghiệm | Mọi phần triển khai của spec và plan |
+| `07-dataset-review.md` | Review corpus, chunk, benchmark retrieval và golden e2e: phân bố chunk, rò rỉ gợi ý, nhãn nhóm, đề xuất pha dữ liệu | Pha dữ liệu trước pha 0 |
 
 ## Kết luận chính rút ra
 
