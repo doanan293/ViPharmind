@@ -7,10 +7,10 @@ DEFAULT_MAX_ROWS = DEFAULT_TARGET_ROWS
 DEFAULT_EVAL_GROUP_QUOTAS = {
     "formulary": 5000,
     "leaflet": 2500,
-    "patient_natural": 500,
+    "leaflet_short": 500,
     "chunk_risk": 1000,
     "multi_intent": 500,
-    "noisy_confuser": 500,
+    "noisy": 500,
 }
 
 FORMULARY_QUERY_FORM_TARGETS = {
@@ -21,9 +21,9 @@ FORMULARY_QUERY_FORM_TARGETS = {
     "clinical": 1000,
 }
 
-NOISY_CONFUSER_QUERY_FORM_TARGETS = {
+NOISY_QUERY_FORM_TARGETS = {
     "noisy": 300,
-    "confuser": 200,
+    "typo": 200,
 }
 
 LEAFLET_QUERY_FORM_TARGETS = {
@@ -53,7 +53,6 @@ EVAL_HEADER = [
     "expected_chunk_index",
     "expected_chunk_role",
     "retrieval_granularity",
-    "difficulty",
     "eval_tags",
     "notes",
 ]
@@ -72,8 +71,8 @@ ALLOWED_QUERY_FORMS = {
     "natural",
     "clinical",
     "noisy",
-    "confuser",
-    "patient",
+    "typo",
+    "leaflet_short",
     "brand_template",
     "colloquial_alias",
     "chunk_coverage",
@@ -92,6 +91,7 @@ ALLOWED_INTENT_CATEGORIES = {
     "manufacturer",
     "pharmacology",
     "general_info",
+    "overdose",
     "brand_lookup",
     "atc_lookup",
     "table_lookup",
@@ -105,7 +105,6 @@ ALLOWED_RETRIEVAL_GRANULARITIES = {
     "chunk_exact",
     "multi_section",
 }
-ALLOWED_DIFFICULTIES = {"easy", "medium", "hard"}
 
 FORMULARY_CATEGORY_MAP = {
     "indication": ("indication", "formulary_indication"),
@@ -119,6 +118,11 @@ FORMULARY_CATEGORY_MAP = {
     "brand_lookup": ("brand_lookup", "appendix_brand_index"),
     "table_lookup": ("table_lookup", "formulary_table"),
     "drug_fact": ("general_info", "formulary_general_info"),
+    "overdose": ("overdose", "formulary_overdose"),
+    "storage": ("storage", "formulary_storage"),
+    "pharmacology": ("pharmacology", "formulary_pharmacology"),
+    "precaution": ("precaution", "formulary_precaution"),
+    "dosage_form": ("general_info", "formulary_dosage_form"),
 }
 
 LEAFLET_CATEGORY_MAP = {

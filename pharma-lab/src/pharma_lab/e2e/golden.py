@@ -22,8 +22,8 @@ EVAL_GROUPS = (
     "formulary",
     "leaflet",
     "chunk_risk",
-    "patient_natural",
-    "noisy_confuser",
+    "leaflet_short",
+    "noisy",
     "multi_intent",
 )
 

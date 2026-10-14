@@ -45,7 +45,7 @@ from pharma_lab.evaluation.variant_identity import MetricsArtifactIdentity
 from pharma_lab.runtime.catalog import require_model
 
 DISPLAY_HIT_KS = (3, 5, 10, 30)
-BREAKDOWN_DIMENSIONS = ("eval_group", "difficulty")
+BREAKDOWN_DIMENSIONS = ("eval_group",)
 EVAL_GROUP_DISPLAY_LABELS = {
     "leaflet": "brand_product_qa",
     "chunk_risk": "chunk_level_retrieval",

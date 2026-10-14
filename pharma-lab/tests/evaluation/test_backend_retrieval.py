@@ -282,11 +282,11 @@ def test_unknown_retriever_and_dense_prefetch_are_rejected(tmp_path: Path) -> No
 
 
 GOLD_GROUP_SIZES = {
-    "patient_natural": 500,
+    "leaflet_short": 500,
     "leaflet": 2500,
     "chunk_risk": 1000,
     "formulary": 5000,
-    "noisy_confuser": 500,
+    "noisy": 500,
     "multi_intent": 500,
 }
 
@@ -313,11 +313,11 @@ def test_sample_takes_ten_percent_of_every_eval_group(tmp_path: Path) -> None:
     rows = load_query_rows(_gold(tmp_path, GOLD_GROUP_SIZES), sample=1000)
 
     assert Counter(row["eval_group"] for row in rows) == {
-        "patient_natural": 50,
+        "leaflet_short": 50,
         "leaflet": 250,
         "chunk_risk": 100,
         "formulary": 500,
-        "noisy_confuser": 50,
+        "noisy": 50,
         "multi_intent": 50,
     }
 
