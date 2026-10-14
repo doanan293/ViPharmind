@@ -14,6 +14,7 @@ from pharma_lab.embeddings.text_cache import (
     cache_record_key,
     embed_missing,
     read_embedding_inputs,
+    write_embedding_inputs,
 )
 from pharma_lab.integrations.kaggle.job_lock import (
     kaggle_cache_lock,
@@ -118,11 +119,23 @@ class KaggleTextEmbeddingBackend:
         from pharma_lab.integrations.kaggle.service import run_kaggle_stage
 
         spec = require_model(request.model)
+        # Kaggle GPU time is the scarce resource: send only texts the cache lacks.
+        missing = open_text_cache(request.cache_path, request.model).missing(
+            read_embedding_inputs(request.inputs_path)
+        )
+        if not missing and not request.force:
+            return TextEmbeddingResult(request.cache_path, ("cached",))
+        inputs_path = request.inputs_path
+        if not request.force:
+            inputs_path = (
+                WORK_DIR / "kaggle-text-embeddings" / spec.slug / "missing_inputs.jsonl"
+            )
+            write_embedding_inputs(missing, inputs_path)
         resolution = ensure_runtime_profile(
             workload="corpus-embed",
             benchmark_stage=StageName.CORPUS_EMBED_BENCHMARK.value,
             model=request.model,
-            input_path=request.inputs_path,
+            input_path=inputs_path,
             gguf_root=GGUF_ROOT,
             budget_seconds=request.budget_seconds,
             dry_run=request.dry_run,
@@ -136,7 +149,7 @@ class KaggleTextEmbeddingBackend:
         result = run_kaggle_stage(
             stage=StageName.CORPUS_EMBED,
             model=request.model,
-            input_path=request.inputs_path,
+            input_path=inputs_path,
             output_dir=WORK_DIR / "kaggle-text-embeddings" / spec.slug,
             gguf_root=GGUF_ROOT,
             force=request.force,

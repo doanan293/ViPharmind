@@ -1072,10 +1072,23 @@ def has_meaningful_section_body(content: str) -> bool:
     return bool(re.search(r"[0-9A-Za-zÀ-ỹĐđ]{2,}", body))
 
 
+# Level-4 items under these parents are short product facts (storage, expiry, maker,
+# packaging; median 19-76 characters), so the parent stays one section.
+PRODUCT_INFO_HEADINGS = frozenset({"thông tin thêm", "thông tin khác"})
+
+
 def split_leaflet_sections(content: str) -> list[LeafletPart]:
     """One part per level-2/3/4 heading; text before the first heading is a general part."""
     body = re.sub(r"^# .*(?:\n|$)", "", content, count=1)
-    matches = list(_PART_HEADING.finditer(body))
+    matches = []
+    parent = ""
+    for match in _PART_HEADING.finditer(body):
+        level = len(match.group(1))
+        if level <= 3:
+            parent = clean_leaflet_heading(match.group(2)).casefold()
+        elif parent in PRODUCT_INFO_HEADINGS:
+            continue
+        matches.append(match)
     if not matches:
         text = body.strip()
         return [LeafletPart(GENERAL_LEAFLET_HEADING, text)] if text else []

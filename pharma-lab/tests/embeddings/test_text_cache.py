@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from pharma_lab.artifacts.manifest import Completion
+from pharma_lab.embeddings import service as embedding_service
 from pharma_lab.embeddings.service import (
     KaggleTextEmbeddingBackend,
     LocalTextEmbeddingBackend,
@@ -175,6 +176,7 @@ def test_kaggle_backend_propagates_account_and_merges_remote_cache(
         ),
     )
     cache_path = tmp_path / "cache.jsonl"
+    monkeypatch.setattr(embedding_service, "WORK_DIR", tmp_path / "work")
 
     result = KaggleTextEmbeddingBackend().run(
         TextEmbeddingRequest(
@@ -192,3 +194,80 @@ def test_kaggle_backend_propagates_account_and_merges_remote_cache(
     assert not result.incomplete
     assert seen == [("profile", "acc2"), ("stage", "acc2")]
     assert open_text_cache(cache_path, MODEL).get(text_sha256("a")) == _vector(0.25)
+
+
+def _kaggle_request(tmp_path: Path, inputs_path: Path, cache_path: Path):
+    return TextEmbeddingRequest(
+        inputs_path=inputs_path,
+        model=MODEL,
+        cache_path=cache_path,
+        force=False,
+        dry_run=False,
+        budget_seconds=60,
+        request_timeout_seconds=5.0,
+        kaggle_account="acc1",
+    )
+
+
+def test_kaggle_backend_sends_only_texts_missing_from_the_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs_path = tmp_path / "embedding_inputs.jsonl"
+    write_embedding_inputs([_input("a"), _input("b")], inputs_path)
+    cache_path = tmp_path / "cache.jsonl"
+    open_text_cache(cache_path, MODEL).set(text_sha256("a"), _vector(0.5))
+    remote_path = tmp_path / "remote" / "text_embeddings.jsonl"
+    open_text_cache(remote_path, MODEL).set(text_sha256("b"), _vector(0.75))
+    selected = require_model(MODEL).embedding_search_space
+    assert selected is not None
+    sent: list[list[str]] = []
+
+    def stage(**kwargs):
+        sent.append(
+            [
+                json.loads(line)["embedding_text"]
+                for line in Path(kwargs["input_path"]).read_text().splitlines()
+            ]
+        )
+        return SimpleNamespace(
+            artifact_path=remote_path, completion=Completion(1, 1, 0), actions=()
+        )
+
+    monkeypatch.setattr(
+        auto_profile,
+        "ensure_runtime_profile",
+        lambda **kwargs: SimpleNamespace(
+            profile=SimpleNamespace(selected=selected.corpus.candidates[0]),
+            action="reuse",
+        ),
+    )
+    monkeypatch.setattr(kaggle_service, "run_kaggle_stage", stage)
+    monkeypatch.setattr(embedding_service, "WORK_DIR", tmp_path / "work")
+
+    KaggleTextEmbeddingBackend().run(_kaggle_request(tmp_path, inputs_path, cache_path))
+
+    assert sent == [["b"]]
+    cache = open_text_cache(cache_path, MODEL)
+    assert cache.get(text_sha256("a")) == _vector(0.5)
+    assert cache.get(text_sha256("b")) == _vector(0.75)
+
+
+def test_kaggle_backend_starts_no_job_when_everything_is_cached(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs_path = tmp_path / "embedding_inputs.jsonl"
+    write_embedding_inputs([_input("a")], inputs_path)
+    cache_path = tmp_path / "cache.jsonl"
+    open_text_cache(cache_path, MODEL).set(text_sha256("a"), _vector(0.5))
+    monkeypatch.setattr(
+        auto_profile,
+        "ensure_runtime_profile",
+        lambda **kwargs: pytest.fail("no Kaggle job expected"),
+    )
+
+    result = KaggleTextEmbeddingBackend().run(
+        _kaggle_request(tmp_path, inputs_path, cache_path)
+    )
+
+    assert result.actions == ("cached",)
+    assert not result.incomplete
