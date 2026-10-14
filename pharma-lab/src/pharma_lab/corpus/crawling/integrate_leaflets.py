@@ -56,9 +56,10 @@ def resolve_colloquial_mapping(slug: str, mappings: dict | None) -> dict:
 
 GENERAL_LEAFLET_HEADING = "Thông tin chi tiết"
 HEADING_SLUG_MAX_CHARS = 60
-# A leaflet part opens at a level-2 or level-3 heading; level-4 headings
-# ("#### - Quá liều") are sub-items and stay inside their parent part.
-_PART_HEADING = re.compile(r"(?m)^(#{2,3})[ \t]+(.+?)[ \t]*$")
+# Every level-2 to level-4 heading opens a part: level-4 items ("#### - Quá liều",
+# "#### - Tương tác thuốc") are intents of their own. A parent left with no text of
+# its own ("### 7. Thông tin thêm") is dropped by the caller.
+_PART_HEADING = re.compile(r"(?m)^(#{2,4})[ \t]+(.+?)[ \t]*$")
 
 
 @dataclass(frozen=True)
@@ -488,7 +489,9 @@ def separate_leaflet_heading_runs(text: str) -> str:
         text = re.sub(rf"({re.escape(heading)})(?=[A-ZÀ-ỴĐ])", r"\1\n", text)
     for heading in inline_headings:
         text = re.sub(rf"({re.escape(heading)})(?=[A-ZÀ-ỴĐ])", r"\1\n", text)
-    return text
+    # The list rule above also fires on "#### - Bảo quản" and leaves a bare "####";
+    # put the heading marker back in front of its title.
+    return re.sub(r"(?m)^(#{1,6})[ \t]*\n(- )", r"\1 \2", text)
 
 
 def separate_stuck_drug_and_vietnamese_words(text: str) -> str:
@@ -1070,7 +1073,7 @@ def has_meaningful_section_body(content: str) -> bool:
 
 
 def split_leaflet_sections(content: str) -> list[LeafletPart]:
-    """One part per level-2/3 heading; text before the first heading is a general part."""
+    """One part per level-2/3/4 heading; text before the first heading is a general part."""
     body = re.sub(r"^# .*(?:\n|$)", "", content, count=1)
     matches = list(_PART_HEADING.finditer(body))
     if not matches:
