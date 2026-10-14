@@ -18,6 +18,16 @@ data/
 
 `<model>` is the model slug from the catalog, for example `qwen3_embedding_4b_fp16`. File and folder names never contain hashes; digests and identities live inside `manifest.json` files and cache records.
 
+## Archive versions
+
+`pharma-lab data push` creates a new version of the private Kaggle dataset
+`<owner>/vipharmind-data`; `pharma-lab data pull --version N` restores version N (the latest
+without `--version`). Each version pairs with a git tag:
+
+| Kaggle version | Git tag | Content |
+| ---: | --- | --- |
+| 1 | `v1.0.0` | SoICT 2026 submission: corpus, 10,000-question benchmark, golden set, all retrieval and end-to-end runs (former `seed-pipeline-data` version 8, its earlier versions squashed) |
+
 ## What Git tracks
 
 Git keeps only small files that are maintained by hand or quoted in the thesis report:
