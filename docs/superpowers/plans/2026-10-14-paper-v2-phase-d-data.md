@@ -1164,6 +1164,27 @@ git commit -m "data: retrieval runs on the v2 release and benchmark"
 
 ---
 
+### Task 7b: Tập "cần tra nhiều lượt" trong golden 500 câu
+
+Theo spec §3.0b. Phụ thuộc Task 7 (retrieval trên release mới). Các bước, mỗi bước TDD như các task
+mã ở trên:
+
+1. `golden.py`: thêm `Category.MULTI_HOP` (behavior grounded, prefix `e2e-mhop-`), `QUOTAS` thành
+   answerable 270, multi_hop 150, multi_turn 50, ba nhóm an toàn 10; `ANSWERABLE_PER_GROUP = 45`.
+   Test: quota và validate cho item multi_hop.
+2. Lệnh `e2e golden hard-candidates --run <retrieval run> --top-k 8`: đọc candidates của run
+   hybrid + rerank, liệt kê câu benchmark mà top-k thiếu section gold, gán một trong bốn loại theo
+   `answer_mode`, `eval_group` và số thuốc; ghi `authoring/multi-hop.todo.jsonl`. Câu hai thuốc và
+   biệt dược sang hoạt chất sinh thêm bằng luật từ cặp section (relevance judgments đã có ánh xạ
+   leaflet sang hoạt chất). Test trên fixture nhỏ.
+3. Lệnh `e2e golden trim --per-group 45`: bỏ 150 câu answerable mà run một lượt phủ đủ gold, đều
+   theo nhóm. Test.
+4. Soạn 150 item: bản nháp key fact bằng LLM qua proxy (gemini-3.1-flash-lite) với quote nguyên
+   văn từ section gold, `golden check`, tác giả và dược sĩ duyệt; `golden build` ra 500 item.
+5. `AnswerRecord.rounds`: evidence section ids sau mỗi vòng search; report thêm
+   `gold_coverage_round1`, `gold_coverage_final`, `rounds_used`, `rescued_rate`, chia theo category.
+   Test với executor giả.
+
 ### Task 8: Ghi lại kết quả pha D cho bài và các pha sau
 
 **Files:**
