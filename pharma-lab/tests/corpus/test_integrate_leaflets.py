@@ -89,13 +89,16 @@ def test_parent_without_own_text_is_dropped(tmp_path: Path) -> None:
     (root / "thuoc").mkdir(parents=True)
     (root / "thuoc" / "x.md").write_text(
         "# Thuốc X\n\n### 1. Thành phần\n\nA 1 mg.\n\n"
-        "### 7. Thông tin thêm\n\n#### - Bảo quản\n\nDưới 30 độ C.",
+        "### 5. Lưu ý\n\n#### - Tương tác thuốc\n\nTránh rượu.",
         encoding="utf-8",
     )
     sections, _chunks = integrate_drug_file(
         root / "thuoc" / "x.md", markdown_root=root, mappings={}
     )
-    assert [section["section"] for section in sections] == ["Thành phần", "Bảo quản"]
+    assert [section["section"] for section in sections] == [
+        "Thành phần",
+        "Tương tác thuốc",
+    ]
 
 
 def test_heading_run_separator_keeps_level_four_headings_whole() -> None:
@@ -106,3 +109,16 @@ def test_heading_run_separator_keeps_level_four_headings_whole() -> None:
     assert "#### - Bảo quản\n" in cleaned
     assert not any(line.strip() == "####" for line in cleaned.splitlines())
     assert "\n- Hạn dùng\nXem bao bì." in cleaned
+
+
+def test_product_info_items_stay_in_one_section() -> None:
+    page = (
+        "# Thuốc X\n\n### 6. Tác dụng phụ\n\nBuồn nôn.\n\n"
+        "### 7. Thông tin thêm\n\n#### - Đặc điểm\n\nViên nén.\n\n"
+        "#### - Bảo quản\n\nDưới 30 độ C.\n\n#### - Hạn dùng\n\n24 tháng.\n\n"
+        "#### - Nhà sản xuất\n\nDHG."
+    )
+    parts = split_leaflet_sections(page)
+    assert [part.heading for part in parts] == ["Tác dụng phụ", "Thông tin thêm"]
+    assert "#### - Hạn dùng\n\n24 tháng." in parts[1].markdown
+    assert parts[1].markdown.endswith("#### - Nhà sản xuất\n\nDHG.")
