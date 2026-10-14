@@ -27,9 +27,10 @@ retrieval đã tốt, giữ chất lượng đó với độ trễ và chi phí 
 2. **Refinement theo độ tin cậy.** Vòng retrieve-more chỉ chạy khi xác suất "đủ bằng chứng" của judge
    dưới ngưỡng τ. Quét τ cho đường Pareto chi phí, độ trễ so với truthfulness, theo giao thức báo cáo
    của Qian et al. 2026.
-3. **Graph routing so với agent ReAct theo cỡ model.** Cùng corpus, retriever, tool, ngân sách và định
-   dạng trả lời; chỉ khác ai điều khiển. Dải Qwen3.5 2B, 4B, 9B, 27B và Gemini 3.8 Flash. Tìm cỡ model
-   mà agent tự lập kế hoạch bắt kịp, và giá phải trả.
+3. **Graph routing so với agent ReAct trên bộ model rẻ.** Cùng corpus, retriever, tool, ngân sách và
+   định dạng trả lời; chỉ khác ai điều khiển. Sáu model gọi qua API: ba model mở rẻ, hai model thương
+   mại rẻ và một model nặng làm trần tham chiếu. Với mỗi model, kiến trúc nào cho chất lượng cao nhất
+   trên mỗi USD và mỗi giây, và model nặng hơn có đổi kết luận không.
 4. **Benchmark và đánh giá.** Benchmark retrieval 10.000 câu thêm lớp hội thoại; bộ e2e 500 item mở
    rộng an toàn lên 50 item mỗi loại; mọi cấu hình báo chất lượng, giây và USD.
 
@@ -76,8 +77,25 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
 - Giới hạn cần tôn trọng: 64k token mỗi request, 32k cho state cộng câu hỏi dài nhất; evidence 24.000
   ký tự tiếng Việt ước 7 đến 16k token. Việc đầu tiên của plan là đo `usage.input_tokens` cho một khối
   evidence 24.000 ký tự. Câu hỏi viết bằng tiếng Anh, nội dung tiếng Việt nằm trong state.
-- Strands Decider 2B tự host trên Kaggle T4 qua `strands-decider serve` (cùng endpoint), thêm lệnh
-  `pharma-lab e2e decider-server` theo mẫu `llm-server`.
+- Strands Decider 2B là đối chứng open weights **tùy chọn**, chỉ làm ở pha 4 nếu còn thời gian, vì
+  không có API hosted nên phải tự host trên Kaggle T4 qua `strands-decider serve` (cùng endpoint).
+  Bài v2 chạy được trọn vẹn chỉ với Jev.
+
+### 2.1b Mọi LLM gọi qua OpenRouter
+
+- Backend đổi endpoint mặc định của LLM sang `https://openrouter.ai/api/v1`; mỗi vai trò ghim model
+  bằng id OpenRouter (`qwen/qwen3.5-9b`, `openai/gpt-6-luna`, ...). Không tự host LLM nữa, kể cả
+  Qwen3.5-9B; run v1 tự host được giữ làm tham chiếu lịch sử và bài ghi rõ khác biệt.
+- `extra_body` mỗi vai trò mang `provider: {order: [<slug>], allow_fallbacks: false,
+  require_parameters: true}` để một model luôn đi một provider, một precision. Qwen3.5-9B ghim
+  DeepInfra bf16. Response của OpenRouter ghi provider thực tế, lưu vào `answers.jsonl`.
+- Embedding query: OpenRouter có `qwen/qwen3-embedding-4b`; trước khi dùng phải chạy kiểm tra tương
+  đương trên 1.000 câu benchmark (Hit@10 và MRR@10 so với cache embedding llama.cpp fp16 của v1,
+  chấp nhận chênh dưới 0,3 điểm). Không đạt thì embedding ở DeepInfra như production hiện nay.
+- Reranker: OpenRouter không có endpoint rerank, nên Qwen3-Reranker-4B gọi DeepInfra qua
+  `PHARMA_RETRIEVAL__RERANK__PROTOCOL=deepinfra` đã có.
+- Jev: gọi thẳng `api.typesafe.ai` bằng SDK chính thức, vì bản qua OpenRouter chưa công bố giá.
+- Judge đánh giá: gemini-3.1-flash-lite cũng qua OpenRouter; `judge.json` ghi thêm provider.
 
 ### 2.2 Judge-refine kiểu quyết định
 
@@ -134,10 +152,12 @@ công bằng:
 
 - `AnswerRecord.steps: list[{kind, outcome, started_at, seconds}]` từ `AgentRun.actions[*].at`;
   `SearchResult` thêm `retrieval_seconds` và `rerank_seconds`.
-- `pharma_lab/e2e/pricing.py`: bảng giá theo tên model, đọc ngày 2026-10-14, ghi nguồn:
-  gemini-3.8-flash 0,75/3,75; gemini-3.1-flash-lite 0,25/1,50; Qwen3.5-9B 0,10/0,15 (DeepInfra);
-  Qwen3.5-27B 0,26/2,60 (OpenRouter); Jev 0,042/0 USD mỗi triệu token. Model tự host tính theo
-  giờ GPU: giá thuê công bố của T4 nhân thời gian LLM mỗi lượt chia số slot đồng thời; ghi rõ công thức.
+- `pharma_lab/e2e/pricing.py`: bảng giá theo id model và provider, đọc từ OpenRouter ngày
+  2026-10-14, ghi nguồn và ngày, USD mỗi triệu token vào/ra: Qwen3.5-9B 0,10/0,15 (DeepInfra bf16);
+  Qwen3.8-27B 0,04/2,30; DeepSeek V4.1 Flash 0,021/0,89; Gemini 3.8 Flash 0,75/3,75; GPT-6 Luna
+  0,10/0,50; GPT-6.1 Sol 2/10; gemini-3.1-flash-lite 0,25/1,50; Jev 0,042/0; Qwen3-Reranker-4B và
+  embedding theo giá DeepInfra hoặc OpenRouter tại ngày chạy. Mọi chi phí là giá niêm yết, không có
+  mô hình giờ GPU vì không tự host.
 - Metric mới: `usd_per_turn`, `usd_per_1000_turns`, `llm_seconds_per_turn`, `retrieval_seconds_per_turn`,
   `decision_seconds_per_turn`, `cost_of_pass` (USD chia tỷ lệ perfect, theo Erol et al.). Bảng
   `cost.csv|tex`.
@@ -199,16 +219,24 @@ golden và cùng judge đánh giá.
 
 ### A. Phân vai theo loại model (đóng góp 1)
 
+Bộ sáu model dùng xuyên suốt bài (giá USD mỗi triệu token vào/ra, OpenRouter 2026-10-14):
+
+| Nhóm | Model | Giá | Vai trò trong bài |
+| --- | --- | --- | --- |
+| Mở, rẻ | Qwen3.5-9B | 0,10 / 0,15 | nối với v1 |
+| Mở, rẻ | Qwen3.8-27B | 0,04 / 2,30 | Qwen dense mới nhất |
+| Mở, rẻ | DeepSeek V4.1 Flash | 0,021 / 0,89 | họ mở ngoài Qwen |
+| Thương mại, rẻ | Gemini 3.8 Flash | 0,75 / 3,75 | nối với v1 |
+| Thương mại, rẻ | GPT-6 Luna | 0,10 / 0,50 | model rẻ nhất của OpenAI |
+| Nặng, trần tham chiếu | GPT-6.1 Sol | 2 / 10 | giới hạn trên của chất lượng |
+
 | Cấu hình | G, J | R | P, A | Ghi chú |
 | --- | --- | --- | --- | --- |
-| A1 gemini (v1) | gemini-3.1-flash-lite, 3.8-flash | LLM | 3.1-flash-lite, 3.8-flash | đã có |
-| A2 qwen9b (v1) | Qwen3.5-9B | LLM | Qwen3.5-9B | đã có |
-| A3 jev + qwen9b | Jev | template | Qwen3.5-9B | cấu hình chính của bài |
+| A1 gemini (v1) | gemini-3.1-flash-lite, 3.8-flash | LLM | 3.1-flash-lite, 3.8-flash | đã có, chạy lại qua OpenRouter |
+| A2 llm-only, mỗi model | cùng model | LLM | cùng model | sáu run, mọi vai trò trên một LLM |
+| A3 jev + mỗi model | Jev | template | cùng model | sáu run, cấu hình chính của bài |
 | A4 jev + qwen9b, refine LLM | Jev | LLM | Qwen3.5-9B | tách tác dụng của refine template |
-| A5 jev + gemini | Jev | template | 3.8-flash | decision model với model thương mại |
-| A6 decider2b + qwen9b | Decider 2B | template | Qwen3.5-9B | hoàn toàn tự host |
-| A7 jev + qwen4b | Jev | template | Qwen3.5-4B | sàn chất lượng của phần sinh văn bản |
-| A8 jev + qwen2b | Jev | template | Qwen3.5-2B | |
+| A5 decider2b + qwen9b | Decider 2B | template | Qwen3.5-9B | tùy chọn, cần tự host |
 
 Kết quả: bảng chính v2 với truthfulness, nugget recall, hallucination, severe harm, faithfulness,
 citation recall, các metric an toàn, giây mỗi lượt p50 và p95, USD mỗi 1.000 lượt; hình teaser
@@ -216,33 +244,29 @@ truthfulness theo giây và theo USD, mỗi cấu hình một điểm; hình tá
 
 ### B. Refinement theo độ tin cậy (đóng góp 2)
 
-- Trên A3 và A5: τ ∈ {0, 0,3, 0,5, 0,7, 0,9, 1}. Trên A2: cùng dải với độ tin cậy nói ra của LLM judge.
+- Trên A3 với Qwen3.5-9B và với GPT-6 Luna: τ ∈ {0, 0,3, 0,5, 0,7, 0,9, 1}. Trên A2 Qwen3.5-9B: cùng
+  dải với độ tin cậy nói ra của LLM judge.
 - Báo theo Qian et al. 2026: đường biên chất lượng so với chi phí và so với độ trễ, tỷ lệ refine thực
-  tế, chi phí của chính bước judge, độ ổn định của τ khi chuyển giữa A3, A5, A7 (τ chọn trên A3 áp
-  sang các cấu hình khác), tỷ lệ gây hại khi bỏ refine.
+  tế, chi phí của chính bước judge, độ ổn định của τ khi chuyển model (τ chọn trên Qwen3.5-9B áp sang
+  các model còn lại của A3), tỷ lệ gây hại khi bỏ refine.
 - Phân tích tương quan lỗi: judge nói "đủ" nhưng câu trả lời thiếu key fact, theo nhóm câu hỏi.
 
-### C. Graph routing so với ReAct theo cỡ model (đóng góp 3)
+### C. Graph routing so với ReAct trên bộ sáu model (đóng góp 3)
 
-Hai nhánh dùng cùng một LLM cho mọi vai trò, để khác biệt chỉ còn là ai điều khiển. Các cấu hình có
-decision model (A3 đến A8) không thuộc so sánh này mà được vẽ thêm như điểm tham chiếu.
-
-| Model | Graph routing, mọi vai trò trên LLM này | ReAct, cùng LLM |
-| --- | --- | --- |
-| Qwen3.5-2B | C1 | C1r |
-| Qwen3.5-4B | C2 | C2r |
-| Qwen3.5-9B | A2 | C3r |
-| Qwen3.5-27B | C4 | C4r |
-| Gemini 3.8 Flash | A1 (guard và rephrase trên 3.1-flash-lite như v1) | C5r |
+Hai nhánh dùng cùng một LLM cho mọi vai trò, để khác biệt chỉ còn là ai điều khiển. Nhánh graph
+routing là A2 của model đó; nhánh ReAct là một run mới cùng model. Các cấu hình có decision model
+(A3) không thuộc so sánh này mà được vẽ thêm như điểm tham chiếu. Câu hỏi của bài không còn là "cỡ
+nào thì ReAct bắt kịp" mà là "với mỗi model rẻ và với model nặng, kiến trúc nào cho chất lượng cao
+nhất trên mỗi USD và mỗi giây", cộng một nhận xét về xu hướng theo sức mạnh model.
 
 - Giữ cố định: tool, retriever, reranker, mức bằng chứng, định dạng trả lời, reasoning effort, nhiệt độ,
   judge đánh giá. Giao diện gọi được nêu rõ: structured output cho pipeline, native tool calling cho
   ReAct (Patel et al. 2026 chỉ ra giao diện là một nhiễu).
-- Báo: hình hai đường truthfulness theo cỡ model; bảng giây và USD; bảng thất bại của ReAct theo loại
-  (chạm trần vòng, tool call sai định dạng, gọi trùng, trả lời không trích dẫn); cùng kết quả trên 50
-  item nhiều lượt và 50 item injection vì ReAct không có rephrase và guard chỉ ở ngoài.
-- 2B, 4B, 9B tự host FP16 trên hai T4 Kaggle; 27B qua OpenRouter hoặc Q8 trên GPU lớn hơn nếu có, ghi
-  rõ precision.
+- Báo: hình mặt phẳng chất lượng so với USD và so với giây, mỗi model hai điểm nối bằng một đoạn
+  (graph routing và ReAct); bảng thất bại của ReAct theo loại (chạm trần vòng, tool call sai định
+  dạng, gọi trùng, trả lời không trích dẫn); cùng kết quả trên 50 item nhiều lượt và 50 item injection
+  vì ReAct không có rephrase và guard chỉ ở ngoài.
+- Mọi model qua OpenRouter với provider ghim cố định (§2.1b), ghi rõ provider và precision trong bài.
 
 ### D. Retrieval
 
@@ -296,18 +320,25 @@ decision model (A3 đến A8) không thuộc so sánh này mà được vẽ th�
 
 Mỗi pha là một plan riêng, chạy xong mới sang pha sau trừ khi ghi khác.
 
-1. **Pha 0, hạ tầng đo.** §2.5 và §2.6 (trừ enrichment), `e2e compare`, pricing, steps latency, bảng
-   cost. Xác nhận bằng cách tái tạo bảng v1 có thêm cột giây và USD từ run cũ (latency cũ chỉ là tổng).
+1. **Pha 0, hạ tầng đo và chuyển API.** §2.1b (OpenRouter cho mọi LLM, provider ghim, kiểm tra tương
+   đương embedding, reranker DeepInfra), §2.5 và §2.6 (trừ enrichment), `e2e compare`, pricing,
+   steps latency, bảng cost. Xác nhận bằng cách chạy lại A1 và A2 Qwen3.5-9B qua OpenRouter và so với
+   bảng v1 có thêm cột giây và USD.
 2. **Pha 1, decision model.** §2.1, §2.2, §2.3, §3.3. Đo token Vietnamese trên Jev; chạy tập hiệu
-   chuẩn; chọn τ; chạy A3 đến A8 và quét B. Kết quả đóng góp 1 và 2.
-3. **Pha 2, ReAct.** §2.4 và ma trận C. Có thể chạy song song pha 1 vì không chung mã, nhưng chạy
-   model dùng chung GPU.
+   chuẩn; chọn τ; chạy A2 và A3 cho sáu model, A4, và quét B. Kết quả đóng góp 1 và 2.
+3. **Pha 2, ReAct.** §2.4 và ma trận C. Có thể chạy song song pha 1 vì không chung mã, chỉ chung hạn
+   mức API.
 4. **Pha 3, retrieval.** §3.1, D1 đến D6, enrichment §2.6. D1 và D6 làm trước vì rẻ.
 5. **Pha 4, e2e bổ sung.** §3.2, các mục E còn lại, hiệu chuẩn dược sĩ mở rộng.
 6. **Pha 5, viết.** §6, hình và bảng, build sạch warning.
 
 Tiêu chí chấp nhận mỗi pha: lint, type và test của backend và pharma-lab xanh; run có `run.json` đầy đủ
 identity; báo cáo sinh bằng lệnh có sẵn chứ không chép tay; số liệu vào bài chỉ từ file báo cáo.
+
+Ngân sách tiền token, ước theo 11.600 token mỗi lượt của full agent v1 và ReAct gấp đôi: năm model rẻ
+nhân ba run (A2, A3, ReAct) khoảng 25 USD; GPT-6.1 Sol ba run khoảng 60 USD; quét τ và ablation trên
+Qwen3.5-9B và GPT-6 Luna khoảng 10 USD; chấm judge bằng gemini-3.1-flash-lite cho toàn bộ khoảng 20
+USD; Jev dưới 2 USD. Tổng dưới 150 USD. Mỗi run chạy thử 20 item trước khi chạy đủ.
 
 ## 8. Rủi ro
 
@@ -316,10 +347,14 @@ identity; báo cáo sinh bằng lệnh có sẵn chứ không chép tay; số li
   thấp thì Decider 2B và LLM judge là đối chứng, và kết quả vẫn là finding.
 - Nhiều noul trong một request thiên về "có": ngưỡng chỉnh trên tập giữ lại, báo AUROC thay vì chỉ độ
   chính xác tại 0,5.
-- Qwen3.5-2B và 4B có thể gọi tool kém: đó là kết quả, nhưng phải tách lỗi harness khỏi lỗi model bằng
-  bảng thất bại theo loại và biến thể có và không có chặn gọi trùng.
-- Thời gian GPU Kaggle: ưu tiên chạy latency với concurrency 1 cho cấu hình chính, các cấu hình phụ lấy
-  chất lượng trước.
+- Model rẻ có thể gọi tool kém trong ReAct: đó là kết quả, nhưng phải tách lỗi harness khỏi lỗi model
+  bằng bảng thất bại theo loại và biến thể có và không có chặn gọi trùng.
+- Embedding query qua OpenRouter có thể lệch với index đã dựng bằng llama.cpp fp16: kiểm tra tương
+  đương trước (§2.1b), không đạt thì giữ DeepInfra.
+- Provider trên OpenRouter có thể đổi giá hoặc rút model giữa chừng: ghi provider và giá vào từng
+  run, chạy mỗi cấu hình trọn trong một đợt.
+- Độ trễ đo từ Việt Nam tới gateway Mỹ: mọi model cùng điều kiện nên so sánh được, nhưng số tuyệt đối
+  gồm mạng; ghi rõ trong bài.
 - Giấy phép và điều khoản Jev về công bố benchmark: kiểm tra Master Customer Agreement trước khi công bố.
 
 ## 9. Ngoài phạm vi
