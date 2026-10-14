@@ -2,11 +2,13 @@ import json
 import os
 import re
 import unicodedata
+from dataclasses import dataclass
 from pathlib import Path
 
 from pharma_lab.config.chunking import DEFAULT_CHUNK_MAX_CHARS
 from pharma_lab.config.paths import SOURCES_DIR
 from pharma_lab.corpus.metadata.payload_layers import compact_colloquial_mapping
+from pharma_lab.corpus.processing.preprocess_rag_corpus import slugify
 
 MAPPINGS_PATH = SOURCES_DIR / "colloquial_mappings.json"
 
@@ -52,8 +54,33 @@ def resolve_colloquial_mapping(slug: str, mappings: dict | None) -> dict:
     }
 
 
-def build_context_header(title: str) -> str:
-    return f"{(title or '').strip()}\n> Thông tin chi tiết".strip()
+GENERAL_LEAFLET_HEADING = "Thông tin chi tiết"
+HEADING_SLUG_MAX_CHARS = 60
+# A leaflet part opens at a level-2 or level-3 heading; level-4 headings
+# ("#### - Quá liều") are sub-items and stay inside their parent part.
+_PART_HEADING = re.compile(r"(?m)^(#{2,3})[ \t]+(.+?)[ \t]*$")
+
+
+@dataclass(frozen=True)
+class LeafletPart:
+    heading: str
+    markdown: str
+
+
+def build_context_header(title: str, heading: str = GENERAL_LEAFLET_HEADING) -> str:
+    return f"{(title or '').strip()}\n> {heading}".strip()
+
+
+def clean_leaflet_heading(raw: str) -> str:
+    text = re.sub(r"\s+", " ", raw or "").strip()
+    text = re.sub(r"^[-–—*•]+\s*", "", text)
+    text = re.sub(r"^\d+\s*[.)]\s*", "", text)
+    return text.strip() or GENERAL_LEAFLET_HEADING
+
+
+def heading_slug(heading: str) -> str:
+    slug = slugify(clean_leaflet_heading(heading))[:HEADING_SLUG_MAX_CHARS]
+    return slug.strip("-") or "muc"
 
 
 def normalize_inline_spaces(value: str) -> str:
@@ -1042,7 +1069,27 @@ def has_meaningful_section_body(content: str) -> bool:
     return bool(re.search(r"[0-9A-Za-zÀ-ỹĐđ]{2,}", body))
 
 
-def integrate_drug_file(file_path, *, markdown_root: Path, mappings=None):
+def split_leaflet_sections(content: str) -> list[LeafletPart]:
+    """One part per level-2/3 heading; text before the first heading is a general part."""
+    body = re.sub(r"^# .*(?:\n|$)", "", content, count=1)
+    matches = list(_PART_HEADING.finditer(body))
+    if not matches:
+        text = body.strip()
+        return [LeafletPart(GENERAL_LEAFLET_HEADING, text)] if text else []
+    parts: list[LeafletPart] = []
+    preamble = body[: matches[0].start()].strip()
+    if preamble and has_meaningful_section_body(preamble):
+        parts.append(LeafletPart(GENERAL_LEAFLET_HEADING, preamble))
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
+        markdown = body[match.start() : end].strip()
+        parts.append(LeafletPart(clean_leaflet_heading(match.group(2)), markdown))
+    return parts
+
+
+def integrate_drug_file(
+    file_path, *, markdown_root: Path, mappings=None
+) -> tuple[list[dict], list[dict]]:
     with open(file_path, encoding="utf-8") as f:
         content = f.read()
 
@@ -1065,21 +1112,14 @@ def integrate_drug_file(file_path, *, markdown_root: Path, mappings=None):
     title_match = re.match(r"^# (.*?)(?:\n|$)", content)
     title = title_match.group(1).strip() if title_match else "Không rõ tên thuốc"
     if not has_meaningful_section_body(content):
-        return None, []
+        return [], []
 
     colloquial = resolve_colloquial_mapping(slug, mappings)
     aliases = colloquial["aliases"]
     visual_sign = colloquial["visual_sign"]
     colloquial_mapping_key = colloquial["mapping_key"]
 
-    section_id = f"leaflet:{category}:{slug}"
-
-    # Determine hydration strategy based on length of content
-    strategy = (
-        "chunk_window" if len(content) > FULL_SECTION_MAX_CHARS else "full_section"
-    )
-    context_path = ["Thông tin chi tiết"]
-    context_header = build_context_header(title)
+    page_id = f"leaflet:{category}:{slug}"
     colloquial_mapping = compact_colloquial_mapping(
         {
             "colloquial_mapping_key": colloquial_mapping_key,
@@ -1088,53 +1128,45 @@ def integrate_drug_file(file_path, *, markdown_root: Path, mappings=None):
             "product_names": product_names_from_title(title) or [title],
         }
     )
-
-    # Create Section Record
-    section_record = {
-        "id": section_id,
-        "content_type": "brand_page",
-        "title": title,
-        "section": "Thông tin chi tiết",
-        "text": content,
-        "source": INSTRUCTION_LEAFLET_SOURCE,
-        "context_path": context_path,
-        "context_header": context_header,
-        "colloquial_mapping": colloquial_mapping,
-        "start_page": 0,
-        "end_page": 0,
-        "warnings": [],
-        "hydrate_strategy": strategy,
-        "section_char_count": len(content),
-    }
-
-    # Create Chunk Records
-    text_chunks = chunk_text(content)
-    chunk_records = []
-    for i, chunk_text_content in enumerate(text_chunks, 1):
-        chunk_records.append(
-            {
-                "id": f"{section_id}:chunk-{i:03d}",
-                "section_id": section_id,
-                "content_type": "brand_page",
-                "title": title,
-                "section": "Thông tin chi tiết",
-                "text": chunk_text_content,
-                "context_path": context_path,
-                "context_header": context_header,
-                "colloquial_mapping": colloquial_mapping,
-                "chunk_role": "prose",
-                "chunk_content_type": "paragraph",
-                "chunk_index": i,
-                "start_page": 0,
-                "end_page": 0,
-                "warnings": [],
-                "hydrate_strategy": strategy,
-                "section_char_count": len(content),
-                "source": INSTRUCTION_LEAFLET_SOURCE,
-            }
+    section_records: list[dict] = []
+    chunk_records: list[dict] = []
+    for index, part in enumerate(split_leaflet_sections(content), start=1):
+        if not has_meaningful_section_body(part.markdown):
+            continue
+        section_id = f"{page_id}:{index:02d}-{heading_slug(part.heading)}"
+        text = f"# {title}\n\n{part.markdown}"
+        strategy = (
+            "chunk_window" if len(text) > FULL_SECTION_MAX_CHARS else "full_section"
         )
-
-    return section_record, chunk_records
+        common = {
+            "page_id": page_id,
+            "content_type": "brand_page",
+            "title": title,
+            "section": part.heading,
+            "source": INSTRUCTION_LEAFLET_SOURCE,
+            "context_path": [part.heading],
+            "context_header": build_context_header(title, part.heading),
+            "colloquial_mapping": colloquial_mapping,
+            "start_page": 0,
+            "end_page": 0,
+            "warnings": [],
+            "hydrate_strategy": strategy,
+            "section_char_count": len(text),
+        }
+        section_records.append({"id": section_id, "text": text, **common})
+        for chunk_index, chunk_text_content in enumerate(chunk_text(text), 1):
+            chunk_records.append(
+                {
+                    "id": f"{section_id}:chunk-{chunk_index:03d}",
+                    "section_id": section_id,
+                    "text": chunk_text_content,
+                    "chunk_role": "prose",
+                    "chunk_content_type": "paragraph",
+                    "chunk_index": chunk_index,
+                    **common,
+                }
+            )
+    return section_records, chunk_records
 
 
 def clean_unicode_text(text):
@@ -1243,12 +1275,10 @@ def integrate_leaflet_corpus(
     new_chunks = []
 
     for file_path in md_files:
-        sec, chks = integrate_drug_file(
+        secs, chks = integrate_drug_file(
             file_path, markdown_root=markdown_dir, mappings=mappings
         )
-        if sec is None:
-            continue
-        new_sections.append(sec)
+        new_sections.extend(secs)
         new_chunks.extend(chks)
 
     existing_sections = read_jsonl(sections_path)
