@@ -39,6 +39,7 @@ from pharma_lab.e2e.golden import (
     read_items,
     validate_items,
 )
+from pharma_lab.e2e.golden_remap import remap_files
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
 from pharma_lab.e2e.judging.service import JudgeRequest, run_judge
 from pharma_lab.e2e.judging.structured import JUDGE_MODEL
@@ -213,6 +214,36 @@ def golden_check(
             )
         return CommandResult(
             "e2e golden check", CommandStatus.COMPLETE, batch, {"items": len(items)}
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@golden_app.command("remap")
+def golden_remap(
+    ctx: typer.Context,
+    authoring_dir: Annotated[
+        Path, typer.Option("--authoring-dir", file_okay=False)
+    ] = E2E_AUTHORING_DIR,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+) -> None:
+    """Move authored items onto the bundle's leaflet subsections; notes go to remap.todo.md."""
+
+    def handler() -> CommandResult:
+        knowledge = read_bundle(bundle)
+        paths = sorted(authoring_dir.glob("*.authored.jsonl"))
+        todo = authoring_dir / "remap.todo.md"
+        changed = remap_files(
+            paths,
+            corpus_text(knowledge),
+            lambda section_ids: chunk_texts(knowledge, section_ids),
+            todo,
+        )
+        return CommandResult(
+            "e2e golden remap",
+            CommandStatus.COMPLETE,
+            todo,
+            {"files": len(paths), "changed": changed},
         )
 
     run_handler(state_from_context(ctx), handler)
