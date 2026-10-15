@@ -105,9 +105,9 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
     abstention, injection. Đây là thí nghiệm phụ "decision model làm judge đánh giá" (§4.E), judge chính
     của bài là gemini-3.1-flash-lite.
 - Giới hạn cần tôn trọng: 64k token mỗi request, 32k cho state cộng câu hỏi dài nhất (OpenRouter ghi
-  ngữ cảnh 32.000, nên lấy 32k làm trần thực tế); evidence 24.000
-  ký tự tiếng Việt ước 7 đến 16k token. Việc đầu tiên của plan là đo `usage.input_tokens` cho một khối
-  evidence 24.000 ký tự. Câu hỏi viết bằng tiếng Anh, nội dung tiếng Việt nằm trong state.
+  ngữ cảnh 32.000, nên lấy 32k làm trần thực tế); evidence 30.000
+  ký tự tiếng Việt ước 9 đến 10k token (§3.0c). Việc đầu tiên của plan là đo `usage.input_tokens` cho
+  một khối evidence 30.000 ký tự. Câu hỏi viết bằng tiếng Anh, nội dung tiếng Việt nằm trong state.
 - Bài chỉ dùng một decision model là Jev. Không chạy decision model thứ hai, kể cả bản open weights;
   Related Work nhắc các model cùng loại và Limitations ghi Jev là closed weights.
 
@@ -218,8 +218,9 @@ công bằng:
 - Tool, hai cái, chỉ đọc, chạy song song được:
   - `search_corpus(query: str)`: `RetrievalService.search` với cùng hybrid RRF, cùng reranker, trả tối đa
     5 hit dạng `[E<n>] <tiêu đề > đường dẫn mục> (trang): <đoạn trích>`; cùng mức mở rộng ngữ cảnh.
-  - `read_section(section_id: str)`: `CorpusReader.section_chunks`, trả nguyên mục, cắt theo đầu và đuôi
-    với dấu `(Đã lược N ký tự ...)` ở trần 2.000 token.
+  - `read_neighbours(chunk: str, before: int = 1, after: int = 1)`: `CorpusReader.document_chunks`,
+    trả các chunk liền trước và sau trong cùng tài liệu (chunk đã là trọn mục, §3.0c), tối đa 3 chunk
+    mỗi lần gọi.
 - Quy tắc dừng và ngân sách: dừng khi phản hồi không có tool call; tối đa 6 vòng tool; hết vòng thì một
   lời gọi cuối không tool với ghi chú "đã hết lượt tra cứu, trả lời từ những gì đã có"; cùng
   `max_llm_calls`, `max_tokens`, `max_evidence_chars` và deadline với pipeline; gọi trùng (tool, args)
@@ -256,7 +257,7 @@ công bằng:
 
 - `PipelineOptions.guard: bool` cho ablation không guard.
 - `settings_for` cho các biến thể retriever e2e: `bm25`, `dense`, `hybrid k=60`.
-- `EnrichmentOptions(header, glossary, colloquial)` trong `chunk_section`, một biến thể tắt cả ba,
+- `EnrichmentOptions(header, glossary, colloquial)` trong `chunk_document`, một biến thể tắt cả ba,
   hậu tố `CHUNKER_VERSION` riêng, re-embed và import thành release riêng với alias Qdrant riêng. Bỏ
   colloquial cần sửa `_MappingCollector.add_leaflet` để không tự thêm product names.
 - Sửa mã cho khớp bài hoặc sửa bài cho khớp mã: `rerank.top_n` 8 và `max_candidates` 40. Quyết định:
@@ -270,8 +271,8 @@ công bằng:
   mỗi tờ), chuẩn hóa tên heading về bộ intent bằng bảng ánh xạ trong `relevance_judgments.py`,
   header context `<sản phẩm> > <heading>`. Re-embed trên Kaggle như v1 (bundle embed chỉ có backend
   local và Kaggle; cache theo sha của text nên chỉ chunk leaflet mới tốn GPU), release mới sinh từ
-  digest bundle, `CHUNKER_VERSION` giữ nguyên. Giữ `MAX_CHUNK_CHARS = 3000`; không ablation kích
-  thước chunk, bài biện minh bằng thống kê token (p50 657 token, 78 % section một chunk).
+  digest bundle. Kích thước chunk và cách gộp mục theo §3.0c; không ablation kích thước chunk, bài
+  biện minh bằng thống kê token của §3.0c.
 - **Benchmark retrieval:** sinh lại từ release mới. Bỏ mọi hậu tố "(phần ...)" và đáp án trong
   ngoặc; chunk_coverage hỏi theo intent của heading chứa chunk; leaflet dùng tên sản phẩm chuẩn hóa
   (thương hiệu, hàm lượng, dạng) thay tiêu đề marketing; patient_natural đổi tên thành
@@ -292,7 +293,7 @@ công bằng:
 - Phân bổ golden mới: answerable thường 270 (45 × 6 nhóm), category mới `multi_hop` 150,
   multi-turn 50, unanswerable, out-of-scope, injection 10 mỗi loại. Mục §3.2 nâng nhóm an toàn lên
   50 không còn áp dụng; limitations nêu khoảng tin cậy rộng của 10 câu mỗi loại.
-- 150 câu answerable bị bỏ là những câu mà retrieval một lượt (hybrid + rerank, top 8) đã phủ đủ
+- 150 câu answerable bị bỏ là những câu mà retrieval một lượt (hybrid + rerank, top 5) đã phủ đủ
   section gold, bỏ đều theo nhóm.
 - Câu `multi_hop` chọn bằng dữ liệu: ứng viên là câu mà retrieval một lượt thiếu ít nhất một
   section gold. Bốn loại, mỗi loại 30 đến 45 câu: đa intent ba mục; hai thuốc (tương tác hoặc so
@@ -302,6 +303,51 @@ công bằng:
 - Metric mới cho vòng lặp, báo riêng trên `multi_hop` và trên phần còn lại: độ phủ section gold
   sau vòng 1 và sau vòng cuối, số vòng thực dùng, tỷ lệ câu được cứu (thiếu sau vòng 1, đủ sau vòng
   cuối). `AnswerRecord` lưu evidence của từng vòng.
+
+### 3.0c Chunk là đơn vị đọc: gộp mục tới khoảng 1.024 token, bỏ hydrate, 5 chunk mỗi lượt
+
+Quyết định ngày 2026-10-15, plan riêng `docs/superpowers/plans/2026-10-15-chunk-reading-unit.md`,
+chạy trước Task 7 của plan pha D.
+
+- **Vấn đề:** sau khi tách tờ hướng dẫn theo heading, mỗi chunk đúng bằng một mục nên ngắn: 42.567
+  chunk, trung bình 372 token, trung vị 224, 5,5 % dưới 64 token (đo bằng tokenizer Qwen3 trên text
+  embedding). Backend bù bằng hydrate: với mỗi chunk trúng, truy vấn thêm cả mục hoặc hai chunk cạnh;
+  91 % mục chỉ có một chunk nên bước này tốn một truy vấn mà không thêm thông tin.
+- **Chunk là đơn vị đọc.** Chunk vừa là đơn vị embed, rerank, vừa là đúng văn bản LLM đọc; không
+  còn hydrate. Chunker mới `chunk_document` gộp các mục liền kề của cùng một tài liệu theo thứ tự
+  trong tài liệu: thêm mục kế tiếp chừng nào tổng còn dưới `TARGET_CHUNK_CHARS = 3200` (khoảng 1.024
+  token ở 3,1 ký tự mỗi token đo trên corpus); mục dài hơn `MAX_CHUNK_CHARS = 5600` (khoảng 1.800
+  token, cộng header vẫn dưới slot embed 2.048) được cắt bằng bộ cắt đoạn hiện có thành nhiều chunk
+  của riêng mục đó. Không gộp qua tài liệu khác. Text chunk giữ heading của từng mục dưới dạng
+  `## <heading>`; header context là `<tiêu đề> > <heading 1>; <heading 2>; ...`. Dự kiến khoảng 15.000
+  chunk; plan đo lại và ghi số thật (mean, p50, p90, max token của chunk_text và embedding_text).
+- **Định danh:** chunk thuộc tài liệu, nhãn gold `<document_key>:chunk-NNN`, mang `section_keys` và
+  `headings` theo thứ tự. Mục (section) vẫn là đơn vị nguồn gốc: benchmark và golden giữ gold theo
+  section id; một chunk trúng khi bất kỳ mục nào của nó là gold (hoặc nhãn relevance chấp nhận chunk
+  đó). Câu nhiều mục: một chunk có thể thoả nhiều đơn vị bằng chứng cùng lúc.
+- **Bỏ hẳn hydrate ở backend:** `HydrateStrategy`, `Hydrator`, `PostgresHydrator`, `section_chunks`,
+  `hydrate_window`, cột `hydrate_strategy` và bảng `section_revisions`; chunk version trỏ thẳng tài
+  liệu; Qdrant payload còn `collection_id`, `document_id`, `release_ids`. Citation lưu một chunk và
+  hiện đúng text đó (bỏ `strategy`, `block_chunk_version_ids`); API `CitationDetail` trả `text` thay
+  danh sách chunk; frontend hiện một khối. Migration 0021, không giữ đường cũ (DB production xuất
+  phát trống).
+- **Ngân sách đọc:** reranker trả 5 chunk mỗi lượt (`rerank.top_n = 5`, trước là 8), vì chunk dài gấp
+  ba; evidence gói theo nguyên chunk, không cắt, `max_evidence_chars = 30000` (5 chunk tối đa 5.600 ký
+  tự cộng header). Vòng judge-refine vẫn lấy thêm 5 chunk mỗi vòng. Mọi chỗ nói "top 8" đổi thành 5,
+  gồm `golden hard-candidates`, `golden trim` và §3.0b.
+- **Benchmark:** bỏ mọi nhãn mức chunk (`expected_chunk_id`, `expected_chunk_index`,
+  `expected_chunk_role`, `retrieval_granularity`, `chunk_window`, `chunk_exact`), chỉ còn gold theo
+  section và `answer_mode`. Nhóm `chunk_risk` (1.000 câu) đổi thành `structured`: câu mà mục gold chứa
+  bảng hoặc danh sách, vì rủi ro cắt chunk không còn, còn đọc bảng vẫn khó. Golden bỏ
+  `gold_chunk_ids`, nhóm `chunk_risk` đổi tên tương ứng; schema `e2e-golden-v3`. Evidence từng vòng
+  (`AnswerRecord.rounds`) ghi section key, và độ phủ gold tính trên section.
+- **Pipeline corpus (pharma-lab):** rag-final chỉ còn `sections.jsonl` và `blocks.jsonl`; bỏ
+  `chunks.jsonl`, `hydrate_strategy`, `section_char_count` và các bước validate đi kèm, vì backend là
+  chunker duy nhất. Chế độ `RetrievalMode.INDEX_ONLY` của bundle (chỉ dùng để tắt hydrate cho bảng
+  tra cứu biệt dược) bỏ theo. `PIPELINE_VERSION` lên 0.4.0.
+- **Đánh đổi ghi trong bài:** chunk dài hơn nên LLM đọc khoảng 5.000 token evidence mỗi lượt thay vì
+  khoảng 3.000, đổi lại bớt 5 đến 8 truy vấn DB mỗi vòng, bớt mảnh vụn và câu nhiều ý thường nằm
+  trọn một chunk. Reranker chấm trên chunk dài hơn (tối đa khoảng 1.850 token, dưới ubatch 4.096).
 
 ### 3.1 Lớp hội thoại của benchmark retrieval
 
@@ -414,7 +460,7 @@ nào cho chất lượng cao nhất trên mỗi USD và mỗi giây, và kết l
 - Thí nghiệm phụ "decision model làm judge đánh giá": chấm lại 500 item bằng Jev per-key-fact, so với
   gemini-3.1-flash-lite và nhãn dược sĩ; báo κ, chi phí và giây.
 - Sửa số liệu và câu chữ đã liệt kê trong review (Hit@5 3,7 so với 3,8; BGE-gemma có cải thiện nDCG;
-  "unanswered" so với missing; header Table 3; top 8 và 40 ứng viên; footnote repo).
+  "unanswered" so với missing; header Table 3; top 5 và 40 ứng viên; footnote repo).
 
 ## 5. Thống kê và báo cáo
 
