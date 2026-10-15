@@ -72,7 +72,7 @@ def test_kaggle_rerank_search_space_pairs_slots_with_the_ubatch(
         == levels
     )
     for item in space.candidates:
-        assert (item.request_batch_size, item.threads) == (30, None)
+        assert (item.request_batch_size, item.threads) == (20, None)
         assert item.context_per_slot == item.physical_batch_size
         assert item.logical_batch_size == item.physical_batch_size
     slots, ubatch, _concurrency = levels[0]

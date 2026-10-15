@@ -13,6 +13,7 @@ from pharma_lab.integrations.kaggle.workers.rerank import (
     run_rerank_worker,
     score_with_server_restarts,
 )
+from pharma_lab.runtime.catalog import KAGGLE_RERANK_REQUEST_BATCH_SIZE
 from pharma_lab.runtime.client import LlamaCppRequestError, LlamaCppResponseError
 
 
@@ -296,7 +297,9 @@ class _RecordingClient:
 def test_rerank_worker_sends_one_request_per_query_with_derived_concurrency(
     tmp_path, monkeypatch
 ):
-    config = _config(tmp_path, query_count=3, candidates_per_query=30)
+    config = _config(
+        tmp_path, query_count=3, candidates_per_query=KAGGLE_RERANK_REQUEST_BATCH_SIZE
+    )
     config["runtime_overrides"] = rerank_runtime_profile(
         "qwen3-reranker:0.6b-q8_0"
     ).to_dict()
@@ -319,13 +322,16 @@ def test_rerank_worker_sends_one_request_per_query_with_derived_concurrency(
         clock=lambda: 0.0,
     )
 
-    assert artifact.completion.complete == 90
+    assert artifact.completion.complete == 3 * KAGGLE_RERANK_REQUEST_BATCH_SIZE
     assert sorted(query for query, _documents in client.calls) == [
         "query 0",
         "query 1",
         "query 2",
     ]
-    assert all(len(documents) == 30 for _query, documents in client.calls)
+    assert all(
+        len(documents) == KAGGLE_RERANK_REQUEST_BATCH_SIZE
+        for _query, documents in client.calls
+    )
     # The profile's requests in flight are spread over the two replicas.
     assert captured == {
         "concurrency": config["runtime_overrides"]["concurrency"],

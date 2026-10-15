@@ -13,7 +13,7 @@ from pharma_lab.integrations.kaggle.stages import (
     RerankStage,
     get_stage_adapter,
 )
-from pharma_lab.runtime.catalog import require_model
+from pharma_lab.runtime.catalog import KAGGLE_RERANK_REQUEST_BATCH_SIZE, require_model
 from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
 
 
@@ -146,7 +146,7 @@ def test_rerank_benchmark_isolated_from_production_artifact(tmp_path):
         candidate.to_dict() for candidate in space.candidates
     ]
     assert job.worker_config["benchmark_groups"] == 32
-    assert job.worker_config["benchmark_items"] == 960
+    assert job.worker_config["benchmark_items"] == 32 * KAGGLE_RERANK_REQUEST_BATCH_SIZE
     assert set(job.input_bundle.descriptors()) == {
         "candidates",
         "candidate_manifest",

@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 
+from pharma_lab.config.defaults import DEFAULT_CANDIDATE_K
 from pharma_lab.runtime.model_profiles import (
     NATIVE_RERANK_PROTOCOL,
     EmbeddingRuntimeProfile,
@@ -29,7 +30,9 @@ class ModelKind(StrEnum):
 KAGGLE_TOPOLOGY = "replicated_2x1"
 
 
-KAGGLE_RERANK_REQUEST_BATCH_SIZE = 30
+# One request per query: the whole candidate list of the evaluation, as the backend
+# sends a whole search round per request.
+KAGGLE_RERANK_REQUEST_BATCH_SIZE = DEFAULT_CANDIDATE_K
 LOCAL_RERANK_REQUEST_BATCH_SIZE = 15
 # Reranker levels as (-np, -ub, requests in flight). Every slot may hold a whole ubatch,
 # so -c is -ub x (slots + 1) and -ub alone bounds the longest prompt the server accepts.
