@@ -72,13 +72,15 @@ class EvidenceSet(BaseModel):
         return self.active()
 
     def pack(self, max_chars: int) -> list[Evidence]:
-        """Whole chunks by score until max_chars is spent; never truncates a chunk."""
+        """Whole chunks by score; once one does not fit, it and every lower one are
+        dropped, so the budget cuts the weakest evidence, never truncates a chunk."""
         packed: list[Evidence] = []
         remaining = max_chars
         for evidence in self.active():
-            if evidence.char_count() <= remaining:
-                packed.append(evidence)
-                remaining -= evidence.char_count()
+            if evidence.char_count() > remaining:
+                break
+            packed.append(evidence)
+            remaining -= evidence.char_count()
         return packed
 
     def summary_view(self, snippet_chars: int = 300) -> str:

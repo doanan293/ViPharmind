@@ -1,3 +1,4 @@
+from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.retrieval.evidence import EvidenceSet
 from pharma_agent.domain.retrieval.models import (
     ColloquialMapping,
@@ -82,6 +83,25 @@ def test_pack_drops_whole_chunks_never_truncates() -> None:
     ]
     assert all(len(e.text()) == 1000 for e in packed)
     assert evidence.pack(max_chars=10) == []
+
+
+def test_pack_drops_every_chunk_ranked_below_one_that_does_not_fit() -> None:
+    hits = [
+        make_hit("c1", rerank=0.9, text="a" * 40),
+        make_hit("c2", rerank=0.8, text="a" * 50),
+        make_hit("c3", rerank=0.1, text="a" * 10),
+    ]
+    evidence = EvidenceSet()
+    evidence.merge(hits)
+
+    packed = evidence.pack(max_chars=60)
+
+    # c3 would fit, but the budget drops the lowest-scored chunks, not the longest.
+    assert [e.hit.chunk_version_id for e in packed] == [hits[0].chunk_version_id]
+
+
+def test_default_evidence_budget_is_sixty_thousand_chars() -> None:
+    assert BudgetLimits().max_evidence_chars == 60_000
 
 
 def test_context_view_numbers_sources_with_their_headings() -> None:

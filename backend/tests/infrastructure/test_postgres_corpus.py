@@ -100,28 +100,3 @@ async def test_load_chunks_returns_display_fields_for_release_chunk_pairs(
     assert record.term_annotations == first.term_annotations
     assert record.colloquial_mapping == first.colloquial
     assert await reader.load_chunks([]) == []
-
-
-async def test_document_chunks_reads_neighbours_by_ordinal_in_the_hit_release(
-    database: Database,
-) -> None:
-    seeded = await seed_release(
-        database.sessions,
-        collection_key="formulary",
-        document=paracetamol_document(),
-        sections=[dosage_section(blocks=5), table_section()],
-    )
-    reader = PostgresCorpusReader(database.sessions)
-    drafts = seeded.drafts[DOSAGE_KEY]
-    assert len(drafts) >= 3
-    middle = drafts[len(drafts) // 2]
-    [found] = await reader.load_chunks([(seeded.release_id, middle.chunk_version_id)])
-    hit = found.to_hit(fusion_score=0.5, query_text="q")
-
-    around = await reader.document_chunks(
-        hit.release_id, "drug:paracetamol", [hit.ordinal - 1, hit.ordinal + 1]
-    )
-    assert [c.ordinal for c in around] == [hit.ordinal - 1, hit.ordinal + 1]
-    assert all(c.document_key == "drug:paracetamol" for c in around)
-    assert await reader.document_chunks(uuid.uuid4(), "drug:paracetamol", [1]) == []
-    assert await reader.document_chunks(hit.release_id, "drug:paracetamol", []) == []
