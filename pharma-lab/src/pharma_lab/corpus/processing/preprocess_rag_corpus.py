@@ -8,7 +8,6 @@ from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from pharma_lab.config.chunking import DEFAULT_CHUNK_MAX_CHARS
 from pharma_lab.config.paths import TEXT_INTERIM_DIR
 from pharma_lab.corpus.processing.clean_markdown_corpus import SPLIT_WORDS_REPAIRS
 
@@ -36,28 +35,10 @@ class SectionRecord:
 
 
 @dataclass
-class ChunkRecord:
-    id: str
-    section_id: str
-    content_type: str
-    title: str
-    section: str
-    text: str
-    source: str = SOURCE_NAME
-    context_path: list[str] = field(default_factory=list)
-    context_header: str = ""
-    chunk_index: int = 1
-    start_page: int | None = None
-    end_page: int | None = None
-    warnings: list[str] = field(default_factory=list)
-
-
-@dataclass
 class AuditReport:
     drug_monographs: int
     general_monographs: int
     sections: int
-    chunks: int
     longest_sections: list[dict]
     shortest_monographs: list[dict]
     unknown_section_labels: list[str]
@@ -132,7 +113,7 @@ def iter_page_lines(text: str) -> Iterable[tuple[int | None, str]]:
             yield current_page, line
 
 
-def record_to_json(record: SectionRecord | ChunkRecord | AuditReport) -> dict:
+def record_to_json(record: SectionRecord | AuditReport) -> dict:
     return asdict(record)
 
 
@@ -1192,101 +1173,6 @@ def filter_sections_for_rag(records: list[SectionRecord]) -> list[SectionRecord]
     return sections
 
 
-def split_oversized_paragraph(paragraph: str, max_chars: int) -> list[str]:
-    parts: list[str] = []
-    remaining = paragraph.strip()
-
-    while len(remaining) > max_chars:
-        window = remaining[: max_chars + 1]
-        split_at = -1
-
-        sentence_matches = list(re.finditer(r"[.!?;:…]\s+", window))
-        if sentence_matches:
-            split_at = sentence_matches[-1].end()
-
-        if split_at <= 0:
-            newline_at = window.rfind("\n", 0, max_chars + 1)
-            if newline_at > 0:
-                split_at = newline_at + 1
-
-        if split_at <= 0:
-            whitespace_match = re.search(r"\s+\S*$", remaining[: max_chars + 1])
-            if whitespace_match and whitespace_match.start() > 0:
-                split_at = whitespace_match.start()
-
-        if split_at <= 0:
-            split_at = max_chars
-
-        chunk = remaining[:split_at].strip()
-        if chunk:
-            parts.append(chunk)
-        remaining = remaining[split_at:].strip()
-
-    if remaining:
-        parts.append(remaining)
-    return parts
-
-
-def split_long_text(text: str, max_chars: int) -> list[str]:
-    if len(text) <= max_chars:
-        return [text]
-
-    paragraphs = [
-        paragraph.strip()
-        for paragraph in re.split(r"\n\s*\n", text)
-        if paragraph.strip()
-    ]
-    chunks: list[str] = []
-    current = ""
-
-    for paragraph in paragraphs:
-        candidate = paragraph if not current else f"{current}\n\n{paragraph}"
-        if len(candidate) <= max_chars:
-            current = candidate
-            continue
-        if current:
-            chunks.append(current)
-            current = ""
-        if len(paragraph) <= max_chars:
-            current = paragraph
-            continue
-        chunks.extend(split_oversized_paragraph(paragraph, max_chars))
-
-    if current:
-        chunks.append(current)
-    return chunks
-
-
-def chunk_sections(
-    records: list[SectionRecord], *, max_chars: int = DEFAULT_CHUNK_MAX_CHARS
-) -> list[ChunkRecord]:
-    chunks: list[ChunkRecord] = []
-    for record in records:
-        parts = split_long_text(record.text, max_chars)
-        context_path = record.context_path or [record.section]
-        context_header = record.context_header or build_context_header(
-            record.title, context_path
-        )
-        for index, part in enumerate(parts, start=1):
-            chunks.append(
-                ChunkRecord(
-                    id=f"{record.id}:chunk-{index:03d}",
-                    section_id=record.id,
-                    content_type=record.content_type,
-                    title=record.title,
-                    section=record.section,
-                    text=part,
-                    context_path=context_path,
-                    context_header=context_header,
-                    chunk_index=index,
-                    start_page=record.start_page,
-                    end_page=record.end_page,
-                    warnings=list(record.warnings),
-                )
-            )
-    return chunks
-
-
 IMPORTANT_DRUG_SECTIONS = {"Chỉ định", "Chống chỉ định", "Liều lượng và cách dùng"}
 EXPECTED_MISSING_DRUG_SECTIONS: dict[tuple[str, str], str] = {
     (
@@ -1360,9 +1246,7 @@ def drug_title_candidates_in_text(text: str) -> set[str]:
     return candidates
 
 
-def build_audit(
-    sections: list[SectionRecord], chunks: list[ChunkRecord]
-) -> AuditReport:
+def build_audit(sections: list[SectionRecord]) -> AuditReport:
     drug_titles = sorted(
         {record.title for record in sections if record.content_type == "drug_monograph"}
     )
@@ -1412,10 +1296,14 @@ def build_audit(
                 f"Section {record.id} is unusually long: {len(record.text)} chars"
             )
 
-    for chunk in chunks:
-        for title in sorted(drug_title_candidates_in_text(chunk.text) & drug_title_set):
-            if title != chunk.title:
-                warnings.append(f"Chunk {chunk.id} may contain next drug title {title}")
+    for record in sections:
+        for title in sorted(
+            drug_title_candidates_in_text(record.text) & drug_title_set
+        ):
+            if title != record.title:
+                warnings.append(
+                    f"Section {record.id} may contain next drug title {title}"
+                )
                 break
 
     longest_sections = [
@@ -1440,7 +1328,6 @@ def build_audit(
         drug_monographs=len(drug_titles),
         general_monographs=len(general_titles),
         sections=len(sections),
-        chunks=len(chunks),
         longest_sections=longest_sections,
         shortest_monographs=shortest_monographs,
         unknown_section_labels=[],
@@ -1449,7 +1336,7 @@ def build_audit(
     )
 
 
-def write_jsonl(path: Path, records: list[SectionRecord] | list[ChunkRecord]) -> None:
+def write_jsonl(path: Path, records: list[SectionRecord]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         json.dumps(record_to_json(record), ensure_ascii=False, sort_keys=True)
@@ -1467,22 +1354,16 @@ def write_json(path: Path, report: AuditReport) -> None:
     )
 
 
-def process_corpus(
-    *, input_path: Path, output_dir: Path, max_chars: int = DEFAULT_CHUNK_MAX_CHARS
-) -> dict[str, Path]:
+def process_corpus(*, input_path: Path, output_dir: Path) -> dict[str, Path]:
     text = input_path.read_text(encoding="utf-8")
     raw_sections = parse_sections(text)
     sections = filter_sections_for_rag(raw_sections)
-
-    chunks = chunk_sections(sections, max_chars=max_chars)
-    audit = build_audit(sections, chunks)
+    audit = build_audit(sections)
 
     sections_path = output_dir / "sections.jsonl"
-    chunks_path = output_dir / "chunks.jsonl"
     audit_path = output_dir / "audit.json"
 
     write_jsonl(sections_path, sections)
-    write_jsonl(chunks_path, chunks)
     write_json(audit_path, audit)
 
-    return {"sections": sections_path, "chunks": chunks_path, "audit": audit_path}
+    return {"sections": sections_path, "audit": audit_path}

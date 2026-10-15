@@ -57,7 +57,7 @@ def test_integrate_drug_file_emits_one_section_per_heading(tmp_path: Path) -> No
     root = tmp_path / "md"
     (root / "thuoc-bo").mkdir(parents=True)
     (root / "thuoc-bo" / "abanuti-1g.md").write_text(PAGE, encoding="utf-8")
-    sections, chunks = integrate_drug_file(
+    sections = integrate_drug_file(
         root / "thuoc-bo" / "abanuti-1g.md", markdown_root=root, mappings={}
     )
     assert [section["id"] for section in sections] == [
@@ -79,9 +79,7 @@ def test_integrate_drug_file_emits_one_section_per_heading(tmp_path: Path) -> No
         "# Abanuti 1 g trị thiếu Carnitine (20 ống x 10 ml)\n\n### 1. Thành phần"
     )
     assert first["colloquial_mapping"] == sections[1]["colloquial_mapping"]
-    assert chunks[0]["id"] == "leaflet:thuoc-bo:abanuti-1g:01-thanh-phan:chunk-001"
-    assert chunks[0]["section_id"] == first["id"]
-    assert chunks[0]["page_id"] == first["page_id"]
+    assert "hydrate_strategy" not in first and "section_char_count" not in first
 
 
 def test_parent_without_own_text_is_dropped(tmp_path: Path) -> None:
@@ -92,7 +90,7 @@ def test_parent_without_own_text_is_dropped(tmp_path: Path) -> None:
         "### 5. Lưu ý\n\n#### - Tương tác thuốc\n\nTránh rượu.",
         encoding="utf-8",
     )
-    sections, _chunks = integrate_drug_file(
+    sections = integrate_drug_file(
         root / "thuoc" / "x.md", markdown_root=root, mappings={}
     )
     assert [section["section"] for section in sections] == [

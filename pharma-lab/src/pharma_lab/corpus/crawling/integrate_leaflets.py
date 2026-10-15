@@ -5,14 +5,12 @@ import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
-from pharma_lab.config.chunking import DEFAULT_CHUNK_MAX_CHARS
 from pharma_lab.config.paths import SOURCES_DIR
 from pharma_lab.corpus.metadata.payload_layers import compact_colloquial_mapping
 from pharma_lab.corpus.processing.preprocess_rag_corpus import slugify
 
 MAPPINGS_PATH = SOURCES_DIR / "colloquial_mappings.json"
 
-FULL_SECTION_MAX_CHARS = 16000
 INSTRUCTION_LEAFLET_SOURCE = "Tờ hướng dẫn sử dụng"
 
 
@@ -116,111 +114,6 @@ def product_names_from_title(title: str) -> list[str]:
         flags=re.IGNORECASE,
     ).strip()
     return unique_text_values([base, shortened]) or unique_text_values([title])
-
-
-def split_table(table_text: str, max_chars: int) -> list[str]:
-    lines = table_text.strip().split("\n")
-    if len(lines) < 3 or not (
-        lines[0].strip().startswith("|") and lines[1].strip().startswith("|")
-    ):
-        return [table_text]
-
-    header_text = f"{lines[0]}\n{lines[1]}"
-    header_len = len(header_text) + 1
-
-    chunks = []
-    current_rows = []
-    current_len = 0
-
-    for row in lines[2:]:
-        row_len = len(row) + 1
-        if current_rows and (header_len + current_len + row_len > max_chars):
-            chunks.append(f"{header_text}\n" + "\n".join(current_rows))
-            current_rows = [row]
-            current_len = row_len
-        else:
-            current_rows.append(row)
-            current_len += row_len
-
-    if current_rows:
-        chunks.append(f"{header_text}\n" + "\n".join(current_rows))
-    return chunks
-
-
-def split_oversized_paragraph(paragraph: str, max_chars: int) -> list[str]:
-    parts = []
-    remaining = paragraph.strip()
-
-    while len(remaining) > max_chars:
-        window = remaining[: max_chars + 1]
-        split_at = -1
-
-        sentence_matches = list(re.finditer(r"[.!?;:…]\s+", window))
-        if sentence_matches:
-            split_at = sentence_matches[-1].end()
-
-        if split_at <= 0:
-            newline_at = window.rfind("\n", 0, max_chars + 1)
-            if newline_at > 0:
-                split_at = newline_at + 1
-
-        if split_at <= 0:
-            whitespace_match = re.search(r"\s+\S*$", remaining[: max_chars + 1])
-            if whitespace_match and whitespace_match.start() > 0:
-                split_at = whitespace_match.start()
-
-        if split_at <= 0:
-            split_at = max_chars
-
-        chunk = remaining[:split_at].strip()
-        if chunk:
-            parts.append(chunk)
-        remaining = remaining[split_at:].strip()
-
-    if remaining:
-        parts.append(remaining)
-    return parts
-
-
-def chunk_text(text, max_chars=DEFAULT_CHUNK_MAX_CHARS):
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
-    chunks = []
-    current = ""
-
-    for paragraph in paragraphs:
-        candidate = paragraph if not current else f"{current}\n\n{paragraph}"
-        if len(candidate) <= max_chars:
-            current = candidate
-            continue
-        if current:
-            chunks.append(current)
-            current = ""
-        if len(paragraph) <= max_chars:
-            current = paragraph
-            continue
-
-        if paragraph.strip().startswith("|"):
-            chunks.extend(split_table(paragraph, max_chars))
-        else:
-            chunks.extend(split_oversized_paragraph(paragraph, max_chars))
-
-    if current:
-        chunks.append(current)
-
-    # Tự động sửa lỗi Markdown chưa đóng thẻ in đậm
-    sanitized_chunks = []
-    for chunk in chunks:
-        chunk = strip_table_bold_artifacts(chunk)
-        chunk = strip_orphan_bold_artifacts(chunk)
-        chunk = strip_bold_markers(chunk)
-        if chunk.count("**") % 2 != 0 and not chunk.rstrip().endswith("|"):
-            chunk = chunk + "**"
-        chunk = strip_orphan_bold_artifacts(chunk)
-        chunk = strip_bold_markers(chunk)
-        chunk = re.sub(r"\n\s*\*\*\s*$", "", chunk).strip()
-        sanitized_chunks.append(chunk)
-
-    return sanitized_chunks
 
 
 def fix_missing_leading_pipes(text: str) -> str:
@@ -1103,9 +996,7 @@ def split_leaflet_sections(content: str) -> list[LeafletPart]:
     return parts
 
 
-def integrate_drug_file(
-    file_path, *, markdown_root: Path, mappings=None
-) -> tuple[list[dict], list[dict]]:
+def integrate_drug_file(file_path, *, markdown_root: Path, mappings=None) -> list[dict]:
     with open(file_path, encoding="utf-8") as f:
         content = f.read()
 
@@ -1128,7 +1019,7 @@ def integrate_drug_file(
     title_match = re.match(r"^# (.*?)(?:\n|$)", content)
     title = title_match.group(1).strip() if title_match else "Không rõ tên thuốc"
     if not has_meaningful_section_body(content):
-        return [], []
+        return []
 
     colloquial = resolve_colloquial_mapping(slug, mappings)
     aliases = colloquial["aliases"]
@@ -1145,15 +1036,11 @@ def integrate_drug_file(
         }
     )
     section_records: list[dict] = []
-    chunk_records: list[dict] = []
     for index, part in enumerate(split_leaflet_sections(content), start=1):
         if not has_meaningful_section_body(part.markdown):
             continue
         section_id = f"{page_id}:{index:02d}-{heading_slug(part.heading)}"
         text = f"# {title}\n\n{part.markdown}"
-        strategy = (
-            "chunk_window" if len(text) > FULL_SECTION_MAX_CHARS else "full_section"
-        )
         common = {
             "page_id": page_id,
             "content_type": "brand_page",
@@ -1166,23 +1053,9 @@ def integrate_drug_file(
             "start_page": 0,
             "end_page": 0,
             "warnings": [],
-            "hydrate_strategy": strategy,
-            "section_char_count": len(text),
         }
         section_records.append({"id": section_id, "text": text, **common})
-        for chunk_index, chunk_text_content in enumerate(chunk_text(text), 1):
-            chunk_records.append(
-                {
-                    "id": f"{section_id}:chunk-{chunk_index:03d}",
-                    "section_id": section_id,
-                    "text": chunk_text_content,
-                    "chunk_role": "prose",
-                    "chunk_content_type": "paragraph",
-                    "chunk_index": chunk_index,
-                    **common,
-                }
-            )
-    return section_records, chunk_records
+    return section_records
 
 
 def clean_unicode_text(text):
@@ -1277,35 +1150,25 @@ def integrate_leaflet_corpus(
     *,
     markdown_dir: Path,
     sections_path: Path,
-    chunks_path: Path,
     mappings_path: Path,
     output_sections_path: Path,
-    output_chunks_path: Path,
-) -> tuple[int, int]:
+) -> int:
     markdown_dir = Path(markdown_dir)
     if not markdown_dir.is_dir():
         raise FileNotFoundError(f"Markdown directory is missing: {markdown_dir}")
     mappings = load_mappings(mappings_path)
     md_files = sorted(markdown_dir.glob("**/*.md"))
     new_sections = []
-    new_chunks = []
-
     for file_path in md_files:
-        secs, chks = integrate_drug_file(
-            file_path, markdown_root=markdown_dir, mappings=mappings
+        new_sections.extend(
+            integrate_drug_file(
+                file_path, markdown_root=markdown_dir, mappings=mappings
+            )
         )
-        new_sections.extend(secs)
-        new_chunks.extend(chks)
 
     existing_sections = read_jsonl(sections_path)
-    existing_chunks = read_jsonl(chunks_path)
     kept_sections = [
         section for section in existing_sections if not is_leaflet_record(section)
     ]
-    kept_chunks = [chunk for chunk in existing_chunks if not is_leaflet_record(chunk)]
-    final_sections = kept_sections + new_sections
-    final_chunks = kept_chunks + new_chunks
-
-    write_jsonl(output_sections_path, final_sections)
-    write_jsonl(output_chunks_path, final_chunks)
-    return len(new_sections), len(new_chunks)
+    write_jsonl(output_sections_path, kept_sections + new_sections)
+    return len(new_sections)

@@ -21,7 +21,6 @@ from pharma_agent.domain.corpus.bundle import (
     DocumentRecord,
     GlossaryEntry,
     KnowledgeBundle,
-    RetrievalMode,
     SectionRecord,
     SourceInfo,
 )
@@ -170,11 +169,6 @@ def export_bundle(request: ExportRequest) -> ExportResult:
                 ordinal=ordinals[document.key],
                 start_page=_page(row.get("start_page")),
                 end_page=_page(row.get("end_page")),
-                retrieval=(
-                    RetrievalMode.INDEX_ONLY
-                    if section_key == BRAND_INDEX_SECTION_ID
-                    else RetrievalMode.DEFAULT
-                ),
                 blocks=blocks,
             )
         )

@@ -9,7 +9,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from pharma_lab.config.chunking import DEFAULT_CHUNK_MAX_CHARS
 from pharma_lab.config.paths import (
     CANONICAL_INTERIM_DIR,
     PROJECT_ROOT,
@@ -19,18 +18,14 @@ from pharma_lab.config.paths import (
 )
 from pharma_lab.corpus.processing.preprocess_rag_corpus import (
     SectionRecord,
-    chunk_sections,
     repair_targeted_punctuation_artifacts,
-    split_long_text,
 )
 
 DEFAULT_SECTIONS = RAG_INTERIM_DIR / "sections.jsonl"
-DEFAULT_CHUNKS = RAG_INTERIM_DIR / "chunks.jsonl"
 DEFAULT_TABLES = SOURCES_CURATION_DIR / "docling_tables.jsonl"
 DEFAULT_TABLE_OVERRIDES = SOURCES_CURATION_DIR / "table_duplicate_overrides.json"
 DEFAULT_CANONICAL_DIR = CANONICAL_INTERIM_DIR
 DEFAULT_FINAL_DIR = RAG_FINAL_DIR
-FULL_SECTION_MAX_CHARS = 16000
 BRAND_INDEX_SECTION_ID = (
     "general:muc-luc-tra-cuu-biet-duoc-va-hoat-chat:bang-tra-cuu-biet-duoc"
 )
@@ -418,8 +413,6 @@ class CanonicalSection:
     table_ids: list[str]
     source_mix: list[str]
     quality_flags: list[str]
-    hydrate_strategy: str
-    section_char_count: int
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -1400,14 +1393,6 @@ def block_text(block: CanonicalBlock) -> str:
     return block.text or ""
 
 
-def hydrate_strategy_for_section(section: SectionRecord | CanonicalSection) -> str:
-    if section.id == BRAND_INDEX_SECTION_ID:
-        return "search_only"
-    if len(section.text) > FULL_SECTION_MAX_CHARS:
-        return "chunk_window"
-    return "full_section"
-
-
 def build_canonical_blocks(
     sections: list[SectionRecord], tables: list[dict[str, Any]]
 ) -> tuple[list[CanonicalBlock], dict[str, Any]]:
@@ -1599,16 +1584,6 @@ def build_canonical_sections(
                 table_ids=table_ids,
                 source_mix=source_mix,
                 quality_flags=quality_flags,
-                hydrate_strategy=hydrate_strategy_for_section(
-                    SectionRecord(
-                        id=section.id,
-                        content_type=section.content_type,
-                        title=section.title,
-                        section=section.section,
-                        text=text,
-                    )
-                ),
-                section_char_count=len(text),
             )
         )
     return canonical_sections
@@ -1619,190 +1594,6 @@ def is_markdown_separator_line(line: str) -> bool:
     if not stripped.startswith("|") or "-" not in stripped:
         return False
     return stripped.replace("|", "").replace("-", "").replace(":", "").strip() == ""
-
-
-def split_table_markdown(markdown: str, max_chars: int) -> list[str]:
-    text = markdown.strip()
-    if len(text) <= max_chars:
-        return [text]
-
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    if len(lines) < 3:
-        return split_long_text(text, max_chars)
-
-    header = lines[0]
-    separator = lines[1] if is_markdown_separator_line(lines[1]) else ""
-    if not separator:
-        return split_long_text(text, max_chars)
-
-    prefix = [header, separator]
-    rows = lines[2:]
-    chunks: list[str] = []
-    current_rows: list[str] = []
-
-    for row in rows:
-        candidate_rows = [*current_rows, row]
-        candidate = "\n".join(prefix + candidate_rows)
-        if current_rows and len(candidate) > max_chars:
-            chunks.append("\n".join(prefix + current_rows))
-            current_rows = [row]
-            continue
-        current_rows = candidate_rows
-
-    if current_rows:
-        chunks.append("\n".join(prefix + current_rows))
-
-    return chunks or [text]
-
-
-def split_lines_without_breaking_entries(text: str, max_chars: int) -> list[str]:
-    lines = [line.rstrip() for line in text.strip().splitlines() if line.strip()]
-    if not lines:
-        return []
-
-    chunks: list[str] = []
-    current: list[str] = []
-    for line in lines:
-        candidate = "\n".join([*current, line]) if current else line
-        if current and len(candidate) > max_chars:
-            next_lines = [line]
-            while current and next_lines[0][:1].islower():
-                next_lines.insert(0, current.pop())
-            if current:
-                chunks.append("\n".join(current))
-            current = next_lines
-            continue
-        current.append(line)
-
-    if current:
-        chunks.append("\n".join(current))
-    return chunks
-
-
-def split_brand_index_text(text: str, max_chars: int) -> list[str]:
-    parts = split_lines_without_breaking_entries(text, max_chars)
-    if not parts:
-        return []
-    return parts
-
-
-def chunk_role_for_section(section: CanonicalSection, block: CanonicalBlock) -> str:
-    if block.content_type == "table":
-        return "table"
-    if section.id == BRAND_INDEX_SECTION_ID:
-        return "index_entry"
-    if section.id in APPENDIX_LIST_SECTION_IDS:
-        return "appendix_list"
-    return "prose"
-
-
-def build_final_chunk_records(
-    canonical_sections: list[CanonicalSection],
-    blocks: list[CanonicalBlock],
-    *,
-    max_chars: int,
-) -> list[dict[str, Any]]:
-    blocks_by_section_id: dict[str, list[CanonicalBlock]] = {}
-    for block in blocks:
-        blocks_by_section_id.setdefault(block.section_id, []).append(block)
-
-    records: list[dict[str, Any]] = []
-    for section in canonical_sections:
-        context_path = section.context_path or [section.section]
-        context_header = section.context_header
-        chunk_index = 1
-        section_blocks = blocks_by_section_id.get(section.id, [])
-        for block in section_blocks:
-            raw_text = block_text(block).strip()
-            if not raw_text:
-                continue
-
-            chunk_role = chunk_role_for_section(section, block)
-            if chunk_role == "table":
-                parts = split_table_markdown(raw_text, max_chars)
-                table_chunk_count = len(parts)
-            elif chunk_role == "index_entry":
-                parts = split_brand_index_text(raw_text, max_chars)
-                table_chunk_count = 0
-            elif chunk_role == "appendix_list":
-                parts = split_lines_without_breaking_entries(raw_text, max_chars)
-                table_chunk_count = 0
-            else:
-                parts = split_long_text(raw_text, max_chars)
-                table_chunk_count = 0
-
-            for part_index, part in enumerate(parts, start=1):
-                payload: dict[str, Any] = {
-                    "id": f"{section.id}:chunk-{chunk_index:03d}",
-                    "section_id": section.id,
-                    "content_type": section.content_type,
-                    "title": section.title,
-                    "section": section.section,
-                    "text": part,
-                    "source": section.source,
-                    "context_path": context_path,
-                    "context_header": context_header,
-                    "chunk_index": chunk_index,
-                    "start_page": block.page_start
-                    if block.page_start is not None
-                    else section.start_page,
-                    "end_page": block.page_end
-                    if block.page_end is not None
-                    else section.end_page,
-                    "warnings": list(section.warnings),
-                    "hydrate_strategy": section.hydrate_strategy,
-                    "section_char_count": section.section_char_count,
-                    "chunk_content_type": block.content_type,
-                    "chunk_role": chunk_role,
-                    "source_block_id": block.block_id,
-                }
-                if block.content_type == "table":
-                    payload.update(
-                        {
-                            "table_id": block.table_id,
-                            "table_chunk_index": part_index,
-                            "table_chunk_count": table_chunk_count,
-                        }
-                    )
-                records.append(payload)
-                chunk_index += 1
-
-        if chunk_index == 1:
-            fallback = SectionRecord(
-                id=section.id,
-                content_type=section.content_type,
-                title=section.title,
-                section=section.section,
-                text=section.text,
-                source=section.source,
-                context_path=context_path,
-                context_header=context_header,
-                start_page=section.start_page,
-                end_page=section.end_page,
-                warnings=list(section.warnings),
-            )
-            records.extend(
-                annotate_chunks_for_hydration(
-                    chunk_sections([fallback], max_chars=max_chars), [section]
-                )
-            )
-
-    return records
-
-
-def annotate_chunks_for_hydration(
-    chunks: list[Any], sections: list[CanonicalSection]
-) -> list[dict[str, Any]]:
-    sections_by_id = {section.id: section for section in sections}
-    output: list[dict[str, Any]] = []
-    for chunk in chunks:
-        payload = asdict(chunk)
-        section = sections_by_id.get(str(payload.get("section_id") or ""))
-        if section:
-            payload["hydrate_strategy"] = section.hydrate_strategy
-            payload["section_char_count"] = section.section_char_count
-        output.append(payload)
-    return output
 
 
 def manifest_path(path: Path) -> str:
@@ -1836,7 +1627,6 @@ def manifest_payload(
             "canonical_blocks": manifest_path(canonical_dir / "blocks.jsonl"),
             "canonical_sections": manifest_path(canonical_dir / "sections.jsonl"),
             "rag_sections": manifest_path(final_dir / "sections.jsonl"),
-            "rag_chunks": manifest_path(final_dir / "chunks.jsonl"),
         },
     }
 
@@ -1844,15 +1634,12 @@ def manifest_payload(
 def process_canonical_rag(
     *,
     sections_path: Path = DEFAULT_SECTIONS,
-    chunks_path: Path = DEFAULT_CHUNKS,
     tables_path: Path = DEFAULT_TABLES,
     table_overrides_path: Path | None = DEFAULT_TABLE_OVERRIDES,
     canonical_dir: Path = DEFAULT_CANONICAL_DIR,
     final_dir: Path = DEFAULT_FINAL_DIR,
-    max_chars: int = DEFAULT_CHUNK_MAX_CHARS,
 ) -> dict[str, Path]:
     sections_path = Path(sections_path)
-    chunks_path = Path(chunks_path)
     tables_path = Path(tables_path)
     table_overrides_path = (
         Path(table_overrides_path) if table_overrides_path is not None else None
@@ -1863,7 +1650,6 @@ def process_canonical_rag(
     sections = load_sections(sections_path)
     sections, targeted_merge_audit = merge_targeted_short_part_sections(sections)
     sections, pdf_verified_fix_audit = apply_pdf_verified_section_fixes(sections)
-    original_chunk_count = len(read_jsonl(chunks_path))
     tables = [clean_unicode_value(t) for t in read_jsonl(tables_path)]
     validate_tables(tables)
     table_overrides = load_table_overrides(table_overrides_path)
@@ -1871,9 +1657,6 @@ def process_canonical_rag(
 
     blocks, canonical_audit = build_canonical_blocks(sections, tables)
     canonical_sections = build_canonical_sections(sections, blocks)
-    final_chunk_records = build_final_chunk_records(
-        canonical_sections, blocks, max_chars=max_chars
-    )
 
     canonical_blocks_path = canonical_dir / "blocks.jsonl"
     canonical_sections_path = canonical_dir / "sections.jsonl"
@@ -1882,7 +1665,6 @@ def process_canonical_rag(
     duplicate_review_jsonl_path = canonical_dir / "table_duplicate_review.jsonl"
     duplicate_review_md_path = canonical_dir / "table_duplicate_review.md"
     rag_sections_path = final_dir / "sections.jsonl"
-    rag_chunks_path = final_dir / "chunks.jsonl"
     rag_manifest_path = final_dir / "manifest.json"
     rag_audit_path = final_dir / "audit.json"
 
@@ -1900,7 +1682,6 @@ def process_canonical_rag(
         {
             "canonical_section_count": len(canonical_sections),
             "input_section_count": len(sections),
-            "input_chunk_count": original_chunk_count,
             **targeted_merge_audit,
             **pdf_verified_fix_audit,
         }
@@ -1915,13 +1696,11 @@ def process_canonical_rag(
     )
 
     write_jsonl_records(rag_sections_path, canonical_sections)
-    write_jsonl_dicts(rag_chunks_path, final_chunk_records)
     write_json(rag_manifest_path, manifest)
     write_json(
         rag_audit_path,
         {
             "section_count": len(canonical_sections),
-            "chunk_count": len(final_chunk_records),
             "source": "interim-canonical",
             "table_block_count": canonical_audit["table_block_count"],
             "replacement_count": canonical_audit["replacement_count"],
@@ -1944,7 +1723,6 @@ def process_canonical_rag(
         "duplicate_review_jsonl": duplicate_review_jsonl_path,
         "duplicate_review_md": duplicate_review_md_path,
         "rag_sections": rag_sections_path,
-        "rag_chunks": rag_chunks_path,
         "rag_manifest": rag_manifest_path,
         "rag_audit": rag_audit_path,
     }

@@ -10,7 +10,6 @@ from pharma_agent.domain.corpus.bundle import (
     ColloquialMappingRecord,
     DocumentKind,
     KnowledgeBundle,
-    RetrievalMode,
     SourceInfo,
     read_bundle,
 )
@@ -113,9 +112,7 @@ def test_export_maps_block_kinds_retrieval_and_pages(tmp_path: Path) -> None:
     assert dosage.context_path == ["Liều lượng và cách dùng"]
 
     index = sections[BRAND_INDEX_SECTION_ID]
-    assert index.retrieval is RetrievalMode.INDEX_ONLY
     assert [block.kind for block in index.blocks] == [BlockKind.INDEX_ENTRIES]
-    assert sections[DOSAGE].retrieval is RetrievalMode.DEFAULT
 
     leaflet = sections[PANADOL]
     assert (leaflet.start_page, leaflet.end_page) == (None, None)
