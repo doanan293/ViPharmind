@@ -25,7 +25,7 @@
 
 1. Một mục dài hơn `MAX_CHUNK_CHARS` phải cho ra nhiều chunk chỉ của mục đó, và mục đứng sau nó không bị gộp vào phần cuối của nó (Task 1, test `test_oversized_section_splits_alone`).
 2. Mục có mọi block rỗng không được tạo chunk rỗng và không được chen `## heading` trống vào chunk kế (Task 1, test `test_blank_section_yields_nothing`).
-3. Câu `multi_required` mà hai mục gold nằm trong cùng một chunk: chunk đó phải thoả cả hai đơn vị, nDCG lý tưởng không bị phạt (Task 5, test `test_one_chunk_satisfies_several_units`).
+3. Câu `multi_required` mà hai mục gold nằm trong cùng một chunk: chunk đó phải thoả cả hai đơn vị, nDCG không thấp hơn khi hai mục nằm ở hai chunk riêng (ideal cố định mỗi câu, một đơn vị mỗi hạng từ hạng 1, chặn ở 1) (Task 5, test `test_one_chunk_satisfies_several_units`).
 4. Nhãn relevance chấp nhận chunk ngoài mục gold phải vẫn tính trúng khi chunk mang nhiều mục (Task 5, test `test_accepted_chunk_counts_as_hit`).
 5. Gói evidence không bao giờ cắt text: khi 5 chunk vượt `max_evidence_chars`, chunk điểm thấp nhất bị bỏ nguyên khối (Task 3, test `test_pack_drops_whole_chunks_never_truncates`).
 

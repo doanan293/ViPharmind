@@ -201,13 +201,28 @@ def _pages(sections: Sequence[SectionRecord]) -> tuple[int | None, int | None]:
 
 
 def _section_parts(section: SectionRecord, max_chars: int) -> list[str]:
-    """A long section as several texts, each under max_chars and each led by the heading."""
+    """A long section as several texts, each under max_chars and each led by the heading.
+
+    Blocks too long on their own are split first; the pieces are then packed in order, so a
+    lead-in sentence stays with the table it introduces and no part is a lone fragment.
+    """
     heading = f"## {section.heading.strip()}\n\n" if section.heading.strip() else ""
-    parts: list[str] = []
+    budget = max_chars - len(heading)
+    pieces: list[str] = []
     for block in section.blocks:
         raw = block.markdown.strip()
         if raw:
-            parts.extend(_split_block(block.kind, raw, max_chars - len(heading)))
+            pieces.extend(_split_block(block.kind, raw, budget))
+    parts: list[str] = []
+    current = ""
+    for piece in pieces:
+        candidate = f"{current}\n\n{piece}" if current else piece
+        if current and len(candidate) > budget:
+            parts.append(current)
+            candidate = piece
+        current = candidate
+    if current:
+        parts.append(current)
     return [heading + part for part in parts]
 
 

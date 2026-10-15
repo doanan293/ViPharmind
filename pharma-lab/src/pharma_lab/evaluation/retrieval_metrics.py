@@ -76,34 +76,27 @@ def ranking_scores(
     """nDCG@k with binary gains and MRR@k over evidence units.
 
     A unit earns gain once, at the first chunk that satisfies it; a chunk that holds
-    several gold sections earns their gains at the same rank. The ideal ranking finds
-    every unit in the first positions. For single-answer queries nDCG@k is 1/log2(rank+1)
-    of the first hit, as in known-item retrieval benchmarks.
+    several gold sections earns their gains at the same rank. The ideal is fixed per
+    query, one unit per rank from rank 1 as in BEIR, so every system is scored against
+    the same ideal; a chunk that holds several units can beat it, so the score is capped
+    at 1. For single-answer queries nDCG@k is 1/log2(rank+1) of the first hit, as in
+    known-item retrieval benchmarks.
     """
     units = evidence_units(query_row)
     seen: set[str] = set()
-    gains: list[int] = []
     dcg = 0.0
     first_hit: int | None = None
     for rank, payload in enumerate(retrieved_payloads[:k], start=1):
         fresh = satisfied_units(payload, query_row, judged) - seen
         seen |= fresh
-        gains.append(len(fresh))
         dcg += len(fresh) / math.log2(rank + 1)
     for rank, payload in enumerate(retrieved_payloads[:k], start=1):
         if satisfied_units(payload, query_row, judged):
             first_hit = rank
             break
-    # The ideal list puts the chunks that were found first, best gain first, and then
-    # one chunk per unit still missing, so a list that finds everything in the first
-    # positions scores 1 and every missing unit costs a position.
-    ideal_gains = sorted((g for g in gains if g), reverse=True)
-    ideal_gains += [1] * (len(units) - len(seen))
-    ideal = sum(
-        gain / math.log2(rank + 1) for rank, gain in enumerate(ideal_gains[:k], start=1)
-    )
+    ideal = sum(1 / math.log2(rank + 1) for rank in range(1, min(len(units), k) + 1))
     return {
-        f"ndcg@{k}": dcg / ideal,
+        f"ndcg@{k}": min(1.0, dcg / ideal),
         f"mrr@{k}": 0.0 if first_hit is None else 1.0 / first_hit,
     }
 

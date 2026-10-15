@@ -149,6 +149,23 @@ def test_oversized_section_splits_alone() -> None:
     assert [c.ordinal for c in chunks] == list(range(1, len(chunks) + 1))
 
 
+def test_small_blocks_of_an_oversized_section_pack_together() -> None:
+    lead_in = "Tác dụng phụ hay gặp nhất là:"
+    table = "| Tác dụng | Tần suất |\n| --- | --- |\n" + "| buồn nôn | hay gặp |\n" * 40
+    blocks = [BlockRecord(kind=BlockKind.PROSE, markdown=lead_in)]
+    blocks += [BlockRecord(kind=BlockKind.TABLE, markdown=table.strip())]
+    blocks += [BlockRecord(kind=BlockKind.PROSE, markdown="z" * 400) for _ in range(12)]
+    section = _section("drug:paracetamol:s1", "Tác dụng phụ", "", 1).model_copy(
+        update={"blocks": blocks}
+    )
+
+    chunks = chunk_document(_document(), [section], [], [])
+
+    assert len(chunks) == 2
+    assert lead_in in chunks[0].chunk_text and "buồn nôn" in chunks[0].chunk_text
+    assert all(len(c.chunk_text) <= MAX_CHUNK_CHARS for c in chunks)
+
+
 def test_blank_section_yields_nothing() -> None:
     sections = [
         _section("drug:paracetamol:s1", "Mục 1", "   ", 1),
