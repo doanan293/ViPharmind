@@ -2,7 +2,9 @@ import re
 
 import pytest
 
+from pharma_lab.config.defaults import DEFAULT_CANDIDATE_K
 from pharma_lab.runtime.catalog import (
+    KAGGLE_RERANK_REQUEST_BATCH_SIZE,
     MODEL_CATALOG,
     ModelKind,
     require_model,
@@ -70,3 +72,9 @@ def test_the_open_weight_chat_model_is_the_published_q8_0_with_a_fixed_runtime()
 
 def test_every_model_is_a_q8_0_file() -> None:
     assert all("q8_0" in spec.canonical_filename for spec in MODEL_CATALOG.values())
+
+
+def test_a_kaggle_rerank_request_carries_one_whole_candidate_list() -> None:
+    # The profile benchmark samples queries with exactly this many candidates, and the
+    # backend sends one search round per request.
+    assert KAGGLE_RERANK_REQUEST_BATCH_SIZE == DEFAULT_CANDIDATE_K

@@ -7,7 +7,7 @@ import pharma_lab.integrations.kaggle.workers.benchmark as benchmark_worker
 from pharma_lab.integrations.kaggle.artifacts import sha256_file
 from pharma_lab.integrations.kaggle.workers.benchmark import run_benchmark_worker
 from pharma_lab.runtime.benchmarking import BenchmarkMeasurement, LevelResult
-from pharma_lab.runtime.catalog import require_model
+from pharma_lab.runtime.catalog import KAGGLE_RERANK_REQUEST_BATCH_SIZE, require_model
 from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
 
 MODEL = "qwen3-reranker:0.6b-q8_0"
@@ -183,11 +183,14 @@ def test_rerank_level_restarts_servers_and_sends_warm_up_then_full_groups(
         "level-0",
         "level-1",
     ]
-    # One untimed warm-up group, then 32 timed groups of 30 documents, per level.
+    # One untimed warm-up group, then 32 timed groups of one request each, per level.
     assert len(calls) == len(levels) * 33
-    assert {size for _query, size in calls} == {30}
+    assert {size for _query, size in calls} == {KAGGLE_RERANK_REQUEST_BATCH_SIZE}
     rows = _rows(config)
-    assert all(row["status"] == "ok" and row["items"] == 960 for row in rows)
+    assert all(
+        row["status"] == "ok" and row["items"] == 32 * KAGGLE_RERANK_REQUEST_BATCH_SIZE
+        for row in rows
+    )
     assert all(row["max_abs_score_delta"] == 0.0 for row in rows)
     assert artifact.completion.complete == len(levels)
 
