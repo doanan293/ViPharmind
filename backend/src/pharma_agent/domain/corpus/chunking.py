@@ -1,9 +1,10 @@
-"""The single corpus chunker (spec C §7.1).
+"""The single corpus chunker (spec v2 §3.0c).
 
-Public API. Splitting is ported from pharma-lab ``build_final_chunk_records``,
-``split_lines_without_breaking_entries`` and ``split_long_text``; tables follow the leaflet
-``split_table`` header rule, which also reproduces every formulary table. The splitter is
-chosen only by ``BlockRecord.kind``.
+Public API. A chunk is the unit the model reads: consecutive sections of one document
+packed to about ``TARGET_CHUNK_CHARS``, or one part of a section longer than
+``MAX_CHUNK_CHARS``. Splitting of long text is ported from pharma-lab
+``split_lines_without_breaking_entries`` and ``split_long_text``; tables follow the
+leaflet ``split_table`` header rule.
 """
 
 import re
@@ -20,7 +21,6 @@ from pharma_agent.domain.corpus.bundle import (
     SectionRecord,
 )
 from pharma_agent.domain.corpus.enrichment import (
-    build_context_header,
     compose_embedding_text,
     detect_terms,
     mapping_for_section,
@@ -28,8 +28,13 @@ from pharma_agent.domain.corpus.enrichment import (
 from pharma_agent.domain.corpus.identity import chunk_version_id, sha256_hex
 from pharma_agent.domain.retrieval.models import ColloquialMapping, TermAnnotation
 
-CHUNKER_VERSION = "chunker-v1"
-MAX_CHUNK_CHARS = 3000
+CHUNKER_VERSION = "chunker-v2"
+# About 1,024 Qwen3 tokens at the 3.1 chars per token measured on the corpus; a chunk
+# grows by whole sections until the next one would pass this.
+TARGET_CHUNK_CHARS = 3200
+# A single section longer than this is split on its own; with the context header the
+# longest chunk stays under the 2,048-token embedding slot.
+MAX_CHUNK_CHARS = 5600
 
 _PARAGRAPH_BREAK_RE = re.compile(r"\n\s*\n")
 _SENTENCE_END_RE = re.compile(r"[.!?;:…]\s+")
@@ -37,21 +42,21 @@ _LAST_WORD_RE = re.compile(r"\s+\S*$")
 
 
 class ChunkDraft(BaseModel):
-    """One chunk of a section, ready to be stored as an immutable chunk version."""
+    """One chunk of a document: whole consecutive sections, or one part of a long section."""
 
     model_config = ConfigDict(frozen=True)
 
     chunk_version_id: uuid.UUID
-    section_key: str
+    document_key: str
     ordinal: int
-    kind: BlockKind
+    section_keys: list[str]
+    headings: list[str]
     chunk_text: str
     context_header: str
     embedding_text: str
     embedding_text_sha256: str
     start_page: int | None
     end_page: int | None
-    table_key: str | None
     term_annotations: list[TermAnnotation]
     colloquial: ColloquialMapping | None
 
@@ -171,68 +176,116 @@ def _split_block(kind: BlockKind, text: str, max_chars: int) -> list[str]:
     return split_long_text(text, max_chars)
 
 
-def _context_header(title: str, section: SectionRecord) -> str:
-    header = build_context_header(title, section.context_path)
-    if header:
-        return header
-    title_text = title.strip()
+def section_text(section: SectionRecord) -> str:
+    """The section as the model reads it: its heading, then its blocks; empty when blank."""
+    body = "\n\n".join(b.markdown.strip() for b in section.blocks if b.markdown.strip())
+    if not body:
+        return ""
     heading = section.heading.strip()
-    if title_text and heading:
-        return f"{title_text} > {heading}"
-    return title_text or heading
+    return f"## {heading}\n\n{body}" if heading else body
 
 
-def chunk_section(
+def _context_header(title: str, headings: Sequence[str]) -> str:
+    names = [h.strip() for h in headings if h.strip()]
+    title_text = title.strip()
+    if title_text and names:
+        return f"{title_text} > {'; '.join(names)}"
+    return title_text or "; ".join(names)
+
+
+def _pages(sections: Sequence[SectionRecord]) -> tuple[int | None, int | None]:
+    starts = [s.start_page for s in sections if s.start_page is not None]
+    ends = [s.end_page for s in sections if s.end_page is not None]
+    return (min(starts) if starts else None, max(ends) if ends else None)
+
+
+def _section_parts(section: SectionRecord, max_chars: int) -> list[str]:
+    """A long section as several texts, each under max_chars and each led by the heading."""
+    heading = f"## {section.heading.strip()}\n\n" if section.heading.strip() else ""
+    parts: list[str] = []
+    for block in section.blocks:
+        raw = block.markdown.strip()
+        if raw:
+            parts.extend(_split_block(block.kind, raw, max_chars - len(heading)))
+    return [heading + part for part in parts]
+
+
+def chunk_document(
     document: DocumentRecord,
-    section: SectionRecord,
+    sections: Sequence[SectionRecord],
     glossary: Sequence[GlossaryEntry],
     mappings: Sequence[ColloquialMappingRecord],
     *,
+    target_chars: int = TARGET_CHUNK_CHARS,
     max_chars: int = MAX_CHUNK_CHARS,
 ) -> list[ChunkDraft]:
-    """Chunk one section; a section whose blocks are all blank yields no chunks."""
-    context_header = _context_header(document.title, section)
-    colloquial = mapping_for_section(section.key, mappings)
-    drafts: list[ChunkDraft] = []
-    for block in section.blocks:
-        raw_text = block.markdown.strip()
-        if not raw_text:
+    """Pack a document's sections, in order, into chunks of about target_chars."""
+    groups: list[tuple[list[SectionRecord], str]] = []
+    current: list[SectionRecord] = []
+    current_text = ""
+
+    def flush() -> None:
+        nonlocal current, current_text
+        if current:
+            groups.append((current, current_text))
+        current, current_text = [], ""
+
+    for section in sorted(sections, key=lambda s: s.ordinal):
+        text = section_text(section)
+        if not text:
             continue
-        for part in _split_block(block.kind, raw_text, max_chars):
-            chunk_text = part.strip()
-            searchable = (
-                f"{context_header}\n\n{chunk_text}" if context_header else chunk_text
+        if len(text) > max_chars:
+            flush()
+            groups.extend(
+                ([section], part) for part in _section_parts(section, max_chars)
             )
-            terms = detect_terms(searchable, glossary)
-            embedding_text = compose_embedding_text(
-                context_header=context_header,
+            continue
+        if current and len(current_text) + 2 + len(text) > target_chars:
+            flush()
+        current_text = f"{current_text}\n\n{text}" if current_text else text
+        current.append(section)
+    flush()
+
+    drafts: list[ChunkDraft] = []
+    for ordinal, (members, chunk_text) in enumerate(groups, start=1):
+        headings = [member.heading for member in members]
+        context_header = _context_header(document.title, headings)
+        colloquial = next(
+            (
+                mapping
+                for mapping in (mapping_for_section(m.key, mappings) for m in members)
+                if mapping is not None
+            ),
+            None,
+        )
+        searchable = (
+            f"{context_header}\n\n{chunk_text}" if context_header else chunk_text
+        )
+        terms = detect_terms(searchable, glossary)
+        embedding_text = compose_embedding_text(
+            context_header=context_header,
+            chunk_text=chunk_text,
+            colloquial=colloquial,
+            terms=terms,
+        )
+        start_page, end_page = _pages(members)
+        drafts.append(
+            ChunkDraft(
+                chunk_version_id=chunk_version_id(
+                    document.key, chunk_text, embedding_text, CHUNKER_VERSION
+                ),
+                document_key=document.key,
+                ordinal=ordinal,
+                section_keys=[member.key for member in members],
+                headings=headings,
                 chunk_text=chunk_text,
+                context_header=context_header,
+                embedding_text=embedding_text,
+                embedding_text_sha256=sha256_hex(embedding_text),
+                start_page=start_page,
+                end_page=end_page,
+                term_annotations=terms,
                 colloquial=colloquial,
-                terms=terms,
             )
-            drafts.append(
-                ChunkDraft(
-                    chunk_version_id=chunk_version_id(
-                        section.key, chunk_text, embedding_text, CHUNKER_VERSION
-                    ),
-                    section_key=section.key,
-                    ordinal=len(drafts) + 1,
-                    kind=block.kind,
-                    chunk_text=chunk_text,
-                    context_header=context_header,
-                    embedding_text=embedding_text,
-                    embedding_text_sha256=sha256_hex(embedding_text),
-                    start_page=block.start_page
-                    if block.start_page is not None
-                    else section.start_page,
-                    end_page=block.end_page
-                    if block.end_page is not None
-                    else section.end_page,
-                    table_key=block.table_key
-                    if block.kind is BlockKind.TABLE
-                    else None,
-                    term_annotations=terms,
-                    colloquial=colloquial,
-                )
-            )
+        )
     return drafts
