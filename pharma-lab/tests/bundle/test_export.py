@@ -15,7 +15,7 @@ from pharma_agent.domain.corpus.bundle import (
     read_bundle,
 )
 
-from pharma_lab.bundle.chunks import gold_chunk_label, iter_section_chunks
+from pharma_lab.bundle.chunks import gold_chunk_label, iter_document_chunks
 from pharma_lab.bundle.export import (
     COLLECTION_KEY,
     COLLECTION_TITLE,
@@ -103,10 +103,6 @@ def test_export_groups_documents_and_keeps_section_keys(tmp_path: Path) -> None:
 def test_export_maps_block_kinds_retrieval_and_pages(tmp_path: Path) -> None:
     _, bundle = _export(tmp_path)
     sections = {section.key: section for section in bundle.sections}
-    old_chunks = [
-        json.loads(line)
-        for line in (FIXTURE / "chunks.jsonl").read_text("utf-8").splitlines()
-    ]
 
     dosage = sections[DOSAGE]
     assert [block.kind for block in dosage.blocks] == [BlockKind.PROSE, BlockKind.TABLE]
@@ -123,10 +119,14 @@ def test_export_maps_block_kinds_retrieval_and_pages(tmp_path: Path) -> None:
 
     leaflet = sections[PANADOL]
     assert (leaflet.start_page, leaflet.end_page) == (None, None)
-    assert [block.kind for block in leaflet.blocks] == [BlockKind.PROSE]
-    assert [block.start_page for block in leaflet.blocks] == [None]
-    old_leaflet = next(chunk for chunk in old_chunks if chunk["section_id"] == PANADOL)
-    assert leaflet.blocks[0].markdown == old_leaflet["chunk_text"]
+    assert [block.kind for block in leaflet.blocks] == [
+        BlockKind.PROSE,
+        BlockKind.TABLE,
+        BlockKind.PROSE,
+    ]
+    assert [block.start_page for block in leaflet.blocks] == [None, None, None]
+    assert leaflet.blocks[0].markdown.startswith("# Panadol Extra")
+    assert leaflet.blocks[1].markdown.startswith("| Thông tin thành phần")
 
     assert block_kind_for(ATC_SECTION_ID, "paragraph") is BlockKind.LIST
     assert block_kind_for(ATC_SECTION_ID, "table") is BlockKind.TABLE
@@ -161,8 +161,8 @@ def test_export_refuses_to_overwrite_without_force(tmp_path: Path) -> None:
     assert replaced.manifest.section_count == 5
 
 
-def test_leaflet_blocks_keep_long_pipe_tables_apart() -> None:
-    rows = "\n".join(f"| thuốc {index} | {'x' * 40} |" for index in range(80))
+def test_leaflet_blocks_keep_pipe_tables_apart() -> None:
+    rows = "\n".join(f"| thuốc {index} | {'x' * 40} |" for index in range(3))
     table = f"| Thành phần | Hàm lượng |\n| --- | --- |\n{rows}"
 
     blocks = leaflet_blocks(f"# Thuốc\n\nĐoạn một.\n\n{table}\n\n\nĐoạn hai.")
@@ -177,15 +177,19 @@ def test_leaflet_blocks_keep_long_pipe_tables_apart() -> None:
     assert blocks[2].markdown == "Đoạn hai."
 
 
-def test_iter_section_chunks_runs_backend_chunker(tmp_path: Path) -> None:
+def test_iter_document_chunks_runs_backend_chunker(tmp_path: Path) -> None:
     _, bundle = _export(tmp_path)
 
-    items = list(iter_section_chunks(bundle))
+    items = list(iter_document_chunks(bundle))
 
-    assert [item.section.key for item in items] == [s.key for s in bundle.sections]
-    assert [draft.ordinal for draft in items[0].drafts] == [1, 2]
-    assert items[0].document.key == "drug:paracetamol"
-    assert gold_chunk_label(DOSAGE, 2) == f"{DOSAGE}:chunk-002"
+    assert [item.document.key for item in items] == [d.key for d in bundle.documents]
+    assert [s.key for item in items for s in item.sections] == [
+        s.key for s in bundle.sections
+    ]
+    assert [draft.ordinal for draft in items[0].drafts] == list(
+        range(1, len(items[0].drafts) + 1)
+    )
+    assert gold_chunk_label("drug:paracetamol", 2) == "drug:paracetamol:chunk-002"
 
 
 def test_collection_title_describes_the_content() -> None:

@@ -20,8 +20,9 @@ class RetrievalCandidate:
         )
 
     @property
-    def section_id(self) -> str:
-        return str(self.payload.get("section_id") or "")
+    def section_ids(self) -> list[str]:
+        raw = self.payload.get("section_ids")
+        return [str(s) for s in raw] if isinstance(raw, list) else []
 
     def with_rerank_score(self, rerank_score: float, rank: int) -> "RetrievalCandidate":
         return RetrievalCandidate(

@@ -14,7 +14,7 @@ from pharma_agent.domain.corpus.bundle import (
     write_bundle_embeddings,
 )
 
-from pharma_lab.bundle.chunks import iter_section_chunks
+from pharma_lab.bundle.chunks import iter_document_chunks
 from pharma_lab.config.defaults import (
     DEFAULT_BUDGET_SECONDS,
     DEFAULT_REQUEST_TIMEOUT_SECONDS,
@@ -59,7 +59,7 @@ class BundleEmbedResult:
 
 def collect_embedding_inputs(bundle: KnowledgeBundle) -> list[EmbeddingInput]:
     unique: dict[str, EmbeddingInput] = {}
-    for item in iter_section_chunks(bundle):
+    for item in iter_document_chunks(bundle):
         for draft in item.drafts:
             unique.setdefault(
                 draft.embedding_text_sha256,

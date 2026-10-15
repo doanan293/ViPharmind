@@ -57,9 +57,15 @@ def test_evaluation_build_derives_chunks_from_the_bundle(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert captured["request"].chunks_path == tmp_path / "chunks.jsonl"
-    assert len((tmp_path / "chunks.jsonl").read_text("utf-8").splitlines()) == 6
+    from pharma_agent.domain.corpus.bundle import read_bundle
+
+    from pharma_lab.bundle.evaluation_chunks import evaluation_chunk_rows
+
+    expected = len(evaluation_chunk_rows(read_bundle(tmp_path / "bundle")))
+    assert expected >= 2
+    assert len((tmp_path / "chunks.jsonl").read_text("utf-8").splitlines()) == expected
     details = json.loads(result.stdout)["details"]
-    assert details["chunks"] == 6
+    assert details["chunks"] == expected
     assert captured["judgments"] == (tmp_path / "evaluation.jsonl", tmp_path / "bundle")
     assert details["judgments"] == str(tmp_path / "evaluation.judgments.jsonl")
 

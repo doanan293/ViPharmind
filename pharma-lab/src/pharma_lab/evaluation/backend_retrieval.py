@@ -138,7 +138,7 @@ def query_cache_for(
 
 
 def candidate_from_hit(hit: Hit, rank: int, source: str) -> RetrievalCandidate:
-    label = gold_chunk_label(hit.section_key, hit.ordinal)
+    label = gold_chunk_label(hit.document_key, hit.ordinal)
     return RetrievalCandidate(
         chunk_id=label,
         score=hit.fusion_score,
@@ -146,8 +146,8 @@ def candidate_from_hit(hit: Hit, rank: int, source: str) -> RetrievalCandidate:
         source=source,
         payload={
             "chunk_id": label,
-            "section_id": hit.section_key,
-            "chunk_index": hit.ordinal,
+            "document_id": hit.document_key,
+            "section_ids": list(hit.section_keys),
         },
         document_text=hit.embedding_text,
     )
@@ -159,7 +159,7 @@ async def search_hits(service: SearchService, text: str) -> list[Hit]:
     )
     if result.error is not None:
         raise RuntimeError(f"backend retrieval failed: {result.error}")
-    return [item.hit for item in result.items]
+    return list(result.items)
 
 
 async def current_release_id(service: SearchService, probe_query: str) -> str:

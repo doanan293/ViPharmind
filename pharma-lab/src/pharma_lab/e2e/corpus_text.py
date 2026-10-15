@@ -8,9 +8,8 @@ from functools import cached_property
 from pathlib import Path
 
 from pharma_agent.domain.corpus.bundle import KnowledgeBundle, read_bundle
-from pharma_agent.domain.corpus.chunking import chunk_section
 
-from pharma_lab.bundle.chunks import gold_chunk_label
+from pharma_lab.bundle.chunks import gold_chunk_label, iter_document_chunks
 
 
 def normalize_space(text: str) -> str:
@@ -46,20 +45,14 @@ def load_corpus_text(bundle_dir: Path) -> CorpusText:
 
 
 def chunk_texts(bundle: KnowledgeBundle, section_ids: Iterable[str]) -> dict[str, str]:
-    """Chunk text by gold chunk label for the given sections (backend chunker)."""
+    """Chunk text by gold chunk label for the chunks that hold the given sections."""
     wanted = set(section_ids)
-    documents = {document.key: document for document in bundle.documents}
     texts: dict[str, str] = {}
-    for section in bundle.sections:
-        if section.key not in wanted:
-            continue
-        for draft in chunk_section(
-            documents[section.document_key],
-            section,
-            bundle.glossary,
-            bundle.colloquial_mappings,
-        ):
-            texts[gold_chunk_label(draft.section_key, draft.ordinal)] = draft.chunk_text
+    for item in iter_document_chunks(bundle):
+        for draft in item.drafts:
+            if wanted & set(draft.section_keys):
+                label = gold_chunk_label(draft.document_key, draft.ordinal)
+                texts[label] = draft.chunk_text
     return texts
 
 

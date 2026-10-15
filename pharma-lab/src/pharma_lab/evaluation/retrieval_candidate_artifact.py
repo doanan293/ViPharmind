@@ -43,8 +43,8 @@ def _serialize_candidate(candidate: RetrievalCandidate) -> dict[str, Any]:
         "document_hash": document_hash(text),
         "payload": {
             "chunk_id": chunk_id,
-            "section_id": candidate.payload.get("section_id"),
-            "chunk_index": candidate.payload.get("chunk_index"),
+            "document_id": candidate.payload.get("document_id"),
+            "section_ids": list(candidate.payload.get("section_ids") or []),
         },
     }
 

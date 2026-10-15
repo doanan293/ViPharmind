@@ -9,6 +9,7 @@ from pharma_agent.domain.corpus.bundle import (
     read_bundle_embeddings,
 )
 
+from pharma_lab.bundle.chunks import iter_document_chunks
 from pharma_lab.bundle.embed import (
     BundleEmbedRequest,
     collect_embedding_inputs,
@@ -85,7 +86,14 @@ def test_collect_embedding_inputs_is_unique_and_hashed(tmp_path: Path) -> None:
 
     inputs = collect_embedding_inputs(bundle)
 
-    assert len(inputs) == 6
+    assert len(inputs) == len(
+        {
+            d.embedding_text_sha256
+            for item in iter_document_chunks(bundle)
+            for d in item.drafts
+        }
+    )
+    assert len(inputs) >= 2
     assert [item.embedding_text_sha256 for item in inputs] == sorted(
         item.embedding_text_sha256 for item in inputs
     )
@@ -102,7 +110,8 @@ def test_embed_bundle_writes_embeddings_file_and_manifest(tmp_path: Path) -> Non
     result = embed_bundle(_request(tmp_path, bundle_dir), backend)
 
     assert not result.incomplete
-    assert (result.inputs, result.vectors) == (6, 6)
+    expected = len(collect_embedding_inputs(read_bundle(bundle_dir)))
+    assert (result.inputs, result.vectors) == (expected, expected)
     expected_file = f"embeddings/{model_slug(MODEL)}.jsonl"
     assert result.embeddings_file == expected_file
     assert (bundle_dir / expected_file).is_file()

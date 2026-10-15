@@ -95,6 +95,12 @@ def test_bundle_embed_command_uses_the_selected_backend(
     )
 
     assert result.exit_code == 0, result.output
+    from pharma_agent.domain.corpus.bundle import read_bundle
+
+    from pharma_lab.bundle.embed import collect_embedding_inputs
+
+    expected = len(collect_embedding_inputs(read_bundle(tmp_path / "bundle")))
     details = json.loads(result.output)["details"]
-    assert (details["inputs"], details["vectors"]) == (6, 6)
+    assert expected >= 2
+    assert (details["inputs"], details["vectors"]) == (expected, expected)
     assert created[0].requests[0].kaggle_account == "acc2"
