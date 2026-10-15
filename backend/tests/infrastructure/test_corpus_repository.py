@@ -76,7 +76,6 @@ async def test_stage_release_writes_every_row_once(database: Database) -> None:
     assert await repository.get_collection("formulary") == snapshot.collection
     assert await count(database, "documents") == 2
     assert await count(database, "sections") == 5
-    assert await count(database, "section_revisions") == 5
     assert await count(database, "chunk_versions") == len(snapshot.chunks)
     assert await count(database, "release_chunks") == len(snapshot.release_chunks)
     assert await count(database, "chunk_versions", "colloquial IS NULL") == sum(
@@ -149,17 +148,8 @@ async def test_second_release_shares_unchanged_chunk_versions(
     assert items[fresh].release_ids == [r2.id]
 
     chunk = next(chunk for chunk in new.chunks if chunk.id == fresh)
-    section = next(
-        placement.section_id
-        for placement in new.release_chunks
-        if placement.chunk_version_id == fresh
-    )
-    document = next(s.document_id for s in new.sections if s.id == section)
     assert items[fresh].collection_id == new.collection.id
-    assert items[fresh].document_id == document
-    assert items[fresh].section_id == section
-    assert items[fresh].section_revision_id == chunk.section_revision_id
-    assert items[fresh].kind == chunk.kind
+    assert items[fresh].document_id == chunk.document_id
     assert items[fresh].embedding_text == chunk.embedding_text
     assert items[fresh].embedding_text_sha256 == chunk.embedding_text_sha256
     assert await repository.index_items([]) == []
@@ -239,18 +229,10 @@ async def test_purge_keeps_chunk_versions_protected_by_restrict(
         async with database.engine.begin() as connection:
             await connection.execute(text("DROP TABLE public.gc_probe_citations"))
 
-    surviving_chunks = [
-        c for c in old.chunks if c.id not in old_only or c.id == protected
-    ] + [c for c in new.chunks if c.id not in {o.id for o in old.chunks}]
-    referenced = {c.section_revision_id for c in surviving_chunks} | {
-        p.section_revision_id for p in new.release_chunks
-    }
-    all_revisions = {r.id for r in old.revisions} | {r.id for r in new.revisions}
     assert result == PurgeResult(
         release_chunks_deleted=len(old.release_chunks),
         chunk_versions_deleted=len(old_only) - 1,
         chunk_versions_kept=1,
-        section_revisions_deleted=len(all_revisions - referenced),
     )
     assert await count(database, "chunk_versions", f"id = '{protected}'") == 1
     summaries = {s.release.id: s for s in await repository.list_releases("formulary")}

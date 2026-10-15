@@ -10,7 +10,6 @@ CORPUS_TABLES = {
     "collections",
     "documents",
     "sections",
-    "section_revisions",
     "chunk_versions",
     "releases",
     "release_chunks",
@@ -78,5 +77,5 @@ def test_chunk_versions_are_protected_by_restrict() -> None:
         ]
     }
     assert ondelete[("chunk_version_id",)] == "RESTRICT"
-    assert ondelete[("section_revision_id",)] == "RESTRICT"
+    assert ondelete[("document_id",)] == "CASCADE"
     assert ondelete[("release_id",)] == "CASCADE"

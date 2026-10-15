@@ -9,10 +9,7 @@ from pharma_agent.domain.corpus.bundle import (
     RetrievalMode,
     read_bundle,
 )
-from pharma_agent.domain.corpus.hydrate import (
-    FULL_SECTION_MAX_CHARS,
-    section_char_count,
-)
+from pharma_agent.domain.corpus.chunking import MAX_CHUNK_CHARS, section_text
 from pharma_agent.domain.retrieval.ports import RetrievalError
 from tests.corpus_fixtures import (
     BRANDS_SECTION,
@@ -64,7 +61,7 @@ def test_fixture_covers_every_case_the_corpus_tests_need() -> None:
     assert {block.kind for block in sections[DOSAGE_SECTION].blocks} == {
         BlockKind.PROSE
     }
-    assert section_char_count(sections[PHARMACOLOGY_SECTION]) > FULL_SECTION_MAX_CHARS
+    assert len(section_text(sections[PHARMACOLOGY_SECTION])) > MAX_CHUNK_CHARS
     assert sections[INTERACTIONS_SECTION].blocks[0].kind is BlockKind.TABLE
     assert sections[BRANDS_SECTION].retrieval is RetrievalMode.INDEX_ONLY
     assert sections[BRANDS_SECTION].blocks[0].kind is BlockKind.INDEX_ENTRIES

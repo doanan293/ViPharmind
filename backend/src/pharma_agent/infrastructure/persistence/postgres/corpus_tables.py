@@ -1,6 +1,6 @@
 """Tables of the Postgres schema `corpus` (spec 2026-09-13 corpus platform §6.2).
 
-`section_revisions`, `chunk_versions` and `release_chunks` rows are
+`chunk_versions` and `release_chunks` rows are
 immutable once written; releases only change status. Chunk versions are protected by `RESTRICT` foreign keys so a citation can never
 lose the text it points to.
 """
@@ -122,40 +122,29 @@ class SectionTable(Base):
     heading: Mapped[str] = mapped_column(Text, nullable=False)
 
 
-class SectionRevisionTable(Base):
-    """A section's content-addressed revision id; chunk versions and citations join through it."""
-
-    __tablename__ = "section_revisions"
-    __table_args__ = ({"schema": CORPUS_SCHEMA},)
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
-    section_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("corpus.sections.id", ondelete="CASCADE"), nullable=False
-    )
-
-
 class ChunkVersionTable(Base):
+    """A chunk of a document: whole consecutive sections, or one part of a long section."""
+
     __tablename__ = "chunk_versions"
     __table_args__ = (
         Index("ix_chunk_versions_embedding_text_sha256", "embedding_text_sha256"),
+        Index("ix_chunk_versions_document_ordinal", "document_id", "ordinal"),
         {"schema": CORPUS_SCHEMA},
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
-    section_revision_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid,
-        ForeignKey("corpus.section_revisions.id", ondelete="RESTRICT"),
-        nullable=False,
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("corpus.documents.id", ondelete="CASCADE"), nullable=False
     )
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
-    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    section_keys: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    headings: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
     chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
     # From ChunkDraft.context_header, so readers (P3) never rebuild it.
     context_header: Mapped[str] = mapped_column(Text, nullable=False)
     embedding_text_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     start_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
     end_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    table_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
     term_annotations: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
@@ -205,9 +194,9 @@ class ReleaseChunkTable(Base):
     __tablename__ = "release_chunks"
     __table_args__ = (
         Index(
-            "ix_release_chunks_release_revision_ordinal",
+            "ix_release_chunks_release_document_ordinal",
             "release_id",
-            "section_revision_id",
+            "document_id",
             "ordinal",
         ),
         Index("ix_release_chunks_chunk_version_id", "chunk_version_id"),
@@ -222,16 +211,10 @@ class ReleaseChunkTable(Base):
         ForeignKey("corpus.chunk_versions.id", ondelete="RESTRICT"),
         primary_key=True,
     )
-    section_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("corpus.sections.id", ondelete="CASCADE"), nullable=False
-    )
-    section_revision_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid,
-        ForeignKey("corpus.section_revisions.id", ondelete="RESTRICT"),
-        nullable=False,
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("corpus.documents.id", ondelete="CASCADE"), nullable=False
     )
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
-    hydrate_strategy: Mapped[str] = mapped_column(String(32), nullable=False)
 
 
 class SourceDocumentTable(Base):

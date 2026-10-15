@@ -24,10 +24,8 @@ from pharma_agent.domain.corpus.bundle import (
 from pharma_agent.domain.corpus.chunking import (
     CHUNKER_VERSION,
     ChunkDraft,
-    chunk_section,
+    chunk_document,
 )
-from pharma_agent.domain.corpus.hydrate import hydrate_strategy_for
-from pharma_agent.domain.corpus.identity import section_revision_id
 from pharma_agent.domain.retrieval.models import Hit, HydrateStrategy
 from pharma_agent.domain.shared.text import make_snippet
 from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
@@ -36,7 +34,6 @@ from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     DocumentTable,
     ReleaseChunkTable,
     ReleaseTable,
-    SectionRevisionTable,
     SectionTable,
 )
 from pharma_agent.infrastructure.persistence.postgres.database import Database
@@ -61,7 +58,6 @@ class SeededRelease:
     collection_id: uuid.UUID
     release_id: uuid.UUID
     drafts: dict[str, list[ChunkDraft]]
-    revisions: dict[str, uuid.UUID]
 
 
 async def reset_corpus(database: Database) -> None:
@@ -170,7 +166,6 @@ async def seed_release(
 ) -> SeededRelease:
     collection_id, document_id, release_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     drafts: dict[str, list[ChunkDraft]] = {}
-    revisions: dict[str, uuid.UUID] = {}
     async with sessions.begin() as session:
         session.add(
             CollectionTable(
@@ -211,58 +206,52 @@ async def seed_release(
         )
         await session.flush()
         for section in sections:
-            section_id = uuid.uuid4()
-            revision_id = section_revision_id(section.key, section.blocks)
-            chunks = chunk_section(document, section, glossary, mappings)
-            drafts[section.key] = chunks
-            revisions[section.key] = revision_id
             session.add(
                 SectionTable(
-                    id=section_id,
+                    id=uuid.uuid4(),
                     document_id=document_id,
                     key=section.key,
                     heading=section.heading,
                 )
             )
-            await session.flush()
-            session.add(SectionRevisionTable(id=revision_id, section_id=section_id))
-            await session.flush()
-            session.add_all(
-                ChunkVersionTable(
-                    id=draft.chunk_version_id,
-                    section_revision_id=revision_id,
-                    ordinal=draft.ordinal,
-                    kind=draft.kind.value,
-                    chunk_text=draft.chunk_text,
-                    context_header=draft.context_header,
-                    embedding_text_sha256=draft.embedding_text_sha256,
-                    start_page=draft.start_page,
-                    end_page=draft.end_page,
-                    table_key=draft.table_key,
-                    term_annotations=[
-                        a.model_dump(mode="json") for a in draft.term_annotations
-                    ],
-                    colloquial=draft.colloquial.model_dump(mode="json")
-                    if draft.colloquial is not None
-                    else None,
-                    chunker_version=CHUNKER_VERSION,
-                    created_at=NOW,
-                )
-                for draft in chunks
+        await session.flush()
+        chunks = chunk_document(document, sections, glossary, mappings)
+        for section in sections:
+            drafts[section.key] = [d for d in chunks if section.key in d.section_keys]
+        session.add_all(
+            ChunkVersionTable(
+                id=draft.chunk_version_id,
+                document_id=document_id,
+                ordinal=draft.ordinal,
+                section_keys=list(draft.section_keys),
+                headings=list(draft.headings),
+                chunk_text=draft.chunk_text,
+                context_header=draft.context_header,
+                embedding_text_sha256=draft.embedding_text_sha256,
+                start_page=draft.start_page,
+                end_page=draft.end_page,
+                term_annotations=[
+                    a.model_dump(mode="json") for a in draft.term_annotations
+                ],
+                colloquial=draft.colloquial.model_dump(mode="json")
+                if draft.colloquial is not None
+                else None,
+                chunker_version=CHUNKER_VERSION,
+                created_at=NOW,
             )
-            await session.flush()
-            session.add_all(
-                ReleaseChunkTable(
-                    release_id=release_id,
-                    chunk_version_id=draft.chunk_version_id,
-                    section_id=section_id,
-                    section_revision_id=revision_id,
-                    ordinal=draft.ordinal,
-                    hydrate_strategy=hydrate_strategy_for(section).value,
-                )
-                for draft in chunks
+            for draft in chunks
+        )
+        await session.flush()
+        session.add_all(
+            ReleaseChunkTable(
+                release_id=release_id,
+                chunk_version_id=draft.chunk_version_id,
+                document_id=document_id,
+                ordinal=draft.ordinal,
             )
-            await session.flush()
+            for draft in chunks
+        )
+        await session.flush()
         if publish:
             await session.execute(
                 update(CollectionTable)
@@ -273,7 +262,6 @@ async def seed_release(
         collection_id=collection_id,
         release_id=release_id,
         drafts=drafts,
-        revisions=revisions,
     )
 
 

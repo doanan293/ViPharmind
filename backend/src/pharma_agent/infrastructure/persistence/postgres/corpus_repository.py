@@ -11,7 +11,6 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from pharma_agent.domain.corpus.bundle import BlockKind
 from pharma_agent.domain.corpus.enrichment import compose_embedding_text
 from pharma_agent.domain.corpus.models import (
     ChunkVersion,
@@ -27,7 +26,6 @@ from pharma_agent.domain.corpus.models import (
     ReleaseStatus,
     ReleaseSummary,
     Section,
-    SectionRevision,
     Visibility,
 )
 from pharma_agent.domain.retrieval.models import ColloquialMapping, TermAnnotation
@@ -37,7 +35,6 @@ from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     DocumentTable,
     ReleaseChunkTable,
     ReleaseTable,
-    SectionRevisionTable,
     SectionTable,
 )
 from pharma_agent.infrastructure.persistence.postgres.tables import Base
@@ -92,13 +89,6 @@ def _section_row(section: Section) -> dict[str, Any]:
     }
 
 
-def _revision_row(revision: SectionRevision) -> dict[str, Any]:
-    return {
-        "id": revision.id,
-        "section_id": revision.section_id,
-    }
-
-
 def embedding_text_of(
     *,
     context_header: str,
@@ -120,15 +110,15 @@ def embedding_text_of(
 def _chunk_row(chunk: ChunkVersion) -> dict[str, Any]:
     return {
         "id": chunk.id,
-        "section_revision_id": chunk.section_revision_id,
+        "document_id": chunk.document_id,
         "ordinal": chunk.ordinal,
-        "kind": chunk.kind.value,
+        "section_keys": list(chunk.section_keys),
+        "headings": list(chunk.headings),
         "chunk_text": chunk.chunk_text,
         "context_header": chunk.context_header,
         "embedding_text_sha256": chunk.embedding_text_sha256,
         "start_page": chunk.start_page,
         "end_page": chunk.end_page,
-        "table_key": chunk.table_key,
         "term_annotations": [
             annotation.model_dump(mode="json") for annotation in chunk.term_annotations
         ],
@@ -143,10 +133,8 @@ def _placement_row(release_id: uuid.UUID, placement: ReleaseChunk) -> dict[str, 
     return {
         "release_id": release_id,
         "chunk_version_id": placement.chunk_version_id,
-        "section_id": placement.section_id,
-        "section_revision_id": placement.section_revision_id,
+        "document_id": placement.document_id,
         "ordinal": placement.ordinal,
-        "hydrate_strategy": placement.hydrate_strategy.value,
     }
 
 
@@ -172,7 +160,7 @@ async def _insert(
 
 async def _delete_unreferenced(
     session: AsyncSession,
-    table: type[ChunkVersionTable] | type[SectionRevisionTable],
+    table: type[ChunkVersionTable],
     ids: Sequence[uuid.UUID],
 ) -> tuple[int, int]:
     """Delete rows, keeping those another table still references (FK RESTRICT).
@@ -312,12 +300,6 @@ class PostgresCorpusRepository:
             )
             await _insert(
                 session,
-                SectionRevisionTable,
-                [_revision_row(revision) for revision in snapshot.revisions],
-                conflict=["id"],
-            )
-            await _insert(
-                session,
                 ChunkVersionTable,
                 [_chunk_row(chunk) for chunk in snapshot.chunks],
                 conflict=["id"],
@@ -364,22 +346,14 @@ class PostgresCorpusRepository:
             select(
                 ChunkVersionTable.id,
                 DocumentTable.collection_id,
-                SectionTable.document_id,
-                SectionRevisionTable.section_id,
-                ChunkVersionTable.section_revision_id,
-                ChunkVersionTable.kind,
+                ChunkVersionTable.document_id,
                 ChunkVersionTable.context_header,
                 ChunkVersionTable.chunk_text,
                 ChunkVersionTable.colloquial,
                 ChunkVersionTable.term_annotations,
                 ChunkVersionTable.embedding_text_sha256,
             )
-            .join(
-                SectionRevisionTable,
-                SectionRevisionTable.id == ChunkVersionTable.section_revision_id,
-            )
-            .join(SectionTable, SectionTable.id == SectionRevisionTable.section_id)
-            .join(DocumentTable, DocumentTable.id == SectionTable.document_id)
+            .join(DocumentTable, DocumentTable.id == ChunkVersionTable.document_id)
             .where(ChunkVersionTable.id.in_(chunk_ids))
             .order_by(ChunkVersionTable.id)
         )
@@ -408,9 +382,6 @@ class PostgresCorpusRepository:
                 chunk_version_id=chunk_id,
                 collection_id=collection_id,
                 document_id=document_id,
-                section_id=section_id,
-                section_revision_id=section_revision_id,
-                kind=BlockKind(kind),
                 embedding_text=embedding_text_of(
                     context_header=context_header,
                     chunk_text=chunk_text,
@@ -424,9 +395,6 @@ class PostgresCorpusRepository:
                 chunk_id,
                 collection_id,
                 document_id,
-                section_id,
-                section_revision_id,
-                kind,
                 context_header,
                 chunk_text,
                 colloquial,
@@ -483,11 +451,8 @@ class PostgresCorpusRepository:
             ReleaseTable.collection_id == collection_id,
             ReleaseTable.status == ReleaseStatus.RETIRED.value,
         )
-        collection_revisions = (
-            select(SectionRevisionTable.id)
-            .join(SectionTable, SectionTable.id == SectionRevisionTable.section_id)
-            .join(DocumentTable, DocumentTable.id == SectionTable.document_id)
-            .where(DocumentTable.collection_id == collection_id)
+        collection_documents = select(DocumentTable.id).where(
+            DocumentTable.collection_id == collection_id
         )
         async with self._sessions.begin() as session:
             placements = (
@@ -502,9 +467,7 @@ class PostgresCorpusRepository:
                     await session.execute(
                         select(ChunkVersionTable.id)
                         .where(
-                            ChunkVersionTable.section_revision_id.in_(
-                                collection_revisions
-                            ),
+                            ChunkVersionTable.document_id.in_(collection_documents),
                             ~exists().where(
                                 ReleaseChunkTable.chunk_version_id
                                 == ChunkVersionTable.id
@@ -519,32 +482,8 @@ class PostgresCorpusRepository:
             chunks_deleted, chunks_kept = await _delete_unreferenced(
                 session, ChunkVersionTable, orphan_chunks
             )
-            orphan_revisions = (
-                (
-                    await session.execute(
-                        select(SectionRevisionTable.id)
-                        .where(
-                            SectionRevisionTable.id.in_(collection_revisions),
-                            ~exists().where(
-                                ReleaseChunkTable.section_revision_id
-                                == SectionRevisionTable.id
-                            ),
-                            ~exists().where(
-                                ChunkVersionTable.section_revision_id
-                                == SectionRevisionTable.id
-                            ),
-                        )
-                        .order_by(SectionRevisionTable.id)
-                    )
-                )
-                .scalars()
-                .all()
-            )
-            revisions_deleted, _ = await _delete_unreferenced(
-                session, SectionRevisionTable, orphan_revisions
-            )
-            collection_documents = select(DocumentTable.id).where(
-                DocumentTable.collection_id == collection_id
+            live_documents = select(ChunkVersionTable.document_id).union(
+                select(ReleaseChunkTable.document_id)
             )
             sections_deleted = len(
                 (
@@ -552,12 +491,7 @@ class PostgresCorpusRepository:
                         delete(SectionTable)
                         .where(
                             SectionTable.document_id.in_(collection_documents),
-                            ~exists().where(
-                                SectionRevisionTable.section_id == SectionTable.id
-                            ),
-                            ~exists().where(
-                                ReleaseChunkTable.section_id == SectionTable.id
-                            ),
+                            SectionTable.document_id.not_in(live_documents),
                         )
                         .returning(SectionTable.id)
                     )
@@ -569,9 +503,7 @@ class PostgresCorpusRepository:
                         delete(DocumentTable)
                         .where(
                             DocumentTable.collection_id == collection_id,
-                            ~exists().where(
-                                SectionTable.document_id == DocumentTable.id
-                            ),
+                            DocumentTable.id.not_in(live_documents),
                         )
                         .returning(DocumentTable.id)
                     )
@@ -581,7 +513,6 @@ class PostgresCorpusRepository:
             release_chunks_deleted=len(placements),
             chunk_versions_deleted=chunks_deleted,
             chunk_versions_kept=chunks_kept,
-            section_revisions_deleted=revisions_deleted,
             sections_deleted=sections_deleted,
             documents_deleted=documents_deleted,
         )

@@ -176,10 +176,6 @@ class MessageCitationTable(Base):
 
     __tablename__ = "message_citations"
     __table_args__ = (
-        CheckConstraint(
-            "strategy IN ('search_only', 'chunk_window', 'full_section')",
-            name="strategy",
-        ),
         Index("ix_message_citations_chunk_version_id", "chunk_version_id"),
         Index("ix_message_citations_release_id", "release_id"),
     )
@@ -195,10 +191,6 @@ class MessageCitationTable(Base):
     )
     release_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("corpus.releases.id", ondelete="RESTRICT"), nullable=False
-    )
-    strategy: Mapped[str] = mapped_column(String(16), nullable=False)
-    block_chunk_version_ids: Mapped[list[uuid.UUID]] = mapped_column(
-        ARRAY(Uuid), nullable=False
     )
 
 

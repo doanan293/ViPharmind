@@ -36,14 +36,7 @@ from tests.fakes import FakeEmbedder, fake_vector
 pytestmark = pytest.mark.integration
 
 PHYSICAL = "chunks_fake_embedding_4d"
-PAYLOAD_KEYS = {
-    "collection_id",
-    "release_ids",
-    "document_id",
-    "section_id",
-    "section_revision_id",
-    "kind",
-}
+PAYLOAD_KEYS = {"collection_id", "release_ids", "document_id"}
 
 
 @dataclass

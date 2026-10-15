@@ -25,13 +25,7 @@ IDS_PER_REQUEST = 500
 POINTS_PER_UPSERT = 256
 OPERATIONS_PER_BATCH = 100
 TENANT_FIELD = "collection_id"
-KEYWORD_PAYLOAD_FIELDS = (
-    "release_ids",
-    "document_id",
-    "section_id",
-    "section_revision_id",
-    "kind",
-)
+KEYWORD_PAYLOAD_FIELDS = ("release_ids", "document_id")
 
 
 def physical_collection_name(model: str) -> str:
@@ -43,9 +37,6 @@ def point_payload(item: IndexItem) -> dict[str, object]:
         "collection_id": str(item.collection_id),
         "release_ids": [str(release_id) for release_id in item.release_ids],
         "document_id": str(item.document_id),
-        "section_id": str(item.section_id),
-        "section_revision_id": str(item.section_revision_id),
-        "kind": item.kind.value,
     }
 
 
