@@ -5,10 +5,18 @@ Nền: release v1.0.0 (bản nộp SoICT 2026) và ghi chú nghiên cứu trong 
 
 ## 0. Mục tiêu
 
+**Nguyên tắc áp dụng cho mọi phần của spec này:** v2 chỉ tối ưu hiệu quả. Không giữ bất kỳ thiết kế,
+dạng dữ liệu, cấu hình hay đoạn mã nào chỉ để số v2 so sánh được với v1. v1 đã đóng băng ở release
+v1.0.0 và Kaggle `vipharmind-data` version 1; mọi nhánh tương thích ngược, công cụ chuyển đổi một
+lần và dữ liệu v1 cục bộ đều bị gỡ. Bài trình bày kết quả v2 như kết quả cuối, không có phần "so với
+v1". Chỗ nào bên dưới còn nhắc "như v1" chỉ mô tả cách làm cũ đang được dùng lại vì nó tốt, không
+phải ràng buộc.
+
+
 Bản v2 không nhắm một venue cụ thể. Mục tiêu là bài tốt nhất có thể, với tính mới tập trung vào
 **đo chất lượng, độ trễ và chi phí cùng nhau** cho agentic RAG trên model rẻ. Mọi điểm yếu mà
 reviewer có thể bắt phải được giải quyết bằng thí nghiệm hoặc phân tích, không bằng cách hạ tuyên bố.
-Không huấn luyện model nào. Không đổi corpus. Giữ một bài duy nhất với benchmark làm xương sống.
+Không huấn luyện model nào. Corpus được làm lại khi cách chia tốt hơn. Giữ một bài duy nhất với benchmark làm xương sống.
 
 Thành công nghĩa là: bốn đóng góp dưới đây đều có bảng hoặc hình riêng với kiểm định ghép cặp; mọi cấu
 hình trong bài đều có đủ ba trục chất lượng, giây mỗi lượt và USD mỗi 1.000 lượt; mọi câu hỏi trong
@@ -35,8 +43,7 @@ retrieval đã tốt, giữ chất lượng đó với độ trễ và chi phí 
 Bài cố ý chỉ dùng ba LLM: cặp của v1 gồm một model mở rẻ (Qwen3.5-9B) và một model thương mại rẻ
 (Gemini 3.8 Flash), cộng một model nặng (Claude Opus 5.5) làm trần tham chiếu. Đóng góp của bài nằm ở
 kiến trúc (decision model, refinement theo ngưỡng, graph routing so với ReAct), không ở việc xếp hạng
-model; so sánh model đã có nhiều bài làm và không mang tính mới. Giữ cặp v1 cho phép mọi số v2 nối
-thẳng với v1, và mỗi phát hiện về kiến trúc được kiểm trên cả một model mở lẫn một model thương mại.
+model; so sánh model đã có nhiều bài làm và không mang tính mới. Mỗi phát hiện về kiến trúc được kiểm trên cả một model mở lẫn một model thương mại.
 Opus 5.5 trả lời câu hỏi mà reviewer chắc chắn đặt ra: lợi thế của kiến trúc trên model rẻ có còn
 khi generator đã mạnh, và model rẻ cộng Jev cách trần bao xa với chi phí bao nhiêu.
 
@@ -79,7 +86,7 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
     phủ. `JudgeDecision` thêm `confidence: float` (xác suất đủ bằng chứng).
   - Grader (đánh giá, không thuộc pipeline): per-key-fact choice supported/missing/contradicted, harm,
     abstention, injection. Đây là thí nghiệm phụ "decision model làm judge đánh giá" (§4.E), judge chính
-    của bài vẫn là gemini-3.1-flash-lite để so sánh được với v1.
+    của bài là gemini-3.1-flash-lite.
 - Giới hạn cần tôn trọng: 64k token mỗi request, 32k cho state cộng câu hỏi dài nhất (OpenRouter ghi
   ngữ cảnh 32.000, nên lấy 32k làm trần thực tế); evidence 24.000
   ký tự tiếng Việt ước 7 đến 16k token. Việc đầu tiên của plan là đo `usage.input_tokens` cho một khối
@@ -97,8 +104,7 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
 - **Model mở** (Qwen3.5-9B) tự host trên Kaggle bằng `pharma-lab e2e llm-server --model
   qwen3.5:9b-f16`: llama.cpp GGUF F16 chia trên hai T4, 4 slot mỗi slot 32.768 token (v1 dùng
   16.384; nâng lên cho hội thoại ReAct, không đổi đầu ra của các lời gọi ngắn hơn), tunnel
-  cloudflared, cùng model, precision và phần cứng với run v1 (`docs/guides/e2e-evaluation.md`). Nhờ vậy run Qwen v2 nối
-  thẳng với run v1 mà không đổi precision hay provider.
+  cloudflared, cùng model, precision và phần cứng với run v1 (`docs/guides/e2e-evaluation.md`).
 - **Model thương mại** (Gemini 3.8 Flash, gemini-3.1-flash-lite, Claude Opus 5.5) qua service
   `cli-proxy-api` của compose (image `eceasy/cli-proxy-api:v8.0.28`, bản cũ v7.3.0 giả lập Claude
   Code quá cũ để gọi Opus 5.5), endpoint `http://127.0.0.1:8317/v1`, key `proxypal-local`, như v1 đã
@@ -113,8 +119,6 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   Antigravity chỉ có id `gemini-3.8-flash-high` và override payload trong `config.yaml` đặt
   `thinkingLevel: low`, mức thấp nhất model nhận (`minimal` bị từ chối), đo được 0 token reasoning;
   Qwen3.5-9B `chat_template_kwargs.enable_thinking: false`.
-  Khác với v1, nơi Gemini chạy thinking high, nên A1 chạy lại ở mức low và bài giữ số v1 làm tham
-  chiếu lịch sử.
 - Chi phí trong bài luôn tính theo giá niêm yết nhân token, kể cả với model thương mại đi qua
   proxy thuê bao, kể cả Opus 5.5, và kể cả Qwen3.5-9B tự host: Qwen tính theo giá niêm yết trên
   OpenRouter (DeepInfra bf16), tức đúng giá production sẽ trả, không theo giờ GPU Kaggle. Bài nói
@@ -139,7 +143,7 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   chỉ có hai mức thực sự khác nhau. Trước khi đổi, chấm lại các item dược sĩ đã chấm mù của v1
   (`e2e-gemini` và `e2e-qwen35-9b`, `calibration/grades.jsonl`) bằng `none` vào một run root riêng,
   không ghi đè judgments v1, rồi so κ và AC1 với người chấm ở `medium`. Chênh không đáng kể thì dùng
-  `none` và chấm lại toàn bộ run v1 bằng `none` để mọi số v1 và v2 cùng một judge; tụt rõ thì giữ
+  `none` cho mọi run v2; tụt rõ thì giữ
   `medium` và bài ghi lý do. Phép thử nhanh ngày 2026-10-14 cho thấy rủi ro là thật: một câu tính
   thể tích (400 mg từ ống 250 mg/5 ml) đúng 8 ml ở `medium` nhưng sai 6,4 ml ở cả `none` và `low`,
   ba lần gọi như nhau.
@@ -246,8 +250,25 @@ công bằng:
   của item leaflet ánh xạ sang section con mới; chạy `golden check`.
 - **Hệ quả:** mọi số retrieval v1 vô hiệu; chạy lại bảng retrieval với năm embedding tự host và
   bốn reranker trên Kaggle (bỏ BGE-reranker-v2-gemma; bỏ OpenAI text-embedding-3-large vì run v1 là
-  run nhập từ pipeline cũ, không tái lập được); bài có đoạn "so với v1" nói rõ v1 có gợi ý trong
-  câu hỏi.
+  run nhập từ pipeline cũ, không tái lập được); bài chỉ trình bày số trên benchmark mới.
+
+### 3.0b Tập "cần tra nhiều lượt" trong golden (tổng golden vẫn 500 câu)
+
+- Mục đích: làm rõ giá trị của vòng judge-refine, vốn bị che vì retrieval một lượt đã đủ bằng
+  chứng cho hầu hết câu (v1 chỉ đo được chênh 0,028 truthfulness khi bỏ vòng lặp).
+- Phân bổ golden mới: answerable thường 270 (45 × 6 nhóm), category mới `multi_hop` 150,
+  multi-turn 50, unanswerable, out-of-scope, injection 10 mỗi loại. Mục §3.2 nâng nhóm an toàn lên
+  50 không còn áp dụng; limitations nêu khoảng tin cậy rộng của 10 câu mỗi loại.
+- 150 câu answerable bị bỏ là những câu mà retrieval một lượt (hybrid + rerank, top 8) đã phủ đủ
+  section gold, bỏ đều theo nhóm.
+- Câu `multi_hop` chọn bằng dữ liệu: ứng viên là câu mà retrieval một lượt thiếu ít nhất một
+  section gold. Bốn loại, mỗi loại 30 đến 45 câu: đa intent ba mục; hai thuốc (tương tác hoặc so
+  sánh, bằng chứng từ hai chuyên luận); biệt dược sang hoạt chất (tờ hướng dẫn thiếu mục, Dược thư
+  có); câu nhiễu hoặc gõ sai mà vòng đầu trượt. Key fact, quote và `golden check` như hiện nay;
+  bản nháp key fact do LLM qua proxy trích từ section gold, tác giả và dược sĩ duyệt.
+- Metric mới cho vòng lặp, báo riêng trên `multi_hop` và trên phần còn lại: độ phủ section gold
+  sau vòng 1 và sau vòng cuối, số vòng thực dùng, tỷ lệ câu được cứu (thiếu sau vòng 1, đủ sau vòng
+  cuối). `AnswerRecord` lưu evidence của từng vòng.
 
 ### 3.1 Lớp hội thoại của benchmark retrieval
 
@@ -272,7 +293,6 @@ công bằng:
 - Nâng `QUOTAS` unanswerable, out_of_scope, injection lên 50 mỗi loại; viết thêm 120 item theo hướng
   dẫn authoring hiện có, với tập injection phủ thêm kiểu tấn công kênh lựa chọn (Azizi et al.) và chèn
   nội dung tự nhiên vào câu hỏi (Xu et al.). Run cũ chỉ chạy bổ sung item mới.
-- Bộ golden 500 item hiện tại giữ nguyên nội dung các item cũ để so sánh với v1.
 
 ### 3.3 Tập giữ lại cho ngưỡng và hiệu chuẩn
 
@@ -291,8 +311,7 @@ golden và cùng judge đánh giá.
 
 ### A. Phân vai theo loại model (đóng góp 1)
 
-Ba model dùng xuyên suốt bài (giá USD mỗi triệu token vào/ra, ngày 2026-10-14): cặp của v1 để mọi
-số nối được với v1, cộng một model nặng làm trần (lý do ở §1):
+Ba model dùng xuyên suốt bài (giá USD mỗi triệu token vào/ra, ngày 2026-10-14): một model mở rẻ và một model thương mại rẻ, cộng một model nặng làm trần (lý do ở §1):
 
 | Nhóm | Model | Giá | Đường gọi |
 | --- | --- | --- | --- |
