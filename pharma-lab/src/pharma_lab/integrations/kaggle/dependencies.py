@@ -29,7 +29,7 @@ DesiredBuilder = Callable[
 ]
 
 # Kept from the project's former name: corpus-embed jobs mount this existing dataset.
-BUNDLE_INPUT_DATASET_SLUG = "seed-pipeline-bundle"
+BUNDLE_INPUT_DATASET_SLUG = "vipharmind-bundle"
 
 
 def input_dataset_slug(job: StageJob) -> str:

@@ -46,10 +46,6 @@ from pharma_lab.runtime.catalog import require_model
 
 DISPLAY_HIT_KS = (3, 5, 10, 30)
 BREAKDOWN_DIMENSIONS = ("eval_group",)
-EVAL_GROUP_DISPLAY_LABELS = {
-    "leaflet": "brand_product_qa",
-    "chunk_risk": "chunk_level_retrieval",
-}
 
 
 def validate_metrics_cutoff(top_k: int, candidate_k: int) -> None:
@@ -129,12 +125,7 @@ def markdown_breakdown_tables(breakdowns: dict, top_k: int = 30) -> str:
         ]
         for value, metrics in sorted(breakdowns[dimension].items()):
             count = metrics["count"]
-            display_value = (
-                EVAL_GROUP_DISPLAY_LABELS.get(value, value)
-                if dimension == "eval_group"
-                else value
-            )
-            cells = [display_value, str(int(count))]
+            cells = [str(value), str(int(count))]
             cells.extend(
                 f"{metrics.get(f'hit@{k}', 0.0) / count * 100:.2f}%"
                 for k in DISPLAY_HIT_KS

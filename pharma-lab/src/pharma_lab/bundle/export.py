@@ -110,6 +110,17 @@ def document_for_section(row: Mapping[str, Any]) -> DocumentRecord:
     )
 
 
+# Short notes that only point to another section ("Xem mục Quá liều và xử trí.") answer
+# nothing themselves. "Thông tin qui chế" stays: it says whether health insurance pays.
+_CROSS_REFERENCE = re.compile(r"^\s*(xem|tham khảo)\b", re.IGNORECASE)
+CROSS_REFERENCE_MAX_CHARS = 160
+
+
+def is_cross_reference_only(text: str) -> bool:
+    body = text.strip()
+    return len(body) < CROSS_REFERENCE_MAX_CHARS and bool(_CROSS_REFERENCE.match(body))
+
+
 def export_bundle(request: ExportRequest) -> ExportResult:
     output_dir = Path(request.output_dir)
     if output_dir.exists() and not request.force:
@@ -134,7 +145,10 @@ def export_bundle(request: ExportRequest) -> ExportResult:
             if is_leaflet
             else _formulary_blocks(section_key, blocks_by_section.get(section_key, []))
         )
-        if not blocks:
+        if not blocks or (
+            not is_leaflet
+            and is_cross_reference_only("\n\n".join(block.markdown for block in blocks))
+        ):
             skipped.append(section_key)
             continue
         document = document_for_section(row)
@@ -245,12 +259,12 @@ def _leaflet_path(section_key: str) -> tuple[str, str]:
 
 
 def leaflet_document_key(row: Mapping[str, Any]) -> str:
-    """Key of the leaflet page: ``page_id`` when present, else the page part of the key."""
+    """Key of the leaflet page a section belongs to."""
     page_id = str(row.get("page_id") or "")
-    if page_id:
-        return page_id
-    category, slug = _leaflet_path(str(row["id"]))
-    return f"{LEAFLET_SECTION_PREFIX}{category}:{slug}"
+    if not page_id:
+        raise ValueError(f"Leaflet section {row['id']} has no page_id")
+    _leaflet_path(page_id)
+    return page_id
 
 
 def _blocks_by_section(

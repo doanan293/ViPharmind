@@ -73,7 +73,7 @@ def test_pull_forwards_force(
 
     def fake_pull(**kwargs):
         captured.update(kwargs)
-        return PullResult("owner/seed-pipeline-data", 10, 3, 7, 1)
+        return PullResult("owner/vipharmind-data", 10, 3, 7, 1)
 
     monkeypatch.setattr(data_command, "pull_data", fake_pull)
 

@@ -81,14 +81,12 @@ def test_markdown_breakdown_tables_renders_only_compact_metrics():
         "| MRR@30 |" in rendered
     )
     assert (
-        "| brand_product_qa | 1 | 100.00% | 100.00% | 100.00% | 100.00% | 1.0000 "
+        "| leaflet | 1 | 100.00% | 100.00% | 100.00% | 100.00% | 1.0000 "
         "| 1.0000 | 1.0000 |" in rendered
     )
     assert (
-        "| chunk_level_retrieval | 2 | 50.00% | 100.00% | 100.00% | 100.00% | 0.7500 "
+        "| chunk_risk | 2 | 50.00% | 100.00% | 100.00% | 100.00% | 0.7500 "
         "| 0.7500 | 0.3750 |" in rendered
     )
     assert "## Breakdown by difficulty" not in rendered
-    assert "| leaflet |" not in rendered
-    assert "| chunk_risk |" not in rendered
     assert "Complete-evidence" not in rendered

@@ -103,7 +103,6 @@ class GoldenItem(BaseModel):
     reference: Reference = Field(default_factory=Reference)
     absent_terms: list[str] = Field(default_factory=list)
     eval_group: str | None = None
-    difficulty: str | None = None
     tags: list[str] = Field(default_factory=list)
 
     @property

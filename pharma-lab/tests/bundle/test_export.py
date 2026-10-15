@@ -22,7 +22,9 @@ from pharma_lab.bundle.export import (
     ExportRequest,
     ExportResult,
     block_kind_for,
+    document_for_section,
     export_bundle,
+    is_cross_reference_only,
     leaflet_blocks,
 )
 from pharma_lab.corpus.canonical.build_canonical_rag import (
@@ -255,3 +257,30 @@ def test_export_groups_leaflet_subsections_under_one_document(tmp_path: Path) ->
     )
     assert f"{EFFERALGAN}:02-cach-dung-lieu-dung" in mapping.section_keys
     assert mapping.product_names.count("Efferalgan 500 mg") == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Xem mục Quá liều và xử trí.", True),
+        ("Xem phần Cách dùng ở trên.", True),
+        ("Thuốc thuộc danh mục bảo hiểm y tế thanh toán.", False),
+        ("Ziagen.", False),
+        ("Ngừng thuốc. " + "Theo dõi chức năng gan. " * 10, False),
+    ],
+)
+def test_sections_that_only_point_elsewhere_are_left_out(
+    text: str, expected: bool
+) -> None:
+    assert is_cross_reference_only(text) is expected
+
+
+def test_a_leaflet_row_without_page_id_is_rejected() -> None:
+    with pytest.raises(ValueError, match="page_id"):
+        document_for_section(
+            {
+                "id": "leaflet:thuoc:x:01-thanh-phan",
+                "title": "X",
+                "section": "Thành phần",
+            }
+        )

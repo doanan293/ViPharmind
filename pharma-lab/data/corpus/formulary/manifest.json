@@ -19,15 +19,15 @@
     "curated_table_overrides_sha256": "6c3b043b9f3dd1d17107bea9b33c62d58c454c50a779632963f8d6daf6089474"
   },
   "document_count": 3120,
-  "section_count": 34559,
+  "section_count": 34552,
   "files": {
     "documents.jsonl": {
       "sha256": "27565698b3d4852c243583752b3e6d91cccda2a33d102fbcf6bffe4c517c20a2",
       "bytes": 778280
     },
     "sections.jsonl": {
-      "sha256": "20ad380a6ac584e625b5ebccaea14533f21aa5ef960bffffba4bc32f0ab1cbd0",
-      "bytes": 70013265
+      "sha256": "6c13458bdc22a372d9187d61b23c6a9fa744d491ccfc2794109909e4adbbd286",
+      "bytes": 70010533
     },
     "glossary.json": {
       "sha256": "bcedbf996455ddde29070de1b4151d911c452a8d2a12309e056f31d0636091f6",
