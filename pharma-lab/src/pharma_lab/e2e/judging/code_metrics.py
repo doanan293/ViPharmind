@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from pharma_lab.e2e.golden import Category, ExpectedBehavior, GoldenItem
 from pharma_lab.e2e.records import AnswerRecord
@@ -39,16 +39,16 @@ def behaviour_correct(
 
 def is_relevant_chunk(
     item: GoldenItem,
-    section_id: str | None,
+    section_ids: Sequence[str],
     chunk_id: str | None,
     accepted: Mapping[str, frozenset[str]],
 ) -> bool:
-    """A chunk from a gold section, or one the relevance judgments accept for it.
+    """A chunk holding a gold section, or one the relevance judgments accept for it.
 
     The same rule scores the retrieval benchmark, so a leaflet chunk with the gold
     monograph's ingredients and intent counts in both places.
     """
-    if section_id is not None and section_id in item.gold_section_ids:
+    if any(section in item.gold_section_ids for section in section_ids):
         return True
     return chunk_id is not None and any(
         chunk_id in chunks for chunks in accepted.values()
@@ -71,7 +71,7 @@ def citation_scores(
         return 0.0, 0.0
     judged = accepted or {}
     hits = sum(
-        is_relevant_chunk(item, citation.section_id, citation.chunk_id, judged)
+        is_relevant_chunk(item, citation.section_ids, citation.chunk_id, judged)
         for citation in record.citations
     )
     return hits / len(record.citations), 1.0 if hits else 0.0

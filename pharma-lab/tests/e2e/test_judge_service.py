@@ -106,7 +106,7 @@ def answer(item_id: str = "e2e-ans-0001", **changes: object) -> AnswerRecord:
         "context_text": CONTEXT,
         "citations": [
             CitedSection(
-                index=1, chunk_version_id="c", chunk_id=None, section_id=SECTION
+                index=1, chunk_version_id="c", chunk_id=None, section_ids=[SECTION]
             )
         ],
     }

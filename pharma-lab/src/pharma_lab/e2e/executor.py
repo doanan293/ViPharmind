@@ -21,7 +21,12 @@ from pharma_agent.domain.shared.clock import Clock, SystemClock
 from pharma_lab.bundle.chunks import gold_chunk_label
 from pharma_lab.e2e.golden import GoldenItem
 from pharma_lab.e2e.recording_llm import RecordingLlm
-from pharma_lab.e2e.records import AnswerRecord, CitedSection, TokenUsage
+from pharma_lab.e2e.records import (
+    AnswerRecord,
+    CitedSection,
+    RetrievedChunk,
+    TokenUsage,
+)
 
 E2E_USER = "e2e-evaluation"
 
@@ -86,8 +91,8 @@ def answer_record(
                 chunk_version_id=str(citation.chunk_version_id),
                 chunk_id=None
                 if hit is None
-                else gold_chunk_label(hit.section_key, hit.ordinal),
-                section_id=None if hit is None else hit.section_key,
+                else gold_chunk_label(hit.document_key, hit.ordinal),
+                section_ids=[] if hit is None else list(hit.section_keys),
             )
         )
     entries = run.actions.entries
@@ -101,8 +106,11 @@ def answer_record(
         answer_text=outcome.answer_text,
         context_text=outcome.context_text,
         citations=citations,
-        retrieved_chunk_ids=[
-            gold_chunk_label(e.hit.section_key, e.hit.ordinal)
+        retrieved=[
+            RetrievedChunk(
+                chunk_id=gold_chunk_label(e.hit.document_key, e.hit.ordinal),
+                section_ids=list(e.hit.section_keys),
+            )
             for e in run.evidence.active()
         ],
         standalone_query=run.standalone_query,
@@ -112,10 +120,7 @@ def answer_record(
             if action.kind is ActionKind.SEARCH
         ],
         rounds=[
-            [
-                gold_chunk_label(key, ordinal)
-                for key, ordinal in action.payload["evidence"]
-            ]
+            sorted({s for item in action.payload["evidence"] for s in item["sections"]})
             for action in entries
             if action.kind is ActionKind.SEARCH
         ],
@@ -227,7 +232,7 @@ class ClosedBookExecutor:
             answer_text="".join(parts),
             context_text="",
             citations=[],
-            retrieved_chunk_ids=[],
+            retrieved=[],
             standalone_query=item.question,
             search_queries=[],
             rounds=[],

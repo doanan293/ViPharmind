@@ -16,12 +16,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pharma_lab.e2e.corpus_text import CorpusText, normalize_space
 from pharma_lab.evaluation.artifact_contracts import sha256_file, write_json
 
-SCHEMA = "e2e-golden-v2"
+SCHEMA = "e2e-golden-v3"
 ANSWERABLE_PER_GROUP = 45
 EVAL_GROUPS = (
     "formulary",
     "leaflet",
-    "chunk_risk",
+    "structured",
     "leaflet_short",
     "noisy",
     "multi_intent",
@@ -108,7 +108,6 @@ class GoldenItem(BaseModel):
     turns: list[Turn]
     expected_behavior: ExpectedBehavior
     gold_section_ids: list[str] = Field(default_factory=list)
-    gold_chunk_ids: list[str] = Field(default_factory=list)
     reference: Reference = Field(default_factory=Reference)
     absent_terms: list[str] = Field(default_factory=list)
     eval_group: str | None = None
@@ -203,7 +202,7 @@ def _item_problems(item: GoldenItem, corpus: CorpusText) -> list[str]:
     if item.expected_behavior is ExpectedBehavior.GROUNDED:
         if not facts or not item.gold_section_ids:
             problems.append(f"{name}: grounded items need key facts and gold sections")
-    elif facts or item.gold_section_ids or item.gold_chunk_ids:
+    elif facts or item.gold_section_ids:
         problems.append(f"{name}: non-grounded items have no key facts or gold ids")
     for section_id in item.gold_section_ids:
         if section_id not in corpus.sections:

@@ -21,13 +21,22 @@ class TokenUsage(BaseModel):
     seconds: float = 0.0
 
 
+class RetrievedChunk(BaseModel):
+    """A chunk the agent read, by its gold label and the sections it holds."""
+
+    model_config = _RECORD
+
+    chunk_id: str
+    section_ids: list[str] = Field(default_factory=list)
+
+
 class CitedSection(BaseModel):
     model_config = _RECORD
 
     index: int
     chunk_version_id: str
     chunk_id: str | None
-    section_id: str | None
+    section_ids: list[str] = Field(default_factory=list)
 
 
 class ItemRecord(BaseModel):
@@ -45,11 +54,11 @@ class AnswerRecord(ItemRecord):
     answer_text: str = ""
     context_text: str = ""
     citations: list[CitedSection] = Field(default_factory=list)
-    # Gold labels of every chunk the final evidence set held, in rank order.
-    retrieved_chunk_ids: list[str] = Field(default_factory=list)
+    # Every chunk the final evidence set held, in rank order.
+    retrieved: list[RetrievedChunk] = Field(default_factory=list)
     standalone_query: str = ""
     search_queries: list[list[str]] = Field(default_factory=list)
-    # Gold labels of the evidence each search round left active, one list per round.
+    # Section keys the evidence of each search round covered, one sorted list per round.
     rounds: list[list[str]] = Field(default_factory=list)
     judge_outcomes: list[str] = Field(default_factory=list)
     llm_calls: int = 0

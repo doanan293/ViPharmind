@@ -29,7 +29,7 @@ def test_closed_book_asks_the_answer_model_with_history_and_no_documents():
     # The answer counts as an attempt, so the judge scores its content.
     assert record.answer_mode == "grounded"
     assert record.context_text == ""
-    assert record.citations == [] and record.retrieved_chunk_ids == []
+    assert record.citations == [] and record.retrieved == []
     assert record.llm_calls == 1
     assert record.usage_by_role["answer"].prompt_tokens == 100
     assert record.error is None and not record.retryable
