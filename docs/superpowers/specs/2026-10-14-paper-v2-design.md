@@ -341,6 +341,10 @@ chạy trước Task 7 của plan pha D.
   `headings` theo thứ tự. Mục (section) vẫn là đơn vị nguồn gốc: benchmark và golden giữ gold theo
   section id; một chunk trúng khi bất kỳ mục nào của nó là gold (hoặc nhãn relevance chấp nhận chunk
   đó). Câu nhiều mục: một chunk có thể thoả nhiều đơn vị bằng chứng cùng lúc.
+  Id của chunk version băm từ `document_id` (đã gắn collection), danh sách `section_keys`, chunk text,
+  embedding text và phiên bản chunker: cùng một tờ hướng dẫn ở hai collection, hoặc đoạn lặp lại
+  trong một tờ, luôn là hai dòng riêng. `corpus gc` xoá cả point Qdrant của collection mà không release
+  sống nào nhắc tới (ví dụ point còn lại sau migration 0021).
 - **Bỏ hẳn hydrate ở backend:** `HydrateStrategy`, `Hydrator`, `PostgresHydrator`, `section_chunks`,
   `hydrate_window`, cột `hydrate_strategy` và bảng `section_revisions`; chunk version trỏ thẳng tài
   liệu; Qdrant payload còn `collection_id`, `document_id`, `release_ids`. Citation lưu một chunk và
