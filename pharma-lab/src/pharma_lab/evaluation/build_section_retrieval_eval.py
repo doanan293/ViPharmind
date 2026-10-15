@@ -858,6 +858,12 @@ def auto_query_for_chunk(chunk: dict, section: dict, category: str) -> str:
     return f"Tìm thông tin về {section_label(section)}"
 
 
+def sections_in_bundle(sections: list[dict], chunks: list[dict]) -> list[dict]:
+    """Keep the sections the bundle exports; chunks come from the bundle, sections not."""
+    exported = {chunk.get("section_id") for chunk in chunks}
+    return [section for section in sections if section.get("id") in exported]
+
+
 def build_chunks_by_section(chunks: list[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = defaultdict(list)
     for chunk in chunks:
@@ -2391,8 +2397,8 @@ def build_jsonl(
     target_rows: int = DEFAULT_TARGET_ROWS,
     patient_queries_path: Path | None = None,
 ) -> list[dict]:
-    sections = load_jsonl(sections_path)
     chunks = load_jsonl(chunks_path)
+    sections = sections_in_bundle(load_jsonl(sections_path), chunks)
 
     patient_json_path = patient_queries_path or (GOLD_DIR / "patient_queries.json")
     patient_rows = []
