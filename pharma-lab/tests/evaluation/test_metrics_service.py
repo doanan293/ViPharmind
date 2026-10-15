@@ -49,13 +49,15 @@ def test_accumulate_breakdown_metrics_groups_rows_by_eval_group():
 def test_markdown_breakdown_tables_renders_only_compact_metrics():
     breakdowns = {
         "eval_group": {
-            "chunk_risk": {
+            "structured": {
                 "count": 2,
                 "hit@3": 1,
                 "hit@5": 2,
                 "hit@10": 2,
                 "hit@30": 2,
                 "mrr": 0.75,
+                "ndcg@5": 1.0,
+                "mrr@5": 1.0,
                 "ndcg@10": 1.5,
                 "mrr@10": 1.5,
                 "multi_count": 1,
@@ -67,6 +69,8 @@ def test_markdown_breakdown_tables_renders_only_compact_metrics():
                 "hit@10": 1,
                 "hit@30": 1,
                 "mrr": 1.0,
+                "ndcg@5": 1.0,
+                "mrr@5": 1.0,
                 "ndcg@10": 1.0,
                 "mrr@10": 1.0,
             },
@@ -77,16 +81,16 @@ def test_markdown_breakdown_tables_renders_only_compact_metrics():
 
     assert "## Breakdown by eval_group" in rendered
     assert (
-        "| eval_group | Count | Hit@3 | Hit@5 | Hit@10 | Hit@30 | nDCG@10 | MRR@10 "
-        "| MRR@30 |" in rendered
+        "| eval_group | Count | Hit@3 | Hit@5 | Hit@10 | Hit@30 | nDCG@5 | MRR@5 "
+        "| nDCG@10 | MRR@10 | MRR@30 |" in rendered
     )
     assert (
-        "| leaflet | 1 | 100.00% | 100.00% | 100.00% | 100.00% | 1.0000 "
-        "| 1.0000 | 1.0000 |" in rendered
+        "| leaflet | 1 | 100.00% | 100.00% | 100.00% | 100.00% | 1.0000 | 1.0000 "
+        "| 1.0000 | 1.0000 | 1.0000 |" in rendered
     )
     assert (
-        "| chunk_risk | 2 | 50.00% | 100.00% | 100.00% | 100.00% | 0.7500 "
-        "| 0.7500 | 0.3750 |" in rendered
+        "| structured | 2 | 50.00% | 100.00% | 100.00% | 100.00% | 0.5000 | 0.5000 "
+        "| 0.7500 | 0.7500 | 0.3750 |" in rendered
     )
     assert "## Breakdown by difficulty" not in rendered
     assert "Complete-evidence" not in rendered

@@ -139,7 +139,7 @@ def export_bundle(request: ExportRequest) -> ExportResult:
         section_key = str(row["id"])
         is_leaflet = section_key.startswith(LEAFLET_SECTION_PREFIX)
         blocks = (
-            leaflet_blocks(str(row.get("text") or ""))
+            leaflet_blocks(leaflet_body(str(row.get("text") or "")))
             if is_leaflet
             else _formulary_blocks(section_key, blocks_by_section.get(section_key, []))
         )
@@ -291,6 +291,17 @@ def _formulary_blocks(
             )
         )
     return blocks
+
+
+_PAGE_TITLE = re.compile(r"\A# [^\n]*\n+")
+_OWN_HEADING = re.compile(r"\A#{2,4}[ \t]+[^\n]*\n+")
+
+
+def leaflet_body(text: str) -> str:
+    """A leaflet section without its page title and its own heading line: the chunker
+    writes the heading, and the document title is in every chunk header."""
+    body = _PAGE_TITLE.sub("", text.strip(), count=1)
+    return _OWN_HEADING.sub("", body, count=1).strip()
 
 
 def leaflet_blocks(text: str) -> list[BlockRecord]:

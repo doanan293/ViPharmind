@@ -13,6 +13,7 @@ from pharma_lab.e2e.records import (
     JsonlStore,
     Judgement,
     RetrievedChunk,
+    RoundRecord,
     TokenUsage,
 )
 from pharma_lab.e2e.report import (
@@ -268,7 +269,14 @@ def test_numbers_keep_three_decimals_up_to_one() -> None:
 
 def _loop_view(rounds: list[list[str]], gold: list[str]) -> ItemView:
     item = golden(1).model_copy(update={"gold_section_ids": gold})
-    record = answer(1, "full").model_copy(update={"rounds": rounds})
+    record = answer(1, "full").model_copy(
+        update={
+            "rounds": [
+                RoundRecord(sections=s, chunks=len(s), evidence_chars=1000 * len(s))
+                for s in rounds
+            ]
+        }
+    )
     return ItemView(item, record, judgement(1, "full", 1.0), {})
 
 
@@ -283,6 +291,7 @@ def test_loop_metrics_measure_gold_found_per_search_round() -> None:
     assert _metric("gold_coverage_final")(rescued) == 1.0
     assert _metric("rounds_used")(rescued) == 2.0
     assert _metric("rescued_rate")(rescued) == 1.0
+    assert _metric("evidence_chars_final")(rescued) == 2000.0
     first_round_enough = _loop_view([list(gold)], gold)
     assert _metric("rescued_rate")(first_round_enough) is None
     closed_book = _loop_view([], gold)

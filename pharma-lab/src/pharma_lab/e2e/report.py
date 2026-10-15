@@ -166,7 +166,7 @@ def _coverage_after(index: int) -> Callable[[ItemView], float | None]:
         rounds = view.answer.rounds
         if not rounds or not view.item.gold_section_ids:
             return None
-        return _round_coverage(view, rounds[index])
+        return _round_coverage(view, rounds[index].sections)
 
     return read
 
@@ -235,6 +235,15 @@ METRICS: tuple[Metric, ...] = (
         False,
     ),
     Metric("rescued_rate", _rescued, True, False),
+    # Evidence the answer step read after the last round, in characters (spec v2 §3.0c).
+    Metric(
+        "evidence_chars_final",
+        lambda v: (
+            float(v.answer.rounds[-1].evidence_chars) if v.answer.rounds else None
+        ),
+        False,
+        False,
+    ),
     # Cost.
     Metric("tokens_per_turn", lambda v: float(v.answer.total_tokens), False, True),
     Metric("llm_calls_per_turn", lambda v: float(v.answer.llm_calls), False, True),

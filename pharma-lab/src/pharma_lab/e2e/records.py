@@ -39,6 +39,17 @@ class CitedSection(BaseModel):
     section_ids: list[str] = Field(default_factory=list)
 
 
+class RoundRecord(BaseModel):
+    """What the evidence held after one search round."""
+
+    model_config = _RECORD
+
+    sections: list[str]
+    chunks: int
+    # Characters of the evidence the answer step would read after this round.
+    evidence_chars: int
+
+
 class ItemRecord(BaseModel):
     """A record about one golden item within one configuration."""
 
@@ -58,8 +69,7 @@ class AnswerRecord(ItemRecord):
     retrieved: list[RetrievedChunk] = Field(default_factory=list)
     standalone_query: str = ""
     search_queries: list[list[str]] = Field(default_factory=list)
-    # Section keys the evidence of each search round covered, one sorted list per round.
-    rounds: list[list[str]] = Field(default_factory=list)
+    rounds: list[RoundRecord] = Field(default_factory=list)
     judge_outcomes: list[str] = Field(default_factory=list)
     llm_calls: int = 0
     usage_by_role: dict[str, TokenUsage] = Field(default_factory=dict)

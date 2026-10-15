@@ -60,7 +60,12 @@ def validate_metrics_cutoff(top_k: int, candidate_k: int) -> None:
 
 def _ranking_rows(metrics: dict, count: float) -> list[str]:
     rows = []
-    for key, label in (("ndcg@10", "nDCG@10"), ("mrr@10", "MRR@10")):
+    for key, label in (
+        ("ndcg@5", "nDCG@5"),
+        ("mrr@5", "MRR@5"),
+        ("ndcg@10", "nDCG@10"),
+        ("mrr@10", "MRR@10"),
+    ):
         if key in metrics:
             rows.append(f"| {label} | {metrics[key] / count:.4f} |")
     return rows
@@ -119,9 +124,9 @@ def markdown_breakdown_tables(breakdowns: dict, top_k: int = 30) -> str:
         lines = [
             f"## Breakdown by {dimension}",
             "",
-            f"| {dimension} | Count | Hit@3 | Hit@5 | Hit@10 | Hit@30 | nDCG@10 "
-            f"| MRR@10 | MRR@{top_k} |",
-            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            f"| {dimension} | Count | Hit@3 | Hit@5 | Hit@10 | Hit@30 | nDCG@5 | MRR@5 "
+            f"| nDCG@10 | MRR@10 | MRR@{top_k} |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
         for value, metrics in sorted(breakdowns[dimension].items()):
             count = metrics["count"]
@@ -132,7 +137,7 @@ def markdown_breakdown_tables(breakdowns: dict, top_k: int = 30) -> str:
             )
             cells.extend(
                 f"{metrics.get(key, 0.0) / count:.4f}"
-                for key in ("ndcg@10", "mrr@10", "mrr")
+                for key in ("ndcg@5", "mrr@5", "ndcg@10", "mrr@10", "mrr")
             )
             lines.append("| " + " | ".join(cells) + " |")
         sections.append("\n".join(lines))

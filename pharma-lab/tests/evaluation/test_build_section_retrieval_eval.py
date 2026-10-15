@@ -50,6 +50,8 @@ def test_schema_has_no_difficulty_and_new_groups() -> None:
     } == ALLOWED_EVAL_GROUPS
     assert "confuser" not in ALLOWED_QUERY_FORMS
     assert "typo" in ALLOWED_QUERY_FORMS
+    assert "section_coverage" in ALLOWED_QUERY_FORMS
+    assert "chunk_coverage" not in ALLOWED_QUERY_FORMS
     assert "overdose" in ALLOWED_INTENT_CATEGORIES
     assert FORMULARY_CATEGORY_MAP["overdose"] == ("overdose", "formulary_overdose")
     assert FORMULARY_CATEGORY_MAP["storage"] == ("storage", "formulary_storage")

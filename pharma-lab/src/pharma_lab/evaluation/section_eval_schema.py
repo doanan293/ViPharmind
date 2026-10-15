@@ -71,7 +71,7 @@ ALLOWED_QUERY_FORMS = {
     "leaflet_short",
     "brand_template",
     "colloquial_alias",
-    "chunk_coverage",
+    "section_coverage",
     "multi_intent",
 }
 ALLOWED_INTENT_CATEGORIES = {

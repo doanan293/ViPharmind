@@ -25,6 +25,7 @@ from pharma_lab.e2e.records import (
     AnswerRecord,
     CitedSection,
     RetrievedChunk,
+    RoundRecord,
     TokenUsage,
 )
 
@@ -120,7 +121,13 @@ def answer_record(
             if action.kind is ActionKind.SEARCH
         ],
         rounds=[
-            sorted({s for item in action.payload["evidence"] for s in item["sections"]})
+            RoundRecord(
+                sections=sorted(
+                    {s for item in action.payload["evidence"] for s in item["sections"]}
+                ),
+                chunks=len(action.payload["evidence"]),
+                evidence_chars=action.payload["evidence_chars"],
+            )
             for action in entries
             if action.kind is ActionKind.SEARCH
         ],
