@@ -103,31 +103,3 @@ class PostgresCorpusReader:
         except SQLAlchemyError as exc:
             raise RetrievalError(f"cannot load {len(keys)} chunks: {exc}") from exc
         return [_record(link, chunk, document) for link, chunk, document in rows]
-
-    async def document_chunks(
-        self, release_id: UUID, document_key: str, ordinals: Sequence[int]
-    ) -> list[ChunkRecord]:
-        if not ordinals:
-            return []
-        query = (
-            select(ReleaseChunkTable, ChunkVersionTable, DocumentTable)
-            .join(
-                ChunkVersionTable,
-                ChunkVersionTable.id == ReleaseChunkTable.chunk_version_id,
-            )
-            .join(DocumentTable, DocumentTable.id == ReleaseChunkTable.document_id)
-            .where(
-                ReleaseChunkTable.release_id == release_id,
-                DocumentTable.key == document_key,
-                ReleaseChunkTable.ordinal.in_(list(ordinals)),
-            )
-            .order_by(ReleaseChunkTable.ordinal)
-        )
-        try:
-            async with self._sessions() as session:
-                rows = (await session.execute(query)).tuples().all()
-        except SQLAlchemyError as exc:
-            raise RetrievalError(
-                f"cannot read chunks of document {document_key}: {exc}"
-            ) from exc
-        return [_record(link, chunk, document) for link, chunk, document in rows]

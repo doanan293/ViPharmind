@@ -62,11 +62,6 @@ class FakeReader:
         wanted = set(keys)
         return [r for r in self.records if (r.release_id, r.chunk_version_id) in wanted]
 
-    async def document_chunks(
-        self, release_id: uuid.UUID, document_key: str, ordinals: Sequence[int]
-    ) -> list[ChunkRecord]:
-        return []
-
 
 class FakeEmbeddings:
     def __init__(self, dimension: int) -> None:

@@ -55,9 +55,3 @@ class CorpusReader(Protocol):
     async def load_chunks(self, keys: Sequence[ChunkKey]) -> list[ChunkRecord]:
         """Records for the keys that exist, in no particular order. Raises RetrievalError."""
         ...
-
-    async def document_chunks(
-        self, release_id: UUID, document_key: str, ordinals: Sequence[int]
-    ) -> list[ChunkRecord]:
-        """Chunks of one document in one release, by ordinal, for the agent's read tool. Raises RetrievalError."""
-        ...

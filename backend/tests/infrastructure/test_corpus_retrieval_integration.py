@@ -183,14 +183,6 @@ async def test_imported_bundle_is_searchable_and_chunks_are_read_as_stored(
     )
     assert top.headings == draft.headings and top.ordinal == draft.ordinal
 
-    around = await retrieval.reader.document_chunks(
-        top.release_id, top.document_key, [top.ordinal - 1, top.ordinal + 1]
-    )
-    assert [c.ordinal for c in around] == [
-        d.ordinal for d in drafts if abs(d.ordinal - top.ordinal) == 1
-    ]
-    assert all(c.document_key == top.document_key for c in around)
-
     dosage = next(s for s in bundle.sections if s.key == DOSAGE_SECTION)
     dosage_hits = await search(retrieval, dosage.blocks[0].markdown[:200])
     assert DOSAGE_SECTION in {key for hit in dosage_hits for key in hit.section_keys}
@@ -284,10 +276,6 @@ async def test_publish_and_rollback_switch_search_results(platform: Platform) ->
     assert await retrieval.reader.current_releases([COLLECTION_KEY]) == first
 
     restored = await search(retrieval, "kxdoan1")
-    [original] = with_marker(restored, "kxdoan1")
+    assert len(with_marker(restored, "kxdoan1")) == 1
     assert {hit.release_id for hit in restored} == set(first.values())
     assert with_marker(await search(retrieval, "kxmoi1"), "kxmoi1") == []
-    around = await retrieval.reader.document_chunks(
-        original.release_id, original.document_key, [original.ordinal + 1]
-    )
-    assert around and all("kxmoi1" not in chunk.chunk_text for chunk in around)

@@ -216,3 +216,4 @@ def test_each_search_logs_the_evidence_it_leaves_active() -> None:
             "sections": ["drug:a:chi-dinh", "drug:a:thanh-phan"],
         },
     ]
+    assert search.payload["evidence_chars"] == sum(len(h.chunk_text) for h in hits)

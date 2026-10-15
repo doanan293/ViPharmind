@@ -266,6 +266,10 @@ class AgentRun(BaseModel):
                     }
                     for e in active
                 ],
+                "evidence_chars": sum(
+                    e.char_count()
+                    for e in self.evidence.pack(self.limits.max_evidence_chars)
+                ),
                 "rerank_failed": result.rerank_failed,
                 "rerank_scored": result.rerank_scored,
                 "rerank_reused": result.rerank_reused,
