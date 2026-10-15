@@ -25,7 +25,6 @@ from pharma_agent.domain.corpus.bundle import (
     SectionRecord,
     SourceInfo,
 )
-from pharma_agent.domain.corpus.chunking import MAX_CHUNK_CHARS
 
 from pharma_lab.bundle.io import write_validated_bundle
 from pharma_lab.corpus.canonical.build_canonical_rag import (
@@ -301,13 +300,14 @@ def _formulary_blocks(
 
 
 def leaflet_blocks(text: str) -> list[BlockRecord]:
-    """P1 decision 4: paragraphs joined into prose blocks, long pipe tables kept apart."""
+    """Paragraphs joined into prose blocks; every pipe table is its own block, so the
+    chunker can split a long table by rows and the benchmark knows where tables are."""
     blocks: list[BlockRecord] = []
     prose: list[str] = []
     for paragraph in (part.strip() for part in _PARAGRAPH_BREAK.split(text)):
         if not paragraph:
             continue
-        if paragraph.startswith("|") and len(paragraph) > MAX_CHUNK_CHARS:
+        if paragraph.startswith("|") and "\n|" in paragraph:
             if prose:
                 blocks.append(
                     BlockRecord(kind=BlockKind.PROSE, markdown="\n\n".join(prose))

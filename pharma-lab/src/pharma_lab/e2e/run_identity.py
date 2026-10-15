@@ -64,7 +64,6 @@ def identity_from_settings(
             "prefetch_k": retrieval.prefetch_k,
             "rrf_k": retrieval.rrf_k,
             "candidate_k": retrieval.candidate_k,
-            "hydrate_window": retrieval.hydrate_window,
             "embedding_model": retrieval.embedding.model,
         },
         rerank={

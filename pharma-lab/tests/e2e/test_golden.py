@@ -301,7 +301,8 @@ def test_corpus_text_reads_sections_and_titles_from_a_bundle(tmp_path: Path) -> 
     assert not corpus.contains("zzzz-not-a-drug")
     chunks = chunk_texts(read_bundle(tmp_path / "bundle"), [section_id])
     assert chunks
-    assert all(label.startswith(f"{section_id}:chunk-") for label in chunks)
+    document = corpus.section_documents[section_id]
+    assert all(label.startswith(f"{document}:chunk-") for label in chunks)
 
 
 def test_cli_builds_the_golden_set(tmp_path: Path) -> None:

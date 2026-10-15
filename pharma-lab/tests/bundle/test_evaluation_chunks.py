@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 from pharma_agent.domain.corpus.bundle import read_bundle
@@ -12,19 +11,19 @@ from pharma_lab.bundle.export import ExportRequest, export_bundle
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "rag_final_small"
 FIELDS_READ_BY_THE_BUILDERS = (
     "chunk_id",
-    "section_id",
-    "chunk_index",
+    "document_id",
+    "ordinal",
+    "section_ids",
+    "headings",
     "title",
-    "section",
     "source",
     "content_type",
     "context_header",
-    "context_path",
     "chunk_text",
     "embedding_text",
-    "hydrate_strategy",
-    "chunk_role",
-    "chunk_content_type",
+    "has_table",
+    "has_list",
+    "colloquial_mapping",
     "term_annotations",
 )
 
@@ -41,26 +40,40 @@ def _bundle_dir(tmp_path: Path) -> Path:
     return tmp_path / "bundle"
 
 
-def test_rows_reproduce_the_old_unified_chunk_fields(tmp_path: Path) -> None:
-    rows = evaluation_chunk_rows(read_bundle(_bundle_dir(tmp_path)))
-    old = [
-        json.loads(line)
-        for line in (FIXTURE / "chunks.jsonl").read_text("utf-8").splitlines()
-    ]
+def test_rows_name_the_document_and_every_section_in_the_chunk(tmp_path: Path) -> None:
+    bundle = read_bundle(_bundle_dir(tmp_path))
+    rows = evaluation_chunk_rows(bundle)
 
-    by_id = {row["chunk_id"]: row for row in rows}
-    assert sorted(by_id) == sorted(chunk["chunk_id"] for chunk in old)
-    for chunk in old:
-        row = by_id[chunk["chunk_id"]]
-        for field in FIELDS_READ_BY_THE_BUILDERS:
-            assert row[field] == chunk.get(field, []), (chunk["chunk_id"], field)
-        assert row["table_id"] == chunk.get("table_id", "")
+    assert rows and all(set(row) == set(FIELDS_READ_BY_THE_BUILDERS) for row in rows)
+    for row in rows:
+        assert row["chunk_id"] == f"{row['document_id']}:chunk-{row['ordinal']:03d}"
+        assert row["section_ids"] and len(row["section_ids"]) == len(row["headings"])
+    placed = {key for row in rows for key in row["section_ids"]}
+    assert placed == {section.key for section in bundle.sections}
+    packed = next(row for row in rows if len(row["section_ids"]) > 1)
+    assert packed["context_header"].count(";") == len(packed["headings"]) - 1
+    assert "hydrate_strategy" not in rows[0] and "chunk_role" not in rows[0]
+
+
+def test_structure_flags_follow_the_block_kinds_of_the_packed_sections(
+    tmp_path: Path,
+) -> None:
+    bundle = read_bundle(_bundle_dir(tmp_path))
+    kinds = {
+        section.key: {block.kind.value for block in section.blocks}
+        for section in bundle.sections
+    }
+    for row in evaluation_chunk_rows(bundle):
+        held = set().union(*(kinds[key] for key in row["section_ids"]))
+        assert row["has_table"] == ("table" in held)
+        assert row["has_list"] == bool(held & {"list", "index_entries"})
 
 
 def test_write_evaluation_chunks_writes_one_row_per_chunk(tmp_path: Path) -> None:
+    bundle = read_bundle(_bundle_dir(tmp_path))
     path = tmp_path / "work" / "chunks.jsonl"
 
-    count = write_evaluation_chunks(read_bundle(_bundle_dir(tmp_path)), path)
+    count = write_evaluation_chunks(bundle, path)
 
-    assert count == 6
-    assert len(path.read_text("utf-8").splitlines()) == 6
+    assert count == len(evaluation_chunk_rows(bundle))
+    assert len(path.read_text("utf-8").splitlines()) == count

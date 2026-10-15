@@ -10,9 +10,7 @@ import pytest
 from pharma_agent.domain.corpus.chunking import CHUNKER_VERSION
 from pharma_agent.domain.retrieval.models import (
     Hit,
-    HydrateStrategy,
     Query,
-    RetrievedItem,
 )
 from pharma_agent.domain.retrieval.service import SearchResult
 from pharma_agent.infrastructure.settings import Settings
@@ -46,20 +44,16 @@ def make_hit(ordinal: int, score: float, release: uuid.UUID = RELEASE) -> Hit:
         release_id=release,
         collection_id=COLLECTION,
         document_key="drug:paracetamol",
-        section_key=DOSAGE,
-        section_revision_id=uuid.uuid5(uuid.NAMESPACE_URL, DOSAGE),
         ordinal=ordinal,
-        hydrate_strategy=HydrateStrategy.FULL_SECTION,
+        section_keys=[DOSAGE],
+        headings=["Liều lượng và cách dùng"],
         source="Dược thư Quốc gia Việt Nam",
         title="PARACETAMOL",
-        section="Liều lượng và cách dùng",
         start_page=1133,
         end_page=1134,
         context_header="PARACETAMOL\n> Liều lượng và cách dùng",
         chunk_text=f"Đoạn {ordinal}",
         embedding_text=f"PARACETAMOL\n> Liều lượng và cách dùng\n\nĐoạn {ordinal}",
-        kind="prose",
-        table_key=None,
         colloquial_mapping=None,
         term_annotations=[],
         fusion_score=score,
@@ -80,7 +74,7 @@ class FakeSearchService:
         if self.embedder is not None:
             self.vectors.extend(await self.embedder.embed([q.text for q in queries]))
         return SearchResult(
-            items=[RetrievedItem(hit=hit) for hit in self.hits[rerank_query]],
+            items=list(self.hits[rerank_query]),
             queries=list(queries),
         )
 
@@ -189,13 +183,13 @@ def test_hybrid_retrieval_uses_cached_query_vectors(tmp_path: Path) -> None:
     assert result.artifact.query_count == 2
     first = json.loads(result.artifact.data_path.read_text("utf-8").splitlines()[0])
     assert [c["chunk_id"] for c in first["candidates"]] == [
-        f"{DOSAGE}:chunk-002",
-        f"{DOSAGE}:chunk-001",
+        "drug:paracetamol:chunk-002",
+        "drug:paracetamol:chunk-001",
     ]
     assert first["candidates"][0]["payload"] == {
-        "chunk_id": f"{DOSAGE}:chunk-002",
-        "section_id": DOSAGE,
-        "chunk_index": 2,
+        "chunk_id": "drug:paracetamol:chunk-002",
+        "document_id": "drug:paracetamol",
+        "section_ids": [DOSAGE],
     }
     assert first["candidates"][0]["document_text"] == make_hit(2, 0.9).embedding_text
     identity = load_run_record(tmp_path / "run" / "run.json").identity

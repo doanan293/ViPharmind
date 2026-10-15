@@ -7,13 +7,7 @@ from collections.abc import AsyncIterator, Sequence
 from typing import TypeVar
 
 from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
-from pharma_agent.domain.retrieval.models import (
-    Chunk,
-    Hit,
-    HydrateStrategy,
-    Query,
-    ReleaseScope,
-)
+from pharma_agent.domain.retrieval.models import Hit, Query, ReleaseScope
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
 from pharma_agent.infrastructure.retrieval.llama_cpp_reranker import NoopReranker
 from pydantic import BaseModel
@@ -67,20 +61,16 @@ def make_hit(
         release_id=RELEASE,
         collection_id=uuid.uuid5(NAMESPACE, "collection"),
         document_key="drug:paracetamol",
-        section_key=section_key,
-        section_revision_id=uuid.uuid5(NAMESPACE, section_key),
         ordinal=ordinal,
-        hydrate_strategy=HydrateStrategy.CHUNK_WINDOW,
+        section_keys=[section_key],
+        headings=["Liều dùng"],
         source="Dược thư Quốc gia Việt Nam",
         title="Paracetamol",
-        section="Liều dùng",
         start_page=1,
         end_page=1,
         context_header="Paracetamol > Liều dùng",
         chunk_text=f"text of {label}",
         embedding_text=f"text of {label}",
-        kind="prose",
-        table_key=None,
         fusion_score=score,
     )
 
@@ -99,23 +89,7 @@ class FakeRetriever:
         return [list(self.hits[:top_k]) for _ in queries]
 
 
-class FakeHydrator:
-    async def hydrate(self, hit: Hit, strategy: HydrateStrategy) -> list[Chunk]:
-        return [
-            Chunk(
-                chunk_version_id=hit.chunk_version_id,
-                section_revision_id=hit.section_revision_id,
-                ordinal=hit.ordinal,
-                text=hit.chunk_text,
-                kind=hit.kind,
-            )
-        ]
-
-
 def retrieval_service(retriever: FakeRetriever) -> RetrievalService:
     return RetrievalService(
-        retriever,
-        NoopReranker(),
-        FakeHydrator(),
-        RetrievalConfig(candidate_k=5, rerank_top_n=3),
+        retriever, NoopReranker(), RetrievalConfig(candidate_k=5, rerank_top_n=3)
     )
