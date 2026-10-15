@@ -27,7 +27,7 @@ from pharma_lab.e2e.configs import E2EConfig, pipeline_for
 from pharma_lab.e2e.executor import BackendTurnExecutor, conversation_for
 from pharma_lab.e2e.golden import GoldenItem
 from pharma_lab.e2e.harness import run_items, spread, with_deadline
-from pharma_lab.e2e.records import AnswerRecord, JsonlStore
+from pharma_lab.e2e.records import AnswerRecord, JsonlStore, RetrievedChunk
 
 SECTION = "drug:paracetamol:lieu-dung"
 
@@ -111,10 +111,13 @@ async def test_full_agent_record_maps_citations_to_gold_labels() -> None:
     assert record.standalone_query == "Liều tối đa paracetamol người lớn"
     assert record.search_queries == [["Liều tối đa paracetamol người lớn"]]
     assert record.judge_outcomes == ["answer"]
-    assert [(c.index, c.chunk_id, c.section_id) for c in record.citations] == [
-        (1, f"{SECTION}:chunk-002", SECTION)
+    assert [(c.index, c.chunk_id, c.section_ids) for c in record.citations] == [
+        (1, "drug:paracetamol:chunk-002", [SECTION])
     ]
-    assert record.retrieved_chunk_ids[0] == f"{SECTION}:chunk-002"
+    assert record.retrieved[0] == RetrievedChunk(
+        chunk_id="drug:paracetamol:chunk-002", section_ids=[SECTION]
+    )
+    assert record.rounds == [sorted([SECTION, "other"])]
     assert record.context_text.startswith("[1] Paracetamol > Liều dùng")
     assert record.llm_calls == 4
     assert sorted(record.usage_by_role) == ["answer", "guardrail", "judge", "rephrase"]

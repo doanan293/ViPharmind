@@ -154,16 +154,11 @@ def _alce(view: ItemView) -> float | None:
     )
 
 
-def _round_coverage(view: ItemView, labels: Sequence[str]) -> float:
-    """Share of the item's gold sections that a round's evidence holds."""
+def _round_coverage(view: ItemView, sections: Sequence[str]) -> float:
+    """Share of the item's gold sections that a round's evidence covered."""
     gold = view.item.gold_section_ids
-    sections = {label.rsplit(":chunk-", 1)[0] for label in labels}
-    found = sum(
-        1
-        for section in gold
-        if section in sections or view.accepted.get(section, frozenset()) & set(labels)
-    )
-    return found / len(gold)
+    held = set(sections)
+    return sum(1 for section in gold if section in held) / len(gold)
 
 
 def _coverage_after(index: int) -> Callable[[ItemView], float | None]:
@@ -393,10 +388,6 @@ def _percentile(values: Values, q: float) -> float:
     return float(np.percentile(list(values.values()), q)) if values else math.nan
 
 
-def _section(chunk_label: str) -> str:
-    return chunk_label.rsplit(":chunk-", 1)[0]
-
-
 def error_label(
     item: GoldenItem,
     record: AnswerRecord,
@@ -405,12 +396,12 @@ def error_label(
     """Where a poor grounded answer went wrong first."""
     judged = accepted or {}
     if not any(
-        is_relevant_chunk(item, _section(label), label, judged)
-        for label in record.retrieved_chunk_ids
+        is_relevant_chunk(item, chunk.section_ids, chunk.chunk_id, judged)
+        for chunk in record.retrieved
     ):
         return "retrieval"
     if not any(
-        is_relevant_chunk(item, c.section_id, c.chunk_id, judged)
+        is_relevant_chunk(item, c.section_ids, c.chunk_id, judged)
         for c in record.citations
     ):
         return "citation"

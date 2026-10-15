@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 from pharma_agent.domain.corpus.bundle import read_bundle
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from pharma_lab.bundle.export import ExportRequest, export_bundle
@@ -15,6 +16,7 @@ from pharma_lab.e2e.golden import (
     EVAL_GROUPS,
     MULTI_HOP_KINDS,
     QUOTAS,
+    SCHEMA,
     Category,
     GoldenItem,
     build_golden,
@@ -40,7 +42,6 @@ def answerable(item_id: str = "e2e-ans-0001", **changes: Any) -> GoldenItem:
         "turns": [{"role": "user", "text": "Liều paracetamol người lớn?"}],
         "expected_behavior": "grounded",
         "gold_section_ids": [SECTION],
-        "gold_chunk_ids": [f"{SECTION}:chunk-001"],
         "reference": {
             "answer": "500 mg mỗi 4-6 giờ, tối đa 4 g/ngày.",
             "key_facts": [
@@ -76,6 +77,15 @@ def multi_hop(item_id: str = "e2e-mhop-0001", **changes: Any) -> GoldenItem:
     }
     data.update(changes)
     return answerable(item_id, **data)
+
+
+def test_golden_schema_is_v3_without_chunk_ids() -> None:
+    assert SCHEMA == "e2e-golden-v3"
+    assert "structured" in EVAL_GROUPS and "chunk_risk" not in EVAL_GROUPS
+    with pytest.raises(ValidationError):
+        GoldenItem.model_validate(
+            {**answerable().model_dump(mode="json"), "gold_chunk_ids": ["x"]}
+        )
 
 
 def test_golden_keeps_500_items_with_a_multi_hop_split() -> None:
@@ -261,7 +271,7 @@ def test_build_freezes_sorted_items_and_a_manifest(tmp_path: Path) -> None:
     frozen = load_golden(output)
     assert [item.item_id for item in frozen] == sorted(i.item_id for i in items)
     manifest = json.loads(manifest_path(output).read_text("utf-8"))
-    assert manifest["schema"] == "e2e-golden-v2"
+    assert manifest["schema"] == "e2e-golden-v3"
     assert manifest["counts"] == {
         "answerable": 270,
         "injection": 10,
@@ -360,7 +370,6 @@ def test_cli_checks_one_batch(tmp_path: Path) -> None:
     }
     good = answerable(
         gold_section_ids=[section],
-        gold_chunk_ids=[],
         reference={"answer": "a", "key_facts": [fact]},
     )
     batch = write_batch(tmp_path / "a.authored.jsonl", [good])

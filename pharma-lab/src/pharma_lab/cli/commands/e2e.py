@@ -226,7 +226,7 @@ def golden_hard_candidates(
     ctx: typer.Context,
     run_name: Annotated[str, typer.Option("--run")],
     model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
-    top_k: Annotated[int, typer.Option("--top-k", min=1)] = 8,
+    top_k: Annotated[int, typer.Option("--top-k", min=1)] = 5,
     authoring_dir: Annotated[
         Path, typer.Option("--authoring-dir", file_okay=False)
     ] = E2E_AUTHORING_DIR,
@@ -255,7 +255,7 @@ def golden_trim(
     ctx: typer.Context,
     run_name: Annotated[str, typer.Option("--run")],
     model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
-    top_k: Annotated[int, typer.Option("--top-k", min=1)] = 8,
+    top_k: Annotated[int, typer.Option("--top-k", min=1)] = 5,
     per_group: Annotated[
         int, typer.Option("--per-group", min=1)
     ] = ANSWERABLE_PER_GROUP,

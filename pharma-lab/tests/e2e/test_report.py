@@ -12,6 +12,7 @@ from pharma_lab.e2e.records import (
     CitedSection,
     JsonlStore,
     Judgement,
+    RetrievedChunk,
     TokenUsage,
 )
 from pharma_lab.e2e.report import (
@@ -57,10 +58,12 @@ def answer(n: int, config: str, *, retrieved: str = SECTION) -> AnswerRecord:
         answer_mode="grounded",
         citations=[
             CitedSection(
-                index=1, chunk_version_id="c", chunk_id=None, section_id=SECTION
+                index=1, chunk_version_id="c", chunk_id=None, section_ids=[SECTION]
             )
         ],
-        retrieved_chunk_ids=[f"{retrieved}:chunk-001"],
+        retrieved=[
+            RetrievedChunk(chunk_id="drug:x:chunk-001", section_ids=[retrieved])
+        ],
         llm_calls=4 if config == "full" else 2,
         usage_by_role={
             "answer": TokenUsage(calls=1, prompt_tokens=100, completion_tokens=10)
@@ -227,7 +230,7 @@ def test_report_uses_relevance_judgments_and_answerable_groups(tmp_path: Path) -
                         index=1,
                         chunk_version_id="c",
                         chunk_id=leaflet,
-                        section_id="leaflet:x",
+                        section_ids=["leaflet:x"],
                     )
                 ]
             }
@@ -275,22 +278,13 @@ def _metric(name: str):
 
 def test_loop_metrics_measure_gold_found_per_search_round() -> None:
     gold = ["drug:x:lieu-dung", "drug:x:chi-dinh"]
-    rescued = _loop_view(
-        [["drug:x:lieu-dung:chunk-001"], [f"{g}:chunk-002" for g in gold]], gold
-    )
+    rescued = _loop_view([["drug:x:lieu-dung"], list(gold)], gold)
     assert _metric("gold_coverage_round1")(rescued) == 0.5
     assert _metric("gold_coverage_final")(rescued) == 1.0
     assert _metric("rounds_used")(rescued) == 2.0
     assert _metric("rescued_rate")(rescued) == 1.0
-    first_round_enough = _loop_view([[f"{g}:chunk-001" for g in gold]], gold)
+    first_round_enough = _loop_view([list(gold)], gold)
     assert _metric("rescued_rate")(first_round_enough) is None
     closed_book = _loop_view([], gold)
     assert _metric("gold_coverage_round1")(closed_book) is None
     assert _metric("rounds_used")(closed_book) is None
-
-
-def test_judged_chunks_count_as_gold_found() -> None:
-    view = _loop_view([["drug:y:than-trong:chunk-001"]], ["drug:x:lieu-dung"])
-    accepted = {"drug:x:lieu-dung": frozenset({"drug:y:than-trong:chunk-001"})}
-    view = ItemView(view.item, view.answer, view.judgement, accepted)
-    assert _metric("gold_coverage_round1")(view) == 1.0

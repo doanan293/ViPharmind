@@ -65,7 +65,12 @@ def record(mode: str | None, sections: Sequence[str | None] = ()) -> AnswerRecor
         status="completed",
         answer_mode=mode,
         citations=[
-            CitedSection(index=n, chunk_version_id="c", chunk_id=None, section_id=s)
+            CitedSection(
+                index=n,
+                chunk_version_id="c",
+                chunk_id=None,
+                section_ids=[] if s is None else [s],
+            )
             for n, s in enumerate(sections, start=1)
         ],
     )
@@ -175,13 +180,13 @@ def test_citations_to_accepted_leaflet_chunks_count_as_relevant() -> None:
                 index=1,
                 chunk_version_id="c",
                 chunk_id=leaflet,
-                section_id="leaflet:thuoc:x",
+                section_ids=["leaflet:thuoc:x"],
             ),
             CitedSection(
                 index=2,
                 chunk_version_id="d",
                 chunk_id="other:chunk-001",
-                section_id="other",
+                section_ids=["other"],
             ),
         ],
     )
