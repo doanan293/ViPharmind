@@ -25,7 +25,6 @@ def build_command(
     glossary: Path | None = None,
     work_root: Path | None = None,
     final_dir: Path | None = None,
-    max_chars: int | None = None,
 ) -> CommandResult:
     config = default_config()
     config = replace(
@@ -44,7 +43,6 @@ def build_command(
         glossary_path=glossary if glossary is not None else config.glossary_path,
         work_root=work_root if work_root is not None else config.work_root,
         final_dir=final_dir if final_dir is not None else config.final_dir,
-        max_chars=max_chars if max_chars is not None else config.max_chars,
     )
     result = run_build(config)
     return CommandResult(
@@ -78,6 +76,5 @@ def build(
             glossary=glossary,
             work_root=work_root,
             final_dir=final_dir,
-            max_chars=max_chars,
         ),
     )

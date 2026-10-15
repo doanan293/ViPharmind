@@ -55,11 +55,6 @@ class BlockKind(StrEnum):
     INDEX_ENTRIES = "index_entries"
 
 
-class RetrievalMode(StrEnum):
-    DEFAULT = "default"
-    INDEX_ONLY = "index_only"
-
-
 class SourceInfo(BaseModel):
     model_config = _STRICT
 
@@ -97,7 +92,6 @@ class SectionRecord(BaseModel):
     ordinal: int
     start_page: int | None = None
     end_page: int | None = None
-    retrieval: RetrievalMode = RetrievalMode.DEFAULT
     blocks: list[BlockRecord]
 
 

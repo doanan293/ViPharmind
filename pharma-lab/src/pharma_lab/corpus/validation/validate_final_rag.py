@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import itertools
 import json
 import re
 import unicodedata
@@ -10,7 +9,6 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pharma_lab.config.chunking import DEFAULT_CHUNK_MAX_CHARS
 from pharma_lab.config.paths import (
     CANONICAL_INTERIM_DIR,
     LEAFLET_MARKDOWN_INTERIM_DIR,
@@ -83,20 +81,12 @@ TEXT_QUALITY_SENTINELS = {
     "text_quality_stevens_johnson": "Stevens-Johnson",
     "text_quality_epstein_barr": "Epstein-Barr",
 }
-MAX_CHARS = DEFAULT_CHUNK_MAX_CHARS
-HYDRATE_STRATEGIES = {"full_section", "chunk_window", "search_only"}
-BRAND_INDEX_SECTION_ID = (
-    "general:muc-luc-tra-cuu-biet-duoc-va-hoat-chat:bang-tra-cuu-biet-duoc"
-)
-CHUNK_ROLES = {"prose", "table", "index_entry", "appendix_list"}
 CONTENT_PAGE_RANGE = range(37, 1601)
 ALLOWED_MISSING_CONTENT_PAGES = {37, 38, 1497, 1498}
 JOINED_NUMERIC_UNIT_RE = re.compile(
     r"(?<![A-Za-zÀ-Ỵà-ỵ])\d+(?:microgam|mg|ml|kg|cm2|m2|g)(?=\b|/)"
 )
 PUNCT_NO_SPACE_RE = re.compile(r"[A-Za-zÀ-Ỵà-ỵ0-9][:;,.][A-ZÀ-ỴĐ]")
-BRAND_INDEX_DANGLING_RE = re.compile(r"- \*\*[^*]+\*\*:\s*$")
-BRAND_INDEX_CONTINUATION_RE = re.compile(r"^biệt dược chứa hoạt chất \*\*")
 SEVERITIES = {"blocking", "auto_fixable", "suspect", "accepted"}
 LEAFLET_SOURCE = "Tờ hướng dẫn sử dụng"
 SALBUTAMOL_DESCRIPTOR_SECTIONS = {
@@ -296,11 +286,9 @@ class ValidationReport:
 @dataclass
 class CorpusInputs:
     final_sections: list[dict[str, Any]]
-    final_chunks: list[dict[str, Any]]
     canonical_blocks: list[dict[str, Any]]
     canonical_sections: list[dict[str, Any]]
     rag_sections: list[dict[str, Any]]
-    rag_chunks: list[dict[str, Any]]
     curated_tables: list[dict[str, Any]]
     leaflet_markdown_files: list[Path]
 
@@ -340,13 +328,11 @@ def validate_counts(
     final_audit: dict[str, Any],
     canonical_audit: dict[str, Any],
     sections: list[dict[str, Any]],
-    chunks: list[dict[str, Any]],
     table_block_count: int,
     errors: list[str],
 ) -> None:
     expected = {
         "section_count": len(sections),
-        "chunk_count": len(chunks),
         "table_block_count": table_block_count,
     }
     for key, actual in expected.items():
@@ -369,26 +355,12 @@ def validate_counts(
 def validate_references(
     *,
     sections: list[dict[str, Any]],
-    chunks: list[dict[str, Any]],
     blocks: list[dict[str, Any]],
     tables_by_id: dict[str, dict[str, Any]],
     errors: list[str],
 ) -> None:
     section_ids = {str(section["id"]) for section in sections}
     block_ids = {str(block["block_id"]) for block in blocks}
-
-    for chunk in chunks:
-        section_id = str(chunk.get("section_id") or "")
-        if section_id not in section_ids:
-            errors.append(
-                f"Chunk {chunk.get('id')} references missing section_id {section_id}"
-            )
-
-    chunk_section_ids = {str(chunk.get("section_id") or "") for chunk in chunks}
-    for section in sections:
-        section_id = str(section["id"])
-        if section_id not in chunk_section_ids:
-            errors.append(f"Section {section_id} has no chunk")
 
     for section in sections:
         section_id = str(section["id"])
@@ -415,57 +387,6 @@ def validate_references(
         if section_id not in section_ids:
             errors.append(
                 f"Block {block.get('block_id')} references missing section_id {section_id}"
-            )
-
-
-def validate_chunk_source_blocks(
-    *,
-    chunks: list[dict[str, Any]],
-    blocks: list[dict[str, Any]],
-    errors: list[str],
-) -> None:
-    blocks_by_id = {str(block.get("block_id") or ""): block for block in blocks}
-    chunks_by_section: dict[str, list[dict[str, Any]]] = {}
-    for chunk in chunks:
-        chunks_by_section.setdefault(str(chunk.get("section_id") or ""), []).append(
-            chunk
-        )
-        if chunk.get("source") == LEAFLET_SOURCE:
-            continue
-        chunk_id = str(chunk.get("id") or "")
-        source_block_id = str(chunk.get("source_block_id") or "")
-        if not source_block_id:
-            errors.append(f"Chunk {chunk_id} is missing source_block_id")
-            continue
-        block = blocks_by_id.get(source_block_id)
-        if block is None:
-            errors.append(
-                f"Chunk {chunk_id} references missing source_block_id {source_block_id}"
-            )
-            continue
-        if block.get("section_id") != chunk.get("section_id"):
-            errors.append(
-                f"Chunk {chunk_id} source_block_id {source_block_id} belongs to section {block.get('section_id')}"
-            )
-        if chunk.get("chunk_content_type") and chunk.get(
-            "chunk_content_type"
-        ) != block.get("content_type"):
-            errors.append(
-                f"Chunk {chunk_id} chunk_content_type {chunk.get('chunk_content_type')} "
-                f"does not match source block content_type {block.get('content_type')}"
-            )
-        if chunk.get("chunk_role") == "table" and chunk.get("table_id") != block.get(
-            "table_id"
-        ):
-            errors.append(
-                f"Chunk {chunk_id} table_id does not match source block {source_block_id}"
-            )
-
-    for section_id, section_chunks in chunks_by_section.items():
-        indexes = sorted(int(chunk.get("chunk_index") or 0) for chunk in section_chunks)
-        if indexes and indexes != list(range(1, len(indexes) + 1)):
-            errors.append(
-                f"Section {section_id} has non-contiguous chunk_index values: {indexes}"
             )
 
 
@@ -555,18 +476,13 @@ def is_markdown_separator_line(line: str) -> bool:
     return stripped.replace("|", "").replace("-", "").replace(":", "").strip() == ""
 
 
-def validate_text_quality(
-    sections: list[dict[str, Any]], chunks: list[dict[str, Any]], errors: list[str]
-) -> None:
+def validate_text_quality(sections: list[dict[str, Any]], errors: list[str]) -> None:
     section_text = collect_text(sections, ("text", "context_header"))
-    chunk_text = collect_text(chunks, ("text", "context_header"))
     for artifact in FORBIDDEN_TEXT_ARTIFACTS:
         if artifact in section_text:
             errors.append(
                 f"Forbidden text artifact {artifact!r} found in sections.jsonl"
             )
-        if artifact in chunk_text:
-            errors.append(f"Forbidden text artifact {artifact!r} found in chunks.jsonl")
     for name, expected in TEXT_QUALITY_SENTINELS.items():
         if expected not in section_text:
             errors.append(f"Sentinel {name} missing expected text: {expected}")
@@ -574,17 +490,9 @@ def validate_text_quality(
     for artifact in KNOWN_TEXT_ARTIFACTS:
         if artifact in section_text:
             errors.append(f"Known text artifact {artifact!r} found in sections.jsonl")
-        if artifact in chunk_text:
-            errors.append(f"Known text artifact {artifact!r} found in chunks.jsonl")
 
 
-def validate_quality_gate(
-    sections: list[dict[str, Any]],
-    chunks: list[dict[str, Any]],
-    errors: list[str],
-    *,
-    max_chars: int = MAX_CHARS,
-) -> None:
+def validate_quality_gate(sections: list[dict[str, Any]], errors: list[str]) -> None:
     for section in sections:
         if section.get("source") == LEAFLET_SOURCE:
             continue
@@ -611,128 +519,16 @@ def validate_quality_gate(
                 f"Suspicious punctuation without space {token!r} found in section {section_id}"
             )
 
-    for chunk in chunks:
-        chunk_id = str(chunk.get("id") or "")
-        text = str(chunk.get("text") or "")
-        if len(text) > max_chars:
-            errors.append(f"Chunk {chunk_id} text exceeds {max_chars} chars")
-
-        if chunk.get("source") == LEAFLET_SOURCE:
+    for section in sections:
+        if section.get("source") == LEAFLET_SOURCE:
             continue
-
-        warnings = [str(warning) for warning in (chunk.get("warnings") or [])]
-        if warnings:
-            errors.append(f"Chunk {chunk_id} has warnings: {'; '.join(warnings)}")
-        lines = text.splitlines()
+        lines = str(section.get("text") or "").splitlines()
         if any(is_markdown_table_row(line) for line in lines) and not any(
             is_markdown_separator_line(line) for line in lines
         ):
             errors.append(
-                f"Chunk {chunk_id} contains table rows without a markdown separator/header"
-            )
-
-    chunks_by_section: dict[str, list[dict[str, Any]]] = {}
-    for chunk in chunks:
-        chunks_by_section.setdefault(str(chunk.get("section_id") or ""), []).append(
-            chunk
-        )
-    for section_chunks in chunks_by_section.values():
-        ordered = sorted(
-            section_chunks, key=lambda item: int(item.get("chunk_index") or 0)
-        )
-        for previous, current in itertools.pairwise(ordered):
-            if previous.get("source") == LEAFLET_SOURCE:
-                continue
-            previous_text = str(previous.get("text") or "").rstrip()
-            current_text = str(current.get("text") or "").lstrip()
-            if (
-                previous_text
-                and current_text
-                and previous_text[-1].islower()
-                and current_text[0].islower()
-            ):
-                errors.append(
-                    f"Possible word split between chunks {previous.get('id')} and {current.get('id')}"
-                )
-
-
-def validate_brand_index_chunks(
-    chunks: list[dict[str, Any]], errors: list[str]
-) -> None:
-    for chunk in chunks:
-        if str(chunk.get("section_id") or "") != BRAND_INDEX_SECTION_ID:
-            continue
-        chunk_id = str(chunk.get("id") or "")
-        text = str(chunk.get("text") or "").strip()
-        if not text:
-            continue
-        first_line = next(
-            (line.strip() for line in text.splitlines() if line.strip()), ""
-        )
-        if BRAND_INDEX_CONTINUATION_RE.search(first_line):
-            errors.append(
-                f"Brand index chunk {chunk_id} starts with an entry continuation"
-            )
-        if BRAND_INDEX_DANGLING_RE.search(text):
-            errors.append(
-                f"Brand index chunk {chunk_id} ends with dangling entry marker"
-            )
-
-
-def validate_hydration_metadata(
-    sections: list[dict[str, Any]],
-    chunks: list[dict[str, Any]],
-    errors: list[str],
-) -> None:
-    sections_by_id = {str(section.get("id") or ""): section for section in sections}
-    for section in sections:
-        section_id = str(section.get("id") or "")
-        strategy = section.get("hydrate_strategy")
-        if strategy not in HYDRATE_STRATEGIES:
-            errors.append(
-                f"Section {section_id} has invalid hydrate_strategy: {strategy}"
-            )
-        expected_count = len(str(section.get("text") or ""))
-        if section.get("section_char_count") != expected_count:
-            errors.append(
-                f"Section {section_id} section_char_count={section.get('section_char_count')} "
-                f"does not match text length {expected_count}"
-            )
-
-    for chunk in chunks:
-        chunk_id = str(chunk.get("id") or "")
-        context_header = str(chunk.get("context_header") or "").strip()
-        raw_text = str(chunk.get("text") or "").strip()
-        mapping = chunk.get("colloquial_mapping")
-        if not context_header:
-            errors.append(f"Chunk {chunk_id} is missing context_header")
-        if "Tên gọi khác:" in context_header or "Dấu hiệu nhận biết:" in context_header:
-            errors.append(
-                f"Chunk {chunk_id} context_header contains rendered colloquial metadata"
-            )
-        if "context_text" in chunk:
-            errors.append(f"Chunk {chunk_id} must not contain context_text")
-        if not raw_text:
-            errors.append(f"Chunk {chunk_id} is missing text")
-        if mapping not in (None, {}) and not isinstance(mapping, dict):
-            errors.append(f"Chunk {chunk_id} colloquial_mapping must be an object")
-
-        strategy = chunk.get("hydrate_strategy")
-        if strategy not in HYDRATE_STRATEGIES:
-            errors.append(f"Chunk {chunk_id} has invalid hydrate_strategy: {strategy}")
-        chunk_role = chunk.get("chunk_role")
-        if chunk_role is not None and chunk_role not in CHUNK_ROLES:
-            errors.append(f"Chunk {chunk_id} has invalid chunk_role: {chunk_role}")
-        section = sections_by_id.get(str(chunk.get("section_id") or ""))
-        if not section:
-            continue
-        if chunk.get("hydrate_strategy") != section.get("hydrate_strategy"):
-            errors.append(
-                f"Chunk {chunk_id} hydrate_strategy does not match section {section.get('id')}"
-            )
-        if chunk.get("section_char_count") != section.get("section_char_count"):
-            errors.append(
-                f"Chunk {chunk_id} section_char_count does not match section {section.get('id')}"
+                f"Section {section.get('id')} contains table rows without a "
+                "markdown separator/header"
             )
 
 
@@ -789,7 +585,6 @@ def load_inputs(
     leaflet_markdown_dir: Path,
     curated_tables_path: Path,
     final_sections_path: Path | None = None,
-    final_chunks_path: Path | None = None,
 ) -> CorpusInputs:
     leaflet_files = (
         sorted(leaflet_markdown_dir.glob("**/*.md"))
@@ -798,11 +593,9 @@ def load_inputs(
     )
     return CorpusInputs(
         final_sections=read_jsonl(final_sections_path or final_dir / "sections.jsonl"),
-        final_chunks=read_jsonl(final_chunks_path or final_dir / "chunks.jsonl"),
         canonical_blocks=read_jsonl(canonical_dir / "blocks.jsonl"),
         canonical_sections=read_jsonl(canonical_dir / "sections.jsonl"),
         rag_sections=read_jsonl(rag_interim_dir / "sections.jsonl"),
-        rag_chunks=read_jsonl(rag_interim_dir / "chunks.jsonl"),
         curated_tables=read_jsonl(curated_tables_path),
         leaflet_markdown_files=leaflet_files,
     )
@@ -814,22 +607,6 @@ def text_snippet(value: Any, limit: int = 220) -> str:
 
 def normalized_text(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip())
-
-
-def normalized_markdown_table_rows(value: Any) -> list[str]:
-    rows: list[str] = []
-    for line in str(value or "").splitlines():
-        if is_markdown_table_row(line) and not is_markdown_separator_line(line):
-            rows.append(normalized_text(line))
-    return rows
-
-
-def table_chunk_rows_are_in_source_block(chunk_text: Any, block_text: Any) -> bool:
-    chunk_rows = normalized_markdown_table_rows(chunk_text)
-    if not chunk_rows:
-        return False
-    block_rows = set(normalized_markdown_table_rows(block_text))
-    return all(row in block_rows for row in chunk_rows)
 
 
 def add_finding(report: ValidationReport, **kwargs: Any) -> None:
@@ -847,7 +624,6 @@ def audit_identity_and_references(
     sections_by_id = {
         str(section.get("id") or ""): section for section in inputs.final_sections
     }
-    chunks_by_section: dict[str, list[dict[str, Any]]] = defaultdict(list)
     blocks_by_id = {
         str(block.get("block_id") or ""): block for block in inputs.canonical_blocks
     }
@@ -865,49 +641,7 @@ def audit_identity_and_references(
             snippet=duplicate,
             recommended_action="Fix the generator that emitted duplicate section ids and rebuild final artifacts.",
         )
-    for duplicate in duplicate_values(inputs.final_chunks, "id"):
-        add_finding(
-            report,
-            record_id=duplicate,
-            record_type="chunk",
-            source="mixed",
-            category="identity",
-            severity="blocking",
-            message="Duplicate final chunk id",
-            snippet=duplicate,
-            recommended_action="Fix chunk id generation and rebuild final artifacts.",
-        )
-
-    for chunk in inputs.final_chunks:
-        section_id = str(chunk.get("section_id") or "")
-        chunk_id = str(chunk.get("id") or "")
-        chunks_by_section[section_id].append(chunk)
-        if section_id not in sections_by_id:
-            add_finding(
-                report,
-                record_id=chunk_id,
-                record_type="chunk",
-                source=str(chunk.get("source") or ""),
-                category="references",
-                severity="blocking",
-                message="Chunk references a missing section",
-                snippet=section_id,
-                recommended_action="Regenerate chunks from final sections after fixing the missing section reference.",
-            )
-
     for section_id, section in sections_by_id.items():
-        if section_id not in chunks_by_section:
-            add_finding(
-                report,
-                record_id=section_id,
-                record_type="section",
-                source=str(section.get("source") or ""),
-                category="references",
-                severity="blocking",
-                message="Section has no chunk",
-                snippet=text_snippet(section.get("text")),
-                recommended_action="Regenerate chunks for this section.",
-            )
         for block_id in section.get("block_ids") or []:
             if str(block_id) not in block_ids:
                 add_finding(
@@ -922,103 +656,9 @@ def audit_identity_and_references(
                     recommended_action="Fix canonical block generation and rebuild final artifacts.",
                 )
 
-    for section_id, section_chunks in chunks_by_section.items():
-        indexes = sorted(int(chunk.get("chunk_index") or 0) for chunk in section_chunks)
-        if indexes and indexes != list(range(1, len(indexes) + 1)):
-            add_finding(
-                report,
-                record_id=section_id,
-                record_type="section",
-                source=str(sections_by_id.get(section_id, {}).get("source") or ""),
-                category="chunking",
-                severity="blocking",
-                message="Chunk indexes are not contiguous",
-                snippet=str(indexes[:20]),
-                recommended_action="Regenerate chunks so chunk_index starts at 1 and has no gaps per section.",
-            )
-
-
-def audit_source_blocks(inputs: CorpusInputs, report: ValidationReport) -> None:
-    blocks_by_id = {
-        str(block.get("block_id") or ""): block for block in inputs.canonical_blocks
-    }
-    for chunk in inputs.final_chunks:
-        if chunk.get("source") == LEAFLET_SOURCE:
-            continue
-        chunk_id = str(chunk.get("id") or "")
-        source_block_id = str(chunk.get("source_block_id") or "")
-        if not source_block_id:
-            add_finding(
-                report,
-                record_id=chunk_id,
-                record_type="chunk",
-                source=str(chunk.get("source") or ""),
-                category="source_mapping",
-                severity="blocking",
-                message="Non-leaflet chunk is missing source_block_id",
-                snippet=text_snippet(chunk.get("text")),
-                recommended_action="Rebuild final chunks from canonical blocks so every Dược thư chunk has source_block_id.",
-            )
-            continue
-        block = blocks_by_id.get(source_block_id)
-        if block is None:
-            add_finding(
-                report,
-                record_id=chunk_id,
-                record_type="chunk",
-                source=str(chunk.get("source") or ""),
-                category="source_mapping",
-                severity="blocking",
-                message="Chunk source_block_id does not exist in canonical blocks",
-                snippet=source_block_id,
-                recommended_action="Regenerate canonical blocks and chunks from the same build.",
-            )
-            continue
-        if block.get("section_id") != chunk.get("section_id"):
-            add_finding(
-                report,
-                record_id=chunk_id,
-                record_type="chunk",
-                source=str(chunk.get("source") or ""),
-                category="source_mapping",
-                severity="blocking",
-                message="Chunk source block belongs to a different section",
-                snippet=f"{source_block_id} -> {block.get('section_id')}",
-                recommended_action="Fix chunk source_block_id assignment in canonical chunk generation.",
-            )
-        block_text = (
-            block.get("markdown")
-            if block.get("content_type") == "table"
-            else block.get("text")
-        )
-        chunk_text = chunk.get("text")
-        chunk_text_is_mapped = normalized_text(chunk_text) in normalized_text(
-            block_text
-        )
-        if block.get(
-            "content_type"
-        ) == "table" and table_chunk_rows_are_in_source_block(chunk_text, block_text):
-            chunk_text_is_mapped = True
-        if normalized_text(chunk_text) and not chunk_text_is_mapped:
-            add_finding(
-                report,
-                record_id=chunk_id,
-                record_type="chunk",
-                source=str(chunk.get("source") or ""),
-                category="source_mapping",
-                severity="suspect",
-                message="Chunk text is not a normalized substring of its source block",
-                snippet=text_snippet(chunk.get("text")),
-                source_evidence=text_snippet(block_text),
-                recommended_action="Inspect the chunk splitter and source block; preserve unchanged text unless source evidence proves corruption.",
-            )
-
 
 def audit_text_quality(inputs: CorpusInputs, report: ValidationReport) -> None:
-    for record_type, records in (
-        ("section", inputs.final_sections),
-        ("chunk", inputs.final_chunks),
-    ):
+    for record_type, records in (("section", inputs.final_sections),):
         for record in records:
             text = str(record.get("text") or "")
             record_id = str(record.get("id") or "")
@@ -1123,43 +763,6 @@ def audit_duplicates(inputs: CorpusInputs, report: ValidationReport) -> None:
         )
 
 
-def audit_tables_and_chunks(inputs: CorpusInputs, report: ValidationReport) -> None:
-    for chunk in inputs.final_chunks:
-        chunk_id = str(chunk.get("id") or "")
-        text = str(chunk.get("text") or "")
-        lines = text.splitlines()
-        has_table_row = any(is_markdown_table_row(line) for line in lines)
-        has_separator = any(is_markdown_separator_line(line) for line in lines)
-        if chunk.get("chunk_role") == "table" and not chunk.get("table_id"):
-            add_finding(
-                report,
-                record_id=chunk_id,
-                record_type="chunk",
-                source=str(chunk.get("source") or ""),
-                category="tables",
-                severity="blocking",
-                message="Table chunk is missing table_id",
-                snippet=text_snippet(text),
-                recommended_action="Fix canonical table chunk metadata and rebuild final chunks.",
-            )
-        if (
-            has_table_row
-            and not has_separator
-            and chunk.get("source") != LEAFLET_SOURCE
-        ):
-            add_finding(
-                report,
-                record_id=chunk_id,
-                record_type="chunk",
-                source=str(chunk.get("source") or ""),
-                category="tables",
-                severity="suspect",
-                message="Chunk contains Markdown table rows without a separator line",
-                snippet=text_snippet(text),
-                recommended_action="Inspect source block and table splitter before editing; some single-column leaflet layouts are intentionally flattened.",
-            )
-
-
 def audit_leaflet(inputs: CorpusInputs, report: ValidationReport) -> None:
     for section in inputs.final_sections:
         if section.get("source") != LEAFLET_SOURCE:
@@ -1196,30 +799,22 @@ def deep_audit_metrics_for(inputs: CorpusInputs) -> dict[str, Any]:
     section_sources = Counter(
         str(section.get("source") or "") for section in inputs.final_sections
     )
-    chunk_sources = Counter(
-        str(chunk.get("source") or "") for chunk in inputs.final_chunks
-    )
     return {
         "section_count": len(inputs.final_sections),
-        "chunk_count": len(inputs.final_chunks),
         "canonical_block_count": len(inputs.canonical_blocks),
         "canonical_section_count": len(inputs.canonical_sections),
         "rag_interim_section_count": len(inputs.rag_sections),
-        "rag_interim_chunk_count": len(inputs.rag_chunks),
         "curated_table_count": len(inputs.curated_tables),
         "leaflet_markdown_file_count": len(inputs.leaflet_markdown_files),
         "section_sources": dict(sorted(section_sources.items())),
-        "chunk_sources": dict(sorted(chunk_sources.items())),
     }
 
 
 def apply_deep_audit_checks(inputs: CorpusInputs, report: ValidationReport) -> None:
     audit_identity_and_references(inputs, report)
-    audit_source_blocks(inputs, report)
     audit_text_quality(inputs, report)
     audit_part_chains(inputs, report)
     audit_duplicates(inputs, report)
-    audit_tables_and_chunks(inputs, report)
     audit_leaflet(inputs, report)
     report.findings.sort(
         key=lambda item: (item.severity, item.category, item.record_id, item.message)
@@ -1233,7 +828,6 @@ def run_deep_audit(
     rag_interim_dir: Path = DEFAULT_RAG_INTERIM_DIR,
     leaflet_markdown_dir: Path = DEFAULT_LEAFLET_MARKDOWN_DIR,
     final_sections_path: Path | None = None,
-    final_chunks_path: Path | None = None,
     curated_tables_path: Path = DEFAULT_CURATED_TABLES,
 ) -> ValidationReport:
     inputs = load_inputs(
@@ -1242,7 +836,6 @@ def run_deep_audit(
         rag_interim_dir=Path(rag_interim_dir),
         leaflet_markdown_dir=Path(leaflet_markdown_dir),
         final_sections_path=final_sections_path,
-        final_chunks_path=final_chunks_path,
         curated_tables_path=curated_tables_path,
     )
     report = ValidationReport(ok=True, metrics=deep_audit_metrics_for(inputs))
@@ -1260,7 +853,6 @@ def validate_final_rag(
     enforce_full_coverage: bool = True,
     include_deep_audit: bool = False,
     final_sections_path: Path | None = None,
-    final_chunks_path: Path | None = None,
     curated_tables_path: Path = DEFAULT_CURATED_TABLES,
 ) -> ValidationReport:
     final_dir = Path(final_dir)
@@ -1269,7 +861,6 @@ def validate_final_rag(
     warnings: list[str] = []
 
     sections = read_jsonl(final_sections_path or final_dir / "sections.jsonl")
-    chunks = read_jsonl(final_chunks_path or final_dir / "chunks.jsonl")
     blocks = read_jsonl(canonical_dir / "blocks.jsonl")
     final_audit = read_json(final_dir / "audit.json")
     canonical_audit = read_json(canonical_dir / "audit.json")
@@ -1277,7 +868,6 @@ def validate_final_rag(
 
     for name, records in (
         ("sections", sections),
-        ("chunks", chunks),
         ("blocks", blocks),
     ):
         duplicates = duplicate_ids(records, "id" if name != "blocks" else "block_id")
@@ -1288,30 +878,24 @@ def validate_final_rag(
         final_audit=final_audit,
         canonical_audit=canonical_audit,
         sections=sections,
-        chunks=chunks,
         table_block_count=len(tables_by_id),
         errors=errors,
     )
     validate_references(
         sections=sections,
-        chunks=chunks,
         blocks=blocks,
         tables_by_id=tables_by_id,
         errors=errors,
     )
-    validate_chunk_source_blocks(chunks=chunks, blocks=blocks, errors=errors)
     validate_sentinels(sections, tables_by_id, errors)
-    validate_text_quality(sections, chunks, errors)
-    validate_quality_gate(sections, chunks, errors)
-    validate_brand_index_chunks(chunks, errors)
-    validate_hydration_metadata(sections, chunks, errors)
+    validate_text_quality(sections, errors)
+    validate_quality_gate(sections, errors)
     if enforce_full_coverage:
         validate_full_coverage(sections, errors)
     validate_duplicate_review_file(canonical_dir, errors)
 
     metrics = {
         "section_count": len(sections),
-        "chunk_count": len(chunks),
         "canonical_block_count": len(blocks),
         "table_block_count": len(tables_by_id),
         "duplicate_review_count": int(final_audit.get("duplicate_review_count") or 0),
@@ -1326,7 +910,6 @@ def validate_final_rag(
             rag_interim_dir=Path(rag_interim_dir),
             leaflet_markdown_dir=Path(leaflet_markdown_dir),
             final_sections_path=final_sections_path,
-            final_chunks_path=final_chunks_path,
             curated_tables_path=curated_tables_path,
         )
         report.metrics.update(deep_audit_metrics_for(inputs))

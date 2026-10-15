@@ -6,7 +6,6 @@ import pytest
 from pharma_agent.domain.corpus.bundle import (
     BlockKind,
     DocumentKind,
-    RetrievalMode,
     read_bundle,
 )
 from pharma_agent.domain.corpus.chunking import MAX_CHUNK_CHARS, section_text
@@ -63,7 +62,6 @@ def test_fixture_covers_every_case_the_corpus_tests_need() -> None:
     }
     assert len(section_text(sections[PHARMACOLOGY_SECTION])) > MAX_CHUNK_CHARS
     assert sections[INTERACTIONS_SECTION].blocks[0].kind is BlockKind.TABLE
-    assert sections[BRANDS_SECTION].retrieval is RetrievalMode.INDEX_ONLY
     assert sections[BRANDS_SECTION].blocks[0].kind is BlockKind.INDEX_ENTRIES
     assert [mapping.section_keys for mapping in bundle.colloquial_mappings] == [
         [LEAFLET_SECTION]

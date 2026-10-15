@@ -19,7 +19,6 @@ from pharma_lab.artifacts.contract import (
 )
 from pharma_lab.artifacts.paths import ArtifactPaths, retain_failed_workspace
 from pharma_lab.artifacts.publisher import publish_contract
-from pharma_lab.config.chunking import DEFAULT_CHUNK_MAX_CHARS
 from pharma_lab.config.paths import (
     BUILD_WORK_DIR,
     FORMULARY_PDF_PATH,
@@ -60,7 +59,6 @@ class BuildConfig:
     glossary_path: Path
     work_root: Path = BUILD_WORK_DIR
     final_dir: Path = RAG_FINAL_DIR
-    max_chars: int = DEFAULT_CHUNK_MAX_CHARS
 
 
 @dataclass(frozen=True)
@@ -83,7 +81,6 @@ def _digest_payload(config: BuildConfig) -> dict[str, Any]:
         "mappings": sha256_file(config.mappings_path),
         "glossary": sha256_file(config.glossary_path),
         "valid_syllables": sha256_file(SOURCES_DIR / "vietnamese_valid_syllables.json"),
-        "max_chars": config.max_chars,
         "pipeline_version": PIPELINE_VERSION,
         "schema_version": "rag-final-v3",
     }
@@ -112,11 +109,9 @@ def _write_state(paths: ArtifactPaths, **values: Any) -> None:
 
 def _update_source_audit_counts(source_final_dir: Path) -> None:
     sections = read_jsonl(source_final_dir / "sections.jsonl")
-    chunks = read_jsonl(source_final_dir / "chunks.jsonl")
     audit_path = source_final_dir / "audit.json"
     audit = json.loads(audit_path.read_text(encoding="utf-8"))
     audit["section_count"] = len(sections)
-    audit["chunk_count"] = len(chunks)
     audit_path.write_text(
         json.dumps(audit, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -142,28 +137,20 @@ def build_candidate(config: BuildConfig, paths: ArtifactPaths) -> None:
     )
     process_pdf(config.pdf_path, paths.raw_text)
     clean_corpus(input_path=paths.raw_text, output_path=paths.cleaned_text)
-    preprocess_corpus(
-        input_path=paths.cleaned_text,
-        output_dir=paths.rag_dir,
-        max_chars=config.max_chars,
-    )
+    preprocess_corpus(input_path=paths.cleaned_text, output_dir=paths.rag_dir)
     process_canonical_rag(
         sections_path=paths.rag_dir / "sections.jsonl",
-        chunks_path=paths.rag_dir / "chunks.jsonl",
         tables_path=config.curated_tables_path,
         table_overrides_path=config.table_overrides_path,
         canonical_dir=paths.canonical_dir,
         final_dir=paths.source_final_dir,
-        max_chars=config.max_chars,
     )
     parse_html_tree(leaflet_source.html_dir, paths.leaflet_markdown_dir)
     integrate_leaflet_corpus(
         markdown_dir=paths.leaflet_markdown_dir,
         sections_path=paths.source_final_dir / "sections.jsonl",
-        chunks_path=paths.source_final_dir / "chunks.jsonl",
         mappings_path=config.mappings_path,
         output_sections_path=paths.source_final_dir / "sections.jsonl",
-        output_chunks_path=paths.source_final_dir / "chunks.jsonl",
     )
     _update_source_audit_counts(paths.source_final_dir)
 
@@ -173,7 +160,6 @@ def build_candidate(config: BuildConfig, paths: ArtifactPaths) -> None:
         rag_interim_dir=paths.rag_dir,
         leaflet_markdown_dir=paths.leaflet_markdown_dir,
         final_sections_path=paths.source_final_dir / "sections.jsonl",
-        final_chunks_path=paths.source_final_dir / "chunks.jsonl",
         curated_tables_path=config.curated_tables_path,
         include_deep_audit=False,
     )
@@ -183,7 +169,6 @@ def build_candidate(config: BuildConfig, paths: ArtifactPaths) -> None:
         rag_interim_dir=paths.rag_dir,
         leaflet_markdown_dir=paths.leaflet_markdown_dir,
         final_sections_path=paths.source_final_dir / "sections.jsonl",
-        final_chunks_path=paths.source_final_dir / "chunks.jsonl",
         curated_tables_path=config.curated_tables_path,
     )
     shutil.copy2(

@@ -7,7 +7,6 @@ from pharma_agent.domain.corpus.bundle import (
     BundleValidationError,
     DocumentKind,
     DocumentRecord,
-    RetrievalMode,
     SectionRecord,
     decode_vector,
     encode_vector,
@@ -18,7 +17,7 @@ from pharma_agent.domain.shared.errors import DomainError
 SECTION_LINE = (
     '{"key": "drug:paracetamol:tuong-tac-thuoc", "document_key": "drug:paracetamol",'
     ' "heading": "Tương tác thuốc", "context_path": ["Tương tác thuốc"],'
-    ' "ordinal": 2, "start_page": 1204, "end_page": 1205, "retrieval": "default",'
+    ' "ordinal": 2, "start_page": 1204, "end_page": 1205,'
     ' "blocks": [{"kind": "table",'
     ' "markdown": "| Thuốc | Hậu quả |\\n| --- | --- |\\n| Warfarin | Tăng INR |",'
     ' "start_page": 1205, "end_page": 1205, "table_key": "tbl-0042"}]}'
@@ -28,7 +27,6 @@ SECTION_LINE = (
 def test_section_line_parses_enum_strings_from_json() -> None:
     section = SectionRecord.model_validate_json(SECTION_LINE)
 
-    assert section.retrieval is RetrievalMode.DEFAULT
     assert section.blocks[0].kind is BlockKind.TABLE
     assert section.blocks[0].table_key == "tbl-0042"
     assert section.blocks[0].markdown.splitlines()[2] == "| Warfarin | Tăng INR |"

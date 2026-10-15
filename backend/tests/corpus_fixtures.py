@@ -20,7 +20,6 @@ from pharma_agent.domain.corpus.bundle import (
     DocumentRecord,
     GlossaryEntry,
     KnowledgeBundle,
-    RetrievalMode,
     SectionRecord,
     SourceInfo,
     read_bundle,
@@ -181,7 +180,6 @@ def _sections() -> list[SectionRecord]:
             ordinal=4,
             start_page=126,
             end_page=126,
-            retrieval=RetrievalMode.INDEX_ONLY,
             blocks=[
                 BlockRecord(
                     kind=BlockKind.INDEX_ENTRIES,
