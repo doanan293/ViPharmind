@@ -10,7 +10,7 @@ from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError, Retrie
 class RetrievalConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    candidate_k: int = 30
+    candidate_k: int = 20
     rerank_top_n: int = 5
     rerank_candidates: int = Field(default=40, ge=1)
 

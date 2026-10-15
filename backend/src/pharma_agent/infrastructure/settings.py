@@ -99,7 +99,7 @@ class RerankSettings(BaseModel):
     model: str = "qwen3-reranker:4b-q8_0"
     top_n: int = 5
     # Candidates scored per search round, taken round-robin across queries by fused rank.
-    # A single query (candidate_k=30) is scored in full, like the evaluation.
+    # A single query (candidate_k=20) is scored in full, like the evaluation.
     max_candidates: int = Field(default=40, ge=1)
     timeout_seconds: float = 120.0
     # Concurrent /v1/rerank requests; each carries a whole search round (compose sets 1).
@@ -116,7 +116,7 @@ class RetrievalSettings(BaseModel):
     mode: Literal["hybrid", "dense", "bm25"] = "hybrid"
     prefetch_k: int = 50
     rrf_k: int = 2
-    candidate_k: int = 30
+    candidate_k: int = 20
     max_concurrent_searches: int = 3
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     rerank: RerankSettings = Field(default_factory=RerankSettings)

@@ -497,7 +497,7 @@ nào cho chất lượng cao nhất trên mỗi USD và mỗi giây, và kết l
 - Thí nghiệm phụ "decision model làm judge đánh giá": chấm lại 500 item bằng Jev per-key-fact, so với
   gemini-3.1-flash-lite và nhãn dược sĩ; báo κ, chi phí và giây.
 - Sửa số liệu và câu chữ đã liệt kê trong review (Hit@5 3,7 so với 3,8; BGE-gemma có cải thiện nDCG;
-  "unanswered" so với missing; header Table 3; top 5 và 40 ứng viên; footnote repo).
+  "unanswered" so với missing; header Table 3; top 5 từ 20 ứng viên mỗi câu truy vấn, tối đa 40 mỗi vòng; footnote repo).
 
 ## 5. Thống kê và báo cáo
 
@@ -573,10 +573,12 @@ rẻ. Mỗi run chạy thử 20 item trước khi chạy đủ.
 - Quota GPU Kaggle và giới hạn thời gian mỗi phiên kernel: mỗi run chạy được tiếp sau khi kernel
   khởi động lại vì harness đã ghi `answers.jsonl` từng item; xếp run Qwen theo quota và ưu tiên
   cấu hình chính (A2, A3, ReAct) trước quét τ và ablation.
-- Rerank trên chunk dài gấp ba: bảng retrieval chấm 10.000 câu × 30 ứng viên × khoảng 1.000 token,
-  tức khoảng 300 triệu token mỗi reranker, gấp ba v1. Giữ nguyên 30 ứng viên (bằng `candidate_k` của
-  backend) cho cả bốn reranker; nếu không vừa quota tuần thì chạy tiếp sau khi Kaggle reset, harness
-  giữ điểm từng cặp trong cache.
+- Rerank trên chunk dài gấp ba: mỗi câu truy vấn giữ 20 ứng viên sau RRF (`candidate_k = 20`, prefetch
+  50 mỗi nhánh, trần 40 mỗi vòng), backend và benchmark như nhau. Chốt ngày 2026-10-15: hạng 21–30 chỉ
+  giữ gold của khoảng 1 % câu (v1: hybrid Hit@10 95,9 %, Hit@30 99,2 %) mà tốn một phần ba chi phí
+  rerank, cả trên Kaggle lẫn production; 10 thì chặn khoảng 4 % câu ngay từ đầu. Bảng retrieval chấm
+  10.000 câu × 20 ứng viên × khoảng 1.000 token, tức khoảng 200 triệu token mỗi reranker; nếu không vừa
+  quota tuần thì chạy tiếp sau khi Kaggle reset, harness giữ điểm từng cặp trong cache.
 - Ngân sách evidence 60.000 ký tự cộng prompt và lịch sử phải vừa slot 32.768 của Qwen3.5-9B: run thử
   20 item ở pha 0 kiểm tra không có lượt nào chạm trần ngữ cảnh; nếu có thì hạ `max_evidence_chars`
   cho mọi cấu hình cùng lúc, không hạ riêng một nhánh.

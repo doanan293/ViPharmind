@@ -18,7 +18,7 @@ def test_defaults_match_spec(monkeypatch: pytest.MonkeyPatch) -> None:
         settings.retrieval.prefetch_k,
         settings.retrieval.rrf_k,
         settings.retrieval.candidate_k,
-    ) == (50, 2, 30)
+    ) == (50, 2, 20)
     assert settings.retrieval.rerank.protocol == "native_rerank"
     assert settings.retrieval.rerank.model == "qwen3-reranker:4b-q8_0"
     assert (

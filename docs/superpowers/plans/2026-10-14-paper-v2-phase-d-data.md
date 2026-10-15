@@ -1083,7 +1083,7 @@ git commit -m "data: regenerate the retrieval benchmark without question hints"
 
 > Chạy sau plan `2026-10-15-chunk-reading-unit.md` (spec §3.0c): chunk gộp mục, nhãn
 > `<document_key>:chunk-NNN`, nhóm `structured` thay `chunk_risk`, reranker trả 5 chunk. Mọi "top 8"
-> trong Task 7 và 7b đọc là top 5. Rerank chạy thẳng đủ 10.000 câu × 30 ứng viên (bằng `candidate_k`
+> trong Task 7 và 7b đọc là top 5. Rerank chạy thẳng đủ 10.000 câu × 20 ứng viên (bằng `candidate_k = 20`
 > của backend) cho cả bốn reranker, không chạy thử 200 câu và không giảm ứng viên: hết quota tuần thì
 > chạy lại cùng lệnh sau khi Kaggle reset (quyết định ngày 2026-10-15). Báo Hit@5 và nDCG@5 cạnh các
 > mốc khác. Khối
@@ -1095,7 +1095,7 @@ git commit -m "data: regenerate the retrieval benchmark without question hints"
 
 **Interfaces:**
 - Consumes: bundle mới, benchmark mới, stack `vipharmind-eval` (`docs/guides/evaluation.md` §2).
-- Produces: run `bm25-v2-k30`, `dense-<model>-v2-k30` cho năm model, `hybrid-qwen4b-v2-p50-k30-rrf2`, `hybrid-qwen4b-v2-p50-k30-rrf60`, rerank bốn model trên run hybrid rrf2 và Qwen3-Reranker-4B trên run dense 4B.
+- Produces: run `bm25-v2-k20`, `dense-<model>-v2-k20` cho năm model, `hybrid-qwen4b-v2-p50-k20-rrf2`, `hybrid-qwen4b-v2-p50-k20-rrf60`, rerank bốn model trên run hybrid rrf2 và Qwen3-Reranker-4B trên run dense 4B.
 
 - [ ] **Step 0: Model Q8_0 và profile Kaggle**
 
@@ -1114,7 +1114,7 @@ dư. Cache embedding F16 xoá. Chạy benchmark profile trước khi embed thậ
 ```bash
 cd pharma-lab
 uv run pharma-lab bundle embed --bundle data/corpus/formulary --backend kaggle --model qwen3-embedding:4b-q8_0 --kaggle-account acc1 --benchmark
-uv run pharma-lab rerank --run hybrid-qwen4b-v2-p50-k30-rrf2 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account acc2 --benchmark
+uv run pharma-lab rerank --run hybrid-qwen4b-v2-p50-k20-rrf2 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account acc2 --benchmark
 ```
 Expected: profile Q8_0 của từng model trong `data/work` và trên dataset profile Kaggle; mọi model
 sau đó dùng profile này.
@@ -1155,38 +1155,38 @@ for m in qwen3-embedding:4b-q8_0 qwen3-embedding:8b-q8_0 qwen3-embedding:0.6b-q8
   uv run pharma-lab embed queries --backend kaggle --model "$m" --kaggle-account auto
 done
 # với PHARMA_RETRIEVAL__* trỏ vào Qwen3-Embedding-4B:
-uv run pharma-lab retrieve --run bm25-v2-k30 --retriever bm25 --candidate-k 30
-uv run pharma-lab retrieve --run dense-qwen4b-v2-k30 --retriever dense --candidate-k 30
-uv run pharma-lab retrieve --run hybrid-qwen4b-v2-p50-k30-rrf2 --retriever hybrid --prefetch-k 50 --candidate-k 30 --rrf-k 2
-uv run pharma-lab retrieve --run hybrid-qwen4b-v2-p50-k30-rrf60 --retriever hybrid --prefetch-k 50 --candidate-k 30 --rrf-k 60
+uv run pharma-lab retrieve --run bm25-v2-k20 --retriever bm25 --candidate-k 20
+uv run pharma-lab retrieve --run dense-qwen4b-v2-k20 --retriever dense --candidate-k 20
+uv run pharma-lab retrieve --run hybrid-qwen4b-v2-p50-k20-rrf2 --retriever hybrid --prefetch-k 50 --candidate-k 20 --rrf-k 2
+uv run pharma-lab retrieve --run hybrid-qwen4b-v2-p50-k20-rrf60 --retriever hybrid --prefetch-k 50 --candidate-k 20 --rrf-k 60
 # đổi PHARMA_RETRIEVAL__* sang từng model còn lại rồi:
-uv run pharma-lab retrieve --run dense-qwen8b-v2-k30 --retriever dense --candidate-k 30
-uv run pharma-lab retrieve --run dense-qwen06b-v2-k30 --retriever dense --candidate-k 30
-uv run pharma-lab retrieve --run dense-bge-m3-v2-k30 --retriever dense --candidate-k 30
-uv run pharma-lab retrieve --run dense-gemma300m-v2-k30 --retriever dense --candidate-k 30
-for r in bm25-v2-k30 dense-qwen4b-v2-k30 hybrid-qwen4b-v2-p50-k30-rrf2 hybrid-qwen4b-v2-p50-k30-rrf60 dense-qwen8b-v2-k30 dense-qwen06b-v2-k30 dense-bge-m3-v2-k30 dense-gemma300m-v2-k30; do
-  uv run pharma-lab metrics --run "$r" --top-k 30
+uv run pharma-lab retrieve --run dense-qwen8b-v2-k20 --retriever dense --candidate-k 20
+uv run pharma-lab retrieve --run dense-qwen06b-v2-k20 --retriever dense --candidate-k 20
+uv run pharma-lab retrieve --run dense-bge-m3-v2-k20 --retriever dense --candidate-k 20
+uv run pharma-lab retrieve --run dense-gemma300m-v2-k20 --retriever dense --candidate-k 20
+for r in bm25-v2-k20 dense-qwen4b-v2-k20 hybrid-qwen4b-v2-p50-k20-rrf2 hybrid-qwen4b-v2-p50-k20-rrf60 dense-qwen8b-v2-k20 dense-qwen06b-v2-k20 dense-bge-m3-v2-k20 dense-gemma300m-v2-k20; do
+  uv run pharma-lab metrics --run "$r" --top-k 20
 done
 ```
-Expected: mỗi run có `reports/baseline/top30-window3/report.md`. Ghi Hit@10 và nDCG@10 của hybrid rrf2 và dense 4B vào ghi chú so với v1 (95,9 % và 95,4 % Hit@10).
+Expected: mỗi run có `reports/baseline/top20/report.md`. Ghi Hit@10 và nDCG@10 của hybrid rrf2 và dense 4B vào ghi chú so với v1 (95,9 % và 95,4 % Hit@10).
 
 - [ ] **Step 4: Rerank**
 
 ```bash
 for m in qwen3-reranker:4b-q8_0 qwen3-reranker:8b-q8_0 qwen3-reranker:0.6b-q8_0 bge-reranker-v2-m3:q8_0; do
-  uv run pharma-lab rerank --run hybrid-qwen4b-v2-p50-k30-rrf2 --backend kaggle --model "$m" --kaggle-account auto
-  uv run pharma-lab metrics --run hybrid-qwen4b-v2-p50-k30-rrf2 --model "$m" --top-k 30
+  uv run pharma-lab rerank --run hybrid-qwen4b-v2-p50-k20-rrf2 --backend kaggle --model "$m" --kaggle-account auto
+  uv run pharma-lab metrics --run hybrid-qwen4b-v2-p50-k20-rrf2 --model "$m" --top-k 20
 done
-uv run pharma-lab rerank --run dense-qwen4b-v2-k30 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account auto
-uv run pharma-lab metrics --run dense-qwen4b-v2-k30 --model qwen3-reranker:4b-q8_0 --top-k 30
+uv run pharma-lab rerank --run dense-qwen4b-v2-k20 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account auto
+uv run pharma-lab metrics --run dense-qwen4b-v2-k20 --model qwen3-reranker:4b-q8_0 --top-k 20
 ```
-Tên model reranker lấy đúng theo catalog (`uv run pharma-lab rerank --help` và `runtime/catalog.py`); v1 dùng biến thể `-vimed` cho Qwen3 reranker với instruction tiếng Việt y tế, giữ đúng biến thể v1 đã báo trong bài (xem `data/evaluation/runs/hybrid-qwen4b-p50-k30-rrf2/run.json` mục `rerank_variants`).
+Tên model reranker lấy đúng theo catalog (`uv run pharma-lab rerank --help` và `runtime/catalog.py`); v1 dùng biến thể `-vimed` cho Qwen3 reranker với instruction tiếng Việt y tế, giữ đúng biến thể v1 đã báo trong bài (xem `data/evaluation/runs/hybrid-qwen4b-p50-k30-rrf2/run.json` ở tag `v1.0.0`, mục `rerank_variants`).
 
-Expected: `reports/rerank/<slug>/top30-window3/report.md` cho bốn reranker và cho dense + 4B. Đây là hàng D1 của spec.
+Expected: `reports/rerank/<slug>/top20/report.md` cho bốn reranker và cho dense + 4B. Đây là hàng D1 của spec.
 
 Tuỳ chọn, chạy cùng đợt rerank: kiểm lại instruction tiếng Việt y tế trên benchmark v2 ở Q8_0 theo
 đúng quy tắc đã chốt ở `docs/guides/evaluation.md` §5 (tập con 1.000 câu, bootstrap theo cặp 10.000
-lần, seed 0, hiệu MRR@30). Bản gốc là file Q8_0 tải về chưa đổi template, chạy với tên model tạm
+lần, seed 0, hiệu MRR@20). Bản gốc là file Q8_0 tải về chưa đổi template, chạy với tên model tạm
 ngoài catalog. Cận dưới khoảng tin cậy 95% lớn hơn 0 thì giữ `-vimed`, ngược lại cả ba reranker
 Qwen3 dùng template gốc.
 
