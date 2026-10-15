@@ -251,3 +251,11 @@ def test_multi_intent_rows_accept_section_category_role_items() -> None:
     assert [row["expected_section_ids"] for row in rows] == [
         ["drug:abacavir:chi-dinh", "drug:abacavir:lieu-luong-va-cach-dung"]
     ]
+
+
+def test_sections_left_out_of_the_bundle_get_no_questions() -> None:
+    sections = [{"id": "drug:a:chi-dinh"}, {"id": "drug:a:huong-dan-cach-xu-tri-adr"}]
+    chunks = [
+        {"chunk_id": "drug:a:chi-dinh:chunk-001", "section_id": "drug:a:chi-dinh"}
+    ]
+    assert b.sections_in_bundle(sections, chunks) == [{"id": "drug:a:chi-dinh"}]
