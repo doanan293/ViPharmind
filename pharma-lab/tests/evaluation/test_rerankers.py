@@ -17,7 +17,7 @@ def _candidate(chunk_id: str, text: str, rank: int) -> RetrievalCandidate:
 
 
 def test_local_reranker_scores_every_candidate_in_one_native_request():
-    spec = require_model("qwen3-reranker:4b-fp16")
+    spec = require_model("qwen3-reranker:4b-q8_0")
     client = create_autospec(LlamaCppClient, instance=True)
     client.rerank_native.return_value = [0.2, 0.9]
     reranker = LlamaCppReranker(spec, client)

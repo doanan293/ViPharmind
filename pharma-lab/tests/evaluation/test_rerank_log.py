@@ -37,9 +37,9 @@ def test_log_keeps_lines_written_by_earlier_commands(tmp_path) -> None:
 
 
 def test_open_rerank_log_targets_the_model_log(isolated_logs_dir) -> None:
-    log = open_rerank_log("qwen3-reranker:0.6b-fp16", echo=False)
+    log = open_rerank_log("qwen3-reranker:0.6b-q8_0", echo=False)
 
     assert log.path == (
-        isolated_logs_dir.root / "rerank" / "qwen3_reranker_0_6b_fp16.log"
+        isolated_logs_dir.root / "rerank" / "qwen3_reranker_0_6b_q8_0.log"
     )
     assert log.path.parent.parent == paths.LOGS_DIR

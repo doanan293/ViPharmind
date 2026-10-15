@@ -39,7 +39,7 @@ def _job(tmp_path: Path):
     manifest.write_text(json.dumps({"schema_version": 1}) + "\n", encoding="utf-8")
     request = stage_request(
         StageName.RERANK,
-        "qwen3-reranker:0.6b-fp16",
+        "qwen3-reranker:0.6b-q8_0",
         candidates,
         runtime_profile=rerank_runtime_profile(),
     )

@@ -26,7 +26,7 @@ def test_rerank_identity_changes_for_model_revision():
 
 
 def test_rerank_identity_uses_catalog_contract_hash():
-    spec = require_model("qwen3-reranker:0.6b-fp16")
+    spec = require_model("qwen3-reranker:0.6b-q8_0")
     identity = RerankVariantIdentity.create("candidate", spec.name)
 
     assert spec.rerank_contract is not None

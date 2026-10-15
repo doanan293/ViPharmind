@@ -21,7 +21,7 @@ thứ v2 đang dùng; mọi thứ khác xoá.
 | `vipharmind-data` version 1 (riêng tư, 4,9 GB) | acc1 | Giữ | Toàn bộ dữ liệu làm việc của v1, ghép với tag `v1.0.0`; v2 thêm version 2 |
 | `vector-cache-llama-cpp-cuda-t4` | acc1 | Giữ | Bản build llama.cpp CUDA cho T4 mà mọi kernel đang dùng |
 | `hust-information-retrieval-corpus` | acc1 | Không đụng | Dự án khác |
-| 13 dataset `vector-cache-gguf-*` F16/BF16 (khoảng 58 GB) | acc1 | Xoá | Cache model; file v1 dựng lại được từ nguồn Hugging Face ghim commit, sha256 và lệnh `-vimed` trong `docs/guides/evaluation.md` ở tag `v1.0.0` |
+| 12 dataset `vector-cache-gguf-*` F16/BF16 (khoảng 58 GB) | acc1 | Xoá | Cache model; file v1 dựng lại được từ nguồn Hugging Face ghim commit, sha256 và lệnh `-vimed` trong `docs/guides/evaluation.md` ở tag `v1.0.0` |
 | `corpus-pipeline-rag-final`, `seed-pipeline-bundle`, mọi `pipeline-input-*` | acc1, acc2, acc3 | Xoá | Input tạm của kernel, tự sinh lại khi chạy stage |
 
 Bản công khai của v2 là một dataset công khai mới, link riêng trong bài v2, để link của bài SoICT

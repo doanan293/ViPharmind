@@ -57,7 +57,7 @@ def test_gpu_sampler_parses_nvidia_smi_rows():
 def test_telemetry_report_aggregates_operations_and_gpu_samples(tmp_path: Path):
     telemetry = RuntimeTelemetry(
         "rerank",
-        "qwen3-reranker:0.6b-fp16",
+        "qwen3-reranker:0.6b-q8_0",
         tmp_path,
         sampler=FakeSampler(
             [GpuSample(0, 90, 10, 8000, 60, 70), GpuSample(0, 80, 10, 8100, 62, 72)]
@@ -88,7 +88,7 @@ def test_telemetry_report_aggregates_operations_and_gpu_samples(tmp_path: Path):
 def test_missing_nvidia_smi_is_non_fatal(tmp_path: Path):
     telemetry = RuntimeTelemetry(
         "rerank",
-        "qwen3-reranker:0.6b-fp16",
+        "qwen3-reranker:0.6b-q8_0",
         tmp_path,
         sampler=FakeSampler(error=FileNotFoundError("nvidia-smi")),
     )

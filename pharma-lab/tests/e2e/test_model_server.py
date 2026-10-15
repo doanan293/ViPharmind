@@ -20,7 +20,7 @@ from pharma_lab.e2e.model_server import (
 )
 from pharma_lab.integrations.kaggle.models import StageName
 
-RERANKER = "qwen3-reranker:4b-fp16"
+RERANKER = "qwen3-reranker:4b-q8_0"
 
 
 def test_each_request_has_a_new_key_and_private_permissions(tmp_path: Path) -> None:
@@ -38,23 +38,23 @@ def test_each_request_has_a_new_key_and_private_permissions(tmp_path: Path) -> N
 
 def test_env_lines_configure_the_backend_reranker() -> None:
     text = env_lines(
-        model="qwen3-reranker:4b-fp16", url="https://x.trycloudflare.com", api_key="k"
+        model="qwen3-reranker:4b-q8_0", url="https://x.trycloudflare.com", api_key="k"
     )
     assert "PHARMA_RETRIEVAL__RERANK__BASE_URL=https://x.trycloudflare.com\n" in text
     assert "PHARMA_RETRIEVAL__RERANK__API_KEY=k\n" in text
-    assert "PHARMA_RETRIEVAL__RERANK__MODEL=qwen3-reranker:4b-fp16\n" in text
+    assert "PHARMA_RETRIEVAL__RERANK__MODEL=qwen3-reranker:4b-q8_0\n" in text
 
 
 def test_env_lines_route_every_llm_role_to_the_served_chat_model() -> None:
     text = env_lines(
-        model="qwen3.5:9b-f16", url="https://y.trycloudflare.com", api_key="k"
+        model="qwen3.5:9b-q8_0", url="https://y.trycloudflare.com", api_key="k"
     )
     values = dict(shlex.split(line)[0].split("=", 1) for line in text.splitlines())
     for role in LlmRole:
         prefix = f"PHARMA_LLM__ROLES__{role.name}__"
         assert values[prefix + "BASE_URL"] == "https://y.trycloudflare.com/v1"
         assert values[prefix + "API_KEY"] == "k"
-        assert values[prefix + "MODEL"] == "qwen3.5:9b-f16"
+        assert values[prefix + "MODEL"] == "qwen3.5:9b-q8_0"
         assert json.loads(values[prefix + "EXTRA_BODY"]) == {
             "chat_template_kwargs": {"enable_thinking": False}
         }
@@ -63,10 +63,10 @@ def test_env_lines_route_every_llm_role_to_the_served_chat_model() -> None:
 
 
 def test_serve_stage_follows_the_model_kind() -> None:
-    assert serve_stage("qwen3-reranker:4b-fp16") is StageName.RERANK_SERVE
-    assert serve_stage("qwen3.5:9b-f16") is StageName.LLM_SERVE
+    assert serve_stage("qwen3-reranker:4b-q8_0") is StageName.RERANK_SERVE
+    assert serve_stage("qwen3.5:9b-q8_0") is StageName.LLM_SERVE
     with pytest.raises(ValueError, match="reranker or a chat model"):
-        serve_stage("qwen3-embedding:4b-fp16")
+        serve_stage("qwen3-embedding:4b-q8_0")
 
 
 def test_find_url_takes_the_latest_tunnel() -> None:

@@ -26,7 +26,7 @@ from pharma_lab.integrations.kaggle.workers.serve import (
 )
 from pharma_lab.runtime.catalog import require_model
 
-MODEL = "qwen3-reranker:0.6b-fp16"
+MODEL = "qwen3-reranker:0.6b-q8_0"
 
 
 def request_file(tmp_path: Path, nonce: str) -> Path:
@@ -71,7 +71,7 @@ def test_serve_requires_a_reranker_and_a_profile(tmp_path: Path) -> None:
         adapter.build_job(
             stage_request(
                 StageName.RERANK_SERVE,
-                "qwen3-embedding:0.6b-fp16",
+                "qwen3-embedding:0.6b-q8_0",
                 request_file(tmp_path, "x"),
             )
         )
@@ -197,7 +197,7 @@ def test_serve_without_key_file_is_refused(tmp_path: Path) -> None:
         )
 
 
-CHAT_MODEL = "qwen3.5:9b-f16"
+CHAT_MODEL = "qwen3.5:9b-q8_0"
 
 
 def test_llm_serve_uses_the_same_worker_with_the_fixed_chat_runtime(

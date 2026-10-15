@@ -10,7 +10,7 @@ from typing import Any
 
 from pharma_lab.config.paths import KAGGLE_PROFILE_DIR, WORK_DIR
 from pharma_lab.runtime.benchmarking import BenchmarkMeasurement, describe_levels
-from pharma_lab.runtime.catalog import require_model
+from pharma_lab.runtime.catalog import KAGGLE_TOPOLOGY, require_model
 from pharma_lab.runtime.runtime_profiles import (
     RuntimeCandidate,
     RuntimeProfile,
@@ -129,7 +129,7 @@ def ensure_runtime_profile(
         runtime_sha256=runtime_sha256,
         inference_cache_policy_sha256=inference_cache_policy(spec).sha256,
         machine_shape="NvidiaTeslaT4",
-        topology=spec.topology.value,
+        topology=KAGGLE_TOPOLOGY,
         search_space=space,
     )
     store = RuntimeProfileStore(profile_root)

@@ -27,7 +27,7 @@ from pharma_lab.integrations.kaggle.service import (
     resolve_session_contexts,
 )
 
-MODEL = "qwen3-reranker:0.6b-fp16"
+MODEL = "qwen3-reranker:0.6b-q8_0"
 
 
 def _write_profiles(tmp_path: Path) -> Path:

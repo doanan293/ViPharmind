@@ -14,7 +14,7 @@ def test_rerank_contract_rejects_other_protocols():
 
 
 def test_embedding_profile_separates_query_and_corpus_workloads():
-    profile = require_model("qwen3-embedding:4b-fp16").embedding_runtime
+    profile = require_model("qwen3-embedding:4b-q8_0").embedding_runtime
 
     assert isinstance(profile, EmbeddingRuntimeProfile)
     assert isinstance(profile.query, EmbeddingWorkloadProfile)
@@ -25,7 +25,7 @@ def test_embedding_profile_separates_query_and_corpus_workloads():
 
 
 def test_embedding_model_exposes_separate_runtime_search_spaces():
-    search_space = require_model("qwen3-embedding:4b-fp16").embedding_search_space
+    search_space = require_model("qwen3-embedding:4b-q8_0").embedding_search_space
 
     assert search_space is not None
     assert search_space.query != search_space.corpus
@@ -37,16 +37,13 @@ def test_embedding_model_exposes_separate_runtime_search_spaces():
 @pytest.mark.parametrize(
     ("model", "levels"),
     [
+        ("qwen3-reranker:0.6b-q8_0", ((8, 4096, 4), (16, 4096, 4), (16, 4096, 8))),
         (
-            "qwen3-reranker:0.6b-fp16",
-            ((4, 4096, 2), (8, 4096, 2), (8, 4096, 4), (16, 4096, 4)),
+            "qwen3-reranker:4b-q8_0",
+            ((4, 4096, 4), (8, 4096, 4), (8, 4096, 8), (12, 4096, 8)),
         ),
-        ("qwen3-reranker:4b-fp16", ((2, 4096, 2), (4, 4096, 2), (4, 4096, 4))),
-        ("qwen3-reranker:8b-fp16", ((2, 4096, 2), (4, 4096, 4), (8, 4096, 4))),
-        (
-            "bge-reranker-v2-m3:f16",
-            ((4, 4096, 2), (8, 4096, 2), (8, 4096, 4), (16, 4096, 4)),
-        ),
+        ("qwen3-reranker:8b-q8_0", ((2, 4096, 2), (4, 4096, 4), (6, 4096, 4))),
+        ("bge-reranker-v2-m3:q8_0", ((8, 4096, 4), (16, 4096, 4), (16, 4096, 8))),
     ],
 )
 def test_kaggle_rerank_search_space_pairs_slots_with_the_ubatch(

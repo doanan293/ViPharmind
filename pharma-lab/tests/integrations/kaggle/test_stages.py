@@ -41,7 +41,7 @@ def test_corpus_embed_builds_version_3_text_input_bundle(tmp_path):
     )
 
     job = CorpusEmbedStage().build_job(
-        _request(StageName.CORPUS_EMBED, "qwen3-embedding:4b-fp16", source)
+        _request(StageName.CORPUS_EMBED, "qwen3-embedding:4b-q8_0", source)
     )
 
     assert job.contract_version == 3
@@ -57,7 +57,7 @@ def test_query_embed_builds_version_2_single_file_bundle(tmp_path):
     source.write_text(json.dumps({"query_id": "q1"}) + "\n", encoding="utf-8")
 
     job = QueryEmbedStage().build_job(
-        _request(StageName.QUERY_EMBED, "qwen3-embedding:4b-fp16", source)
+        _request(StageName.QUERY_EMBED, "qwen3-embedding:4b-q8_0", source)
     )
 
     assert job.contract_version == 2
@@ -84,7 +84,7 @@ def test_rerank_builds_version_3_two_file_bundle(tmp_path):
     )
 
     job = RerankStage().build_job(
-        _request(StageName.RERANK, "qwen3-reranker:0.6b-fp16", candidates)
+        _request(StageName.RERANK, "qwen3-reranker:0.6b-q8_0", candidates)
     )
 
     assert job.contract_version == 3
@@ -109,7 +109,7 @@ def test_production_stage_requires_runtime_profile(tmp_path):
     )
     (tmp_path / "manifest.json").write_text("{}\n", encoding="utf-8")
     request = replace(
-        _request(StageName.RERANK, "qwen3-reranker:0.6b-fp16", candidates),
+        _request(StageName.RERANK, "qwen3-reranker:0.6b-q8_0", candidates),
         runtime_profile=None,
     )
 
@@ -133,13 +133,13 @@ def test_rerank_benchmark_isolated_from_production_artifact(tmp_path):
     (tmp_path / "manifest.json").write_text("{}\n", encoding="utf-8")
 
     job = get_stage_adapter(StageName.RERANK_BENCHMARK).build_job(
-        _request(StageName.RERANK_BENCHMARK, "qwen3-reranker:0.6b-fp16", candidates)
+        _request(StageName.RERANK_BENCHMARK, "qwen3-reranker:0.6b-q8_0", candidates)
     )
 
     assert job.data_filename == "benchmark_results.jsonl"
     assert job.worker_module.endswith("workers.benchmark")
     assert job.local_cache_path.name == "benchmark_results.jsonl"
-    space = require_model("qwen3-reranker:0.6b-fp16").rerank_search_space
+    space = require_model("qwen3-reranker:0.6b-q8_0").rerank_search_space
     assert space is not None
     assert job.contract_version == 2
     assert job.worker_config["benchmark_levels"] == [

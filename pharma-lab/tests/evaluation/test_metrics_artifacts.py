@@ -36,8 +36,8 @@ from pharma_lab.evaluation.variant_identity import (
     RerankVariantIdentity,
 )
 
-MODEL = "qwen3-reranker:0.6b-fp16"
-SLUG = "qwen3_reranker_0_6b_fp16"
+MODEL = "qwen3-reranker:0.6b-q8_0"
+SLUG = "qwen3_reranker_0_6b_q8_0"
 
 
 def register_variant(
@@ -131,17 +131,17 @@ def test_a_report_for_different_inputs_conflicts_unless_forced(tmp_path: Path) -
 def test_select_variants_returns_all_or_the_named_model() -> None:
     qwen = RerankVariantRecord(MODEL, "a" * 64, f"rerank/{SLUG}")
     bge = RerankVariantRecord(
-        "bge-reranker-v2-m3:f16", "b" * 64, "rerank/bge_reranker_v2_m3_f16"
+        "bge-reranker-v2-m3:q8_0", "b" * 64, "rerank/bge_reranker_v2_m3_q8_0"
     )
-    variants = {SLUG: qwen, "bge_reranker_v2_m3_f16": bge}
+    variants = {SLUG: qwen, "bge_reranker_v2_m3_q8_0": bge}
 
     assert list(select_rerank_variants(variants, model=None)) == [
-        "bge_reranker_v2_m3_f16",
+        "bge_reranker_v2_m3_q8_0",
         SLUG,
     ]
     assert select_rerank_variants(variants, model=MODEL) == {SLUG: qwen}
     with pytest.raises(ValueError, match="available: qwen3-reranker"):
-        select_rerank_variants({SLUG: qwen}, model="bge-reranker-v2-m3:f16")
+        select_rerank_variants({SLUG: qwen}, model="bge-reranker-v2-m3:q8_0")
 
 
 def test_metrics_leave_reports_of_unregistered_rerankers_alone(complete_run: Path):

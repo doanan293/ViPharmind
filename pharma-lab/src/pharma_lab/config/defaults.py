@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-DEFAULT_EMBEDDING_MODEL = "qwen3-embedding:0.6b-fp16"
-DEFAULT_RERANKER_MODEL = "qwen3-reranker:0.6b-fp16"
+DEFAULT_EMBEDDING_MODEL = "qwen3-embedding:4b-q8_0"
+DEFAULT_RERANKER_MODEL = "qwen3-reranker:4b-q8_0"
 DEFAULT_RETRIEVER = "hybrid"
 DEFAULT_CANDIDATE_K = 50
 DEFAULT_RRF_K = 2

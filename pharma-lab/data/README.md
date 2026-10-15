@@ -16,7 +16,7 @@ data/
                   logs/rerank/<model>.log (appended by every `pharma-lab rerank`)
 ```
 
-`<model>` is the model slug from the catalog, for example `qwen3_embedding_4b_fp16`. File and folder names never contain hashes; digests and identities live inside `manifest.json` files and cache records.
+`<model>` is the model slug from the catalog, for example `qwen3_embedding_4b_q8_0`. File and folder names never contain hashes; digests and identities live inside `manifest.json` files and cache records.
 
 ## Archive versions
 

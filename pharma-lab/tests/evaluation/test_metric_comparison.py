@@ -13,8 +13,8 @@ from pharma_lab.evaluation.metric_comparison import (
 from pharma_lab.evaluation.metrics_artifacts import publish_metrics_artifact
 from pharma_lab.evaluation.variant_identity import MetricsArtifactIdentity
 
-BASELINE = "qwen3-reranker:0.6b-fp16"
-CANDIDATE = "qwen3-reranker:4b-fp16"
+BASELINE = "qwen3-reranker:0.6b-q8_0"
+CANDIDATE = "qwen3-reranker:4b-q8_0"
 BALANCED = [1.0 if index % 2 else -1.0 for index in range(1000)]
 
 

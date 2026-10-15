@@ -21,7 +21,7 @@ def identity(*, candidate_k: int = 30, rrf_k: int = 2) -> RunIdentity:
         evaluation_path="evaluation/gold/section_retrieval_eval.jsonl",
         evaluation_sha256="e" * 64,
         collection_name="chunks_current",
-        embedding_model="qwen3-embedding:4b-fp16",
+        embedding_model="qwen3-embedding:4b-q8_0",
         query_embeddings_sha256="q" * 64,
         retriever="hybrid",
         candidate_k=candidate_k,
@@ -84,12 +84,12 @@ def test_record_candidates_stores_a_relative_directory_only(complete_run: Path) 
 def test_registering_a_variant_keys_it_by_model_slug(tmp_path: Path) -> None:
     workspace = RunWorkspace.open_or_create(tmp_path / "run", identity())
     variant = RerankVariantRecord(
-        "qwen3-reranker:0.6b-fp16", "v" * 64, "rerank/qwen3_reranker_0_6b_fp16"
+        "qwen3-reranker:0.6b-q8_0", "v" * 64, "rerank/qwen3_reranker_0_6b_q8_0"
     )
 
-    workspace.register_rerank_variant("qwen3_reranker_0_6b_fp16", variant)
+    workspace.register_rerank_variant("qwen3_reranker_0_6b_q8_0", variant)
 
-    assert workspace.variant_records() == {"qwen3_reranker_0_6b_fp16": variant}
+    assert workspace.variant_records() == {"qwen3_reranker_0_6b_q8_0": variant}
 
 
 def test_older_run_schemas_are_rejected(tmp_path: Path) -> None:

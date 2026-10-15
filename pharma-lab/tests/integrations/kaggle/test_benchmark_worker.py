@@ -10,7 +10,7 @@ from pharma_lab.runtime.benchmarking import BenchmarkMeasurement, LevelResult
 from pharma_lab.runtime.catalog import require_model
 from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
 
-MODEL = "qwen3-reranker:0.6b-fp16"
+MODEL = "qwen3-reranker:0.6b-q8_0"
 
 
 def _levels() -> tuple[RuntimeCandidate, ...]:

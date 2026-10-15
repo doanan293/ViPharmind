@@ -68,7 +68,7 @@ def _create_run(tmp_path: Path, retriever: object, candidate_k: int) -> Path:
         evaluation_path=str(evaluation_path),
         evaluation_sha256=sha256_file(evaluation_path),
         collection_name="collection",
-        embedding_model="embeddinggemma:300m",
+        embedding_model="embeddinggemma:300m-q8_0",
         query_embeddings_sha256="query-cache",
         retriever="hybrid",
         candidate_k=candidate_k,
@@ -112,7 +112,7 @@ def candidate_bundle(complete_run: Path):
 
 @pytest.fixture
 def complete_rerank_cache(tmp_path: Path, candidate_bundle):
-    model = "qwen3-reranker:0.6b-fp16"
+    model = "qwen3-reranker:0.6b-q8_0"
     spec = require_model(model)
     assert spec.rerank_contract is not None
     contract = spec.rerank_contract.sha256

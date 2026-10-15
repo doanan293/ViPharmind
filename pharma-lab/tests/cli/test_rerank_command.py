@@ -36,12 +36,12 @@ def test_rerank_reads_the_run_tree(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     result = runner.invoke(
-        app, ["rerank", "--run", "experiment", "--model", "qwen3-reranker:0.6b-fp16"]
+        app, ["rerank", "--run", "experiment", "--model", "qwen3-reranker:0.6b-q8_0"]
     )
 
     assert result.exit_code == 0, result.output
     assert captured["request"].run_root == run_dir("experiment")
-    assert captured["request"].model == "qwen3-reranker:0.6b-fp16"
+    assert captured["request"].model == "qwen3-reranker:0.6b-q8_0"
     assert "variant_sha256=variant" in result.stdout
 
 
@@ -72,7 +72,7 @@ def test_rerank_benchmark_reaches_the_local_backend(
             "local",
             "--benchmark",
             "--model",
-            "qwen3-reranker:4b-fp16",
+            "qwen3-reranker:4b-q8_0",
         ],
     )
 
@@ -150,11 +150,11 @@ def test_rerank_appends_command_lines_to_the_model_log(
     )
 
     result = runner.invoke(
-        app, ["rerank", "--run", "experiment", "--model", "qwen3-reranker:0.6b-fp16"]
+        app, ["rerank", "--run", "experiment", "--model", "qwen3-reranker:0.6b-q8_0"]
     )
 
     assert result.exit_code == 0, result.output
-    log = rerank_log_path("qwen3-reranker:0.6b-fp16").read_text(encoding="utf-8")
+    log = rerank_log_path("qwen3-reranker:0.6b-q8_0").read_text(encoding="utf-8")
     assert "command backend=local run=experiment" in log
     assert "command status=complete actions=missing_pairs=0" in log
 
@@ -167,11 +167,11 @@ def test_rerank_logs_a_failed_command(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(rerank_command, "LocalRerankBackend", FailingBackend)
 
     result = runner.invoke(
-        app, ["rerank", "--run", "experiment", "--model", "qwen3-reranker:0.6b-fp16"]
+        app, ["rerank", "--run", "experiment", "--model", "qwen3-reranker:0.6b-q8_0"]
     )
 
     assert result.exit_code == 1
-    log = rerank_log_path("qwen3-reranker:0.6b-fp16").read_text(encoding="utf-8")
+    log = rerank_log_path("qwen3-reranker:0.6b-q8_0").read_text(encoding="utf-8")
     assert "command error=RuntimeError: boom" in log
 
 

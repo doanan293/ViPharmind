@@ -18,6 +18,7 @@ from pharma_lab.e2e.report import (
     CONFIG_LABELS,
     METRIC_LABELS,
     METRICS,
+    ItemView,
     _number,
     bootstrap_mean,
     error_label,
@@ -260,3 +261,36 @@ def test_numbers_keep_three_decimals_up_to_one() -> None:
     assert _number(0.5) == "0.500"
     assert _number(5.2) == "5.2"
     assert _number(11278.4) == "11278"
+
+
+def _loop_view(rounds: list[list[str]], gold: list[str]) -> ItemView:
+    item = golden(1).model_copy(update={"gold_section_ids": gold})
+    record = answer(1, "full").model_copy(update={"rounds": rounds})
+    return ItemView(item, record, judgement(1, "full", 1.0), {})
+
+
+def _metric(name: str):
+    return next(metric for metric in METRICS if metric.name == name).read
+
+
+def test_loop_metrics_measure_gold_found_per_search_round() -> None:
+    gold = ["drug:x:lieu-dung", "drug:x:chi-dinh"]
+    rescued = _loop_view(
+        [["drug:x:lieu-dung:chunk-001"], [f"{g}:chunk-002" for g in gold]], gold
+    )
+    assert _metric("gold_coverage_round1")(rescued) == 0.5
+    assert _metric("gold_coverage_final")(rescued) == 1.0
+    assert _metric("rounds_used")(rescued) == 2.0
+    assert _metric("rescued_rate")(rescued) == 1.0
+    first_round_enough = _loop_view([[f"{g}:chunk-001" for g in gold]], gold)
+    assert _metric("rescued_rate")(first_round_enough) is None
+    closed_book = _loop_view([], gold)
+    assert _metric("gold_coverage_round1")(closed_book) is None
+    assert _metric("rounds_used")(closed_book) is None
+
+
+def test_judged_chunks_count_as_gold_found() -> None:
+    view = _loop_view([["drug:y:than-trong:chunk-001"]], ["drug:x:lieu-dung"])
+    accepted = {"drug:x:lieu-dung": frozenset({"drug:y:than-trong:chunk-001"})}
+    view = ItemView(view.item, view.answer, view.judgement, accepted)
+    assert _metric("gold_coverage_round1")(view) == 1.0

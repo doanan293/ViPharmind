@@ -86,7 +86,7 @@ class LlmSettings(BaseModel):
 class EmbeddingSettings(BaseModel):
     base_url: str = "http://localhost:11434/v1"
     api_key: str = "llama"
-    model: str = "qwen3-embedding:4b-fp16"
+    model: str = "qwen3-embedding:4b-q8_0"
     dimension: int = 2560
     timeout_seconds: float = 60.0
     max_retries: int = Field(default=2, ge=0)
@@ -96,7 +96,7 @@ class RerankSettings(BaseModel):
     protocol: Literal["native_rerank", "deepinfra", "none"] = "native_rerank"
     base_url: str = "http://localhost:11435"
     api_key: str | None = None
-    model: str = "qwen3-reranker:4b-fp16"
+    model: str = "qwen3-reranker:4b-q8_0"
     top_n: int = 8
     # Candidates scored per search round, taken round-robin across queries by fused rank.
     # A single query (candidate_k=30) is scored in full, like the evaluation.

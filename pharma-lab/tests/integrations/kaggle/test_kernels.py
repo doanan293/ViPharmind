@@ -44,7 +44,7 @@ def test_prepare_bundle_serializes_mounted_input_descriptors(tmp_path):
     job = RerankStage().build_job(
         stage_request(
             StageName.RERANK,
-            "qwen3-reranker:0.6b-fp16",
+            "qwen3-reranker:0.6b-q8_0",
             candidates,
             runtime_profile=rerank_runtime_profile(),
         )
@@ -94,7 +94,7 @@ def test_kernel_reference_uses_sixteen_identity_characters(tmp_path):
     job = RerankStage().build_job(
         stage_request(
             StageName.RERANK,
-            "qwen3-reranker:0.6b-fp16",
+            "qwen3-reranker:0.6b-q8_0",
             candidates,
             runtime_profile=rerank_runtime_profile(),
         )
@@ -121,7 +121,7 @@ def test_discover_reports_absent_when_the_kernel_is_confirmed_missing(tmp_path):
     job = RerankStage().build_job(
         stage_request(
             StageName.RERANK,
-            "qwen3-reranker:0.6b-fp16",
+            "qwen3-reranker:0.6b-q8_0",
             candidates,
             runtime_profile=rerank_runtime_profile(),
         )

@@ -9,7 +9,7 @@ from pharma_lab.integrations.kaggle.models import StageJob, StageName
 from pharma_lab.integrations.kaggle.stages import RerankStage
 from pharma_lab.integrations.kaggle.workers.rerank import run_rerank_worker
 
-MODEL = "qwen3-reranker:0.6b-fp16"
+MODEL = "qwen3-reranker:0.6b-q8_0"
 
 
 def _job(tmp_path: Path, candidate_bundle) -> StageJob:

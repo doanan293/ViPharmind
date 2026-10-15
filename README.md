@@ -73,7 +73,7 @@ Backend chạy trên máy thì đổi các biến embedding và rerank trong `ba
   và `-ub`, tối thiểu 4096 và phải chứa được prompt dài nhất), `LLAMA_RERANKER_CONTEXT_SIZE` (`-c`, bằng
   `-ub × (số slot + 1)`: một batch vật lý cộng prompt cuối của mỗi slot, mặc định 4096 × 5 = 20480)
   và `LLAMA_RERANKER_THREADS`; `RERANK_TIMEOUT_SECONDS` là timeout của backend cho một request rerank. Đo lại cho máy khác trong `pharma-lab/`:
-  `uv run pharma-lab rerank --run hybrid-qwen4b-p50-k30-rrf2 --backend local --benchmark --model qwen3-reranker:4b-fp16`,
+  `uv run pharma-lab rerank --run hybrid-qwen4b-p50-k30-rrf2 --backend local --benchmark --model qwen3-reranker:4b-q8_0`,
   rồi đặt các biến trong dòng `env=` lệnh in ra, với `RERANK_TIMEOUT_SECONDS` ít nhất gấp đôi
   `latency_p95_seconds`.
 

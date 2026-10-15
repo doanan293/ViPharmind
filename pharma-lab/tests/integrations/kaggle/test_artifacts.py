@@ -17,7 +17,7 @@ def _identity() -> JobIdentity:
     return JobIdentity.create(
         stage=StageName.RERANK,
         contract_version=3,
-        model="qwen3-reranker:0.6b-fp16",
+        model="qwen3-reranker:0.6b-q8_0",
         model_sha256="a" * 64,
         input_sha256="b" * 64,
         runtime_parameters={"request_contract_sha256": "c" * 64},

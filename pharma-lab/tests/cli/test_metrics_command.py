@@ -106,9 +106,9 @@ COMPARE = [
     "--run",
     "sample",
     "--baseline",
-    "qwen3-reranker:0.6b-fp16",
+    "qwen3-reranker:0.6b-q8_0",
     "--candidate",
-    "qwen3-reranker:4b-fp16",
+    "qwen3-reranker:4b-q8_0",
     "--top-k",
     "30",
 ]
@@ -125,8 +125,8 @@ def test_metrics_compare_adopts_the_candidate_above_zero(
     assert result.exit_code == 0, result.output
     assert captured["request"] == MetricComparisonRequest(
         run_dir("sample"),
-        "qwen3-reranker:0.6b-fp16",
-        "qwen3-reranker:4b-fp16",
+        "qwen3-reranker:0.6b-q8_0",
+        "qwen3-reranker:4b-q8_0",
         "mrr",
         30,
         3,
@@ -134,9 +134,9 @@ def test_metrics_compare_adopts_the_candidate_above_zero(
         0,
     )
     details = json.loads(result.stdout)["details"]
-    assert details["decision"] == "qwen3-reranker:4b-fp16"
+    assert details["decision"] == "qwen3-reranker:4b-q8_0"
     assert (details["ci95_low"], details["ci95_high"]) == (0.002, 0.018)
-    assert details["candidate"] == {"model": "qwen3-reranker:4b-fp16", "mean": 0.81}
+    assert details["candidate"] == {"model": "qwen3-reranker:4b-q8_0", "mean": 0.81}
 
 
 def test_metrics_compare_keeps_the_baseline_when_zero_is_inside(
@@ -149,7 +149,7 @@ def test_metrics_compare_keeps_the_baseline_when_zero_is_inside(
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["details"]["decision"] == (
-        "qwen3-reranker:0.6b-fp16"
+        "qwen3-reranker:0.6b-q8_0"
     )
 
 

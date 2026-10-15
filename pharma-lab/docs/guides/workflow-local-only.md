@@ -16,7 +16,7 @@ docker compose -f ../compose.yaml -f ../compose.local-models.yaml up -d postgres
 uv run pharma-lab build
 uv run pharma-lab validate
 uv run pharma-lab bundle export --output data/corpus/formulary --force
-uv run pharma-lab bundle embed --bundle data/corpus/formulary --backend local --model qwen3-embedding:4b-fp16
+uv run pharma-lab bundle embed --bundle data/corpus/formulary --backend local --model qwen3-embedding:4b-q8_0
 ```
 
 Embed local chạy trên CPU nên chậm; lệnh ghi cache sau mỗi lô, chạy lại để tiếp tục. Có thể bỏ bước embed: `pharma-agent corpus import` tự embed phần thiếu qua endpoint của backend.
@@ -34,15 +34,15 @@ cd ../pharma-lab
 
 ```bash
 uv run pharma-lab evaluation build --bundle data/corpus/formulary
-uv run pharma-lab embed queries --backend local --model qwen3-embedding:4b-fp16
+uv run pharma-lab embed queries --backend local --model qwen3-embedding:4b-q8_0
 uv run pharma-lab retrieve --run backend-bm25-k30 --retriever bm25 --candidate-k 30
 uv run pharma-lab metrics --run backend-bm25-k30 --top-k 30
 uv run pharma-lab retrieve --run backend-dense-qwen4b-k30 --retriever dense --candidate-k 30
 uv run pharma-lab metrics --run backend-dense-qwen4b-k30 --top-k 30
 uv run pharma-lab retrieve --run backend-hybrid-qwen4b-p50-k30-rrf2 --retriever hybrid \
   --prefetch-k 50 --candidate-k 30 --rrf-k 2
-uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend local --benchmark --model qwen3-reranker:4b-fp16
-uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend local --model qwen3-reranker:4b-fp16
+uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend local --benchmark --model qwen3-reranker:4b-q8_0
+uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend local --model qwen3-reranker:4b-q8_0
 uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --top-k 30
 ```
 

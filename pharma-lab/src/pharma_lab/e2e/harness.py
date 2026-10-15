@@ -100,7 +100,7 @@ class E2ERunRequest:
     config: E2EConfig
     golden_path: Path
     backend_env_file: Path
-    concurrency: int = 4
+    concurrency: int = 8
     retry_errors: bool = False
     limit: int | None = None
     # Evaluation may wait longer than the production turn deadline; recorded in run.json.

@@ -24,7 +24,7 @@ from pharma_lab.integrations.kaggle import auto_profile
 from pharma_lab.integrations.kaggle import service as kaggle_service
 from pharma_lab.runtime.catalog import require_model
 
-MODEL = "qwen3-embedding:4b-fp16"
+MODEL = "qwen3-embedding:4b-q8_0"
 DIMS = require_model(MODEL).vector_dimension or 0
 
 
@@ -84,7 +84,7 @@ def test_records_for_reads_this_models_full_records_from_the_file(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "cache.jsonl"
-    other = "embeddinggemma:300m"
+    other = "embeddinggemma:300m-q8_0"
     open_text_cache(path, other).set(text_sha256("a"), [0.5] * 768)
     cache = open_text_cache(path, MODEL)
     cache.set(text_sha256("a"), _vector(0.25))
