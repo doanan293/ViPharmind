@@ -210,3 +210,12 @@ def test_a_cutoff_of_5_reports_only_the_scores_at_5() -> None:
 
     assert (scores["ndcg@5"], scores["mrr@5"]) == (1.0, 1.0)
     assert "ndcg@10" not in scores
+
+
+def test_a_run_reports_hit_at_its_own_depth_and_nothing_deeper() -> None:
+    payloads = _ranked(*["x:z"] * 15, "drug:a:lieu")
+
+    scores = score_ranked_payloads(payloads, _section_row(), top_k=20)
+
+    assert scores["hit@10"] == 0 and scores["hit@20"] == 1
+    assert "hit@30" not in scores

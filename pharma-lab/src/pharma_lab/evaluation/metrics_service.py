@@ -31,6 +31,7 @@ from pharma_lab.evaluation.retrieval_candidate_artifact import (
 )
 from pharma_lab.evaluation.retrieval_metrics import (
     accumulate_metrics,
+    metric_cutoffs,
     new_metric_bucket,
     score_ranked_payloads,
 )
@@ -44,7 +45,6 @@ from pharma_lab.evaluation.run_workspace import (
 from pharma_lab.evaluation.variant_identity import MetricsArtifactIdentity
 from pharma_lab.runtime.catalog import require_model
 
-DISPLAY_HIT_KS = (3, 5, 10, 30)
 BREAKDOWN_DIMENSIONS = ("eval_group",)
 
 
@@ -79,7 +79,7 @@ def markdown_metric_table(metrics: dict, top_k: int = 30) -> str:
     ]
     if metrics["count"] == 0:
         return "\n".join(lines)
-    for k in DISPLAY_HIT_KS:
+    for k in metric_cutoffs(top_k):
         key = f"hit@{k}"
         if key in metrics:
             lines.append(f"| Hit@{k} | {metrics[key] / metrics['count'] * 100:.2f}% |")
@@ -97,7 +97,7 @@ def markdown_metric_table(metrics: dict, top_k: int = 30) -> str:
                 f"| Total Multi-required Queries | {multi_count} |",
             ]
         )
-        for k in DISPLAY_HIT_KS:
+        for k in metric_cutoffs(top_k):
             recall_key = f"multi_section_recall@{k}"
             all_hit_key = f"multi_all_hit@{k}"
             if recall_key in metrics:
@@ -121,19 +121,24 @@ def accumulate_breakdown_metrics(breakdowns: dict, hits: dict, row: dict) -> Non
 def markdown_breakdown_tables(breakdowns: dict, top_k: int = 30) -> str:
     sections = []
     for dimension in BREAKDOWN_DIMENSIONS:
+        cutoffs = metric_cutoffs(top_k)
+        headers = [
+            dimension,
+            "Count",
+            *(f"Hit@{k}" for k in cutoffs),
+            *("nDCG@5", "MRR@5", "nDCG@10", "MRR@10", f"MRR@{top_k}"),
+        ]
         lines = [
             f"## Breakdown by {dimension}",
             "",
-            f"| {dimension} | Count | Hit@3 | Hit@5 | Hit@10 | Hit@30 | nDCG@5 | MRR@5 "
-            f"| nDCG@10 | MRR@10 | MRR@{top_k} |",
-            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| " + " | ".join(headers) + " |",
+            "| --- |" + " ---: |" * (len(headers) - 1),
         ]
         for value, metrics in sorted(breakdowns[dimension].items()):
             count = metrics["count"]
             cells = [str(value), str(int(count))]
             cells.extend(
-                f"{metrics.get(f'hit@{k}', 0.0) / count * 100:.2f}%"
-                for k in DISPLAY_HIT_KS
+                f"{metrics.get(f'hit@{k}', 0.0) / count * 100:.2f}%" for k in cutoffs
             )
             cells.extend(
                 f"{metrics.get(key, 0.0) / count:.4f}"

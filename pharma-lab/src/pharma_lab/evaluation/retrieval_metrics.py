@@ -3,6 +3,14 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 
 DEFAULT_METRIC_KS = (3, 5, 10, 30)
+
+
+def metric_cutoffs(top_k: int) -> tuple[int, ...]:
+    """Hit@k cutoffs of a run: the standard ones within its depth, plus the depth itself,
+    which is the most a reranker over these candidates can reach."""
+    return tuple(sorted({k for k in DEFAULT_METRIC_KS if k <= top_k} | {top_k}))
+
+
 # Cutoffs of the BEIR/MTEB-style nDCG@k and MRR@k reported next to Hit@k: 5 is what the
 # pipeline reads per round (spec v2 §3.0c), 10 is the BEIR convention.
 RANKING_KS = (5, 10)
@@ -105,7 +113,7 @@ def score_ranked_payloads(
     retrieved_payloads: list[dict],
     query_row: Mapping[str, object],
     top_k: int = 10,
-    metric_ks: Iterable[int] = DEFAULT_METRIC_KS,
+    metric_ks: Iterable[int] | None = None,
     judgments: Mapping[str, frozenset[str]] | None = None,
 ) -> dict[str, float]:
     """Hit@k, MRR and multi-section recall of one ranked candidate list.
@@ -117,7 +125,7 @@ def score_ranked_payloads(
     units = evidence_units(query_row)
     satisfied_at = [satisfied_units(p, query_row, judged) for p in retrieved_payloads]
 
-    for k in metric_ks:
+    for k in metric_cutoffs(top_k) if metric_ks is None else metric_ks:
         if k > top_k:
             continue
         hits[f"hit@{k}"] = 1 if any(satisfied_at[:k]) else 0
