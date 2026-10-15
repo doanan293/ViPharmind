@@ -102,9 +102,20 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   có `BASE_URL`, `API_KEY` và `MODEL` riêng như hiện nay, nên hai đường của lab trộn được trong một
   run.
 - **Model mở** (Qwen3.5-9B) tự host trên Kaggle bằng `pharma-lab e2e llm-server --model
-  qwen3.5:9b-f16`: llama.cpp GGUF F16 chia trên hai T4, 4 slot mỗi slot 32.768 token (v1 dùng
-  16.384; nâng lên cho hội thoại ReAct, không đổi đầu ra của các lời gọi ngắn hơn), tunnel
-  cloudflared, cùng model, precision và phần cứng với run v1 (`docs/guides/e2e-evaluation.md`).
+  qwen3.5:9b-q8_0`: llama.cpp GGUF Q8_0, một bản trên mỗi T4 (replicated 2×1, proxy round-robin
+  của serve worker chia request), mỗi bản 4 slot × 32.768 token, tức 8 request đồng thời; tunnel
+  cloudflared (`docs/guides/e2e-evaluation.md`).
+- **Mọi model tự host đều ở Q8_0**, cả LLM, embedding và reranker. Sinh token trên GPU bị giới
+  hạn bởi băng thông bộ nhớ, nên F16 lãng phí: Q8_0 giảm nửa dung lượng trọng số, chất lượng
+  gần như bằng F16, tốc độ sinh mỗi request nhanh hơn rõ. Trọng số 9B Q8_0 còn 9,5 GB nên vừa một
+  T4 cạnh KV cache, cho phép hai bản thay vì một bản chia đôi; 4B còn 4,3 GB, giải phóng VRAM cho
+  nhiều slot và batch lớn hơn. File Q8_0 quantize tại chỗ từ file F16 đã kiểm bằng `llama-quantize`
+  của cùng bản llama.cpp; file F16 xoá. Bài ghi precision Q8_0 cho mọi model tự host.
+- **Phục vụ lấy tốc độ làm đầu, không tiết kiệm quota:** mỗi model một kernel riêng trên một tài
+  khoản Kaggle riêng, chạy song song, dùng đủ hai T4 của kernel (LLM, embedding và reranker đều
+  replicated 2×1). Profile runtime (slot, ubatch, concurrency, batch) của từng model Q8_0 do cơ chế
+  auto-benchmark sẵn có (`corpus-embed-benchmark`, `rerank --benchmark`) đo trên Kaggle và chọn
+  nhanh nhất, với không gian tìm nới rộng vì VRAM dư; client gửi batch với concurrency bằng số slot.
 - **Model thương mại** (Gemini 3.8 Flash, gemini-3.1-flash-lite, Claude Opus 5.5) qua service
   `cli-proxy-api` của compose (image `eceasy/cli-proxy-api:v8.0.28`, bản cũ v7.3.0 giả lập Claude
   Code quá cũ để gọi Opus 5.5), endpoint `http://127.0.0.1:8317/v1`, key `proxypal-local`, như v1 đã
@@ -123,10 +134,10 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   proxy thuê bao, kể cả Opus 5.5, và kể cả Qwen3.5-9B tự host: Qwen tính theo giá niêm yết trên
   OpenRouter (DeepInfra bf16), tức đúng giá production sẽ trả, không theo giờ GPU Kaggle. Bài nói
   rõ điều đó. Tiền thật phải trả chỉ phát sinh ở Jev qua OpenRouter.
-- Embedding query: llama.cpp `qwen3-embedding:4b-fp16` chạy local qua `compose.local-models.yaml`
-  như v1, khớp với index đã dựng.
-- Reranker: Qwen3-Reranker-4B tự host trên Kaggle bằng `pharma-lab e2e rerank-server` ở một kernel
-  riêng như v1, vì hai T4 của kernel LLM đã dành cho Qwen3.5-9B.
+- Embedding query: `qwen3-embedding:4b-q8_0`, trên Kaggle khi chạy benchmark retrieval và qua
+  `compose.local-models.yaml` khi chạy e2e local, cùng file với index đã dựng.
+- Reranker: `qwen3-reranker:4b-q8_0` tự host trên Kaggle bằng `pharma-lab e2e rerank-server` ở
+  kernel riêng, replicated 2×1.
 - Jev: qua OpenRouter, cả ở lab lẫn production, bằng SDK chính thức của TypeSafe với `base_url`
   `https://openrouter.ai/api` và id `~typesafe/jev-latest` (danh sách model OpenRouter ngày
   2026-10-14 hiện id `typesafe/jev-router`, giá ghi -1, tức OpenRouter không công bố giá cố định).
@@ -249,7 +260,7 @@ công bằng:
 - **Golden e2e:** giữ nguyên nội dung, chỉ viết lại 50 item có hậu tố "(phần ...)"; gold section
   của item leaflet ánh xạ sang section con mới; chạy `golden check`.
 - **Hệ quả:** mọi số retrieval v1 vô hiệu; chạy lại bảng retrieval với năm embedding tự host và
-  bốn reranker trên Kaggle (bỏ BGE-reranker-v2-gemma; bỏ OpenAI text-embedding-3-large vì run v1 là
+  bốn reranker trên Kaggle, tất cả ở Q8_0 (§2.1b) (bỏ BGE-reranker-v2-gemma; bỏ OpenAI text-embedding-3-large vì run v1 là
   run nhập từ pipeline cũ, không tái lập được); bài chỉ trình bày số trên benchmark mới.
 
 ### 3.0b Tập "cần tra nhiều lượt" trong golden (tổng golden vẫn 500 câu)
@@ -315,7 +326,7 @@ Ba model dùng xuyên suốt bài (giá USD mỗi triệu token vào/ra, ngày 2
 
 | Nhóm | Model | Giá | Đường gọi |
 | --- | --- | --- | --- |
-| Mở, rẻ | Qwen3.5-9B | 0,10 / 0,15 | tự host Kaggle, llama.cpp F16 trên 2 T4 |
+| Mở, rẻ | Qwen3.5-9B | 0,10 / 0,15 | tự host Kaggle, llama.cpp Q8_0, hai bản trên 2 T4 |
 | Thương mại, rẻ | Gemini 3.8 Flash | 0,75 / 3,75 | cli-proxy-api, thinking low |
 | Nặng, trần tham chiếu | Claude Opus 5.5 | 4 / 20 | cli-proxy-api, adaptive effort minimal |
 
@@ -365,7 +376,7 @@ nào cho chất lượng cao nhất trên mỗi USD và mỗi giây, và kết l
 - D2 ablation enrichment: một biến thể duy nhất không enrichment (không header, glossary, colloquial)
   trên hybrid + rerank; phân theo nhóm, nhất là noisy và leaflet.
 - D3 bảng retrieval theo nhóm câu hỏi và độ khó cho các cấu hình chính.
-- D4 cột chi phí dense: số tham số và tốc độ encode query trên T4, thay cho chỉ có dimension.
+- D4 cột chi phí dense: số tham số, dung lượng Q8_0 và tốc độ encode query trên T4, thay cho chỉ có dimension.
 - D5 chiến lược truy vấn hội thoại Q0 đến Q6 (§3.1).
 - D6 đường cong retrieval đến e2e: chạy one-step và full với bm25, dense, hybrid k=60, hybrid k=2 không
   rerank, hybrid có rerank; vẽ truthfulness theo Hit@10 và nDCG@10; giải thích vì sao bỏ reranker không
@@ -453,7 +464,7 @@ rẻ. Mỗi run chạy thử 20 item trước khi chạy đủ.
 - Quota GPU Kaggle và giới hạn thời gian mỗi phiên kernel: mỗi run chạy được tiếp sau khi kernel
   khởi động lại vì harness đã ghi `answers.jsonl` từng item; xếp run Qwen theo quota và ưu tiên
   cấu hình chính (A2, A3, ReAct) trước quét τ và ablation.
-- Bốn slot 32.768 token trên hai T4 là tính toán (KV cache 4 GiB, 2 GiB mỗi GPU cạnh khoảng 9 GB
+- Bốn slot 32.768 token mỗi bản 9B Q8_0 trên một T4 là tính toán (KV cache 4 GiB cạnh 9,5 GB
   weights), chưa đo: lần khởi động đầu của `e2e llm-server` ở pha 0 xác nhận server lên được; nếu
   hết VRAM thì giảm còn 3 slot. ReAct vẫn ghi số lượt chạm trần ngữ cảnh vào bảng thất bại.
 - Credential OAuth Antigravity hoặc Claude của cli-proxy-api hết hạn, hết quota, hoặc đổi danh sách
