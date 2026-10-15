@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from pharma_lab.runtime.catalog import (
@@ -36,14 +38,16 @@ def test_qwen3_rerankers_serve_the_vietnamese_medical_template(
     assert (spec.canonical_filename, spec.byte_size, spec.sha256) == expected
 
 
-def test_every_gguf_dataset_slug_fits_the_kaggle_limit() -> None:
-    too_long = {
+def test_every_gguf_dataset_slug_is_a_valid_kaggle_slug() -> None:
+    # Kaggle accepts lowercase letters, digits and "-" only, at most 50 characters.
+    invalid = {
         name: spec.gguf_dataset_slug
         for name, spec in MODEL_CATALOG.items()
         if len(spec.gguf_dataset_slug) > 50
+        or not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", spec.gguf_dataset_slug)
     }
 
-    assert too_long == {}
+    assert invalid == {}
 
 
 def test_the_open_weight_chat_model_is_the_published_q8_0_with_a_fixed_runtime() -> (
@@ -57,7 +61,7 @@ def test_the_open_weight_chat_model_is_the_published_q8_0_with_a_fixed_runtime()
         9_527_502_048,
         "809626574d0cb43d4becfa56169980da2bb448f2299270f7be443cb89d0a6ae4",
     )
-    assert spec.gguf_dataset_slug == "vector-cache-gguf-qwen3-5-9b-q8_0"
+    assert spec.gguf_dataset_slug == "vector-cache-gguf-qwen3-5-9b-q8-0"
     assert spec.serve_runtime is not None
     assert spec.serve_runtime.context_per_slot == 32768
     assert spec.serve_runtime.concurrency == 2 * spec.serve_runtime.server_slots

@@ -37,7 +37,7 @@ Trong session chạy E2E, nạp file env trước (`set -a; . data/work/serve/qw
 
 **Chạy với model open-weight.** Run `e2e-qwen35-9b` dùng Qwen3.5-9B (9,65 tỉ tham số, Apache 2.0) cho mọi bước của pipeline; judge vẫn dùng endpoint mặc định trong `backend/.env`.
 
-*File GGUF.* Model là bản Q8_0 Unsloth công bố (`qwen3.5:9b-q8_0`, 9,5 GB), tải theo commit và kiểm sha256 cùng các model khác ([Đánh giá retrieval](evaluation.md), mục "File GGUF"). Template chat trong file nhận `chat_template_kwargs.enable_thinking: false`. Lần chạy stage đầu tiên tự đưa file lên dataset Kaggle `vector-cache-gguf-qwen3-5-9b-q8_0`. Bản llama.cpp trên Kaggle (b9637) đã hỗ trợ kiến trúc `qwen35`.
+*File GGUF.* Model là bản Q8_0 Unsloth công bố (`qwen3.5:9b-q8_0`, 9,5 GB), tải theo commit và kiểm sha256 cùng các model khác ([Đánh giá retrieval](evaluation.md), mục "File GGUF"). Template chat trong file nhận `chat_template_kwargs.enable_thinking: false`. Lần chạy stage đầu tiên tự đưa file lên dataset Kaggle `vector-cache-gguf-qwen3-5-9b-q8-0`. Bản llama.cpp trên Kaggle (b9637) đã hỗ trợ kiến trúc `qwen35`.
 
 *Phục vụ trên Kaggle.* Mỗi T4 chạy một bản model (4 slot, mỗi slot 32.768 token), proxy round-robin trong kernel chia request cho hai bản, nên kernel nhận 8 request cùng lúc; `pharma-lab e2e run` mặc định `--concurrency 8` cho khớp. Reranker và embedding chạy ở kernel riêng trên tài khoản khác, song song với LLM:
 
