@@ -6,8 +6,8 @@
   },
   "generator": {
     "name": "pharma-lab",
-    "version": "0.3.2",
-    "build_id": "fd9dad22a3fa9c61"
+    "version": "0.4.0",
+    "build_id": "4e6b6018af25a482"
   },
   "source_digests": {
     "source_pdf_sha256": "2aa81c846a5e760f82658c46816ab63174204a7d95b3e2755b6565288e53d0d1",
@@ -26,8 +26,8 @@
       "bytes": 778280
     },
     "sections.jsonl": {
-      "sha256": "6c13458bdc22a372d9187d61b23c6a9fa744d491ccfc2794109909e4adbbd286",
-      "bytes": 70010533
+      "sha256": "42d76cbf662628370d6b384ec79dbc356565af69c850ba0bb140f2e9bc93755e",
+      "bytes": 66441705
     },
     "glossary.json": {
       "sha256": "bcedbf996455ddde29070de1b4151d911c452a8d2a12309e056f31d0636091f6",

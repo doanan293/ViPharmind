@@ -1,7 +1,7 @@
 {
   "block_count": 10079,
-  "build_id": "fd9dad22a3fa9c61",
-  "config_digest": "376607356f34d37ce0066f390aec25f74803dcaeb7d915b4bfdf0fa478515419",
+  "build_id": "4e6b6018af25a482",
+  "config_digest": "de841d52e7b790dbc06bf2b2714a7c654c58582b0663564d5ebbcbe514568068",
   "curated_input_digests": {
     "curated_tables": "818c7828f24180445571d72fe0a5f51d2e374a25c4998827f8a4e16dd0fbde41",
     "glossary": "efb491df91f68fd8fd9f4a0c836b06211758de703ba0f7cddbfc39c415b6f2ff",
@@ -14,12 +14,12 @@
       "sha256": "45b31d61bb1bc8f9205b68ac8fa9e88f413014e18665f6bc157847c676a053c0"
     },
     "sections.jsonl": {
-      "bytes": 82767332,
-      "sha256": "b5c9c114bbc0a6f82a829795da51c33b0854596fa0018975ede86c2c75b5b0d4"
+      "bytes": 80581391,
+      "sha256": "ed33617be966cb851cbc4b1de30272d2bee800ffd6b2be1e5f1278c0f444561d"
     },
     "validation_report.json": {
-      "bytes": 74147,
-      "sha256": "2e3e52cbad5c053b4def0a2b18b05d6f73420dfb0362561e6d6beda36ff8e7db"
+      "bytes": 73561,
+      "sha256": "b93935ce5bb74d1d7cacada6030b621129b13787fcae4eb88a58fd3f09bb4c93"
     }
   },
   "leaflet_source": {

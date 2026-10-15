@@ -162,3 +162,26 @@ chấp nhận chunk trùng văn bản trong relevance judgments.
 4. Viết lại 50 item golden có hậu tố, giữ các item khác; chạy lại A1 và A2 Qwen3.5-9B trên release
    mới làm mốc v2.
 5. Ghi vào bài: mô tả đúng từng nhóm, và một đoạn "so với v1" giải thích vì sao số retrieval thay đổi.
+
+## 6. Chunk v2 (2026-10-15)
+
+Chunk là đơn vị đọc (spec §3.0c): `chunk_document` gộp các mục liền kề của một tài liệu tới
+`TARGET_CHUNK_CHARS = 5400`, mục dài hơn `MAX_CHUNK_CHARS = 5600` được cắt riêng. Đo bằng tokenizer
+Qwen3 (`qwen3-embedding-0.6b-q8_0.gguf`, llama.cpp `server-b10920`, endpoint `/tokenize`) trên bundle
+`data/corpus/formulary` (3.120 tài liệu, 34.552 mục).
+
+| Đo | n | mean | p50 | p90 | p99 | max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| chunk_text | 13.298 | 1.011 | 1.078 | 1.671 | 2.207 | 3.098 |
+| embedding_text | 13.298 | 1.084 | 1.158 | 1.773 | 2.249 | 3.214 |
+| chunk_text, Dược thư | 2.556 | 1.316 | 1.500 | 1.904 | 2.266 | 2.466 |
+| chunk_text, tờ hướng dẫn | 10.742 | 938 | 972 | 1.601 | 1.836 | 3.098 |
+
+- 6.323 chunk (48 %) chứa từ hai mục trở lên; 386 chunk dưới 64 token (tài liệu chỉ có một mục ngắn).
+- Không chunk nào vượt slot embed 4.096 token; chunk dài nhất là bảng tờ hướng dẫn.
+- Các mức target đã thử: 3.200 ký tự cho 17.224 chunk, mean 781 token; 4.200 cho 15.047 chunk, mean
+  893. Mean thấp hơn target vì nhiều tài liệu ngắn hơn target, nên chunk cuối của tài liệu luôn non.
+- Benchmark dựng lại: 10.000 câu, nhóm formulary 5.000, leaflet 2.500, structured 1.000,
+  leaflet_short 500, multi_intent 500, noisy 500; query_form `section_coverage` 1.000. Không câu nào có
+  "(phần", không trùng text, không gold ngoài bundle; 568 mục gold dài hơn `MAX_CHUNK_CHARS` trải trên
+  nhiều chunk, các mục còn lại nằm trong đúng một chunk. Relevance judgments: 1.123 dòng.

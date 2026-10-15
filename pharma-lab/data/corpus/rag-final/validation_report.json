@@ -617,15 +617,9 @@
   "metrics": {
     "canonical_block_count": 10079,
     "canonical_section_count": 9920,
-    "chunk_count": 42574,
-    "chunk_sources": {
-      "Dược thư Quốc gia Việt Nam (Xuất bản lần thứ 2) - Nhà xuất bản Y học, Hà Nội, 2018": 11157,
-      "Tờ hướng dẫn sử dụng": 31417
-    },
     "curated_table_count": 258,
     "duplicate_review_count": 0,
     "leaflet_markdown_file_count": 2407,
-    "rag_interim_chunk_count": 11019,
     "rag_interim_section_count": 9932,
     "section_count": 34559,
     "section_sources": {
@@ -1255,14 +1249,8 @@
       "metrics": {
         "canonical_block_count": 10079,
         "canonical_section_count": 9920,
-        "chunk_count": 42574,
-        "chunk_sources": {
-          "Dược thư Quốc gia Việt Nam (Xuất bản lần thứ 2) - Nhà xuất bản Y học, Hà Nội, 2018": 11157,
-          "Tờ hướng dẫn sử dụng": 31417
-        },
         "curated_table_count": 258,
         "leaflet_markdown_file_count": 2407,
-        "rag_interim_chunk_count": 11019,
         "rag_interim_section_count": 9932,
         "section_count": 34559,
         "section_sources": {
@@ -1284,7 +1272,6 @@
       "findings": [],
       "metrics": {
         "canonical_block_count": 10079,
-        "chunk_count": 42574,
         "duplicate_review_count": 0,
         "section_count": 34559,
         "table_block_count": 159
