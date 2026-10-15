@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from pharma_agent.application.corpus.import_bundle import ImportKnowledgeBundle
 from pharma_agent.application.corpus.service import CorpusService
 from pharma_agent.domain.corpus.bundle import (
-    BlockKind,
     ColloquialMappingRecord,
     GlossaryEntry,
 )
@@ -27,7 +26,6 @@ from pharma_agent.domain.corpus.models import (
     ReleaseStatus,
     ReleaseSummary,
     Section,
-    SectionRevision,
 )
 from pharma_agent.domain.corpus.ports import Embedder
 from pharma_agent.domain.shared.clock import Clock, FixedClock
@@ -39,7 +37,6 @@ class InMemoryCorpusRepository:
         self.collections: dict[str, Collection] = {}
         self.documents: dict[uuid.UUID, Document] = {}
         self.sections: dict[uuid.UUID, Section] = {}
-        self.revisions: dict[uuid.UUID, SectionRevision] = {}
         self.chunks: dict[uuid.UUID, ChunkVersion] = {}
         self.releases: dict[uuid.UUID, Release] = {}
         self.placements: dict[uuid.UUID, list[ReleaseChunk]] = {}
@@ -116,8 +113,6 @@ class InMemoryCorpusRepository:
             {document.id: document for document in snapshot.documents}
         )
         self.sections.update({section.id: section for section in snapshot.sections})
-        for revision in snapshot.revisions:
-            self.revisions.setdefault(revision.id, revision)
         for chunk in snapshot.chunks:
             self.chunks.setdefault(chunk.id, chunk)
         if release_id not in self.releases:
@@ -201,7 +196,7 @@ class InMemoryCorpusRepository:
         orphans = [
             chunk_id
             for chunk_id in self.chunks
-            if self._collection_of_revision(self.chunks[chunk_id].section_revision_id)
+            if self.documents[self.chunks[chunk_id].document_id].collection_id
             == collection_id
             and chunk_id not in referenced
         ]
@@ -211,23 +206,8 @@ class InMemoryCorpusRepository:
         for chunk_id in orphans:
             if chunk_id not in self.protected_chunk_ids:
                 del self.chunks[chunk_id]
-        live_revisions = {
-            placement.section_revision_id
-            for placements in self.placements.values()
-            for placement in placements
-        } | {chunk.section_revision_id for chunk in self.chunks.values()}
-        orphan_revisions = [
-            revision_id
-            for revision_id in self.revisions
-            if self._collection_of_revision(revision_id) == collection_id
-            and revision_id not in live_revisions
-        ]
-        for revision_id in orphan_revisions:
-            del self.revisions[revision_id]
-        live_sections = {
-            revision.section_id for revision in self.revisions.values()
-        } | {
-            placement.section_id
+        live_documents = {chunk.document_id for chunk in self.chunks.values()} | {
+            placement.document_id
             for placements in self.placements.values()
             for placement in placements
         }
@@ -235,11 +215,10 @@ class InMemoryCorpusRepository:
             section_id
             for section_id, section in self.sections.items()
             if self.documents[section.document_id].collection_id == collection_id
-            and section_id not in live_sections
+            and section.document_id not in live_documents
         ]
         for section_id in orphan_sections:
             del self.sections[section_id]
-        live_documents = {section.document_id for section in self.sections.values()}
         orphan_documents = [
             document_id
             for document_id, document in self.documents.items()
@@ -252,25 +231,16 @@ class InMemoryCorpusRepository:
             release_chunks_deleted=placements_deleted,
             chunk_versions_deleted=len(orphans) - len(kept),
             chunk_versions_kept=len(kept),
-            section_revisions_deleted=len(orphan_revisions),
             sections_deleted=len(orphan_sections),
             documents_deleted=len(orphan_documents),
         )
 
-    def _collection_of_revision(self, revision_id: uuid.UUID) -> uuid.UUID:
-        section = self.sections[self.revisions[revision_id].section_id]
-        return self.documents[section.document_id].collection_id
-
     def _item(self, chunk_id: uuid.UUID) -> IndexItem:
         chunk = self.chunks[chunk_id]
-        section = self.sections[self.revisions[chunk.section_revision_id].section_id]
         return IndexItem(
             chunk_version_id=chunk.id,
-            collection_id=self.documents[section.document_id].collection_id,
-            document_id=section.document_id,
-            section_id=section.id,
-            section_revision_id=chunk.section_revision_id,
-            kind=chunk.kind,
+            collection_id=self.documents[chunk.document_id].collection_id,
+            document_id=chunk.document_id,
             embedding_text=chunk.embedding_text,
             embedding_text_sha256=chunk.embedding_text_sha256,
             release_ids=sorted(
@@ -288,9 +258,6 @@ def index_item(text: str) -> IndexItem:
         chunk_version_id=uuid.uuid4(),
         collection_id=uuid.uuid4(),
         document_id=uuid.uuid4(),
-        section_id=uuid.uuid4(),
-        section_revision_id=uuid.uuid4(),
-        kind=BlockKind.PROSE,
         embedding_text=text,
         embedding_text_sha256=sha256_hex(text),
         release_ids=[],

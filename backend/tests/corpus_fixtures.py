@@ -28,7 +28,7 @@ from pharma_agent.domain.corpus.bundle import (
     write_bundle,
     write_bundle_embeddings,
 )
-from pharma_agent.domain.corpus.chunking import chunk_section
+from pharma_agent.domain.corpus.chunking import chunk_document
 from pharma_agent.domain.corpus.identity import sha256_hex
 from pharma_agent.domain.corpus.models import CorpusSnapshot
 from tests.fakes import FAKE_EMBEDDING_MODEL, fake_vector
@@ -272,14 +272,14 @@ def build_small_bundle() -> KnowledgeBundle:
 def build_small_embeddings(bundle: KnowledgeBundle) -> dict[str, list[float]]:
     """Fake vectors for every chunk of `bundle`, keyed by embedding_text_sha256."""
     documents = {document.key: document for document in bundle.documents}
+    by_document: dict[str, list[SectionRecord]] = {}
+    for section in bundle.sections:
+        by_document.setdefault(section.document_key, []).append(section)
     return {
         draft.embedding_text_sha256: fake_vector(draft.embedding_text)
-        for section in bundle.sections
-        for draft in chunk_section(
-            documents[section.document_key],
-            section,
-            bundle.glossary,
-            bundle.colloquial_mappings,
+        for key, sections in by_document.items()
+        for draft in chunk_document(
+            documents[key], sections, bundle.glossary, bundle.colloquial_mappings
         )
     }
 

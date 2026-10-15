@@ -3,6 +3,7 @@ import pytest
 from pharma_agent.domain.corpus.chunking import (
     CHUNKER_VERSION,
     MAX_CHUNK_CHARS,
+    TARGET_CHUNK_CHARS,
     split_lines_without_breaking_entries,
     split_long_text,
     split_oversized_paragraph,
@@ -23,8 +24,8 @@ TABLE_HEADER = "| Thuốc phối hợp | Hậu quả |\n| --- | --- |"
 
 
 def test_chunker_constants() -> None:
-    assert CHUNKER_VERSION == "chunker-v1"
-    assert MAX_CHUNK_CHARS == 3000
+    assert CHUNKER_VERSION == "chunker-v2"
+    assert (TARGET_CHUNK_CHARS, MAX_CHUNK_CHARS) == (3200, 5600)
 
 
 def test_split_long_text_returns_fitting_text_unchanged() -> None:

@@ -33,8 +33,8 @@
       "bytes": 320
     },
     "embeddings/fake_embedding_4d.jsonl": {
-      "sha256": "0e78f00278aeb14d97cc22ea134922fcadb7c6c463c92fe7ee38e6905ac7329b",
-      "bytes": 1794
+      "sha256": "b69299a5cc8a67973b4f59d8147e6e42cc3f5f01e1f18d98e379e952a0751293",
+      "bytes": 966
     }
   },
   "embeddings": [

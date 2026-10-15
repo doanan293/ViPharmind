@@ -1,8 +1,8 @@
 """Corpus collections, releases and the row-shaped snapshot of a knowledge bundle.
 
 Framework-free. `build_snapshot` turns a `KnowledgeBundle` into the rows of spec C §6.2 using
-the chunker, enrichment, hydrate policy and identity functions of this package, so the
-repository only stores what the domain computed.
+the chunker, enrichment and identity functions of this package, so the repository only
+stores what the domain computed.
 """
 
 import uuid
@@ -14,24 +14,18 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field
 
 from pharma_agent.domain.corpus.bundle import (
-    BlockKind,
     ColloquialMappingRecord,
     GlossaryEntry,
     KnowledgeBundle,
+    SectionRecord,
 )
-from pharma_agent.domain.corpus.chunking import CHUNKER_VERSION, chunk_section
-from pharma_agent.domain.corpus.hydrate import hydrate_strategy_for
+from pharma_agent.domain.corpus.chunking import CHUNKER_VERSION, chunk_document
 from pharma_agent.domain.corpus.identity import (
     CORPUS_NAMESPACE,
     canonical_json,
-    section_revision_id,
     sha256_hex,
 )
-from pharma_agent.domain.retrieval.models import (
-    ColloquialMapping,
-    HydrateStrategy,
-    TermAnnotation,
-)
+from pharma_agent.domain.retrieval.models import ColloquialMapping, TermAnnotation
 from pharma_agent.domain.shared.errors import DomainError
 
 
@@ -113,7 +107,6 @@ class CollectionOwner:
 class ReleaseStats(_Frozen):
     documents: int = 0
     sections: int = 0
-    section_revisions: int = 0
     chunks: int = 0
     glossary_entries: int = 0
     colloquial_mappings: int = 0
@@ -160,23 +153,18 @@ class Section(_Frozen):
     heading: str
 
 
-class SectionRevision(_Frozen):
-    id: uuid.UUID
-    section_id: uuid.UUID
-
-
 class ChunkVersion(_Frozen):
     id: uuid.UUID
-    section_revision_id: uuid.UUID
+    document_id: uuid.UUID
     ordinal: int
-    kind: BlockKind
+    section_keys: list[str]
+    headings: list[str]
     chunk_text: str
     context_header: str
     embedding_text: str
     embedding_text_sha256: str
     start_page: int | None
     end_page: int | None
-    table_key: str | None
     term_annotations: list[TermAnnotation] = Field(default_factory=list)
     colloquial: ColloquialMapping | None = None
     chunker_version: str
@@ -184,10 +172,8 @@ class ChunkVersion(_Frozen):
 
 class ReleaseChunk(_Frozen):
     chunk_version_id: uuid.UUID
-    section_id: uuid.UUID
-    section_revision_id: uuid.UUID
+    document_id: uuid.UUID
     ordinal: int
-    hydrate_strategy: HydrateStrategy
 
 
 class CorpusSnapshot(_Frozen):
@@ -198,7 +184,6 @@ class CorpusSnapshot(_Frozen):
     chunker_version: str
     documents: list[Document]
     sections: list[Section]
-    revisions: list[SectionRevision]
     chunks: list[ChunkVersion]
     release_chunks: list[ReleaseChunk]
     glossary: list[GlossaryEntry]
@@ -208,7 +193,6 @@ class CorpusSnapshot(_Frozen):
         return ReleaseStats(
             documents=len(self.documents),
             sections=len(self.sections),
-            section_revisions=len(self.revisions),
             chunks=len(self.release_chunks),
             glossary_entries=len(self.glossary),
             colloquial_mappings=len(self.colloquial_mappings),
@@ -221,9 +205,6 @@ class IndexItem(_Frozen):
     chunk_version_id: uuid.UUID
     collection_id: uuid.UUID
     document_id: uuid.UUID
-    section_id: uuid.UUID
-    section_revision_id: uuid.UUID
-    kind: BlockKind
     embedding_text: str
     embedding_text_sha256: str
     release_ids: list[uuid.UUID]
@@ -233,7 +214,6 @@ class PurgeResult(_Frozen):
     release_chunks_deleted: int = 0
     chunk_versions_deleted: int = 0
     chunk_versions_kept: int = 0
-    section_revisions_deleted: int = 0
     sections_deleted: int = 0
     documents_deleted: int = 0
 
@@ -298,54 +278,48 @@ def build_snapshot(bundle: KnowledgeBundle) -> CorpusSnapshot:
     document_ids = {document.key: document.id for document in documents}
 
     sections: list[Section] = []
-    revisions: list[SectionRevision] = []
     chunks: dict[uuid.UUID, ChunkVersion] = {}
     release_chunks: list[ReleaseChunk] = []
+    sections_by_document: dict[str, list[SectionRecord]] = {}
     for record in bundle.sections:
-        section_id = section_id_for(document_ids[record.document_key], record.key)
+        document_id = document_ids[record.document_key]
         sections.append(
             Section(
-                id=section_id,
-                document_id=document_ids[record.document_key],
+                id=section_id_for(document_id, record.key),
+                document_id=document_id,
                 key=record.key,
                 heading=record.heading,
             )
         )
-        revision_id = section_revision_id(record.key, record.blocks)
-        revisions.append(SectionRevision(id=revision_id, section_id=section_id))
-        strategy = hydrate_strategy_for(record)
-        drafts = chunk_section(
-            records[record.document_key],
-            record,
-            bundle.glossary,
-            bundle.colloquial_mappings,
+        sections_by_document.setdefault(record.document_key, []).append(record)
+    for document_key, members in sections_by_document.items():
+        document_id = document_ids[document_key]
+        drafts = chunk_document(
+            records[document_key], members, bundle.glossary, bundle.colloquial_mappings
         )
         for draft in drafts:
-            if draft.chunk_version_id in chunks:
-                continue
-            chunks[draft.chunk_version_id] = ChunkVersion(
-                id=draft.chunk_version_id,
-                section_revision_id=revision_id,
-                ordinal=draft.ordinal,
-                kind=draft.kind,
-                chunk_text=draft.chunk_text,
-                context_header=draft.context_header,
-                embedding_text=draft.embedding_text,
-                embedding_text_sha256=draft.embedding_text_sha256,
-                start_page=draft.start_page,
-                end_page=draft.end_page,
-                table_key=draft.table_key,
-                term_annotations=list(draft.term_annotations),
-                colloquial=draft.colloquial,
-                chunker_version=CHUNKER_VERSION,
-            )
+            if draft.chunk_version_id not in chunks:
+                chunks[draft.chunk_version_id] = ChunkVersion(
+                    id=draft.chunk_version_id,
+                    document_id=document_id,
+                    ordinal=draft.ordinal,
+                    section_keys=list(draft.section_keys),
+                    headings=list(draft.headings),
+                    chunk_text=draft.chunk_text,
+                    context_header=draft.context_header,
+                    embedding_text=draft.embedding_text,
+                    embedding_text_sha256=draft.embedding_text_sha256,
+                    start_page=draft.start_page,
+                    end_page=draft.end_page,
+                    term_annotations=list(draft.term_annotations),
+                    colloquial=draft.colloquial,
+                    chunker_version=CHUNKER_VERSION,
+                )
             release_chunks.append(
                 ReleaseChunk(
                     chunk_version_id=draft.chunk_version_id,
-                    section_id=section_id,
-                    section_revision_id=revision_id,
+                    document_id=document_id,
                     ordinal=draft.ordinal,
-                    hydrate_strategy=strategy,
                 )
             )
 
@@ -355,7 +329,6 @@ def build_snapshot(bundle: KnowledgeBundle) -> CorpusSnapshot:
         chunker_version=CHUNKER_VERSION,
         documents=documents,
         sections=sections,
-        revisions=revisions,
         chunks=list(chunks.values()),
         release_chunks=release_chunks,
         glossary=list(bundle.glossary),

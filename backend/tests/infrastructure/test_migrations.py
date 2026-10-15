@@ -41,7 +41,6 @@ EXPECTED_CORPUS_TABLES = {
     "collections",
     "documents",
     "sections",
-    "section_revisions",
     "chunk_versions",
     "releases",
     "release_chunks",

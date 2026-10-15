@@ -3,7 +3,6 @@ import uuid
 import pytest
 from qdrant_client import AsyncQdrantClient, models
 
-from pharma_agent.domain.corpus.bundle import BlockKind
 from pharma_agent.domain.corpus.identity import sha256_hex
 from pharma_agent.domain.corpus.models import IndexItem, IndexMismatch
 from pharma_agent.domain.corpus.ports import VectorIndex
@@ -29,9 +28,6 @@ def item(text: str, release_ids: list[uuid.UUID]) -> IndexItem:
         chunk_version_id=uuid.uuid4(),
         collection_id=COLLECTION_ID,
         document_id=uuid.uuid4(),
-        section_id=uuid.uuid4(),
-        section_revision_id=uuid.uuid4(),
-        kind=BlockKind.PROSE,
         embedding_text=text,
         embedding_text_sha256=sha256_hex(text),
         release_ids=release_ids,
@@ -61,14 +57,7 @@ async def test_ensure_collection_creates_the_layout_once(
     sparse = info.config.params.sparse_vectors
     assert sparse is not None
     assert sparse[BM25_SPARSE_VECTOR_NAME].modifier is models.Modifier.IDF
-    assert set(info.payload_schema) == {
-        "collection_id",
-        "release_ids",
-        "document_id",
-        "section_id",
-        "section_revision_id",
-        "kind",
-    }
+    assert set(info.payload_schema) == {"collection_id", "release_ids", "document_id"}
     tenant = info.payload_schema["collection_id"].params
     assert isinstance(tenant, models.KeywordIndexParams) and tenant.is_tenant is True
     aliases = (await qdrant_client.get_aliases()).aliases
@@ -153,9 +142,6 @@ async def test_upsert_payload_release_ids_count_and_delete(
         "collection_id": str(COLLECTION_ID),
         "release_ids": [str(r1)],
         "document_id": str(fever.document_id),
-        "section_id": str(fever.section_id),
-        "section_revision_id": str(fever.section_revision_id),
-        "kind": "prose",
     }
     bm25 = await qdrant_client.query_points(
         COLLECTION,
