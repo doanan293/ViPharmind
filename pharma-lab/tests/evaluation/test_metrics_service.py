@@ -94,3 +94,12 @@ def test_markdown_breakdown_tables_renders_only_compact_metrics():
     )
     assert "## Breakdown by difficulty" not in rendered
     assert "Complete-evidence" not in rendered
+
+
+def test_breakdown_columns_follow_the_run_depth():
+    metrics = {"count": 1, "hit@3": 1, "hit@5": 1, "hit@10": 1, "hit@20": 1, "mrr": 1.0}
+
+    rendered = markdown_breakdown_tables({"eval_group": {"leaflet": metrics}}, top_k=20)
+
+    assert "| Hit@10 | Hit@20 |" in rendered and "Hit@30" not in rendered
+    assert "| leaflet | 1 | 100.00% | 100.00% | 100.00% | 100.00% |" in rendered
