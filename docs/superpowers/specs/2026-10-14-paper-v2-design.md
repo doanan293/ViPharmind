@@ -12,6 +12,23 @@ lần và dữ liệu v1 cục bộ đều bị gỡ. Bài trình bày kết qu�
 v1". Chỗ nào bên dưới còn nhắc "như v1" chỉ mô tả cách làm cũ đang được dùng lại vì nó tốt, không
 phải ràng buộc.
 
+**Dữ liệu trên Kaggle (kiểm kê ngày 2026-10-15).** Chỉ giữ thứ làm minh chứng cho bài SoICT v1 và
+thứ v2 đang dùng; mọi thứ khác xoá.
+
+| Dataset | Tài khoản | Xử lý | Lý do |
+| --- | --- | --- | --- |
+| `vipharma-rag` (công khai, version 2, 8,2 GB) | acc1 | Giữ, đóng băng | Bài SoICT dẫn link này; không thêm version, không đổi mô tả |
+| `vipharmind-data` version 1 (riêng tư, 4,9 GB) | acc1 | Giữ | Toàn bộ dữ liệu làm việc của v1, ghép với tag `v1.0.0`; v2 thêm version 2 |
+| `vector-cache-llama-cpp-cuda-t4` | acc1 | Giữ | Bản build llama.cpp CUDA cho T4 mà mọi kernel đang dùng |
+| `hust-information-retrieval-corpus` | acc1 | Không đụng | Dự án khác |
+| 13 dataset `vector-cache-gguf-*` F16/BF16 (khoảng 58 GB) | acc1 | Xoá | Cache model; file v1 dựng lại được từ nguồn Hugging Face ghim commit, sha256 và lệnh `-vimed` trong `docs/guides/evaluation.md` ở tag `v1.0.0` |
+| `corpus-pipeline-rag-final`, `seed-pipeline-bundle`, mọi `pipeline-input-*` | acc1, acc2, acc3 | Xoá | Input tạm của kernel, tự sinh lại khi chạy stage |
+
+Bản công khai của v2 là một dataset công khai mới, link riêng trong bài v2, để link của bài SoICT
+luôn trỏ đúng dữ liệu đã nộp. Cache model Q8_0 (`vector-cache-gguf-*-q8_0*`) do stage đầu tiên tự
+tạo. Ở máy local, `data/work/archive-v1-root`, `data/work/bundle-v1`, file GGUF F16 cùng cache
+embedding, rerank và profile F16 bị xoá; run v1 trong git vẫn còn ở tag `v1.0.0`.
+
 
 Bản v2 không nhắm một venue cụ thể. Mục tiêu là bài tốt nhất có thể, với tính mới tập trung vào
 **đo chất lượng, độ trễ và chi phí cùng nhau** cho agentic RAG trên model rẻ. Mọi điểm yếu mà
