@@ -300,6 +300,19 @@ class InMemoryVectorIndex:
         for point_id in ids:
             self.points.pop(point_id, None)
 
+    async def delete_unreleased(
+        self, collection_id: uuid.UUID, live_release_ids: Sequence[uuid.UUID]
+    ) -> int:
+        live = set(live_release_ids)
+        doomed = [
+            point_id
+            for point_id, (item, _) in self.points.items()
+            if item.collection_id == collection_id and not live & set(item.release_ids)
+        ]
+        for point_id in doomed:
+            del self.points[point_id]
+        return len(doomed)
+
     async def count_release(self, release_id: uuid.UUID) -> int:
         return sum(release_id in item.release_ids for item, _ in self.points.values())
 

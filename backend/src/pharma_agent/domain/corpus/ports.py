@@ -112,6 +112,13 @@ class VectorIndex(Protocol):
 
     async def delete(self, ids: Sequence[uuid.UUID]) -> None: ...
 
+    async def delete_unreleased(
+        self, collection_id: uuid.UUID, live_release_ids: Sequence[uuid.UUID]
+    ) -> int:
+        """Delete the collection's points that name none of `live_release_ids`, such as
+        points left after their rows were removed from Postgres. Returns the count."""
+        ...
+
     async def count_release(self, release_id: uuid.UUID) -> int: ...
 
 

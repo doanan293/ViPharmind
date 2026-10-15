@@ -477,7 +477,8 @@ def corpus_gc(
         report = await services.releases.gc(collection, retained)
         typer.echo(
             f"retired {len(report.retired)} releases (keep {retained}) | points updated "
-            f"{report.points_updated} deleted {report.points_deleted} | chunk versions "
+            f"{report.points_updated} deleted {report.points_deleted} orphaned "
+            f"{report.points_orphaned} | chunk versions "
             f"deleted {report.purge.chunk_versions_deleted} kept "
             f"{report.purge.chunk_versions_kept} | sections deleted "
             f"{report.purge.sections_deleted} | documents deleted "

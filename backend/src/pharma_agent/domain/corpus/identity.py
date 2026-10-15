@@ -6,7 +6,7 @@ Public API: pharma-lab uses ``sha256_hex`` to key precomputed embeddings.
 import hashlib
 import json
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from pharma_agent.domain.shared.text import normalize_text
 
@@ -40,12 +40,20 @@ def sha256_hex(text: str) -> str:
 
 
 def chunk_version_id(
-    document_key: str, chunk_text: str, embedding_text: str, chunker_version: str
+    document_id: uuid.UUID,
+    section_keys: Sequence[str],
+    chunk_text: str,
+    embedding_text: str,
+    chunker_version: str,
 ) -> uuid.UUID:
+    """Scoped to one document of one collection, and to the sections the chunk holds, so
+    the same leaflet in two collections, or repeated text in one leaflet, never shares a
+    row."""
     digest = sha256_hex(
         _SEPARATOR.join(
             (
-                document_key,
+                str(document_id),
+                ",".join(section_keys),
                 normalize_text(chunk_text),
                 normalize_text(embedding_text),
                 chunker_version,

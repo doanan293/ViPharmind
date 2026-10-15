@@ -227,6 +227,7 @@ def _section_parts(section: SectionRecord, max_chars: int) -> list[str]:
 
 
 def chunk_document(
+    document_id: uuid.UUID,
     document: DocumentRecord,
     sections: Sequence[SectionRecord],
     glossary: Sequence[GlossaryEntry],
@@ -288,7 +289,11 @@ def chunk_document(
         drafts.append(
             ChunkDraft(
                 chunk_version_id=chunk_version_id(
-                    document.key, chunk_text, embedding_text, CHUNKER_VERSION
+                    document_id,
+                    [member.key for member in members],
+                    chunk_text,
+                    embedding_text,
+                    CHUNKER_VERSION,
                 ),
                 document_key=document.key,
                 ordinal=ordinal,
