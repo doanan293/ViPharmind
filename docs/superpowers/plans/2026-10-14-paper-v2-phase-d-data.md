@@ -1081,6 +1081,10 @@ git commit -m "data: regenerate the retrieval benchmark without question hints"
 
 ### Task 7: Embedding, import và chạy lại bảng retrieval trên release mới
 
+> Chạy sau plan `2026-10-15-chunk-reading-unit.md` (spec §3.0c): chunk gộp mục, nhãn
+> `<document_key>:chunk-NNN`, nhóm `structured` thay `chunk_risk`, reranker trả 5 chunk. Mọi "top 8"
+> trong Task 7 và 7b đọc là top 5.
+
 **Files:**
 - Chạy lệnh trong tmux; commit `run.json`, `report.md`, `metrics.jsonl` của các run mới.
 
