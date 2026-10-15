@@ -27,10 +27,8 @@ class MetricsArtifactResult:
     variant_sha256: str | None = None
 
 
-def report_dir(
-    run_root: Path, *, top_k: int, window_size: int, model: str | None = None
-) -> Path:
-    name = f"top{top_k}-window{window_size}"
+def report_dir(run_root: Path, *, top_k: int, model: str | None = None) -> Path:
+    name = f"top{top_k}"
     if model is None:
         return Path(run_root) / "reports" / "baseline" / name
     return Path(run_root) / "reports" / "rerank" / require_model(model).slug / name
@@ -48,7 +46,6 @@ def publish_metrics_artifact(
     results: list[dict],
     *,
     top_k: int,
-    window_size: int,
     model: str | None = None,
     variant_sha256: str | None = None,
     force: bool = False,
@@ -58,7 +55,7 @@ def publish_metrics_artifact(
         markdown_metric_table,
     )
 
-    target = report_dir(run_root, top_k=top_k, window_size=window_size, model=model)
+    target = report_dir(run_root, top_k=top_k, model=model)
     if target.exists() and not force:
         existing = _load_metrics_bundle(target)
         existing_sha256 = existing.manifest.identity.get("metrics_sha256")

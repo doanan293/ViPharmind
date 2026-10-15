@@ -27,10 +27,14 @@ def _leaflet_section(key: str, title: str, heading: str, text: str) -> dict:
 
 def _chunk(section: dict) -> dict:
     return {
-        "chunk_id": f"{section['id']}:chunk-001",
+        "chunk_id": f"{section['page_id']}:chunk-001",
+        "document_id": section["page_id"],
+        "ordinal": 1,
+        "section_ids": [section["id"]],
         "chunk_text": section["text"],
-        "section_id": section["id"],
-        "chunk_index": 1,
+        "has_table": False,
+        "has_list": False,
+        "structured_section_ids": [],
     }
 
 
@@ -39,7 +43,7 @@ def test_schema_has_no_difficulty_and_new_groups() -> None:
     assert {
         "formulary",
         "leaflet",
-        "chunk_risk",
+        "structured",
         "leaflet_short",
         "noisy",
         "multi_intent",
@@ -99,15 +103,11 @@ def test_duplicate_chunk_text_widens_expected_sections() -> None:
     second = _leaflet_section(
         "leaflet:t:jardiance-25:01-thanh-phan", "Jardiance 25 mg", "Thành phần", "E."
     )
-    chunks = [
-        {**_chunk(first), "chunk_text": "Empagliflozin."},
-        {**_chunk(second), "chunk_text": "Empagliflozin."},
-    ]
-    row = b.make_leaflet_row("q1", first, chunks[0], "brand_ingredient")
-    widened = b.widen_duplicate_text_rows([row], chunks)
+    row = b.make_leaflet_row("q1", first, _chunk(first), "brand_ingredient")
+    widened = b.widen_duplicate_text_rows([row], [first, second])
     assert widened[0]["expected_section_ids"] == [first["id"], second["id"]]
     assert widened[0]["answer_mode"] == "any_acceptable"
-    assert "duplicate_text" in widened[0]["eval_tags"]
+    assert "any_acceptable" in widened[0]["eval_tags"]
 
 
 def _page_sections(page: str, title: str, aliases: list[str]) -> list[dict]:
@@ -201,7 +201,7 @@ def test_coverage_question_follows_the_section_intent_not_the_chunk() -> None:
     later_chunk = {
         **_chunk(section),
         "chunk_text": "Hiếm gặp: phù mạch.",
-        "chunk_index": 2,
+        "ordinal": 2,
     }
     assert b.auto_query_for_chunk(later_chunk, section, "drug_fact") == (
         "Meloxicam Domesco 7.5 mg có tác dụng phụ nào?"
@@ -255,7 +255,5 @@ def test_multi_intent_rows_accept_section_category_role_items() -> None:
 
 def test_sections_left_out_of_the_bundle_get_no_questions() -> None:
     sections = [{"id": "drug:a:chi-dinh"}, {"id": "drug:a:huong-dan-cach-xu-tri-adr"}]
-    chunks = [
-        {"chunk_id": "drug:a:chi-dinh:chunk-001", "section_id": "drug:a:chi-dinh"}
-    ]
+    chunks = [{"chunk_id": "drug:a:chunk-001", "section_ids": ["drug:a:chi-dinh"]}]
     assert b.sections_in_bundle(sections, chunks) == [{"id": "drug:a:chi-dinh"}]

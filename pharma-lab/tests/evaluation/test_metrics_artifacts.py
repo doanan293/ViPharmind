@@ -59,7 +59,6 @@ def metrics_identity(evaluation_sha256: str) -> MetricsArtifactIdentity:
         evaluation_sha256=evaluation_sha256,
         candidate_data_sha256="candidates",
         top_k=1,
-        window_size=3,
     )
 
 
@@ -73,17 +72,16 @@ def publish_empty(
         {"eval_group": {}, "difficulty": {}},
         [],
         top_k=1,
-        window_size=3,
         force=force,
     )
 
 
 def test_report_directories_are_named_after_cutoff_and_model(tmp_path: Path) -> None:
-    assert report_dir(tmp_path, top_k=30, window_size=3) == (
-        tmp_path / "reports" / "baseline" / "top30-window3"
+    assert report_dir(tmp_path, top_k=30) == (
+        tmp_path / "reports" / "baseline" / "top30"
     )
-    assert report_dir(tmp_path, top_k=10, window_size=3, model=MODEL) == (
-        tmp_path / "reports" / "rerank" / SLUG / "top10-window3"
+    assert report_dir(tmp_path, top_k=10, model=MODEL) == (
+        tmp_path / "reports" / "rerank" / SLUG / "top10"
     )
 
 
@@ -96,11 +94,9 @@ def test_metrics_publish_baseline_and_rerank_reports_in_the_run(
 
     result = run_metrics(MetricsRequest(complete_run, top_k=1))
 
-    assert result.baseline.artifact_dir == report_dir(
-        complete_run, top_k=1, window_size=3
-    )
+    assert result.baseline.artifact_dir == report_dir(complete_run, top_k=1)
     assert [item.artifact_dir for item in result.reranked] == [
-        report_dir(complete_run, top_k=1, window_size=3, model=MODEL)
+        report_dir(complete_run, top_k=1, model=MODEL)
     ]
     for artifact in (result.baseline, *result.reranked):
         assert {path.name for path in artifact.artifact_dir.iterdir()} == {
@@ -120,7 +116,7 @@ def test_metrics_publish_baseline_and_rerank_reports_in_the_run(
 def test_a_report_for_different_inputs_conflicts_unless_forced(tmp_path: Path) -> None:
     first = publish_empty(tmp_path, metrics_identity("a"))
 
-    with pytest.raises(RunConflictError, match="top1-window3"):
+    with pytest.raises(RunConflictError, match="top1"):
         publish_empty(tmp_path, metrics_identity("b"))
     replaced = publish_empty(tmp_path, metrics_identity("b"), force=True)
 
@@ -150,7 +146,7 @@ def test_metrics_leave_reports_of_unregistered_rerankers_alone(complete_run: Pat
         / "reports"
         / "rerank"
         / "bge_reranker_v2_gemma_f16"
-        / "top1-window3"
+        / "top1"
         / "report.md"
     )
     report.parent.mkdir(parents=True)
@@ -167,7 +163,7 @@ def _evaluation_of(run: Path) -> Path:
 
 
 def _baseline_identity(run: Path) -> dict:
-    manifest = report_dir(run, top_k=1, window_size=3) / "manifest.json"
+    manifest = report_dir(run, top_k=1) / "manifest.json"
     return json.loads(manifest.read_text(encoding="utf-8"))["identity"]
 
 

@@ -143,7 +143,6 @@ def markdown_breakdown_tables(breakdowns: dict, top_k: int = 30) -> str:
 class MetricsRequest:
     run_root: Path
     top_k: int = DEFAULT_TOP_K
-    window_size: int = 3
     model: str | None = None
     force: bool = False
 
@@ -273,7 +272,6 @@ def ranked_payloads(
 def _records(
     inputs: MetricInputs,
     top_k: int,
-    window_size: int,
     rerank_input: RerankMetricInput | None = None,
 ):
     metrics = new_metric_bucket()
@@ -288,7 +286,6 @@ def _records(
             payloads,
             row,
             top_k=top_k,
-            window_size=window_size,
             judgments=inputs.judgments.for_query(str(record["query_id"])),
         )
         accumulate_metrics(metrics, hits, row)
@@ -308,14 +305,11 @@ def _records(
 
 def run_metrics(request: MetricsRequest) -> MetricsResult:
     inputs = load_and_validate_metric_inputs(request)
-    baseline, baseline_breakdowns, baseline_rows = _records(
-        inputs, request.top_k, request.window_size
-    )
+    baseline, baseline_breakdowns, baseline_rows = _records(inputs, request.top_k)
     baseline_identity = MetricsArtifactIdentity.create(
         evaluation_sha256=inputs.evaluation_sha256,
         candidate_data_sha256=inputs.candidate_data_sha256,
         top_k=request.top_k,
-        window_size=request.window_size,
         judgments_sha256=inputs.judgments.sha256,
     )
     baseline_artifact = publish_metrics_artifact(
@@ -325,19 +319,15 @@ def run_metrics(request: MetricsRequest) -> MetricsResult:
         baseline_breakdowns,
         baseline_rows,
         top_k=request.top_k,
-        window_size=request.window_size,
         force=request.force,
     )
     reranked_artifacts: list[MetricsArtifactResult] = []
     for rerank_input in inputs.rerank_variants:
-        reranked, breakdowns, rows = _records(
-            inputs, request.top_k, request.window_size, rerank_input
-        )
+        reranked, breakdowns, rows = _records(inputs, request.top_k, rerank_input)
         identity = MetricsArtifactIdentity.create(
             evaluation_sha256=inputs.evaluation_sha256,
             candidate_data_sha256=inputs.candidate_data_sha256,
             top_k=request.top_k,
-            window_size=request.window_size,
             rerank_variant_sha256=rerank_input.variant_sha256,
             judgments_sha256=inputs.judgments.sha256,
         )
@@ -349,7 +339,6 @@ def run_metrics(request: MetricsRequest) -> MetricsResult:
                 breakdowns,
                 rows,
                 top_k=request.top_k,
-                window_size=request.window_size,
                 model=rerank_input.model,
                 variant_sha256=rerank_input.variant_sha256,
                 force=request.force,

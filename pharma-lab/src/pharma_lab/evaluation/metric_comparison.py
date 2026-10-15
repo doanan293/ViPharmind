@@ -69,7 +69,6 @@ class MetricComparisonRequest:
     candidate_model: str
     metric: str = "mrr"
     top_k: int = DEFAULT_TOP_K
-    window_size: int = 3
     resamples: int = 10_000
     seed: int = 0
 
@@ -109,13 +108,11 @@ def run_metric_comparison(request: MetricComparisonRequest) -> MetricComparison:
     baseline_report = report_dir(
         request.run_root,
         top_k=request.top_k,
-        window_size=request.window_size,
         model=request.baseline_model,
     )
     candidate_report = report_dir(
         request.run_root,
         top_k=request.top_k,
-        window_size=request.window_size,
         model=request.candidate_model,
     )
     baseline_identity, baseline = load_query_metric(baseline_report, request.metric)

@@ -80,7 +80,6 @@ def _publish(
             evaluation_sha256="e" * 64,
             candidate_data_sha256=candidate_data_sha256,
             top_k=30,
-            window_size=3,
             rerank_variant_sha256=f"{model} variant",
             judgments_sha256=judgments_sha256,
         ),
@@ -88,7 +87,6 @@ def _publish(
         {"eval_group": {}, "difficulty": {}},
         rows,
         top_k=30,
-        window_size=3,
         model=model,
         variant_sha256=f"{model} variant",
     )
@@ -96,7 +94,7 @@ def _publish(
 
 def _request(run: Path) -> MetricComparisonRequest:
     return MetricComparisonRequest(
-        run, BASELINE, CANDIDATE, metric="mrr", top_k=30, window_size=3, resamples=500
+        run, BASELINE, CANDIDATE, metric="mrr", top_k=30, resamples=500
     )
 
 

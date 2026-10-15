@@ -17,7 +17,7 @@ from pharma_lab.e2e.golden import GoldenItem
 from pharma_lab.evaluation.retrieval_metrics import (
     evidence_units,
     expected_section_ids,
-    satisfied_unit,
+    satisfied_units,
 )
 
 
@@ -34,13 +34,11 @@ def coverage(
     judged: Mapping[str, frozenset[str]],
     *,
     top_k: int,
-    window_size: int = 3,
 ) -> OneRoundCoverage:
     units = evidence_units(dict(query_row))
-    found = {
-        satisfied_unit(dict(payload), dict(query_row), window_size, judged)
-        for payload in ranked[:top_k]
-    }
+    found: set[str] = set()
+    for payload in ranked[:top_k]:
+        found |= satisfied_units(dict(payload), dict(query_row), judged)
     return OneRoundCoverage(
         str(query_row["query_id"]),
         units,

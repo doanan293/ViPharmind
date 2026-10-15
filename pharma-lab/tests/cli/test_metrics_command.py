@@ -129,7 +129,6 @@ def test_metrics_compare_adopts_the_candidate_above_zero(
         "qwen3-reranker:4b-q8_0",
         "mrr",
         30,
-        3,
         10_000,
         0,
     )

@@ -26,7 +26,6 @@ def metrics(
     ctx: typer.Context,
     run: Annotated[str | None, typer.Option("--run")] = None,
     top_k: Annotated[int, typer.Option("--top-k")] = DEFAULT_TOP_K,
-    window_size: Annotated[int, typer.Option("--window-size")] = 3,
     model: Annotated[str | None, typer.Option("--model")] = None,
     force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
@@ -37,7 +36,7 @@ def metrics(
         raise typer.BadParameter(
             "required unless a subcommand is given", param_hint="'--run'"
         )
-    request = MetricsRequest(run_dir(run), top_k, window_size, model, force)
+    request = MetricsRequest(run_dir(run), top_k, model, force)
     run_handler(state_from_context(ctx), lambda: _run(request))
 
 
@@ -79,7 +78,6 @@ def compare(
         str, typer.Option("--metric", help="Per-query key of metrics.jsonl")
     ] = "mrr",
     top_k: Annotated[int, typer.Option("--top-k")] = DEFAULT_TOP_K,
-    window_size: Annotated[int, typer.Option("--window-size")] = 3,
     resamples: Annotated[int, typer.Option("--resamples")] = 10_000,
     seed: Annotated[int, typer.Option("--seed")] = 0,
 ) -> None:
@@ -88,7 +86,7 @@ def compare(
     The candidate wins only when the 95% interval's lower bound is above 0.
     """
     request = MetricComparisonRequest(
-        run_dir(run), baseline, candidate, metric, top_k, window_size, resamples, seed
+        run_dir(run), baseline, candidate, metric, top_k, resamples, seed
     )
     run_handler(state_from_context(ctx), lambda: _compare(request))
 

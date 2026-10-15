@@ -64,7 +64,6 @@ class MetricsArtifactIdentity:
         evaluation_sha256: str,
         candidate_data_sha256: str,
         top_k: int,
-        window_size: int,
         rerank_variant_sha256: str | None = None,
         judgments_sha256: str | None = None,
     ) -> MetricsArtifactIdentity:
@@ -73,7 +72,6 @@ class MetricsArtifactIdentity:
             "evaluation_sha256": evaluation_sha256,
             "candidate_data_sha256": candidate_data_sha256,
             "top_k": top_k,
-            "window_size": window_size,
         }
         if rerank_variant_sha256 is not None:
             payload["rerank_variant_sha256"] = rerank_variant_sha256
