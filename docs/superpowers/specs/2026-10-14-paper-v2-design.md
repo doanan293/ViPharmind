@@ -109,8 +109,13 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   hạn bởi băng thông bộ nhớ, nên F16 lãng phí: Q8_0 giảm nửa dung lượng trọng số, chất lượng
   gần như bằng F16, tốc độ sinh mỗi request nhanh hơn rõ. Trọng số 9B Q8_0 còn 9,5 GB nên vừa một
   T4 cạnh KV cache, cho phép hai bản thay vì một bản chia đôi; 4B còn 4,3 GB, giải phóng VRAM cho
-  nhiều slot và batch lớn hơn. File Q8_0 quantize tại chỗ từ file F16 đã kiểm bằng `llama-quantize`
-  của cùng bản llama.cpp; file F16 xoá. Bài ghi precision Q8_0 cho mọi model tự host.
+  nhiều slot và batch lớn hơn. Không tự quantize: mỗi file là bản Q8_0 đã công bố, tải theo commit
+  và kiểm sha256 (Qwen3.5-9B từ `unsloth/Qwen3.5-9B-GGUF`, Qwen3-Embedding từ repo GGUF chính chủ
+  của Qwen, Qwen3-Reranker-0.6B từ `ggml-org`, 4B từ `Voodisss`, 8B từ `sinjab`, bge từ `gpustack`,
+  EmbeddingGemma từ `ggml-org`; commit và sha256 ghi trong `docs/guides/evaluation.md`). Reranker
+  Qwen3 chỉ đổi khoá metadata `tokenizer.chat_template.rerank` sang instruction tiếng Việt y tế bằng
+  `gguf-new-metadata`, tensor giữ nguyên từng byte. File F16 xoá. Bài ghi precision Q8_0 và nguồn
+  file cho mọi model tự host.
 - **Phục vụ lấy tốc độ làm đầu, không tiết kiệm quota:** mỗi model một kernel riêng trên một tài
   khoản Kaggle riêng, chạy song song, dùng đủ hai T4 của kernel (LLM, embedding và reranker đều
   replicated 2×1). Profile runtime (slot, ubatch, concurrency, batch) của từng model Q8_0 do cơ chế
