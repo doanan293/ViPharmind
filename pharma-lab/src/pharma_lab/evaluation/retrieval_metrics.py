@@ -3,9 +3,9 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 
 DEFAULT_METRIC_KS = (3, 5, 10, 30)
-# Cutoffs of the BEIR/MTEB-style metrics reported next to Hit@k and MRR@top_k.
-NDCG_K = 10
-MRR_K = 10
+# Cutoffs of the BEIR/MTEB-style nDCG@k and MRR@k reported next to Hit@k: 5 is what the
+# pipeline reads per round (spec v2 §3.0c), 10 is the BEIR convention.
+RANKING_KS = (5, 10)
 
 
 def expected_section_ids(row: Mapping[str, object]) -> list[str]:
@@ -71,8 +71,7 @@ def ranking_scores(
     query_row: Mapping[str, object],
     *,
     judged: Mapping[str, frozenset[str]],
-    ndcg_k: int = NDCG_K,
-    mrr_k: int = MRR_K,
+    k: int,
 ) -> dict[str, float]:
     """nDCG@k with binary gains and MRR@k over evidence units.
 
@@ -86,12 +85,12 @@ def ranking_scores(
     gains: list[int] = []
     dcg = 0.0
     first_hit: int | None = None
-    for rank, payload in enumerate(retrieved_payloads[:ndcg_k], start=1):
+    for rank, payload in enumerate(retrieved_payloads[:k], start=1):
         fresh = satisfied_units(payload, query_row, judged) - seen
         seen |= fresh
         gains.append(len(fresh))
         dcg += len(fresh) / math.log2(rank + 1)
-    for rank, payload in enumerate(retrieved_payloads[:mrr_k], start=1):
+    for rank, payload in enumerate(retrieved_payloads[:k], start=1):
         if satisfied_units(payload, query_row, judged):
             first_hit = rank
             break
@@ -101,12 +100,11 @@ def ranking_scores(
     ideal_gains = sorted((g for g in gains if g), reverse=True)
     ideal_gains += [1] * (len(units) - len(seen))
     ideal = sum(
-        gain / math.log2(rank + 1)
-        for rank, gain in enumerate(ideal_gains[:ndcg_k], start=1)
+        gain / math.log2(rank + 1) for rank, gain in enumerate(ideal_gains[:k], start=1)
     )
     return {
-        f"ndcg@{ndcg_k}": dcg / ideal,
-        f"mrr@{mrr_k}": 0.0 if first_hit is None else 1.0 / first_hit,
+        f"ndcg@{k}": dcg / ideal,
+        f"mrr@{k}": 0.0 if first_hit is None else 1.0 / first_hit,
     }
 
 
@@ -140,8 +138,11 @@ def score_ranked_payloads(
         (rank for rank, found in enumerate(satisfied_at, start=1) if found), None
     )
     hits["mrr"] = 1.0 / first_hit_rank if first_hit_rank else 0.0
-    if top_k >= NDCG_K:
-        hits.update(ranking_scores(retrieved_payloads, query_row, judged=judged))
+    for k in RANKING_KS:
+        if k <= top_k:
+            hits.update(
+                ranking_scores(retrieved_payloads, query_row, judged=judged, k=k)
+            )
     return hits
 
 

@@ -1350,7 +1350,7 @@ def taxonomy_for_section_category(section: dict, category: str) -> tuple[str, st
 
 def query_form_for_style(query_style: str) -> str:
     if query_style in {"coverage_chunk", "coverage_fill"}:
-        return "chunk_coverage"
+        return "section_coverage"
     if query_style in {
         "brand_product",
         "brand_ingredient",
@@ -1374,7 +1374,7 @@ def eval_group_for_row(query_form: str, section: dict, source_hint: str = "") ->
         return "multi_intent"
     if query_form in {"noisy", "typo"}:
         return "noisy"
-    if query_form == "chunk_coverage" or source_hint == "coverage":
+    if query_form == "section_coverage" or source_hint == "coverage":
         return "structured"
     if query_form in {"brand_template", "colloquial_alias"} or is_leaflet_section(
         section
@@ -2142,7 +2142,7 @@ def validate_rows(
             set(FORMULARY_QUERY_FORM_TARGETS)
             | set(NOISY_QUERY_FORM_TARGETS)
             | set(LEAFLET_QUERY_FORM_TARGETS)
-            | {"brand_template", "chunk_coverage", "multi_intent"}
+            | {"brand_template", "section_coverage", "multi_intent"}
         )
         if "leaflet_short" in eval_groups:
             required_query_forms.add("leaflet_short")

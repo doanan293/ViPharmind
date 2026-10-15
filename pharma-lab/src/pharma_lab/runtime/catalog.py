@@ -134,9 +134,9 @@ def _embedding(
             benchmark_batch_sizes=tuple(sorted({max(1, batch // 2), batch, batch * 2})),
             benchmark_concurrency=benchmark_concurrency,
         ),
-        context_per_slot=2048,
-        logical_batch_size=2048,
-        physical_batch_size=2048,
+        context_per_slot=4096,
+        logical_batch_size=4096,
+        physical_batch_size=4096,
     )
 
     def candidates(batch_sizes: tuple[int, ...]) -> RuntimeSearchSpace:
@@ -146,9 +146,9 @@ def _embedding(
                     server_slots=parallel,
                     concurrency=concurrency,
                     request_batch_size=batch_size,
-                    context_per_slot=2048,
-                    logical_batch_size=2048,
-                    physical_batch_size=2048,
+                    context_per_slot=4096,
+                    logical_batch_size=4096,
+                    physical_batch_size=4096,
                 )
                 for batch_size in batch_sizes
                 for concurrency in benchmark_concurrency

@@ -56,7 +56,7 @@ def test_one_chunk_satisfies_several_units() -> None:
     chunk = _payload("drug:a:chunk-001", *gold)
 
     assert satisfied_units(chunk, row, {}) == set(gold)
-    scores = ranking_scores([chunk], row, judged={})
+    scores = ranking_scores([chunk], row, judged={}, k=10)
     assert scores["ndcg@10"] == 1.0 and scores["mrr@10"] == 1.0
 
 
@@ -171,7 +171,18 @@ def test_an_accepted_chunk_satisfies_its_multi_part_unit() -> None:
     assert scores["ndcg@10"] == pytest.approx(1.0)
 
 
-def test_ranking_scores_need_a_cutoff_of_at_least_10() -> None:
-    assert "ndcg@10" not in score_ranked_payloads(
-        _ranked("x:y"), _section_row(), top_k=5
-    )
+def test_ranking_scores_at_5_and_10() -> None:
+    payloads = _ranked(*["x:z"] * 5, "drug:a:lieu")
+
+    scores = score_ranked_payloads(payloads, _section_row(), top_k=10)
+
+    assert (scores["ndcg@5"], scores["mrr@5"]) == (0.0, 0.0)
+    assert scores["mrr@10"] == pytest.approx(1 / 6)
+    assert scores["ndcg@10"] == pytest.approx(1 / math.log2(7))
+
+
+def test_a_cutoff_of_5_reports_only_the_scores_at_5() -> None:
+    scores = score_ranked_payloads(_ranked("drug:a:lieu"), _section_row(), top_k=5)
+
+    assert (scores["ndcg@5"], scores["mrr@5"]) == (1.0, 1.0)
+    assert "ndcg@10" not in scores
