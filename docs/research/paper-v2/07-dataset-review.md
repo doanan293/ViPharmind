@@ -166,22 +166,27 @@ chấp nhận chunk trùng văn bản trong relevance judgments.
 ## 6. Chunk v2 (2026-10-15)
 
 Chunk là đơn vị đọc (spec §3.0c): `chunk_document` gộp các mục liền kề của một tài liệu tới
-`TARGET_CHUNK_CHARS = 5400`, mục dài hơn `MAX_CHUNK_CHARS = 5600` được cắt riêng. Đo bằng tokenizer
-Qwen3 (`qwen3-embedding-0.6b-q8_0.gguf`, llama.cpp `server-b10920`, endpoint `/tokenize`) trên bundle
-`data/corpus/formulary` (3.120 tài liệu, 34.552 mục).
+`TARGET_CHUNK_CHARS = 4200`; mục dài hơn `MAX_CHUNK_CHARS = 5600` được cắt riêng và các mảnh của nó
+được gói lại tới `MAX_CHUNK_CHARS`. Đo bằng tokenizer Qwen3 (`qwen3-embedding-0.6b-q8_0.gguf`,
+llama.cpp `server-b10920`, endpoint `/tokenize`) trên bundle `data/corpus/formulary` (3.120 tài
+liệu, 34.552 mục).
 
 | Đo | n | mean | p50 | p90 | p99 | max |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| chunk_text | 13.298 | 1.011 | 1.078 | 1.671 | 2.207 | 3.098 |
-| embedding_text | 13.298 | 1.084 | 1.158 | 1.773 | 2.249 | 3.214 |
-| chunk_text, Dược thư | 2.556 | 1.316 | 1.500 | 1.904 | 2.266 | 2.466 |
-| chunk_text, tờ hướng dẫn | 10.742 | 938 | 972 | 1.601 | 1.836 | 3.098 |
+| chunk_text | 13.412 | 1.001 | 1.054 | 1.599 | 2.224 | 3.098 |
+| embedding_text | 13.412 | 1.072 | 1.133 | 1.687 | 2.264 | 3.214 |
+| chunk_text, Dược thư | 3.095 | 1.086 | 1.159 | 1.760 | 2.263 | 2.466 |
+| chunk_text, tờ hướng dẫn | 10.317 | 976 | 1.022 | 1.587 | 2.006 | 3.098 |
 
-- 6.323 chunk (48 %) chứa từ hai mục trở lên; 386 chunk dưới 64 token (tài liệu chỉ có một mục ngắn).
-- Không chunk nào vượt slot embed 4.096 token; chunk dài nhất là bảng tờ hướng dẫn.
-- Các mức target đã thử: 3.200 ký tự cho 17.224 chunk, mean 781 token; 4.200 cho 15.047 chunk, mean
-  893. Mean thấp hơn target vì nhiều tài liệu ngắn hơn target, nên chunk cuối của tài liệu luôn non.
+- 6.973 chunk (52 %) chứa từ hai mục trở lên; 93 chunk dưới 64 token (tài liệu chỉ có một mục ngắn).
+- Không chunk nào vượt slot embed 4.096 token; chunk dài nhất là bảng tờ hướng dẫn, vì bảng tốn
+  khoảng 1,8 ký tự mỗi token so với khoảng 3,2 của văn xuôi.
+- Các mức target đã thử (ký tự, số chunk, mean token): 3.600 cho 14.649 chunk, khoảng 920 token;
+  4.200 cho 13.412, 1.001 đo thật; 4.800 cho 12.443, khoảng 1.080; 5.400 cho 11.663, 1.152 đo thật.
+  Mean thấp hơn target vì nhiều tài liệu ngắn hơn target, nên chunk cuối của tài liệu luôn non.
+- Trước khi gói các mảnh của mục dài, mục dài bị cắt theo từng block: 386 chunk dưới 64 token, có
+  chunk chỉ còn câu dẫn mà bảng nằm ở chunk khác.
 - Benchmark dựng lại: 10.000 câu, nhóm formulary 5.000, leaflet 2.500, structured 1.000,
   leaflet_short 500, multi_intent 500, noisy 500; query_form `section_coverage` 1.000. Không câu nào có
-  "(phần", không trùng text, không gold ngoài bundle; 568 mục gold dài hơn `MAX_CHUNK_CHARS` trải trên
-  nhiều chunk, các mục còn lại nằm trong đúng một chunk. Relevance judgments: 1.123 dòng.
+  "(phần", không trùng text, không gold ngoài bundle; 564 mục gold dài hơn `MAX_CHUNK_CHARS` trải trên
+  nhiều chunk, các mục còn lại nằm trong đúng một chunk. Relevance judgments: 1.140 dòng.
