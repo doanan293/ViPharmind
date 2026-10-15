@@ -2,24 +2,18 @@ import uuid
 from collections.abc import Sequence
 
 from pharma_agent.domain.retrieval.models import (
-    Chunk,
     Hit,
-    HydrateStrategy,
     Query,
     QueryOrigin,
     ReleaseScope,
 )
 from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
-from tests.domain.factories import chunk_of, chunk_uuid, make_hit
+from tests.domain.factories import chunk_uuid, make_hit
 
 
-def hit(
-    label: str,
-    fusion: float,
-    strategy: HydrateStrategy = HydrateStrategy.CHUNK_WINDOW,
-) -> Hit:
-    return make_hit(label, fusion=fusion, strategy=strategy, text=f"text {label}")
+def hit(label: str, fusion: float) -> Hit:
+    return make_hit(label, fusion=fusion, text=f"text {label}")
 
 
 def ids(*labels: str) -> list[uuid.UUID]:
@@ -63,18 +57,11 @@ class FakeReranker:
         return sorted(scored, key=lambda h: h.rerank_score or 0, reverse=True)[:top_n]
 
 
-class FakeHydrator:
-    async def hydrate(self, hit: Hit, strategy: HydrateStrategy) -> list[Chunk]:
-        if strategy is HydrateStrategy.SEARCH_ONLY:
-            return []
-        return [chunk_of(hit)]
-
-
 def queries(*texts: str) -> list[Query]:
     return [Query(text=t, origin=QueryOrigin.INITIAL) for t in texts]
 
 
-async def test_search_dedupes_across_queries_then_reranks_and_hydrates() -> None:
+async def test_search_dedupes_across_queries_then_reranks() -> None:
     retriever = FakeRetriever(
         [[hit("a", 0.9), hit("b", 0.5)], [hit("b", 0.7), hit("c", 0.4)]]
     )
@@ -82,7 +69,6 @@ async def test_search_dedupes_across_queries_then_reranks_and_hydrates() -> None
     service = RetrievalService(
         retriever,
         reranker,
-        FakeHydrator(),
         RetrievalConfig(candidate_k=5, rerank_top_n=2),
     )
 
@@ -95,7 +81,6 @@ async def test_search_dedupes_across_queries_then_reranks_and_hydrates() -> None
     b = next(h for h in reranker.received if h.chunk_version_id == chunk_uuid("b"))
     assert b.fusion_score == 0.7 and b.matched_queries == ["q1", "q2"]
     assert len(result.items) == 2
-    assert all(item.chunks for item in result.items)
     assert result.rerank_failed is False and result.error is None
 
 
@@ -104,11 +89,10 @@ async def test_rerank_failure_keeps_fusion_order() -> None:
     service = RetrievalService(
         retriever,
         FakeReranker(fail=True),
-        FakeHydrator(),
         RetrievalConfig(candidate_k=5, rerank_top_n=2),
     )
     result = await service.search(queries("q1"), rerank_query="q1")
-    assert [i.hit.chunk_version_id for i in result.items] == ids("a", "b")
+    assert [i.chunk_version_id for i in result.items] == ids("a", "b")
     assert result.rerank_failed is True
 
 
@@ -116,20 +100,10 @@ async def test_retriever_failure_is_reported_not_raised() -> None:
     service = RetrievalService(
         FakeRetriever(RetrievalError("qdrant down")),
         FakeReranker(),
-        FakeHydrator(),
         RetrievalConfig(),
     )
     result = await service.search(queries("q1"), rerank_query="q1")
     assert result.items == [] and result.error == "qdrant down"
-
-
-async def test_search_only_hits_are_not_hydrated() -> None:
-    retriever = FakeRetriever([[hit("a", 0.9, HydrateStrategy.SEARCH_ONLY)]])
-    service = RetrievalService(
-        retriever, FakeReranker(), FakeHydrator(), RetrievalConfig()
-    )
-    result = await service.search(queries("q1"), rerank_query="q1")
-    assert result.items[0].chunks == []
 
 
 async def test_candidate_pool_interleaves_queries_by_rank_and_caps_new_chunks() -> None:
@@ -143,7 +117,6 @@ async def test_candidate_pool_interleaves_queries_by_rank_and_caps_new_chunks() 
     service = RetrievalService(
         retriever,
         reranker,
-        FakeHydrator(),
         RetrievalConfig(candidate_k=3, rerank_top_n=2, rerank_candidates=4),
     )
 
@@ -162,7 +135,6 @@ async def test_known_scores_are_reused_instead_of_rescored() -> None:
     service = RetrievalService(
         retriever,
         reranker,
-        FakeHydrator(),
         RetrievalConfig(candidate_k=5, rerank_top_n=3),
     )
 
@@ -171,7 +143,7 @@ async def test_known_scores_are_reused_instead_of_rescored() -> None:
     )
 
     assert [h.chunk_version_id for h in reranker.received] == ids("a", "c")
-    assert [(i.hit.chunk_version_id, i.hit.rerank_score) for i in result.items] == [
+    assert [(i.chunk_version_id, i.rerank_score) for i in result.items] == [
         (chunk_uuid("c"), 1.0),
         (chunk_uuid("b"), 0.75),
         (chunk_uuid("a"), 0.5),
@@ -184,7 +156,6 @@ async def test_reranker_is_not_called_when_every_candidate_is_known() -> None:
     service = RetrievalService(
         FakeRetriever([[hit("a", 0.9), hit("b", 0.5)]]),
         reranker,
-        FakeHydrator(),
         RetrievalConfig(candidate_k=5, rerank_top_n=2),
     )
 
@@ -195,7 +166,7 @@ async def test_reranker_is_not_called_when_every_candidate_is_known() -> None:
     )
 
     assert reranker.calls == 0 and result.rerank_failed is False
-    assert [i.hit.chunk_version_id for i in result.items] == ids("b", "a")
+    assert [i.chunk_version_id for i in result.items] == ids("b", "a")
 
 
 SCOPE = {uuid.uuid4(): uuid.uuid4()}
@@ -205,7 +176,6 @@ def scoped_service(retriever: FakeRetriever) -> RetrievalService:
     return RetrievalService(
         retriever,
         FakeReranker(),
-        FakeHydrator(),
         RetrievalConfig(candidate_k=5, rerank_top_n=2),
     )
 

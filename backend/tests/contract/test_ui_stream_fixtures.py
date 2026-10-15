@@ -27,7 +27,7 @@ from pharma_agent.domain.agent.schemas import (
 )
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict
 from pharma_agent.domain.llm.models import LlmRole
-from pharma_agent.domain.retrieval.models import Hit, HydrateStrategy
+from pharma_agent.domain.retrieval.models import Hit
 from tests.api.harness import Harness, build_harness, ui_chunks
 from tests.contract.invariants import assert_stream_invariants
 from tests.fakes import FakeLlm, FakeRetriever
@@ -53,20 +53,16 @@ def contract_hit(ordinal: int, text: str, *, fusion: float) -> Hit:
         release_id=uuid.uuid5(NAMESPACE, "release"),
         collection_id=uuid.uuid5(NAMESPACE, "collection"),
         document_key="drug:paracetamol",
-        section_key="drug:paracetamol:lieu-luong-va-cach-dung",
-        section_revision_id=uuid.uuid5(NAMESPACE, "section-revision"),
         ordinal=ordinal,
-        hydrate_strategy=HydrateStrategy.SEARCH_ONLY,
+        section_keys=["drug:paracetamol:lieu-luong-va-cach-dung"],
+        headings=["Liều lượng và cách dùng"],
         source="Dược thư Quốc gia Việt Nam",
         title="Paracetamol",
-        section="Liều lượng và cách dùng",
         start_page=811 + ordinal,
         end_page=811 + ordinal,
         context_header=CONTEXT_HEADER,
         chunk_text=text,
         embedding_text=f"{CONTEXT_HEADER}\n\n{text}",
-        kind="prose",
-        table_key=None,
         fusion_score=fusion,
         matched_queries=[],
     )

@@ -106,9 +106,6 @@ async def test_grounded_answer_in_one_round() -> None:
     assert [c.index for c in outcome.citations] == [1]
     citations_event = next(e for e in events if e.type is EventType.CITATIONS)
     assert citations_event.data["items"][0]["chunk_version_id"] == str(chunk_uuid("c1"))
-    assert citations_event.data["items"][0]["block_chunk_version_ids"] == [
-        str(chunk_uuid("c1"))
-    ]
     assert retriever.calls[0][0].text == "Liều paracetamol cho người lớn"
     done = events[-1]
     assert done.type is EventType.DONE and done.data["status"] == "completed"

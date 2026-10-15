@@ -4,11 +4,8 @@
  * ViPharmind API
  * OpenAPI spec version: 0.1.0
  */
-import type { CitationChunk } from "./citationChunk"
-import type { HydrateStrategy } from "./hydrateStrategy"
 
 export interface CitationDetail {
-  chunks: CitationChunk[]
   document_title: string
   end_page: number | null
   index: number
@@ -16,5 +13,5 @@ export interface CitationDetail {
   section: string
   source: string
   start_page: number | null
-  strategy: HydrateStrategy
+  text: string
 }

@@ -4,13 +4,11 @@
  * ViPharmind API
  * OpenAPI spec version: 0.1.0
  */
-import type { HydrateStrategy } from "./hydrateStrategy"
 
 /**
- * A cited evidence block: the chunk version the model read and the blocks around it.
+ * A cited chunk: the chunk version the model read, as published in one release.
  */
 export interface Citation {
-  block_chunk_version_ids: string[]
   chunk_version_id: string
   end_page: number | null
   index: number
@@ -19,6 +17,5 @@ export interface Citation {
   snippet: string
   source: string
   start_page: number | null
-  strategy: HydrateStrategy
   title: string
 }

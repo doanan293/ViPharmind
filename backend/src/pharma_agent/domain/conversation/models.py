@@ -5,7 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from pharma_agent.domain.retrieval.models import HydrateStrategy
 from pharma_agent.domain.shared.errors import DomainError
 from pharma_agent.domain.shared.ids import new_id
 
@@ -16,15 +15,13 @@ class MessageRole(StrEnum):
 
 
 class Citation(BaseModel):
-    """A cited evidence block: the chunk version the model read and the blocks around it."""
+    """A cited chunk: the chunk version the model read, as published in one release."""
 
     model_config = ConfigDict(frozen=True)
 
     index: int
     chunk_version_id: UUID
     release_id: UUID
-    strategy: HydrateStrategy
-    block_chunk_version_ids: list[UUID]
     source: str
     title: str
     section: str
@@ -33,22 +30,13 @@ class Citation(BaseModel):
     snippet: str
 
 
-class CitedChunk(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    chunk_version_id: UUID
-    text: str
-    start_page: int | None
-    end_page: int | None
-
-
 class CitationBlock(BaseModel):
-    """A stored citation with the chunks the model read, in reading order."""
+    """A stored citation with the text the model read."""
 
     model_config = ConfigDict(frozen=True)
 
     citation: Citation
-    chunks: list[CitedChunk]
+    text: str
     is_current: bool
 
 

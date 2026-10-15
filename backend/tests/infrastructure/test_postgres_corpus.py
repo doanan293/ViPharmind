@@ -3,12 +3,9 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from pharma_agent.domain.corpus.hydrate import hydrate_strategy_for
-from pharma_agent.domain.retrieval.models import HydrateStrategy
 from pharma_agent.infrastructure.persistence.postgres.database import Database
 from pharma_agent.infrastructure.retrieval.postgres_corpus import (
     PostgresCorpusReader,
-    PostgresHydrator,
 )
 from tests.corpus_rows import (
     DOSAGE_KEY,
@@ -88,13 +85,9 @@ async def test_load_chunks_returns_display_fields_for_release_chunk_pairs(
         seeded.release_id,
         seeded.collection_id,
     )
-    assert (record.document_key, record.section_key, record.ordinal) == (
-        "drug:paracetamol",
-        DOSAGE_KEY,
-        first.ordinal,
-    )
-    assert record.section_revision_id == seeded.revisions[DOSAGE_KEY]
-    assert record.hydrate_strategy is hydrate_strategy_for(section)
+    assert (record.document_key, record.ordinal) == ("drug:paracetamol", first.ordinal)
+    assert DOSAGE_KEY in record.section_keys
+    assert record.headings == first.headings
     assert (record.source, record.title, record.section) == (
         "Dược thư Quốc gia Việt Nam",
         "Paracetamol",
@@ -103,18 +96,13 @@ async def test_load_chunks_returns_display_fields_for_release_chunk_pairs(
     assert record.context_header == first.context_header
     assert record.chunk_text == first.chunk_text
     assert record.embedding_text == first.embedding_text
-    assert (record.kind, record.table_key, record.start_page, record.end_page) == (
-        first.kind.value,
-        first.table_key,
-        first.start_page,
-        first.end_page,
-    )
+    assert (record.start_page, record.end_page) == (first.start_page, first.end_page)
     assert record.term_annotations == first.term_annotations
     assert record.colloquial_mapping == first.colloquial
     assert await reader.load_chunks([]) == []
 
 
-async def test_hydrator_reads_full_section_and_window_from_the_hit_release(
+async def test_document_chunks_reads_neighbours_by_ordinal_in_the_hit_release(
     database: Database,
 ) -> None:
     seeded = await seed_release(
@@ -125,25 +113,15 @@ async def test_hydrator_reads_full_section_and_window_from_the_hit_release(
     )
     reader = PostgresCorpusReader(database.sessions)
     drafts = seeded.drafts[DOSAGE_KEY]
+    assert len(drafts) >= 3
     middle = drafts[len(drafts) // 2]
     [found] = await reader.load_chunks([(seeded.release_id, middle.chunk_version_id)])
     hit = found.to_hit(fusion_score=0.5, query_text="q")
-    hydrator = PostgresHydrator(reader, window=1)
 
-    full = await hydrator.hydrate(hit, HydrateStrategy.FULL_SECTION)
-    assert [c.chunk_version_id for c in full] == [d.chunk_version_id for d in drafts]
-    assert [c.ordinal for c in full] == sorted(d.ordinal for d in drafts)
-    assert all(c.section_revision_id == seeded.revisions[DOSAGE_KEY] for c in full)
-    assert (full[0].text, full[0].kind) == (drafts[0].chunk_text, drafts[0].kind.value)
-
-    window = await hydrator.hydrate(hit, HydrateStrategy.CHUNK_WINDOW)
-    assert [c.ordinal for c in window] == [
-        d.ordinal for d in drafts if abs(d.ordinal - middle.ordinal) <= 1
-    ]
-    assert await hydrator.hydrate(hit, HydrateStrategy.SEARCH_ONLY) == []
-    assert (
-        await reader.section_chunks(
-            uuid.uuid4(), seeded.revisions[DOSAGE_KEY], around=None, radius=0
-        )
-        == []
+    around = await reader.document_chunks(
+        hit.release_id, "drug:paracetamol", [hit.ordinal - 1, hit.ordinal + 1]
     )
+    assert [c.ordinal for c in around] == [hit.ordinal - 1, hit.ordinal + 1]
+    assert all(c.document_key == "drug:paracetamol" for c in around)
+    assert await reader.document_chunks(uuid.uuid4(), "drug:paracetamol", [1]) == []
+    assert await reader.document_chunks(hit.release_id, "drug:paracetamol", []) == []

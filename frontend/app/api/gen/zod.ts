@@ -944,7 +944,6 @@ export const ChatResponse = zod.object({
     .array(
       zod
         .object({
-          block_chunk_version_ids: zod.array(zod.uuid()),
           chunk_version_id: zod.uuid(),
           end_page: zod.union([zod.int(), zod.null()]),
           index: zod.int(),
@@ -953,11 +952,10 @@ export const ChatResponse = zod.object({
           snippet: zod.string(),
           source: zod.string(),
           start_page: zod.union([zod.int(), zod.null()]),
-          strategy: zod.enum(["full_section", "chunk_window", "search_only"]),
           title: zod.string(),
         })
         .describe(
-          "A cited evidence block: the chunk version the model read and the blocks around it."
+          "A cited chunk: the chunk version the model read, as published in one release."
         )
     )
     .optional(),
@@ -1914,15 +1912,6 @@ export const GetMessageCitationParams = zod.object({
 })
 
 export const GetMessageCitationResponse = zod.object({
-  chunks: zod.array(
-    zod.object({
-      end_page: zod.union([zod.int(), zod.null()]),
-      id: zod.uuid(),
-      matched: zod.boolean(),
-      start_page: zod.union([zod.int(), zod.null()]),
-      text: zod.string(),
-    })
-  ),
   document_title: zod.string(),
   end_page: zod.union([zod.int(), zod.null()]),
   index: zod.int(),
@@ -1930,7 +1919,7 @@ export const GetMessageCitationResponse = zod.object({
   section: zod.string(),
   source: zod.string(),
   start_page: zod.union([zod.int(), zod.null()]),
-  strategy: zod.enum(["full_section", "chunk_window", "search_only"]),
+  text: zod.string(),
 })
 
 /**

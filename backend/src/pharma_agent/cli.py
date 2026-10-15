@@ -20,7 +20,7 @@ from pharma_agent.domain.corpus.bundle import (
 )
 from pharma_agent.domain.corpus.models import ReleaseSummary
 from pharma_agent.domain.llm.models import LlmRole
-from pharma_agent.domain.retrieval.models import Hit, HydrateStrategy, page_label
+from pharma_agent.domain.retrieval.models import Hit, page_label
 from pharma_agent.domain.shared.errors import DomainError
 from pharma_agent.infrastructure.auth.session_cleanup import clean_account_tables
 from pharma_agent.infrastructure.auth.superadmin import (
@@ -203,20 +203,16 @@ _PROBE_HIT = Hit(
     release_id=_PROBE_ID,
     collection_id=_PROBE_ID,
     document_key="probe",
-    section_key="probe",
-    section_revision_id=_PROBE_ID,
     ordinal=1,
-    hydrate_strategy=HydrateStrategy.SEARCH_ONLY,
+    section_keys=["probe:lieu-dung"],
+    headings=["Liều dùng"],
     source="probe",
     title="Paracetamol",
-    section="Liều dùng",
     start_page=None,
     end_page=None,
     context_header="Paracetamol > Liều dùng",
     chunk_text="Người lớn 500 mg",
     embedding_text="Paracetamol > Liều dùng\n\nNgười lớn 500 mg",
-    kind="prose",
-    table_key=None,
 )
 
 
@@ -483,8 +479,7 @@ def corpus_gc(
             f"retired {len(report.retired)} releases (keep {retained}) | points updated "
             f"{report.points_updated} deleted {report.points_deleted} | chunk versions "
             f"deleted {report.purge.chunk_versions_deleted} kept "
-            f"{report.purge.chunk_versions_kept} | section revisions deleted "
-            f"{report.purge.section_revisions_deleted} | sections deleted "
+            f"{report.purge.chunk_versions_kept} | sections deleted "
             f"{report.purge.sections_deleted} | documents deleted "
             f"{report.purge.documents_deleted}"
         )

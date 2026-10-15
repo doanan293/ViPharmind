@@ -1,5 +1,4 @@
-from pharma_agent.domain.conversation.models import CitationBlock, CitedChunk
-from pharma_agent.domain.retrieval.models import HydrateStrategy
+from pharma_agent.domain.conversation.models import CitationBlock
 from tests.api.harness import OWNER, build_harness
 from tests.citations import build_citation, chunk_id
 
@@ -9,18 +8,8 @@ MESSAGE_ID = "d" * 32
 async def test_citation_detail_endpoint() -> None:
     harness = build_harness()
     harness.citations.blocks[(OWNER.hex, MESSAGE_ID, 1)] = CitationBlock(
-        citation=build_citation(
-            1, chunk=1, strategy=HydrateStrategy.CHUNK_WINDOW, block=(1, 2)
-        ),
-        chunks=[
-            CitedChunk(
-                chunk_version_id=chunk_id(n),
-                text=f"| Tuổi | Liều |\n| --- | --- |\n| {n} | x |",
-                start_page=None,
-                end_page=None,
-            )
-            for n in (1, 2)
-        ],
+        citation=build_citation(1, chunk=1),
+        text="## Liều dùng\n\n| Tuổi | Liều |\n| --- | --- |\n| 1 | x |",
         is_current=True,
     )
 
@@ -32,16 +21,14 @@ async def test_citation_detail_endpoint() -> None:
 
     assert found.status_code == 200, found.text
     body = found.json()
-    assert (body["strategy"], body["is_current"], body["document_title"]) == (
-        "chunk_window",
+    assert (body["is_current"], body["document_title"], body["section"]) == (
         True,
         "Paracetamol",
+        "Liều lượng và cách dùng",
     )
-    assert [(chunk["id"], chunk["matched"]) for chunk in body["chunks"]] == [
-        (str(chunk_id(1)), True),
-        (str(chunk_id(2)), False),
-    ]
-    assert body["chunks"][0]["start_page"] is None
+    assert body["text"] == "## Liều dùng\n\n| Tuổi | Liều |\n| --- | --- |\n| 1 | x |"
+    assert "chunks" not in body and "strategy" not in body
+    assert body["start_page"] == 812 and str(chunk_id(1))
     assert missing.status_code == 404
     assert missing.headers["content-type"] == "application/problem+json"
     assert missing.json()["code"] == "CITATION_NOT_FOUND"

@@ -637,16 +637,8 @@
         "type": "object"
       },
       "Citation": {
-        "description": "A cited evidence block: the chunk version the model read and the blocks around it.",
+        "description": "A cited chunk: the chunk version the model read, as published in one release.",
         "properties": {
-          "block_chunk_version_ids": {
-            "items": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "title": "Block Chunk Version Ids",
-            "type": "array"
-          },
           "chunk_version_id": {
             "format": "uuid",
             "title": "Chunk Version Id",
@@ -695,9 +687,6 @@
             ],
             "title": "Start Page"
           },
-          "strategy": {
-            "$ref": "#/components/schemas/HydrateStrategy"
-          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -707,8 +696,6 @@
           "index",
           "chunk_version_id",
           "release_id",
-          "strategy",
-          "block_chunk_version_ids",
           "source",
           "title",
           "section",
@@ -719,63 +706,8 @@
         "title": "Citation",
         "type": "object"
       },
-      "CitationChunk": {
-        "properties": {
-          "end_page": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "End Page"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "matched": {
-            "title": "Matched",
-            "type": "boolean"
-          },
-          "start_page": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Start Page"
-          },
-          "text": {
-            "title": "Text",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "text",
-          "matched",
-          "start_page",
-          "end_page"
-        ],
-        "title": "CitationChunk",
-        "type": "object"
-      },
       "CitationDetail": {
         "properties": {
-          "chunks": {
-            "items": {
-              "$ref": "#/components/schemas/CitationChunk"
-            },
-            "title": "Chunks",
-            "type": "array"
-          },
           "document_title": {
             "title": "Document Title",
             "type": "string"
@@ -818,8 +750,9 @@
             ],
             "title": "Start Page"
           },
-          "strategy": {
-            "$ref": "#/components/schemas/HydrateStrategy"
+          "text": {
+            "title": "Text",
+            "type": "string"
           }
         },
         "required": [
@@ -829,9 +762,8 @@
           "section",
           "start_page",
           "end_page",
-          "strategy",
           "is_current",
-          "chunks"
+          "text"
         ],
         "title": "CitationDetail",
         "type": "object"
@@ -1650,15 +1582,6 @@
         ],
         "title": "HealthResponse",
         "type": "object"
-      },
-      "HydrateStrategy": {
-        "enum": [
-          "full_section",
-          "chunk_window",
-          "search_only"
-        ],
-        "title": "HydrateStrategy",
-        "type": "string"
       },
       "InvitationBody": {
         "properties": {

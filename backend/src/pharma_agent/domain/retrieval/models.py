@@ -9,12 +9,6 @@ type ReleaseScope = Mapping[UUID, UUID]
 there is nothing the user may search."""
 
 
-class HydrateStrategy(StrEnum):
-    FULL_SECTION = "full_section"
-    CHUNK_WINDOW = "chunk_window"
-    SEARCH_ONLY = "search_only"
-
-
 class QueryOrigin(StrEnum):
     INITIAL = "initial"
     REFINED = "refined"
@@ -60,21 +54,17 @@ class Hit(BaseModel):
     release_id: UUID
     collection_id: UUID
     document_key: str
-    section_key: str
-    section_revision_id: UUID
     ordinal: int
-    hydrate_strategy: HydrateStrategy
+    section_keys: list[str]
+    headings: list[str]
     source: str
     title: str
-    section: str
     start_page: int | None
     end_page: int | None
     context_header: str
     chunk_text: str
     # What was embedded and what the reranker scores, unchanged from today.
     embedding_text: str
-    kind: str
-    table_key: str | None
     colloquial_mapping: ColloquialMapping | None = None
     term_annotations: list[TermAnnotation] = Field(default_factory=list)
     fusion_score: float = 0.0
@@ -84,6 +74,11 @@ class Hit(BaseModel):
     @property
     def score(self) -> float:
         return self.rerank_score if self.rerank_score is not None else self.fusion_score
+
+    @property
+    def section(self) -> str:
+        """The headings of the sections this chunk holds, in reading order."""
+        return "; ".join(h for h in self.headings if h)
 
     @property
     def page_label(self) -> str:
@@ -108,28 +103,6 @@ class Hit(BaseModel):
         return unique
 
 
-class Chunk(BaseModel):
-    """One chunk of a section revision in the release a hit came from."""
-
-    chunk_version_id: UUID
-    section_revision_id: UUID
-    ordinal: int
-    text: str
-    kind: str
-    table_key: str | None = None
-    start_page: int | None = None
-    end_page: int | None = None
-
-    @property
-    def is_table(self) -> bool:
-        return self.kind == "table"
-
-
-class RetrievedItem(BaseModel):
-    hit: Hit
-    chunks: list[Chunk] = Field(default_factory=list)
-
-
 class ChunkRecord(BaseModel):
     """One chunk version as published in one release, with the fields a search hit shows."""
 
@@ -139,22 +112,22 @@ class ChunkRecord(BaseModel):
     release_id: UUID
     collection_id: UUID
     document_key: str
-    section_key: str
-    section_revision_id: UUID
     ordinal: int
-    hydrate_strategy: HydrateStrategy
+    section_keys: list[str]
+    headings: list[str]
     source: str
     title: str
-    section: str
     start_page: int | None
     end_page: int | None
     context_header: str
     chunk_text: str
     embedding_text: str
-    kind: str
-    table_key: str | None
     colloquial_mapping: ColloquialMapping | None = None
     term_annotations: list[TermAnnotation] = Field(default_factory=list)
+
+    @property
+    def section(self) -> str:
+        return "; ".join(h for h in self.headings if h)
 
     def to_hit(self, *, fusion_score: float, query_text: str) -> Hit:
         return Hit.model_validate(

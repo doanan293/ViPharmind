@@ -4,9 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Streamdown } from "streamdown"
 
 import { getGetMessageCitationQueryOptions } from "~/api/gen/endpoints"
-import type { CitationDetail } from "~/api/gen/schemas"
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
-import { Badge } from "~/components/ui/badge"
 import {
   Drawer,
   DrawerContent,
@@ -23,7 +21,6 @@ import { Spinner } from "~/components/ui/spinner"
 import { streamdownPlugins } from "~/features/chat/lib/streamdown-config"
 import { useIsMobile } from "~/hooks/use-mobile"
 import { apiErrorMessage } from "~/i18n/error-message"
-import { cn } from "~/lib/utils"
 
 import { usePageText } from "../lib/citation-format"
 
@@ -35,17 +32,6 @@ export type CitationTarget = {
 export type CitationSheetProps = {
   target: CitationTarget | null
   onClose: () => void
-}
-
-const STRATEGY_KEYS = {
-  full_section: "strategy.full_section",
-  chunk_window: "strategy.chunk_window",
-  search_only: "strategy.search_only",
-} as const satisfies Record<CitationDetail["strategy"], string>
-
-// Runs as a callback ref when the matched chunk mounts, which is when the citation data renders.
-function scrollIntoCenter(node: HTMLElement | null) {
-  node?.scrollIntoView({ block: "center" })
 }
 
 export function CitationDetailView({ messageId, index }: CitationTarget) {
@@ -83,36 +69,27 @@ export function CitationDetailView({ messageId, index }: CitationTarget) {
         <p className="text-base font-medium">
           {`${detail.document_title} › ${detail.section}`}
         </p>
-        <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {pages === null ? null : <span>{pages}</span>}
-          <Badge variant="outline">{t(STRATEGY_KEYS[detail.strategy])}</Badge>
-        </p>
+        {pages === null ? null : (
+          <p className="text-xs text-muted-foreground">{pages}</p>
+        )}
         {detail.is_current ? null : (
           <p className="text-xs text-amber-600 dark:text-amber-400">
             {t("stale")}
           </p>
         )}
       </header>
-      {detail.chunks.map((chunk) => (
-        <section
-          key={chunk.id}
-          ref={chunk.matched ? scrollIntoCenter : undefined}
-          data-matched={chunk.matched}
-          aria-label={chunk.matched ? t("sheet.matched") : undefined}
-          className={cn(
-            "rounded-xl px-3 py-2",
-            chunk.matched && "bg-amber-500/10 ring-1 ring-amber-500/30"
-          )}
+      <section
+        aria-label={t("sheet.matched")}
+        className="rounded-xl bg-amber-500/10 px-3 py-2 ring-1 ring-amber-500/30"
+      >
+        <Streamdown
+          mode="static"
+          plugins={streamdownPlugins}
+          className="text-sm leading-relaxed"
         >
-          <Streamdown
-            mode="static"
-            plugins={streamdownPlugins}
-            className="text-sm leading-relaxed"
-          >
-            {chunk.text}
-          </Streamdown>
-        </section>
-      ))}
+          {detail.text}
+        </Streamdown>
+      </section>
     </article>
   )
 }

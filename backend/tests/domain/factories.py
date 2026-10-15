@@ -5,10 +5,7 @@ from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.agent.run import AgentRun
 from pharma_agent.domain.conversation.models import Citation
 from pharma_agent.domain.retrieval.models import (
-    Chunk,
     Hit,
-    HydrateStrategy,
-    RetrievedItem,
 )
 from pharma_agent.domain.retrieval.service import SearchResult
 
@@ -25,91 +22,42 @@ def chunk_uuid(label: str) -> uuid.UUID:
     return uuid.uuid5(TEST_NAMESPACE, f"chunk:{label}")
 
 
-def revision_uuid(section_key: str) -> uuid.UUID:
-    return uuid.uuid5(TEST_NAMESPACE, f"revision:{section_key}")
-
-
 def make_hit(
     label: str,
     *,
-    section_key: str = SECTION_KEY,
+    document_key: str = "drug:paracetamol",
     ordinal: int = 1,
-    strategy: HydrateStrategy = HydrateStrategy.CHUNK_WINDOW,
+    section_keys: list[str] | None = None,
+    headings: list[str] | None = None,
     fusion: float = 0.5,
     rerank: float | None = None,
     text: str = "paracetamol 500 mg",
     title: str = "Paracetamol",
     section: str = "Liều dùng",
-    kind: str = "prose",
-    table_key: str | None = None,
     start_page: int | None = 10,
     end_page: int | None = 11,
 ) -> Hit:
+    keys = [SECTION_KEY] if section_keys is None else section_keys
+    names = [section] if headings is None else headings
     return Hit(
         chunk_version_id=chunk_uuid(label),
         release_id=RELEASE_ID,
         collection_id=COLLECTION_ID,
-        document_key="drug:paracetamol",
-        section_key=section_key,
-        section_revision_id=revision_uuid(section_key),
+        document_key=document_key,
         ordinal=ordinal,
-        hydrate_strategy=strategy,
+        section_keys=keys,
+        headings=names,
         source=SOURCE,
         title=title,
-        section=section,
         start_page=start_page,
         end_page=end_page,
-        context_header=f"{title} > {section}",
+        context_header=f"{title} > {'; '.join(names)}",
         chunk_text=text,
-        embedding_text=f"{title} > {section}\n\n{text}",
-        kind=kind,
-        table_key=table_key,
+        embedding_text=f"{title} > {'; '.join(names)}\n\n{text}",
         fusion_score=fusion,
         rerank_score=rerank,
         matched_queries=["q1"],
     )
-
-
-def make_chunk(
-    label: str,
-    *,
-    ordinal: int,
-    text: str,
-    section_key: str = SECTION_KEY,
-    kind: str = "prose",
-    table_key: str | None = None,
-) -> Chunk:
-    return Chunk(
-        chunk_version_id=chunk_uuid(label),
-        section_revision_id=revision_uuid(section_key),
-        ordinal=ordinal,
-        text=text,
-        kind=kind,
-        table_key=table_key,
-        start_page=10,
-        end_page=11,
-    )
-
-
-def chunk_of(hit: Hit) -> Chunk:
-    """The chunk a hit was found on, as a hydrator would return it."""
-    return Chunk(
-        chunk_version_id=hit.chunk_version_id,
-        section_revision_id=hit.section_revision_id,
-        ordinal=hit.ordinal,
-        text=hit.chunk_text,
-        kind=hit.kind,
-        table_key=hit.table_key,
-        start_page=hit.start_page,
-        end_page=hit.end_page,
-    )
-
-
-def make_item(
-    label: str, *, rerank: float = 0.8, text: str = "paracetamol 500 mg"
-) -> RetrievedItem:
-    hit = make_hit(label, rerank=rerank, text=text)
-    return RetrievedItem(hit=hit, chunks=[chunk_of(hit)])
 
 
 def make_citation(label: str, *, index: int = 1) -> Citation:
@@ -117,8 +65,6 @@ def make_citation(label: str, *, index: int = 1) -> Citation:
         index=index,
         chunk_version_id=chunk_uuid(label),
         release_id=RELEASE_ID,
-        strategy=HydrateStrategy.CHUNK_WINDOW,
-        block_chunk_version_ids=[chunk_uuid(label)],
         source=SOURCE,
         title="Paracetamol",
         section="Liều dùng",
@@ -129,7 +75,9 @@ def make_citation(label: str, *, index: int = 1) -> Citation:
 
 
 def search_result(*labels: str, error: str | None = None) -> SearchResult:
-    return SearchResult(items=[make_item(label) for label in labels], error=error)
+    return SearchResult(
+        items=[make_hit(label, rerank=0.8) for label in labels], error=error
+    )
 
 
 def make_run(

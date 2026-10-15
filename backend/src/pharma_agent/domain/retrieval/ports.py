@@ -3,10 +3,8 @@ from typing import Protocol
 from uuid import UUID
 
 from pharma_agent.domain.retrieval.models import (
-    Chunk,
     ChunkRecord,
     Hit,
-    HydrateStrategy,
     Query,
     ReleaseScope,
 )
@@ -41,12 +39,6 @@ class Reranker(Protocol):
         ...
 
 
-class Hydrator(Protocol):
-    async def hydrate(self, hit: Hit, strategy: HydrateStrategy) -> list[Chunk]:
-        """Return neighbouring chunks for the strategy (empty for SEARCH_ONLY). Raises RetrievalError."""
-        ...
-
-
 type ChunkKey = tuple[UUID, UUID]
 """(release_id, chunk_version_id): one chunk version as published in one release."""
 
@@ -64,17 +56,8 @@ class CorpusReader(Protocol):
         """Records for the keys that exist, in no particular order. Raises RetrievalError."""
         ...
 
-    async def section_chunks(
-        self,
-        release_id: UUID,
-        section_revision_id: UUID,
-        *,
-        around: int | None,
-        radius: int,
-    ) -> list[Chunk]:
-        """Chunks of one section revision in one release, ordered by ordinal.
-
-        All of them when `around` is None, otherwise those with ordinal within around ± radius.
-        Raises RetrievalError.
-        """
+    async def document_chunks(
+        self, release_id: UUID, document_key: str, ordinals: Sequence[int]
+    ) -> list[ChunkRecord]:
+        """Chunks of one document in one release, by ordinal, for the agent's read tool. Raises RetrievalError."""
         ...

@@ -61,18 +61,17 @@ async def test_current_release_ids_follow_collections_current_release(
     assert await reader.current_release_ids([seeded.release_id, other]) == {other}
 
 
-async def test_citation_block_keeps_reading_order_and_is_owner_scoped(
+async def test_citation_block_holds_the_cited_text_and_is_owner_scoped(
     database: Database,
 ) -> None:
     seeded = await seed_cited_release(database.sessions)
     drafts = dosage_drafts(seeded)
-    order = (2, 0, 1)
     repo = repository(database)
     owner = await make_user(database)
     stranger = await make_user(database, "b@example.com")
     conversation = Conversation.start(user_id=owner, first_message="hi", now=NOW)
     await repo.create(conversation)
-    cited = citation_for(seeded, index=1, position=1, block=order)
+    cited = citation_for(seeded, index=1, position=1)
     user_msg, assistant_msg = turn(conversation.conversation_id, 0, citations=[cited])
     conversation.record_turn(assistant_msg.created_at)
     await repo.append_turn(conversation, user_msg, assistant_msg)
@@ -81,15 +80,7 @@ async def test_citation_block_keeps_reading_order_and_is_owner_scoped(
     block = await reader.citation_block(owner, assistant_msg.message_id, 1)
 
     assert block is not None and block.citation == cited and block.is_current is True
-    assert [chunk.chunk_version_id for chunk in block.chunks] == [
-        drafts[n].chunk_version_id for n in order
-    ]
-    assert [chunk.text for chunk in block.chunks] == [
-        drafts[n].chunk_text for n in order
-    ]
-    assert [(chunk.start_page, chunk.end_page) for chunk in block.chunks] == [
-        (drafts[n].start_page, drafts[n].end_page) for n in order
-    ]
+    assert block.text == drafts[1].chunk_text
     assert await reader.citation_block(stranger, assistant_msg.message_id, 1) is None
     assert await reader.citation_block(owner, assistant_msg.message_id, 2) is None
     assert await reader.citation_block(owner, "not-a-uuid", 1) is None
