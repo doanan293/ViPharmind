@@ -153,6 +153,30 @@ def test_ndcg_of_a_multi_part_query_needs_every_section() -> None:
     assert both["ndcg@10"] == pytest.approx(1.0)
 
 
+def test_finding_both_units_in_one_earlier_chunk_never_scores_lower() -> None:
+    gold = ["drug:a:lieu", "drug:a:chong-chi-dinh"]
+    row = {
+        "query_id": "q",
+        "answer_mode": "multi_required",
+        "expected_section_id": gold[0],
+        "expected_section_ids": gold,
+    }
+    filler = [_payload(f"x:y:chunk-{i:03d}", "x:y") for i in range(1, 3)]
+    together = [*filler, _payload("drug:a:chunk-001", *gold)]
+    apart = [*filler, *_ranked(*gold)]
+    only_first = _ranked("drug:a:lieu")
+
+    def ndcg(ranked: list[dict]) -> float:
+        return score_ranked_payloads(ranked, row, top_k=5)["ndcg@5"]
+
+    # The ideal is fixed per query: one unit per rank from rank 1.
+    assert ndcg(together) == pytest.approx(1 / (1 + 1 / math.log2(3)))
+    assert ndcg(together) > ndcg(apart)
+    assert ndcg(_ranked(*gold)) == 1.0
+    assert ndcg([_payload("drug:a:chunk-001", *gold)]) == 1.0
+    assert ndcg(only_first) < 1.0
+
+
 def test_an_accepted_chunk_satisfies_its_multi_part_unit() -> None:
     row = {
         "query_id": "q",
