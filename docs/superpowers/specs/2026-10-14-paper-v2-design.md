@@ -325,15 +325,16 @@ chạy trước Task 7 của plan pha D.
   91 % mục chỉ có một chunk nên bước này tốn một truy vấn mà không thêm thông tin.
 - **Chunk là đơn vị đọc.** Chunk vừa là đơn vị embed, rerank, vừa là đúng văn bản LLM đọc; không
   còn hydrate. Chunker mới `chunk_document` gộp các mục liền kề của cùng một tài liệu theo thứ tự
-  trong tài liệu: thêm mục kế tiếp chừng nào tổng còn dưới `TARGET_CHUNK_CHARS = 3200` (khoảng 1.024
-  token ở 3,1 ký tự mỗi token đo trên corpus); mục dài hơn `MAX_CHUNK_CHARS = 5600` (khoảng 1.800
-  token, cộng header vẫn dưới slot embed 2.048) được cắt bằng bộ cắt đoạn hiện có thành nhiều chunk
-  của riêng mục đó. Không gộp qua tài liệu khác. Text chunk giữ heading của từng mục dưới dạng
+  trong tài liệu: thêm mục kế tiếp chừng nào tổng còn dưới `TARGET_CHUNK_CHARS = 4200`; mục dài hơn
+  `MAX_CHUNK_CHARS = 5600` được cắt bằng bộ cắt đoạn hiện có thành nhiều chunk của riêng mục đó. Đo
+  ở target 3.200 cho trung bình chỉ 781 token, vì nhiều tài liệu ngắn hơn target nên chunk cuối của
+  tài liệu luôn non; target 4.200 nhắm trung bình khoảng 1.024 token và plan ghi số đo thật. Không gộp qua tài liệu khác. Text chunk giữ heading của từng mục dưới dạng
   `## <heading>`; header context là `<tiêu đề> > <heading 1>; <heading 2>; ...`. Dự kiến khoảng 15.000
   chunk; plan đo lại và ghi số thật (mean, p50, p90, max token của chunk_text và embedding_text).
   Embedding text là header, tên colloquial chưa xuất hiện, chunk text, rồi phần mở rộng thuật ngữ
-  (`compose_embedding_text`); khi tổng vượt slot embed 2.048 token thì bỏ phần mở rộng thuật ngữ rồi
-  phần colloquial, không bao giờ cắt chunk text, và plan ghi số chunk bị bỏ phần mở rộng.
+  (`compose_embedding_text`), không cắt phần nào. Riêng chunk text của bảng dài đã tới khoảng 3.100
+  token (embedding text tới khoảng 3.200), nên slot embed và ubatch của embedding nâng từ 2.048 lên
+  **4.096 token** (catalog Kaggle và compose local); một test giữ điều kiện chunk dài nhất vừa slot.
 - **Định danh:** chunk thuộc tài liệu, nhãn gold `<document_key>:chunk-NNN`, mang `section_keys` và
   `headings` theo thứ tự. Mục (section) vẫn là đơn vị nguồn gốc: benchmark và golden giữ gold theo
   section id; một chunk trúng khi bất kỳ mục nào của nó là gold (hoặc nhãn relevance chấp nhận chunk
@@ -364,7 +365,7 @@ chạy trước Task 7 của plan pha D.
   tra cứu biệt dược) bỏ theo. `PIPELINE_VERSION` lên 0.4.0.
 - **Đánh đổi ghi trong bài:** chunk dài hơn nên LLM đọc khoảng 5.000 token evidence mỗi vòng thay vì
   khoảng 3.000, đổi lại bớt 5 đến 8 truy vấn DB mỗi vòng, bớt mảnh vụn và câu nhiều ý thường nằm
-  trọn một chunk. Reranker chấm trên chunk dài hơn (tối đa khoảng 1.850 token, dưới ubatch 4.096), nên
+  trọn một chunk. Reranker chấm trên chunk dài hơn (tối đa khoảng 3.100 token, dưới ubatch 4.096), nên
   `rerank_seconds` mỗi lượt tăng và được báo riêng (§2.5). Đơn vị trích dẫn là chunk; citation recall
   vẫn chấm theo section gold nằm trong chunk nhờ `section_keys`, và text giữ `## <heading>` nên người
   đọc định vị được mục. Lý do chọn cỡ 1.024 token được kiểm bằng D7 (§4.D), không chỉ bằng thống kê.
