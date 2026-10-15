@@ -19,7 +19,7 @@
 - Git chỉ giữ file nhỏ: `manifest.json`, `validation_report.json`, `run.json`, `report.md`, `metrics.jsonl`; dữ liệu lớn đi qua `pharma-lab data push` (`pharma-lab/data/README.md`).
 - Key của section leaflet: trang là `leaflet:<category>:<slug>` (document), section con là `leaflet:<category>:<slug>:<NN>-<heading-slug>`; nhãn chunk gold vẫn là `<section_key>:chunk-<NNN>` một-based (`pharma_lab.bundle.chunks.gold_chunk_label`).
 - Không viết tay câu hỏi mới cho benchmark; mọi câu sinh bằng luật từ template có tên thuốc.
-- Số câu benchmark giữ 10.000, sáu nhóm: formulary 5000, leaflet 2500, chunk_risk 1000, leaflet_short 500, noisy 500, multi_intent 500.
+- Số câu benchmark giữ 10.000, sáu nhóm: formulary 5000, leaflet 2500, structured 1000, leaflet_short 500, noisy 500, multi_intent 500.
 
 ## Review Focus
 
@@ -1083,7 +1083,11 @@ git commit -m "data: regenerate the retrieval benchmark without question hints"
 
 > Chạy sau plan `2026-10-15-chunk-reading-unit.md` (spec §3.0c): chunk gộp mục, nhãn
 > `<document_key>:chunk-NNN`, nhóm `structured` thay `chunk_risk`, reranker trả 5 chunk. Mọi "top 8"
-> trong Task 7 và 7b đọc là top 5.
+> trong Task 7 và 7b đọc là top 5. Bước đầu của Task 7 là đo throughput rerank trên T4 với 200 câu
+> (chunk dài gấp ba, spec §6); nếu bảng đủ 10.000 câu × 40 ứng viên không vừa quota tuần thì quyết số
+> ứng viên cho khối so sánh bốn reranker trước khi chạy đủ. Báo Hit@5 và nDCG@5 cạnh các mốc khác. Khối
+> D7 (spec §4.D) chạy cùng bảng này: biến thể chunk theo từng mục dựng bằng `chunk_document` với
+> `target_chars=1` (mỗi mục một chunk), không khôi phục chunker cũ.
 
 **Files:**
 - Chạy lệnh trong tmux; commit `run.json`, `report.md`, `metrics.jsonl` của các run mới.
@@ -1204,7 +1208,7 @@ mã ở trên:
 1. `golden.py`: thêm `Category.MULTI_HOP` (behavior grounded, prefix `e2e-mhop-`), `QUOTAS` thành
    answerable 270, multi_hop 150, multi_turn 50, ba nhóm an toàn 10; `ANSWERABLE_PER_GROUP = 45`.
    Test: quota và validate cho item multi_hop.
-2. Lệnh `e2e golden hard-candidates --run <retrieval run> --top-k 8`: đọc candidates của run
+2. Lệnh `e2e golden hard-candidates --run <retrieval run> --top-k 5`: đọc candidates của run
    hybrid + rerank, liệt kê câu benchmark mà top-k thiếu section gold, gán một trong bốn loại theo
    `answer_mode`, `eval_group` và số thuốc; ghi `authoring/multi-hop.todo.jsonl`. Câu hai thuốc và
    biệt dược sang hoạt chất sinh thêm bằng luật từ cặp section (relevance judgments đã có ánh xạ

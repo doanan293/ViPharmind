@@ -77,7 +77,7 @@ uv run pharma-lab retrieve \
   --rrf-k 2
 ```
 
-Candidate `chunk_id` là nhãn vị trí `<section_key>:chunk-<ordinal:03d>`, `document_text` là `embedding_text` của chunk (dùng cho rerank).
+Candidate `chunk_id` là nhãn vị trí `<document_key>:chunk-<ordinal:03d>` của chunk gộp mục, kèm `section_ids` các mục nó chứa, `document_text` là `embedding_text` của chunk (dùng cho rerank).
 
 `--limit N` lấy N dòng đầu của file gold. `--sample N` lấy mẫu phân tầng theo `eval_group`: mỗi nhóm nhận số câu tỉ lệ với cỡ nhóm, làm tròn theo phần dư lớn nhất (phần dư bằng nhau thì nhóm xuất hiện trước trong file được ưu tiên), chọn ngẫu nhiên trong nhóm bằng `--sample-seed` (mặc định 0) và giữ thứ tự của file. Hai tuỳ chọn loại trừ nhau. Với bộ gold 10.000 câu, `--sample 1000` cho 500 `formulary`, 250 `leaflet`, 100 `chunk_risk`, 50 `leaflet_short`, 50 `noisy`, 50 `multi_intent`.
 
@@ -152,7 +152,7 @@ Chi tiết trong [e2e-evaluation.md](e2e-evaluation.md).
 | --- | --- |
 | `pharma-lab e2e golden sample [--seed S] [--force]` | Chọn 270 câu answerable (45 × 6 nhóm, phân tầng theo intent và answer mode) và 50 cặp multi-turn, ghi `data/evaluation/e2e/authoring/*.todo.jsonl` kèm text section và chunk trọng tâm |
 | `pharma-lab e2e golden resample --slots IDS [--per-slot N]` | Đưa N câu chưa dùng cùng tầng cho các slot mà section gold không trả lời câu hỏi, ghi `replacement-NN.todo.jsonl` |
-| `pharma-lab e2e golden hard-candidates --run RUN [--model RERANKER] [--top-k 8]` | Liệt kê câu benchmark mà một lượt (run retrieval, rerank, top k) thiếu section gold, gán loại multi-hop, ghi `authoring/multi-hop.todo.jsonl` |
+| `pharma-lab e2e golden hard-candidates --run RUN [--model RERANKER] [--top-k 5]` | Liệt kê câu benchmark mà một lượt (run retrieval, rerank, top k) thiếu section gold, gán loại multi-hop, ghi `authoring/multi-hop.todo.jsonl` |
 | `pharma-lab e2e golden trim --run RUN [--per-group 45]` | Bỏ câu answerable mà một lượt phủ đủ gold, đều theo nhóm, cho đến khi mỗi nhóm còn `--per-group` câu |
 | `pharma-lab e2e golden check FILE` | Kiểm một lô `*.authored.jsonl` (quote nằm trong section, hành vi theo nhóm, `absent_terms` vắng trong corpus) |
 | `pharma-lab e2e golden build` | Kiểm đủ số lượng từng nhóm rồi ghi `golden_e2e.jsonl` và manifest |

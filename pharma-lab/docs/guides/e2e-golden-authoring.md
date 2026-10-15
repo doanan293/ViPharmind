@@ -36,8 +36,7 @@ Mỗi dòng của `*.authored.jsonl` là một `GoldenItem` JSON do tác giả s
   - `source_query_id` = `query_id`;
   - `eval_group` giữ nguyên;
   - `tags` = `eval_tags`;
-  - `gold_section_ids` = `expected_section_ids`;
-  - `gold_chunk_ids` = `[expected_chunk_id]` khi có.
+  - `gold_section_ids` = `expected_section_ids`.
 
 ## Theo nhóm
 
@@ -46,7 +45,7 @@ Mỗi dòng của `*.authored.jsonl` là một `GoldenItem` JSON do tác giả s
   - `expected_behavior` là `grounded`.
   - `answer_mode = any_acceptable`: key fact lấy từ section trả lời trực tiếp nhất.
   - `answer_mode = multi_required`: key fact phải phủ mọi ý được hỏi, lấy từ các section tương ứng.
-- **`multi_hop`** (150 câu, `grounded`, id `e2e-mhop-`): câu mà một lượt tìm kiếm (hybrid + rerank, top 8) thiếu một phần section gold, nên phải có vòng judge-refine mới đủ bằng chứng.
+- **`multi_hop`** (150 câu, `grounded`, id `e2e-mhop-`): câu mà một lượt tìm kiếm (hybrid + rerank, top 5) thiếu một phần section gold, nên phải có vòng judge-refine mới đủ bằng chứng.
   - Ứng viên lấy từ `authoring/multi-hop.todo.jsonl` do `golden hard-candidates` ghi: mỗi dòng có câu benchmark, loại và các section gold mà vòng đầu bỏ sót (`missing`).
   - `tags` có đúng một loại: `three_intent` (một câu hỏi ba mục của cùng thuốc), `two_drug` (tương tác hoặc so sánh, bằng chứng từ hai chuyên luận), `brand_to_ingredient` (tờ hướng dẫn của biệt dược thiếu mục, Dược thư của hoạt chất có), `noisy_retry` (câu nhiễu hoặc gõ sai mà vòng đầu trượt). Mỗi loại 30 đến 45 câu.
   - `turns` là đúng một lượt `user`; key fact phải có quote từ mọi section gold, kể cả section vòng đầu bỏ sót.
