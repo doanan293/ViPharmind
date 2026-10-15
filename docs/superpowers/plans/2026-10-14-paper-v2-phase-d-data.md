@@ -1088,15 +1088,31 @@ git commit -m "data: regenerate the retrieval benchmark without question hints"
 - Consumes: bundle mới, benchmark mới, stack `vipharmind-eval` (`docs/guides/evaluation.md` §2).
 - Produces: run `bm25-v2-k30`, `dense-<model>-v2-k30` cho năm model, `hybrid-qwen4b-v2-p50-k30-rrf2`, `hybrid-qwen4b-v2-p50-k30-rrf60`, rerank bốn model trên run hybrid rrf2 và Qwen3-Reranker-4B trên run dense 4B.
 
+- [ ] **Step 0: Model Q8_0 và profile Kaggle**
+
+Theo spec §2.1b mọi model tự host ở Q8_0. Quantize tại chỗ từ file F16 bằng `llama-quantize`
+(image `ghcr.io/ggml-org/llama.cpp:full-b10920`), ghi size và sha256 vào `runtime/catalog.py`,
+đổi tên catalog sang hậu tố `-q8_0`, xoá file F16 và dataset Kaggle `vector-cache-gguf-*` cũ.
+Topology mọi model là replicated 2×1; nới không gian tìm profile cho các model 4B và 9B vì VRAM
+dư. Cache embedding F16 xoá. Chạy benchmark profile trước khi embed thật, ba tài khoản song song:
+
+```bash
+cd pharma-lab
+uv run pharma-lab bundle embed --bundle data/corpus/formulary --backend kaggle --model qwen3-embedding:4b-q8_0 --kaggle-account acc1 --benchmark
+uv run pharma-lab rerank --run hybrid-qwen4b-v2-p50-k30-rrf2 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account acc2 --benchmark
+```
+Expected: profile Q8_0 của từng model trong `data/work` và trên dataset profile Kaggle; mọi model
+sau đó dùng profile này.
+
 - [ ] **Step 1: Embed corpus trên Kaggle cho năm model**
 
 ```bash
 cd pharma-lab
-for m in qwen3-embedding:4b-fp16 qwen3-embedding:8b-fp16 qwen3-embedding:0.6b-fp16 bge-m3:567m-fp16 embeddinggemma:300m; do
+for m in qwen3-embedding:4b-q8_0 qwen3-embedding:8b-q8_0 qwen3-embedding:0.6b-q8_0 bge-m3:567m-q8_0 embeddinggemma:300m-q8_0; do
   uv run pharma-lab bundle embed --bundle data/corpus/formulary --backend kaggle --model "$m" --kaggle-account auto
 done
 ```
-Expected: `embeddings/<slug>.jsonl` cho năm model trong bundle; chunk có văn bản không đổi lấy từ cache theo sha nên chỉ chunk leaflet mới tốn GPU.
+Expected: `embeddings/<slug>.jsonl` cho năm model trong bundle; model Q8_0 chưa có cache nên embed toàn bộ corpus, chia mỗi model một tài khoản.
 
 - [ ] **Step 2: Stack đánh giá và import mỗi model**
 
@@ -1109,9 +1125,9 @@ cd backend && uv run pharma-agent migrate
 ```
 Với mỗi model (bảng trong `evaluation.md` §3, chiều vector và alias `eval_<slug>`):
 ```bash
-export PHARMA_RETRIEVAL__EMBEDDING__MODEL=qwen3-embedding:4b-fp16
+export PHARMA_RETRIEVAL__EMBEDDING__MODEL=qwen3-embedding:4b-q8_0
 export PHARMA_RETRIEVAL__EMBEDDING__DIMENSION=2560
-export PHARMA_RETRIEVAL__QDRANT_COLLECTION=eval_qwen3_embedding_4b_fp16
+export PHARMA_RETRIEVAL__QDRANT_COLLECTION=eval_qwen3_embedding_4b_q8_0
 uv run pharma-agent corpus import ../pharma-lab/data/corpus/formulary --collection formulary --publish
 ```
 Expected: mỗi import tạo release mới; `uv run pharma-agent corpus releases --collection formulary` liệt kê release đang publish.
@@ -1120,7 +1136,7 @@ Expected: mỗi import tạo release mới; `uv run pharma-agent corpus releases
 
 ```bash
 cd pharma-lab
-for m in qwen3-embedding:4b-fp16 qwen3-embedding:8b-fp16 qwen3-embedding:0.6b-fp16 bge-m3:567m-fp16 embeddinggemma:300m; do
+for m in qwen3-embedding:4b-q8_0 qwen3-embedding:8b-q8_0 qwen3-embedding:0.6b-q8_0 bge-m3:567m-q8_0 embeddinggemma:300m-q8_0; do
   uv run pharma-lab embed queries --backend kaggle --model "$m" --kaggle-account auto
 done
 # với PHARMA_RETRIEVAL__* trỏ vào Qwen3-Embedding-4B:
@@ -1142,12 +1158,12 @@ Expected: mỗi run có `reports/baseline/top30-window3/report.md`. Ghi Hit@10 v
 - [ ] **Step 4: Rerank**
 
 ```bash
-for m in qwen3-reranker:4b-fp16 qwen3-reranker:8b-fp16 qwen3-reranker:0.6b-fp16 bge-reranker-v2-m3:f16; do
+for m in qwen3-reranker:4b-q8_0 qwen3-reranker:8b-q8_0 qwen3-reranker:0.6b-q8_0 bge-reranker-v2-m3:q8_0; do
   uv run pharma-lab rerank --run hybrid-qwen4b-v2-p50-k30-rrf2 --backend kaggle --model "$m" --kaggle-account auto
   uv run pharma-lab metrics --run hybrid-qwen4b-v2-p50-k30-rrf2 --model "$m" --top-k 30
 done
-uv run pharma-lab rerank --run dense-qwen4b-v2-k30 --backend kaggle --model qwen3-reranker:4b-fp16 --kaggle-account auto
-uv run pharma-lab metrics --run dense-qwen4b-v2-k30 --model qwen3-reranker:4b-fp16 --top-k 30
+uv run pharma-lab rerank --run dense-qwen4b-v2-k30 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account auto
+uv run pharma-lab metrics --run dense-qwen4b-v2-k30 --model qwen3-reranker:4b-q8_0 --top-k 30
 ```
 Tên model reranker lấy đúng theo catalog (`uv run pharma-lab rerank --help` và `runtime/catalog.py`); v1 dùng biến thể `-vimed` cho Qwen3 reranker với instruction tiếng Việt y tế, giữ đúng biến thể v1 đã báo trong bài (xem `data/evaluation/runs/hybrid-qwen4b-p50-k30-rrf2/run.json` mục `rerank_variants`).
 
