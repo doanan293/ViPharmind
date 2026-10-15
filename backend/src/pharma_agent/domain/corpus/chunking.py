@@ -29,11 +29,12 @@ from pharma_agent.domain.corpus.identity import chunk_version_id, sha256_hex
 from pharma_agent.domain.retrieval.models import ColloquialMapping, TermAnnotation
 
 CHUNKER_VERSION = "chunker-v2"
-# About 1,024 Qwen3 tokens at the 3.1 chars per token measured on the corpus; a chunk
-# grows by whole sections until the next one would pass this.
-TARGET_CHUNK_CHARS = 3200
-# A single section longer than this is split on its own; with the context header the
-# longest chunk stays under the 2,048-token embedding slot.
+# A chunk grows by whole sections until the next one would pass this; packed chunks
+# average about 1,000 Qwen3 tokens on the corpus (measured, spec v2 §3.0c).
+TARGET_CHUNK_CHARS = 5400
+# A single section longer than this is split on its own. Tables and lists take more
+# tokens per character than prose, so the longest chunk reaches about 3,200 tokens,
+# inside the 4,096-token embedding slot and rerank ubatch.
 MAX_CHUNK_CHARS = 5600
 
 _PARAGRAPH_BREAK_RE = re.compile(r"\n\s*\n")

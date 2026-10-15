@@ -25,6 +25,7 @@ from pharma_lab.bundle.export import (
     export_bundle,
     is_cross_reference_only,
     leaflet_blocks,
+    leaflet_body,
 )
 from pharma_lab.corpus.canonical.build_canonical_rag import (
     ATC_SECTION_ID,
@@ -116,14 +117,14 @@ def test_export_maps_block_kinds_retrieval_and_pages(tmp_path: Path) -> None:
 
     leaflet = sections[PANADOL]
     assert (leaflet.start_page, leaflet.end_page) == (None, None)
+    # The page title and the own heading line are dropped; the table opens the body.
     assert [block.kind for block in leaflet.blocks] == [
-        BlockKind.PROSE,
         BlockKind.TABLE,
         BlockKind.PROSE,
     ]
-    assert [block.start_page for block in leaflet.blocks] == [None, None, None]
-    assert leaflet.blocks[0].markdown.startswith("# Panadol Extra")
-    assert leaflet.blocks[1].markdown.startswith("| Thông tin thành phần")
+    assert [block.start_page for block in leaflet.blocks] == [None, None]
+    assert leaflet.blocks[0].markdown.startswith("| Thông tin thành phần")
+    assert not any(b.markdown.startswith("# ") for b in leaflet.blocks)
 
     assert block_kind_for(ATC_SECTION_ID, "paragraph") is BlockKind.LIST
     assert block_kind_for(ATC_SECTION_ID, "table") is BlockKind.TABLE
@@ -285,3 +286,10 @@ def test_a_leaflet_row_without_page_id_is_rejected() -> None:
                 "section": "Thành phần",
             }
         )
+
+
+def test_leaflet_body_drops_the_page_title_and_the_own_heading_line() -> None:
+    text = "# Abanuti 1 g\n\n### 1. Thành phần\n\nLevocarnitin 1,0 g."
+    assert leaflet_body(text) == "Levocarnitin 1,0 g."
+    assert leaflet_body("# X\n\n#### - Quá liều\n\nGây tiêu chảy.") == "Gây tiêu chảy."
+    assert leaflet_body("Chỉ một đoạn.") == "Chỉ một đoạn."

@@ -24,6 +24,17 @@ def test_embedding_profile_separates_query_and_corpus_workloads():
     assert profile.corpus.production_batch_size > 0
 
 
+def test_embedding_slots_hold_the_longest_chunk():
+    # Packed chunks reach about 3,200 Qwen3 tokens; one slot must embed one whole.
+    spec = require_model("qwen3-embedding:4b-q8_0")
+    assert spec.embedding_runtime is not None
+    assert spec.embedding_runtime.context_per_slot == 4096
+    assert spec.embedding_search_space is not None
+    assert {
+        c.context_per_slot for c in spec.embedding_search_space.corpus.candidates
+    } == {4096}
+
+
 def test_embedding_model_exposes_separate_runtime_search_spaces():
     search_space = require_model("qwen3-embedding:4b-q8_0").embedding_search_space
 

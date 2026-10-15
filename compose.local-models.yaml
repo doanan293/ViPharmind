@@ -44,10 +44,10 @@ services:
       LLAMA_ARG_EMBEDDINGS: "true"
       LLAMA_ARG_N_PARALLEL: "${LLAMA_EMBEDDING_PARALLEL:-1}"
       # Context per slot; llama-server sizes the total context to slots x this value.
-      LLAMA_ARG_KV_UNIFIED_PER_SLOT: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-2048}"
+      LLAMA_ARG_KV_UNIFIED_PER_SLOT: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-4096}"
       # Embedding models are non-causal: a whole input must fit in one physical batch.
-      LLAMA_ARG_BATCH: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-2048}"
-      LLAMA_ARG_UBATCH: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-2048}"
+      LLAMA_ARG_BATCH: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-4096}"
+      LLAMA_ARG_UBATCH: "${LLAMA_EMBEDDING_CONTEXT_PER_SLOT:-4096}"
       # Only short user queries are embedded at runtime, so a few threads are enough.
       LLAMA_ARG_THREADS: "${LLAMA_EMBEDDING_THREADS:-4}"
 
