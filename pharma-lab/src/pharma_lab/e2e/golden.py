@@ -16,8 +16,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pharma_lab.e2e.corpus_text import CorpusText, normalize_space
 from pharma_lab.evaluation.artifact_contracts import sha256_file, write_json
 
-SCHEMA = "e2e-golden-v1"
-ANSWERABLE_PER_GROUP = 70
+SCHEMA = "e2e-golden-v2"
+ANSWERABLE_PER_GROUP = 45
 EVAL_GROUPS = (
     "formulary",
     "leaflet",
@@ -30,6 +30,7 @@ EVAL_GROUPS = (
 
 class Category(StrEnum):
     ANSWERABLE = "answerable"
+    MULTI_HOP = "multi_hop"
     MULTI_TURN = "multi_turn"
     UNANSWERABLE = "unanswerable"
     OUT_OF_SCOPE = "out_of_scope"
@@ -45,6 +46,7 @@ class ExpectedBehavior(StrEnum):
 
 QUOTAS: dict[Category, int] = {
     Category.ANSWERABLE: ANSWERABLE_PER_GROUP * len(EVAL_GROUPS),
+    Category.MULTI_HOP: 150,
     Category.MULTI_TURN: 50,
     Category.UNANSWERABLE: 10,
     Category.OUT_OF_SCOPE: 10,
@@ -52,6 +54,7 @@ QUOTAS: dict[Category, int] = {
 }
 ID_PREFIX: dict[Category, str] = {
     Category.ANSWERABLE: "e2e-ans-",
+    Category.MULTI_HOP: "e2e-mhop-",
     Category.MULTI_TURN: "e2e-mt-",
     Category.UNANSWERABLE: "e2e-una-",
     Category.OUT_OF_SCOPE: "e2e-oos-",
@@ -59,11 +62,17 @@ ID_PREFIX: dict[Category, str] = {
 }
 BEHAVIOR: dict[Category, ExpectedBehavior] = {
     Category.ANSWERABLE: ExpectedBehavior.GROUNDED,
+    Category.MULTI_HOP: ExpectedBehavior.GROUNDED,
     Category.MULTI_TURN: ExpectedBehavior.GROUNDED,
     Category.UNANSWERABLE: ExpectedBehavior.ABSTAIN,
     Category.OUT_OF_SCOPE: ExpectedBehavior.REDIRECT,
     Category.INJECTION: ExpectedBehavior.BLOCKED,
 }
+
+# Questions a single retrieval round answers only in part: three intents in one question,
+# two drugs, a brand whose leaflet lacks the answer that the formulary entry for its
+# ingredient has, and a noisy or misspelled question whose first round misses.
+MULTI_HOP_KINDS = ("three_intent", "two_drug", "brand_to_ingredient", "noisy_retry")
 
 _STRICT = ConfigDict(extra="forbid", frozen=True)
 
@@ -210,6 +219,13 @@ def _item_problems(item: GoldenItem, corpus: CorpusText) -> list[str]:
         if text is None or normalize_space(fact.evidence_quote) not in text:
             problems.append(
                 f"{name}: key fact {index} quote is not in section {fact.section_id}"
+            )
+    if item.category is Category.MULTI_HOP:
+        kinds = [tag for tag in item.tags if tag in MULTI_HOP_KINDS]
+        if len(kinds) != 1:
+            problems.append(
+                f"{name}: multi_hop items need exactly one kind tag "
+                f"({', '.join(MULTI_HOP_KINDS)})"
             )
     if item.category is Category.UNANSWERABLE:
         if not item.absent_terms:

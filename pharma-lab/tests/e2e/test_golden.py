@@ -13,6 +13,7 @@ from pharma_lab.e2e.corpus_text import CorpusText, chunk_texts, load_corpus_text
 from pharma_lab.e2e.golden import (
     ANSWERABLE_PER_GROUP,
     EVAL_GROUPS,
+    MULTI_HOP_KINDS,
     QUOTAS,
     Category,
     GoldenItem,
@@ -65,6 +66,39 @@ def special(category: str, prefix: str, behavior: str, **changes: Any) -> Golden
     }
     data.update(changes)
     return GoldenItem.model_validate(data)
+
+
+def multi_hop(item_id: str = "e2e-mhop-0001", **changes: Any) -> GoldenItem:
+    data: dict[str, Any] = {
+        "category": "multi_hop",
+        "eval_group": None,
+        "tags": ["two_drug"],
+    }
+    data.update(changes)
+    return answerable(item_id, **data)
+
+
+def test_golden_keeps_500_items_with_a_multi_hop_split() -> None:
+    assert QUOTAS[Category.ANSWERABLE] == 270
+    assert QUOTAS[Category.MULTI_HOP] == 150
+    assert sum(QUOTAS.values()) == 500
+
+
+def test_a_multi_hop_item_names_exactly_one_kind() -> None:
+    assert validate_items([multi_hop()], CORPUS, complete=False) == []
+    assert set(MULTI_HOP_KINDS) == {
+        "three_intent",
+        "two_drug",
+        "brand_to_ingredient",
+        "noisy_retry",
+    }
+    untagged = multi_hop(tags=[])
+    both = multi_hop(tags=["two_drug", "three_intent"])
+    for item in (untagged, both):
+        assert validate_items([item], CORPUS, complete=False) == [
+            "e2e-mhop-0001: multi_hop items need exactly one kind tag "
+            "(three_intent, two_drug, brand_to_ingredient, noisy_retry)"
+        ]
 
 
 def test_a_valid_answerable_item_has_no_problems() -> None:
@@ -174,6 +208,7 @@ def complete_set() -> list[GoldenItem]:
         answerable(f"e2e-mt-{index:04d}", category="multi_turn", turns=dialogue)
         for index in range(QUOTAS[Category.MULTI_TURN])
     ]
+    items += [multi_hop(f"e2e-mhop-{index:04d}") for index in range(150)]
     for category, prefix, behavior, extra in (
         ("unanswerable", "e2e-una-", "abstain", {"absent_terms": ["Zolgensma"]}),
         ("out_of_scope", "e2e-oos-", "redirect", {}),
@@ -191,8 +226,8 @@ def test_complete_sets_must_match_the_quotas() -> None:
     assert validate_items(items, CORPUS, complete=True) == []
     short = [item for item in items if item.item_id != "e2e-ans-leaflet-00"]
     assert validate_items(short, CORPUS, complete=True) == [
-        "answerable: 419 items, expected 420",
-        "answerable leaflet: 69 items, expected 70",
+        "answerable: 269 items, expected 270",
+        "answerable leaflet: 44 items, expected 45",
     ]
 
 
@@ -226,15 +261,16 @@ def test_build_freezes_sorted_items_and_a_manifest(tmp_path: Path) -> None:
     frozen = load_golden(output)
     assert [item.item_id for item in frozen] == sorted(i.item_id for i in items)
     manifest = json.loads(manifest_path(output).read_text("utf-8"))
-    assert manifest["schema"] == "e2e-golden-v1"
+    assert manifest["schema"] == "e2e-golden-v2"
     assert manifest["counts"] == {
-        "answerable": 420,
+        "answerable": 270,
         "injection": 10,
+        "multi_hop": 150,
         "multi_turn": 50,
         "out_of_scope": 10,
         "unanswerable": 10,
     }
-    assert manifest["answerable_per_group"]["leaflet"] == 70
+    assert manifest["answerable_per_group"]["leaflet"] == 45
     assert len(manifest["sha256"]) == 64
 
 
