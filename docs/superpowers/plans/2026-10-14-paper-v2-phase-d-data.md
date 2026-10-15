@@ -1093,8 +1093,12 @@ git commit -m "data: regenerate the retrieval benchmark without question hints"
 Theo spec §2.1b mọi model tự host ở Q8_0, tải bản Q8_0 đã công bố theo commit và kiểm sha256
 (không tự quantize); reranker Qwen3 đổi template rerank sang tiếng Việt y tế bằng
 `gguf-new-metadata` như `docs/guides/evaluation.md`. Ghi size và sha256 vào `runtime/catalog.py`,
-đổi tên catalog sang hậu tố `-q8_0`, xoá file F16, cache embedding, rerank và profile F16, và
-dataset Kaggle `vector-cache-gguf-*` cũ.
+đổi tên catalog sang hậu tố `-q8_0`. Sau khi gate qua, dọn legacy theo bảng "Dữ liệu trên Kaggle"
+ở spec §0: xoá 13 dataset `vector-cache-gguf-*` F16/BF16, `corpus-pipeline-rag-final`,
+`seed-pipeline-bundle` và mọi `pipeline-input-*` trên acc1, acc2, acc3; giữ nguyên `vipharma-rag`
+(link của bài SoICT), `vipharmind-data` version 1 và `vector-cache-llama-cpp-cuda-t4`. Ở local xoá
+file GGUF F16, cache embedding, rerank và profile F16, `data/work/archive-v1-root` và
+`data/work/bundle-v1`. Kiểm lại bằng danh sách dataset của ba tài khoản.
 Topology mọi model là replicated 2×1; nới không gian tìm profile cho các model 4B và 9B vì VRAM
 dư. Cache embedding F16 xoá. Chạy benchmark profile trước khi embed thật, ba tài khoản song song:
 
