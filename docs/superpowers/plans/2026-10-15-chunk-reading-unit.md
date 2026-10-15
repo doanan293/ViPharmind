@@ -990,7 +990,105 @@ git commit -m "refactor(pharma-lab): rag-final keeps sections and blocks only; p
 
 ---
 
-### Task 8: Dựng lại dữ liệu và đo chunk
+### Task 8: Ngân sách evidence 60.000 ký tự, pack bỏ từ đáy, search ghi cỡ evidence
+
+Spec §3.0c sửa ngày 2026-10-15 (commit b7c0d27): `max_evidence_chars = 60000`; `pack` xếp theo điểm rerank xuyên mọi vòng và bỏ nguyên chunk điểm thấp nhất khi vượt; mỗi vòng ghi số chunk và cỡ evidence. ReAct chỉ có một công cụ `search_corpus`, nên `CorpusReader.document_chunks` không còn người dùng và bị xoá.
+
+**Files:**
+- Modify: `backend/src/pharma_agent/domain/agent/budget.py` (`max_evidence_chars: int = 60_000`)
+- Modify: `backend/src/pharma_agent/domain/retrieval/evidence.py` (`pack`)
+- Modify: `backend/src/pharma_agent/domain/agent/run.py` (`record_search` payload thêm `"evidence_chars"`)
+- Modify: `backend/src/pharma_agent/domain/retrieval/ports.py`, `backend/src/pharma_agent/infrastructure/retrieval/postgres_corpus.py` (xoá `document_chunks`), cùng test của nó
+- Test: `backend/tests/domain/retrieval/test_evidence.py`, `backend/tests/domain/agent/test_run.py`
+
+**Interfaces:**
+- Produces: payload SEARCH có `"evidence_chars": int` = tổng ký tự của `self.evidence.pack(limits.max_evidence_chars)` sau vòng đó; Task 9 đọc.
+
+- [ ] **Step 1: Test hỏng**
+
+```python
+def test_pack_drops_whole_chunks_from_the_lowest_score() -> None:
+    evidence = EvidenceSet()
+    evidence.merge(
+        [
+            _hit(score=0.9, chars=40),
+            _hit(score=0.8, chars=40),
+            _hit(score=0.1, chars=10),
+        ]
+    )
+
+    packed = evidence.pack(85)
+
+    # The 0.8 chunk does not fit next to the 0.9 one; everything ranked below it goes too.
+    assert [e.score for e in packed] == [0.9]
+
+
+def test_default_evidence_budget_is_sixty_thousand_chars() -> None:
+    assert RunLimits().max_evidence_chars == 60_000
+```
+
+và trong test của `record_search`: `payload["evidence_chars"] == sum(len(h.chunk_text) for h in hits)`.
+
+- [ ] **Step 2: Chạy, thấy hỏng** — `cd backend && uv run pytest tests/domain -q`. Expected: 3 test mới FAIL.
+
+- [ ] **Step 3: Cài đặt**
+
+```python
+    def pack(self, max_chars: int) -> list[Evidence]:
+        """Whole chunks by score; once one does not fit, it and every lower one are dropped."""
+        packed: list[Evidence] = []
+        remaining = max_chars
+        for evidence in self.active():
+            if evidence.char_count() > remaining:
+                break
+            packed.append(evidence)
+            remaining -= evidence.char_count()
+        return packed
+```
+
+`record_search` thêm `"evidence_chars": sum(e.char_count() for e in self.evidence.pack(self.limits.max_evidence_chars))`. Xoá `document_chunks` khỏi port, adapter và test.
+
+- [ ] **Step 4: Chạy lại** — `cd backend && uv run pytest -q`. Expected: pass hết.
+
+- [ ] **Step 5: Commit** — `git commit -m "feat(backend): 60k-char evidence budget, pack drops from the lowest score"`
+
+---
+
+### Task 9: pharma-lab theo spec mới: `section_coverage`, vòng ghi cỡ evidence, nDCG@5 và MRR@5
+
+**Files:**
+- Modify: `pharma-lab/src/pharma_lab/evaluation/section_eval_schema.py`, `build_section_retrieval_eval.py` (`chunk_coverage` → `section_coverage`), tài liệu golden authoring
+- Modify: `pharma-lab/src/pharma_lab/e2e/records.py` (`RoundRecord`), `executor.py`, `report.py`
+- Modify: `pharma-lab/src/pharma_lab/evaluation/retrieval_metrics.py` (nDCG và MRR ở 5 và 10)
+- Test: `tests/evaluation/test_retrieval_metrics.py`, `tests/e2e/test_executor.py`, `tests/e2e/test_report.py`, test schema
+
+**Interfaces:**
+- Consumes: payload SEARCH `"evidence"` và `"evidence_chars"` (Task 8).
+- Produces: `RoundRecord(sections: list[str], chunks: int, evidence_chars: int)`; `AnswerRecord.rounds: list[RoundRecord]`; điểm `ndcg@5`, `mrr@5`, `ndcg@10`, `mrr@10`.
+
+- [ ] **Step 1: Test hỏng**
+
+```python
+def test_ranking_scores_at_5_and_10() -> None:
+    payloads = _ranked(*["x:z"] * 5, "drug:a:lieu")
+    scores = score_ranked_payloads(payloads, _section_row(), top_k=10)
+    assert scores["ndcg@5"] == 0.0 and scores["mrr@5"] == 0.0
+    assert scores["mrr@10"] == pytest.approx(1 / 6)
+```
+
+`test_executor`: `record.rounds == [RoundRecord(sections=sorted([SECTION, "other"]), chunks=2, evidence_chars=...)]`. Test schema: `"section_coverage" in QUERY_FORMS and "chunk_coverage" not in QUERY_FORMS`.
+
+- [ ] **Step 2: Chạy, thấy hỏng** — `cd pharma-lab && uv run pytest tests/evaluation tests/e2e -q`.
+
+- [ ] **Step 3: Cài đặt** — `RANKING_KS = (5, 10)`; `score_ranked_payloads` gọi `ranking_scores` cho mỗi k ≤ top_k. `report._coverage_after` đọc `rounds[index].sections`; thêm metric `evidence_chars_final`. Đổi tên query_form ở schema, builder và docs.
+
+- [ ] **Step 4: Chạy lại** — `cd pharma-lab && uv run pytest -q`. Expected: pass hết.
+
+- [ ] **Step 5: Commit** — `git commit -m "feat(pharma-lab): section_coverage, round evidence size, nDCG and MRR at 5"`
+
+---
+
+### Task 10: Dựng lại dữ liệu và đo chunk
 
 **Files:**
 - Dữ liệu: `pharma-lab/data/corpus/rag-final`, `pharma-lab/data/corpus/formulary` (manifest commit), `pharma-lab/data/evaluation/gold/*` (manifest commit), `pharma-lab/data/evaluation/e2e/golden_e2e.manifest.json`
@@ -1007,7 +1105,7 @@ uv run pharma-lab evaluation build --bundle data/corpus/formulary
 uv run pharma-lab e2e golden build
 ```
 
-Expected: `status=complete` ở mỗi lệnh; benchmark 10.000 câu với `structured` 1.000; golden 500 (270/150/50/10/10/10).
+Expected: `status=complete` ở mỗi lệnh; benchmark 10.000 câu với `structured` 1.000, không còn query_form `chunk_coverage`; golden 500 (270/150/50/10/10/10).
 
 - [ ] **Step 2: Kiểm tra dữ liệu**
 
@@ -1015,7 +1113,7 @@ Chạy đoạn Python kiểm tra: 0 câu có "(phần", 0 trùng text, 0 gold ng
 
 - [ ] **Step 3: Đo token bằng tokenizer Qwen3 (docker `ghcr.io/ggml-org/llama.cpp:server-b10920`, model `qwen3-embedding-0.6b-q8_0.gguf`, endpoint `/tokenize`)**
 
-Ghi vào `07-dataset-review.md`: số chunk, mean/p50/p90/p99/max token của `chunk_text` và `embedding_text`, số chunk dưới 64 token, số chunk nhiều mục. Điều kiện đạt: max token của `embedding_text` dưới 2.048; mean `chunk_text` trong khoảng 900 đến 1.150 token. Nếu max vượt 2.048, giảm `MAX_CHUNK_CHARS` (Task 1) và chạy lại từ Step 1; nếu mean lệch khỏi khoảng, chỉnh `TARGET_CHUNK_CHARS` tương ứng và ghi giá trị đã chọn vào spec §3.0c.
+Ghi vào `07-dataset-review.md`: số chunk, mean/p50/p90/p99/max token của `chunk_text` và `embedding_text`, số chunk dưới 64 token, số chunk nhiều mục. Điều kiện đạt: max token của `embedding_text` dưới 4.096 (slot embed, spec §3.0c, phương án A ngày 2026-10-15); mean `chunk_text` trong khoảng 900 đến 1.150 token. Nếu max vượt 4.096, giảm `MAX_CHUNK_CHARS` (Task 1) và chạy lại từ Step 1; nếu mean lệch khỏi khoảng, chỉnh `TARGET_CHUNK_CHARS` tương ứng và ghi giá trị đã chọn vào spec §3.0c.
 
 - [ ] **Step 4: Commit**
 
@@ -1026,11 +1124,11 @@ git commit -m "data: corpus, benchmark and golden rebuilt on reading-sized chunk
 
 ---
 
-### Task 9: Tài liệu và plan pha D
+### Task 11: Tài liệu và plan pha D
 
 **Files:**
 - Modify: `pharma-lab/docs/guides/evaluation.md` (§1 dữ liệu: chunk theo tài liệu, nhãn, nhóm `structured`), `e2e-evaluation.md`, `e2e-golden-authoring.md` (top 5, không `gold_chunk_ids`), `cli-reference.md` (`--top-k 5`), `backend/README.md` (mục retrieval: không hydrate, `rerank.top_n = 5`), `README.md` gốc nếu nhắc hydrate
-- Modify: `docs/superpowers/plans/2026-10-14-paper-v2-phase-d-data.md` Task 7 và 7b: "top 8" thành "top 5", ghi "chạy sau plan 2026-10-15-chunk-reading-unit"
+- Modify: `docs/superpowers/plans/2026-10-14-paper-v2-phase-d-data.md` Task 7 và 7b: "top 8" thành "top 5", ghi "chạy sau plan 2026-10-15-chunk-reading-unit"; Task 7 thêm bước đầu đo throughput rerank trên 200 câu và khối D7 (chunk theo từng mục = `chunk_document` với `target_chars=1`, không khôi phục chunker cũ) báo Hit@5 và nDCG@5
 
 - [ ] **Step 1: Sửa tài liệu**
 
