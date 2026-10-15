@@ -226,3 +226,28 @@ def test_leaflet_sections_without_a_lookup_intent_get_no_generic_question() -> N
 def test_adr_handling_and_usage_guide_headings_have_an_intent() -> None:
     assert b.leaflet_category_for_heading("Hướng dẫn cách xử trí ADR") == "brand_adr"
     assert b.leaflet_category_for_heading("Hướng dẫn sử dụng") == "brand_dosage"
+
+
+def test_multi_intent_rows_accept_section_category_role_items() -> None:
+    def section(slug: str, heading: str) -> dict:
+        return {
+            "id": f"drug:abacavir:{slug}",
+            "content_type": "drug_monograph",
+            "title": "ABACAVIR",
+            "section": heading,
+            "context_path": [heading],
+            "text": f"{heading}.",
+        }
+
+    items = [
+        (section("chi-dinh", "Chỉ định"), "indication", "prose"),
+        (
+            section("lieu-luong-va-cach-dung", "Liều lượng và cách dùng"),
+            "dosage",
+            "prose",
+        ),
+    ]
+    rows = b.build_multi_intent_eval_rows(items, {}, target_count=1)
+    assert [row["expected_section_ids"] for row in rows] == [
+        ["drug:abacavir:chi-dinh", "drug:abacavir:lieu-luong-va-cach-dung"]
+    ]

@@ -29,7 +29,7 @@ def test_cli_program_is_named_pharma_lab() -> None:
 
 
 def test_kaggle_names_use_pharma_lab(tmp_path: Path) -> None:
-    assert BUNDLE_INPUT_DATASET_SLUG == "seed-pipeline-bundle"
+    assert BUNDLE_INPUT_DATASET_SLUG == "vipharmind-bundle"
     assert TemporaryWorkspace.PREFIX == "pharma-lab-kaggle-"
     with managed_staging_directory(tmp_path) as staging:
         assert staging.name.startswith("pharma-lab-stage-")

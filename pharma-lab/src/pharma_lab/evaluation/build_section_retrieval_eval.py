@@ -41,33 +41,30 @@ DEFAULT_CHUNKS_PATH = EVALUATION_CHUNKS_PATH
 DEFAULT_OUTPUT_PATH = GOLD_DIR / "section_retrieval_eval.jsonl"
 
 SECTION_CATEGORY_RULES = [
-    ("contraindication", ("chống chỉ định",), "easy", "prose"),
-    ("indication", ("chỉ định",), "easy", "prose"),
-    ("dosage", ("liều lượng", "cách dùng"), "medium", "prose"),
-    ("adr", ("tác dụng không mong muốn", "tác dụng phụ", "adr"), "medium", "prose"),
-    ("interaction", ("tương tác",), "medium", "prose"),
-    ("pregnancy", ("mang thai", "cho con bú", "thời kỳ mang thai"), "medium", "prose"),
-    ("overdose", ("quá liều", "xử trí", "ngộ độc"), "medium", "prose"),
-    ("storage", ("bảo quản", "độ ổn định", "hạn dùng"), "medium", "prose"),
-    ("precaution", ("thận trọng", "cảnh báo", "lưu ý"), "medium", "prose"),
+    ("contraindication", ("chống chỉ định",), "prose"),
+    ("indication", ("chỉ định",), "prose"),
+    ("dosage", ("liều lượng", "cách dùng"), "prose"),
+    ("adr", ("tác dụng không mong muốn", "tác dụng phụ", "adr"), "prose"),
+    ("interaction", ("tương tác",), "prose"),
+    ("pregnancy", ("mang thai", "cho con bú", "thời kỳ mang thai"), "prose"),
+    ("overdose", ("quá liều", "xử trí", "ngộ độc"), "prose"),
+    ("storage", ("bảo quản", "độ ổn định", "hạn dùng"), "prose"),
+    ("precaution", ("thận trọng", "cảnh báo", "lưu ý"), "prose"),
     (
         "pharmacology",
         ("dược lý", "cơ chế tác dụng", "dược lực học", "dược động học"),
-        "medium",
         "prose",
     ),
-    ("dosage_form", ("dạng thuốc", "hàm lượng", "chế phẩm"), "medium", "prose"),
+    ("dosage_form", ("dạng thuốc", "hàm lượng", "chế phẩm"), "prose"),
     (
         "general_guidance",
         ("kê đơn", "người cao tuổi", "sử dụng thuốc"),
-        "medium",
         "prose",
     ),
-    ("atc_appendix", ("atc", "phân loại thuốc"), "hard", "appendix_list"),
+    ("atc_appendix", ("atc", "phân loại thuốc"), "appendix_list"),
     (
         "brand_lookup",
         ("biệt dược", "tên thương mại", "tên chung quốc tế"),
-        "medium",
         "index_entry",
     ),
 ]
@@ -250,7 +247,7 @@ def chunk_role_for_section(
     return sorted(set(roles))[0]
 
 
-def category_for_section(section: dict, chunks: list[dict]) -> tuple[str, str, str]:
+def category_for_section(section: dict, chunks: list[dict]) -> tuple[str, str]:
     haystack = " ".join(
         [
             section.get("id", ""),
@@ -260,21 +257,19 @@ def category_for_section(section: dict, chunks: list[dict]) -> tuple[str, str, s
             section.get("context_header", ""),
         ]
     ).lower()
-    for category, keywords, difficulty, expected_role in SECTION_CATEGORY_RULES:
+    for category, keywords, expected_role in SECTION_CATEGORY_RULES:
         if any(keyword in haystack for keyword in keywords):
-            return category, difficulty, expected_role
+            return category, expected_role
     if any(chunk.get("chunk_content_type") == "table" for chunk in chunks):
-        return "table_lookup", "hard", "table"
+        return "table_lookup", "table"
     sid = section.get("id", "")
     if section.get("content_type") == "general_monograph":
         return (
             "general_guidance",
-            "medium",
             chunk_role_for_section(sid, {sid: chunks}) if sid else "prose",
         )
     return (
         "drug_fact",
-        "medium",
         chunk_role_for_section(sid, {sid: chunks}) if sid else "prose",
     )
 
@@ -979,8 +974,8 @@ def auto_candidate_chunks(
     sections_by_id: dict[str, dict],
     chunks_by_section: dict[str, list[dict]],
     candidate_target: int,
-) -> list[tuple[dict, dict, str, str, str]]:
-    by_category: dict[str, list[tuple[dict, dict, str, str, str]]] = defaultdict(list)
+) -> list[tuple[dict, dict, str, str]]:
+    by_category: dict[str, list[tuple[dict, dict, str, str]]] = defaultdict(list)
     for chunk in sorted(
         chunks, key=lambda item: (item.get("chunk_key", 0), item.get("section_id", ""))
     ):
@@ -990,12 +985,10 @@ def auto_candidate_chunks(
         section = sections_by_id.get(section_id)
         if not section:
             continue
-        category, difficulty, expected_role = category_for_section(
+        category, expected_role = category_for_section(
             section, chunks_by_section.get(section_id, [])
         )
-        by_category[category].append(
-            (chunk, section, category, difficulty, expected_role)
-        )
+        by_category[category].append((chunk, section, category, expected_role))
 
     category_order = [
         "brand_lookup",
@@ -1065,23 +1058,21 @@ def weighted_targets(weights: dict[str, int], total: int) -> dict[str, int]:
 def section_candidates(
     sections_by_id: dict[str, dict],
     chunks_by_section: dict[str, list[dict]],
-) -> list[tuple[dict, str, str, str]]:
+) -> list[tuple[dict, str, str]]:
     candidates = []
     for section in sorted(sections_by_id.values(), key=lambda item: item["id"]):
         section_chunks = chunks_by_section.get(section["id"], [])
-        category, difficulty, expected_role = category_for_section(
-            section, section_chunks
-        )
-        candidates.append((section, category, difficulty, expected_role))
+        category, expected_role = category_for_section(section, section_chunks)
+        candidates.append((section, category, expected_role))
     return candidates
 
 
 def sections_by_title_and_category(
-    section_items: list[tuple[dict, str, str, str]],
-) -> dict[str, dict[str, tuple[dict, str, str, str]]]:
-    grouped: dict[str, dict[str, tuple[dict, str, str, str]]] = defaultdict(dict)
+    section_items: list[tuple[dict, str, str]],
+) -> dict[str, dict[str, tuple[dict, str, str]]]:
+    grouped: dict[str, dict[str, tuple[dict, str, str]]] = defaultdict(dict)
     for item in section_items:
-        section, category, _difficulty, _expected_role = item
+        section, category, _expected_role = item
         if is_leaflet_section(section):
             continue
         title = normalize_spaces(section.get("title", ""))
@@ -1091,8 +1082,8 @@ def sections_by_title_and_category(
 
 
 def multi_section_candidates(
-    section_items: list[tuple[dict, str, str, str]],
-) -> list[tuple[tuple[dict, str, str, str], tuple[dict, str, str, str], str]]:
+    section_items: list[tuple[dict, str, str]],
+) -> list[tuple[tuple[dict, str, str], tuple[dict, str, str], str]]:
     category_pairs = [
         (
             "indication",
@@ -1153,26 +1144,26 @@ def multi_section_candidates(
 
 
 def build_multi_intent_eval_rows(
-    sections: list[dict] | list[tuple[dict, str, str, str]],
+    sections: list[dict] | list[tuple[dict, str, str]],
     chunks_by_section: dict[str, list[dict]] | None = None,
     target_count: int = 0,
 ) -> list[dict]:
     chunks_by_section = chunks_by_section or {}
-    section_items: list[tuple[dict, str, str, str]] = []
+    section_items: list[tuple[dict, str, str]] = []
 
     for item in sections:
-        if isinstance(item, tuple) and len(item) == 4:
+        if isinstance(item, tuple) and len(item) == 3:
             section_items.append(item)
         elif isinstance(item, dict):
             sec_id = str(item.get("id") or "")
             sec_chunks = chunks_by_section.get(sec_id, [])
-            cat, diff, role = category_for_section(item, sec_chunks)
-            section_items.append((item, cat, diff, role))
+            cat, role = category_for_section(item, sec_chunks)
+            section_items.append((item, cat, role))
 
     candidates = multi_section_candidates(section_items)
 
     if not candidates:
-        grouped: dict[str, list[tuple[dict, str, str, str]]] = defaultdict(list)
+        grouped: dict[str, list[tuple[dict, str, str]]] = defaultdict(list)
         for item in section_items:
             sec = item[0]
             if is_leaflet_section(sec):
@@ -1204,8 +1195,8 @@ def build_multi_intent_eval_rows(
         primary_item, secondary_item, template = candidates[
             candidate_idx % len(candidates)
         ]
-        primary_section, _p_cat, _p_diff, primary_role = primary_item
-        secondary_section, _s_cat, _s_diff, _s_role = secondary_item
+        primary_section, _p_cat, primary_role = primary_item
+        secondary_section, _s_cat, _s_role = secondary_item
 
         primary_id = str(primary_section.get("id") or "")
         chunks = chunks_by_section.get(primary_id, [])
@@ -1620,7 +1611,6 @@ def generate_rows(
     def append_section_row(
         section: dict,
         category: str,
-        difficulty: str,
         expected_role: str,
         query_style: str,
         style_count: int,
@@ -1690,7 +1680,6 @@ def generate_rows(
         chunk: dict,
         section: dict,
         category: str,
-        difficulty: str,
         expected_role: str,
         auto_count: int,
         query_style: str,
@@ -1886,18 +1875,16 @@ def generate_rows(
         chunk_risk_items
     ):
         chunk, section = chunk_risk_items[chunk_risk_index]
-        category, difficulty, expected_role = category_for_section(
+        category, expected_role = category_for_section(
             section, chunks_by_section.get(section["id"], [])
         )
         if is_leaflet_section(section):
             category = leaflet_intent(section)
-            difficulty = "medium"
             expected_role = chunk.get("chunk_role") or "prose"
         if append_auto_row(
             chunk,
             section,
             category,
-            difficulty,
             expected_role,
             chunk_risk_count + 1,
             "coverage_chunk",
@@ -1931,7 +1918,7 @@ def generate_rows(
         )
     seen_auto_sections: set[str] = set()
 
-    for chunk, section, category, difficulty, expected_role in auto_candidates:
+    for chunk, section, category, expected_role in auto_candidates:
         if style_counts["lexical"] >= lexical_target:
             break
         if section["id"] in seen_auto_sections:
@@ -1940,7 +1927,6 @@ def generate_rows(
             chunk,
             section,
             category,
-            difficulty,
             expected_role,
             style_counts["lexical"] + 1,
             "lexical",
@@ -1952,14 +1938,11 @@ def generate_rows(
     while style_counts["lexical"] < lexical_target and lexical_index < len(
         auto_candidates
     ):
-        chunk, section, category, difficulty, expected_role = auto_candidates[
-            lexical_index
-        ]
+        chunk, section, category, expected_role = auto_candidates[lexical_index]
         if append_auto_row(
             chunk,
             section,
             category,
-            difficulty,
             expected_role,
             style_counts["lexical"] + 1,
             "lexical",
@@ -1980,11 +1963,10 @@ def generate_rows(
         style_section_items = spread_items(formulary_section_items, target)
         while style_counts[query_style] < target:
             progressed = False
-            for section, category, difficulty, expected_role in style_section_items:
+            for section, category, expected_role in style_section_items:
                 if append_section_row(
                     section,
                     category,
-                    difficulty,
                     expected_role,
                     query_style,
                     style_counts[query_style] + 1 + variant_round,
@@ -2013,14 +1995,11 @@ def generate_rows(
     )
     fill_index = 0
     while accumulator.remaining(effective_target) and fill_index < len(fill_candidates):
-        chunk, section, category, difficulty, expected_role = fill_candidates[
-            fill_index
-        ]
+        chunk, section, category, expected_role = fill_candidates[fill_index]
         if append_auto_row(
             chunk,
             section,
             category,
-            difficulty,
             expected_role,
             fill_count + 1,
             "coverage_fill",

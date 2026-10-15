@@ -28,14 +28,14 @@ def _usable(row: Row, corpus: CorpusText) -> bool:
 def sample_answerable(
     rows: Sequence[Row], *, per_group: int, seed: int, corpus: CorpusText
 ) -> list[Row]:
-    """`per_group` rows per eval group, proportional over difficulty x answer_mode."""
+    """`per_group` rows per eval group, proportional over intent x answer_mode."""
     rng = random.Random(seed)
     chosen: set[int] = set()
     for group in EVAL_GROUPS:
         strata: dict[tuple[str, str], list[int]] = defaultdict(list)
         for index, row in enumerate(rows):
             if row.get("eval_group") == group and _usable(row, corpus):
-                key = (str(row.get("difficulty")), str(row.get("answer_mode")))
+                key = (str(row.get("intent_category")), str(row.get("answer_mode")))
                 strata[key].append(index)
         available = sum(len(indices) for indices in strata.values())
         if available < per_group:
@@ -176,7 +176,7 @@ def write_authoring_batches(
 def _stratum(row: Row) -> tuple[str, str, str]:
     return (
         str(row.get("eval_group")),
-        str(row.get("difficulty")),
+        str(row.get("intent_category")),
         str(row.get("answer_mode")),
     )
 

@@ -7,7 +7,7 @@
     "multi_intent": 70,
     "noisy": 70
   },
-  "bundle_manifest_sha256": "8d7a8bcfe966a0bc8b0c095c317aa9324e70b5525a9b62d4350e37d3be276f6d",
+  "bundle_manifest_sha256": "f2b341d9d7a484654e62722295a637f433674b98e3359ec137b13722d732d689",
   "counts": {
     "answerable": 420,
     "injection": 10,
@@ -15,8 +15,8 @@
     "out_of_scope": 10,
     "unanswerable": 10
   },
-  "created_at": "2026-10-14T16:40:08+00:00",
-  "gold_sha256": "f1e3fa533ac4b3d54867694202720ca30bcb993ebeb12a09fbc5dda97cb11cf9",
+  "created_at": "2026-10-15T02:38:44+00:00",
+  "gold_sha256": "8f01ccd9d6bc0d8fdff10ae4b489c91af04bdef185720784fad549c3770daca6",
   "schema": "e2e-golden-v1",
-  "sha256": "b37aaba6386a5b32e240c1d543d5fa308275abd5747b07cc0619fffd65609613"
+  "sha256": "b4a9723d2ed9785311bcc8ccdab269bf15e8adcad6ce8d5aba166b13ff5c29df"
 }

@@ -51,7 +51,6 @@ def answerable(item_id: str = "e2e-ans-0001", **changes: Any) -> GoldenItem:
             ],
         },
         "eval_group": "formulary",
-        "difficulty": "easy",
     }
     data.update(changes)
     return GoldenItem.model_validate(data)

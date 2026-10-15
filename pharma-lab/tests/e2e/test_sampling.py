@@ -37,7 +37,7 @@ def rows(corpus_text: CorpusText) -> list[dict]:
                 "query_id": f"q{index}",
                 "query": f"question {index}",
                 "eval_group": group,
-                "difficulty": "hard" if index % 10 == 0 else "medium",
+                "intent_category": "dosage" if index % 10 == 0 else "adr",
                 "answer_mode": "single",
                 "expected_section_ids": [keys[index % len(keys)]],
             }
@@ -47,7 +47,7 @@ def rows(corpus_text: CorpusText) -> list[dict]:
             "query_id": "missing",
             "query": "x",
             "eval_group": "formulary",
-            "difficulty": "medium",
+            "intent_category": "adr",
             "answer_mode": "single",
             "expected_section_ids": ["nowhere"],
         }
@@ -65,9 +65,11 @@ def test_answerable_sample_is_deterministic_and_balanced() -> None:
     assert first == second
     assert Counter(row["eval_group"] for row in first) == dict.fromkeys(EVAL_GROUPS, 20)
     assert all(row["query_id"] != "missing" for row in first)
-    hard = Counter(row["eval_group"] for row in first if row["difficulty"] == "hard")
-    # Hard rows (index % 10 == 0) fall in the even-position groups: 20% of 20 = 4.
-    assert hard == dict.fromkeys(EVAL_GROUPS[::2], 4)
+    dosage = Counter(
+        row["eval_group"] for row in first if row["intent_category"] == "dosage"
+    )
+    # Dosage rows (index % 10 == 0) fall in the even-position groups: 20% of 20 = 4.
+    assert dosage == dict.fromkeys(EVAL_GROUPS[::2], 4)
     ids = [int(row["query_id"][1:]) for row in first]
     assert ids == sorted(ids)
 
@@ -162,7 +164,8 @@ def test_replacements_come_from_the_slot_stratum_and_are_unused(tmp_path: Path) 
     assert len({row["query_id"] for row in offered}) == 6
     assert all(row["query_id"] not in used for row in offered)
     assert all(
-        (row["eval_group"], row["difficulty"]) == (slot_row["eval_group"], "hard")
+        (row["eval_group"], row["intent_category"])
+        == (slot_row["eval_group"], "dosage")
         for row in candidates["e2e-ans-0001"]
     )
     path = write_replacement_batch(tmp_path, candidates, text)
