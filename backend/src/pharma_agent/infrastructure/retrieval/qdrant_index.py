@@ -158,6 +158,36 @@ class QdrantVectorIndex:
                 wait=True,
             )
 
+    async def delete_unreleased(
+        self, collection_id: uuid.UUID, live_release_ids: Sequence[uuid.UUID]
+    ) -> int:
+        unreleased = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key=TENANT_FIELD,
+                    match=models.MatchValue(value=str(collection_id)),
+                )
+            ],
+            must_not=[
+                models.FieldCondition(
+                    key="release_ids",
+                    match=models.MatchAny(any=[str(r) for r in live_release_ids]),
+                )
+            ]
+            if live_release_ids
+            else None,
+        )
+        found = await self._client.count(
+            collection_name=self.collection_name, count_filter=unreleased, exact=True
+        )
+        if found.count:
+            await self._client.delete(
+                collection_name=self.collection_name,
+                points_selector=models.FilterSelector(filter=unreleased),
+                wait=True,
+            )
+        return found.count
+
     async def count_release(self, release_id: uuid.UUID) -> int:
         result = await self._client.count(
             collection_name=self.collection_name,

@@ -19,6 +19,7 @@ from pharma_agent.domain.corpus.bundle import (
     SectionRecord,
 )
 from pharma_agent.domain.corpus.chunking import chunk_document
+from pharma_agent.domain.corpus.models import collection_id_for, document_id_for
 from pharma_agent.domain.retrieval.models import Hit, Query, QueryOrigin
 from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.infrastructure.composition import (
@@ -173,7 +174,11 @@ async def test_imported_bundle_is_searchable_and_chunks_are_read_as_stored(
     document = next(d for d in bundle.documents if d.key == top.document_key)
     sections = [s for s in bundle.sections if s.document_key == document.key]
     drafts = chunk_document(
-        document, sections, bundle.glossary, bundle.colloquial_mappings
+        document_id_for(collection_id_for(COLLECTION_KEY), document.key),
+        document,
+        sections,
+        bundle.glossary,
+        bundle.colloquial_mappings,
     )
     draft = next(d for d in drafts if d.chunk_version_id == top.chunk_version_id)
     assert (top.context_header, top.embedding_text, top.chunk_text) == (

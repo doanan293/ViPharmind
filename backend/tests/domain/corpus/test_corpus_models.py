@@ -174,3 +174,46 @@ async def test_fake_embedder_satisfies_the_embedder_port() -> None:
     embedder: Embedder = FakeEmbedder()
     assert (embedder.model, embedder.dimension) == (FAKE_EMBEDDING_MODEL, 4)
     assert len((await embedder.embed(["x"]))[0]) == embedder.dimension
+
+
+def test_the_same_document_in_two_collections_gets_its_own_chunk_versions() -> None:
+    bundle = small_bundle()
+    manifest = bundle.manifest.model_copy(
+        update={
+            "collection": bundle.manifest.collection.model_copy(
+                update={"key": "org-formulary"}
+            )
+        }
+    )
+    other = build_snapshot(bundle.model_copy(update={"manifest": manifest}))
+    first = build_snapshot(bundle)
+
+    assert not {c.id for c in first.chunks} & {c.id for c in other.chunks}
+    other_documents = {d.id for d in other.documents}
+    assert {c.document_id for c in other.chunks} <= other_documents
+
+
+def test_identical_text_in_two_sections_keeps_both_chunks() -> None:
+    bundle = small_bundle()
+    dosage = next(s for s in bundle.sections if s.key == DOSAGE_SECTION)
+    long_block = dosage.blocks[0].model_copy(
+        update={"markdown": "Liều nhắc lại. " * 300}
+    )
+    copies = [
+        dosage.model_copy(
+            update={
+                "key": f"{DOSAGE_SECTION}-{n}",
+                "ordinal": 90 + n,
+                "blocks": [long_block],
+            }
+        )
+        for n in (1, 2)
+    ]
+    snapshot = build_snapshot(
+        bundle.model_copy(update={"sections": [*bundle.sections, *copies]})
+    )
+
+    holders = [c for c in snapshot.chunks if c.section_keys[0].endswith(("-1", "-2"))]
+    assert holders[0].chunk_text == holders[1].chunk_text
+    assert len({c.id for c in holders}) == 2
+    assert len(snapshot.chunks) == len(snapshot.release_chunks)

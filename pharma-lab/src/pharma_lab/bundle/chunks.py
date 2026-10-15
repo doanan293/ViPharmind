@@ -10,6 +10,7 @@ from pharma_agent.domain.corpus.bundle import (
     SectionRecord,
 )
 from pharma_agent.domain.corpus.chunking import ChunkDraft, chunk_document
+from pharma_agent.domain.corpus.models import collection_id_for, document_id_for
 
 
 @dataclass(frozen=True)
@@ -28,12 +29,18 @@ def iter_document_chunks(bundle: KnowledgeBundle) -> Iterator[DocumentChunks]:
     by_document: dict[str, list[SectionRecord]] = defaultdict(list)
     for section in bundle.sections:
         by_document[section.document_key].append(section)
+    # The same ids the backend gives the documents of this bundle's collection.
+    collection_id = collection_id_for(bundle.manifest.collection.key)
     for document in bundle.documents:
         sections = by_document.get(document.key, [])
         yield DocumentChunks(
             document=document,
             sections=sections,
             drafts=chunk_document(
-                document, sections, bundle.glossary, bundle.colloquial_mappings
+                document_id_for(collection_id, document.key),
+                document,
+                sections,
+                bundle.glossary,
+                bundle.colloquial_mappings,
             ),
         )

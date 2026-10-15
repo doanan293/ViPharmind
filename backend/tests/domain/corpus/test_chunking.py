@@ -1,4 +1,5 @@
 import json
+import uuid
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -62,6 +63,9 @@ PUBLIC_API: dict[ModuleType, list[str]] = {
 }
 
 
+DOCUMENT_ID = uuid.uuid5(uuid.NAMESPACE_URL, "test:document")
+
+
 def load_case(name: str) -> tuple[DocumentRecord, list[SectionRecord], int, int]:
     case = next(case for case in CASES if case["name"] == name)
     return (
@@ -102,7 +106,7 @@ def test_short_sections_pack_into_one_chunk_in_document_order() -> None:
         _section("drug:paracetamol:chi-dinh", "Chỉ định", "Giảm đau.", 1),
     ]
 
-    (chunk,) = chunk_document(_document(), sections, [], [])
+    (chunk,) = chunk_document(DOCUMENT_ID, _document(), sections, [], [])
 
     assert chunk.section_keys == [
         "drug:paracetamol:chi-dinh",
@@ -120,7 +124,7 @@ def test_a_new_chunk_starts_when_the_target_would_be_exceeded() -> None:
         _section(f"drug:paracetamol:s{i}", f"Mục {i}", body, i) for i in range(1, 4)
     ]
 
-    chunks = chunk_document(_document(), sections, [], [])
+    chunks = chunk_document(DOCUMENT_ID, _document(), sections, [], [])
 
     assert [c.section_keys for c in chunks] == [
         ["drug:paracetamol:s1"],
@@ -138,7 +142,7 @@ def test_oversized_section_splits_alone() -> None:
         _section("drug:paracetamol:s3", "Mục 3", "ngắn", 3),
     ]
 
-    chunks = chunk_document(_document(), sections, [], [])
+    chunks = chunk_document(DOCUMENT_ID, _document(), sections, [], [])
 
     assert chunks[0].section_keys == ["drug:paracetamol:s1"]
     middle = [c for c in chunks if c.section_keys == ["drug:paracetamol:s2"]]
@@ -159,7 +163,7 @@ def test_small_blocks_of_an_oversized_section_pack_together() -> None:
         update={"blocks": blocks}
     )
 
-    chunks = chunk_document(_document(), [section], [], [])
+    chunks = chunk_document(DOCUMENT_ID, _document(), [section], [], [])
 
     assert len(chunks) == 2
     assert lead_in in chunks[0].chunk_text and "buồn nôn" in chunks[0].chunk_text
@@ -172,11 +176,11 @@ def test_blank_section_yields_nothing() -> None:
         _section("drug:paracetamol:s2", "Mục 2", "có chữ", 2),
     ]
 
-    (chunk,) = chunk_document(_document(), sections, [], [])
+    (chunk,) = chunk_document(DOCUMENT_ID, _document(), sections, [], [])
 
     assert chunk.section_keys == ["drug:paracetamol:s2"]
     assert "Mục 1" not in chunk.chunk_text
-    assert chunk_document(_document(), sections[:1], [], []) == []
+    assert chunk_document(DOCUMENT_ID, _document(), sections[:1], [], []) == []
 
 
 def test_pages_span_the_packed_sections() -> None:
@@ -187,7 +191,7 @@ def test_pages_span_the_packed_sections() -> None:
         update={"start_page": 11, "end_page": 12}
     )
 
-    (chunk,) = chunk_document(_document(), [first, second], [], [])
+    (chunk,) = chunk_document(DOCUMENT_ID, _document(), [first, second], [], [])
 
     assert (chunk.start_page, chunk.end_page) == (10, 12)
 
@@ -197,11 +201,17 @@ def test_context_header_falls_back_to_the_title_or_the_headings() -> None:
     untitled = _document().model_copy(update={"title": ""})
     no_heading = section.model_copy(update={"heading": ""})
 
-    assert chunk_document(untitled, [section], [], [])[0].context_header == "Liều dùng"
-    assert chunk_document(_document(), [no_heading], [], [])[0].context_header == (
-        "Paracetamol"
+    assert (
+        chunk_document(DOCUMENT_ID, untitled, [section], [], [])[0].context_header
+        == "Liều dùng"
     )
-    assert chunk_document(_document(), [no_heading], [], [])[0].chunk_text == "a"
+    assert chunk_document(DOCUMENT_ID, _document(), [no_heading], [], [])[
+        0
+    ].context_header == ("Paracetamol")
+    assert (
+        chunk_document(DOCUMENT_ID, _document(), [no_heading], [], [])[0].chunk_text
+        == "a"
+    )
 
 
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
@@ -209,6 +219,7 @@ def test_chunk_document_matches_the_golden_output(case: dict[str, Any]) -> None:
     document, sections, target_chars, max_chars = load_case(case["name"])
 
     drafts = chunk_document(
+        DOCUMENT_ID,
         document,
         sections,
         GLOSSARY,
@@ -240,6 +251,7 @@ def test_chunk_drafts_carry_their_identities() -> None:
     for case in CASES:
         document, sections, target_chars, max_chars = load_case(case["name"])
         for draft in chunk_document(
+            DOCUMENT_ID,
             document,
             sections,
             GLOSSARY,
@@ -250,7 +262,11 @@ def test_chunk_drafts_carry_their_identities() -> None:
             assert draft.document_key == document.key
             assert draft.embedding_text_sha256 == sha256_hex(draft.embedding_text)
             assert draft.chunk_version_id == chunk_version_id(
-                document.key, draft.chunk_text, draft.embedding_text, CHUNKER_VERSION
+                DOCUMENT_ID,
+                draft.section_keys,
+                draft.chunk_text,
+                draft.embedding_text,
+                CHUNKER_VERSION,
             )
 
 
@@ -258,6 +274,7 @@ def test_chunk_document_is_deterministic() -> None:
     document, sections, target_chars, max_chars = load_case("monograph")
 
     first = chunk_document(
+        DOCUMENT_ID,
         document,
         sections,
         GLOSSARY,
@@ -266,6 +283,7 @@ def test_chunk_document_is_deterministic() -> None:
         max_chars=max_chars,
     )
     second = chunk_document(
+        DOCUMENT_ID,
         document.model_copy(deep=True),
         [s.model_copy(deep=True) for s in sections],
         list(GLOSSARY),
@@ -283,6 +301,7 @@ def test_glossary_change_creates_new_versions_only_for_affected_chunks() -> None
     without_adr = [entry for entry in GLOSSARY if entry.term != "ADR"]
 
     before = chunk_document(
+        DOCUMENT_ID,
         document,
         sections,
         GLOSSARY,
@@ -291,6 +310,7 @@ def test_glossary_change_creates_new_versions_only_for_affected_chunks() -> None
         max_chars=max_chars,
     )
     after = chunk_document(
+        DOCUMENT_ID,
         document,
         sections,
         without_adr,
@@ -314,6 +334,7 @@ def test_colloquial_mapping_change_creates_new_versions() -> None:
     edited = [MAPPINGS[0].model_copy(update={"visual_sign": "Vỉ thuốc màu đỏ"})]
 
     before = chunk_document(
+        DOCUMENT_ID,
         document,
         sections,
         GLOSSARY,
@@ -322,6 +343,7 @@ def test_colloquial_mapping_change_creates_new_versions() -> None:
         max_chars=max_chars,
     )
     after = chunk_document(
+        DOCUMENT_ID,
         document,
         sections,
         GLOSSARY,
@@ -342,6 +364,7 @@ def test_chunker_version_change_creates_new_versions(
     document, sections, target_chars, max_chars = load_case("list")
 
     before = chunk_document(
+        DOCUMENT_ID,
         document,
         sections,
         GLOSSARY,
@@ -351,6 +374,7 @@ def test_chunker_version_change_creates_new_versions(
     )
     monkeypatch.setattr(chunking, "CHUNKER_VERSION", "chunker-test")
     after = chunk_document(
+        DOCUMENT_ID,
         document,
         sections,
         GLOSSARY,

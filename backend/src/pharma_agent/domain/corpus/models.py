@@ -295,26 +295,34 @@ def build_snapshot(bundle: KnowledgeBundle) -> CorpusSnapshot:
     for document_key, members in sections_by_document.items():
         document_id = document_ids[document_key]
         drafts = chunk_document(
-            records[document_key], members, bundle.glossary, bundle.colloquial_mappings
+            document_id,
+            records[document_key],
+            members,
+            bundle.glossary,
+            bundle.colloquial_mappings,
         )
         for draft in drafts:
-            if draft.chunk_version_id not in chunks:
-                chunks[draft.chunk_version_id] = ChunkVersion(
-                    id=draft.chunk_version_id,
-                    document_id=document_id,
-                    ordinal=draft.ordinal,
-                    section_keys=list(draft.section_keys),
-                    headings=list(draft.headings),
-                    chunk_text=draft.chunk_text,
-                    context_header=draft.context_header,
-                    embedding_text=draft.embedding_text,
-                    embedding_text_sha256=draft.embedding_text_sha256,
-                    start_page=draft.start_page,
-                    end_page=draft.end_page,
-                    term_annotations=list(draft.term_annotations),
-                    colloquial=draft.colloquial,
-                    chunker_version=CHUNKER_VERSION,
+            if draft.chunk_version_id in chunks:
+                raise CorpusImportError(
+                    f"{document_key}: chunk {draft.ordinal} repeats the identity of "
+                    "another chunk"
                 )
+            chunks[draft.chunk_version_id] = ChunkVersion(
+                id=draft.chunk_version_id,
+                document_id=document_id,
+                ordinal=draft.ordinal,
+                section_keys=list(draft.section_keys),
+                headings=list(draft.headings),
+                chunk_text=draft.chunk_text,
+                context_header=draft.context_header,
+                embedding_text=draft.embedding_text,
+                embedding_text_sha256=draft.embedding_text_sha256,
+                start_page=draft.start_page,
+                end_page=draft.end_page,
+                term_annotations=list(draft.term_annotations),
+                colloquial=draft.colloquial,
+                chunker_version=CHUNKER_VERSION,
+            )
             release_chunks.append(
                 ReleaseChunk(
                     chunk_version_id=draft.chunk_version_id,

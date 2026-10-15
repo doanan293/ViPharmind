@@ -166,3 +166,29 @@ async def test_upsert_payload_release_ids_count_and_delete(
 
     with pytest.raises(ValueError, match="no vector"):
         await index.upsert([item("không có vector", [r1])], vectors)
+
+
+async def test_delete_unreleased_drops_only_this_collections_dead_points(
+    qdrant_client: AsyncQdrantClient,
+) -> None:
+    index = fake_index(qdrant_client)
+    await index.ensure_collection()
+    live, dead = uuid.uuid4(), uuid.uuid4()
+    kept = item("paracetamol hạ sốt", [live])
+    stale = item("warfarin chống đông", [dead])
+    other = item("ibuprofen giảm đau", [dead]).model_copy(
+        update={"collection_id": uuid.uuid4()}
+    )
+    points = [kept, stale, other]
+    await index.upsert(
+        points, {p.embedding_text_sha256: fake_vector(p.embedding_text) for p in points}
+    )
+
+    assert await index.delete_unreleased(COLLECTION_ID, [live]) == 1
+
+    ids = [p.chunk_version_id for p in points]
+    assert await index.existing_ids(ids) == {
+        kept.chunk_version_id,
+        other.chunk_version_id,
+    }
+    assert await index.delete_unreleased(COLLECTION_ID, []) == 1

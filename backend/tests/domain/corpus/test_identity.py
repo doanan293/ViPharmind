@@ -10,7 +10,6 @@ from pharma_agent.domain.corpus.identity import (
     sha256_hex,
 )
 
-DOCUMENT_KEY = "drug:paracetamol"
 BLOCKS = [
     BlockRecord(
         kind=BlockKind.PROSE,
@@ -50,44 +49,52 @@ def test_sha256_hex_hashes_utf8_text() -> None:
     assert sha256_hex("Liều") == hashlib.sha256("Liều".encode()).hexdigest()
 
 
+DOCUMENT_ID = uuid.uuid5(CORPUS_NAMESPACE, "document\x1ftest")
+SECTION_KEYS = ["drug:paracetamol:lieu-dung"]
+
+
+def _id(**changes: object) -> uuid.UUID:
+    args: dict = {
+        "document_id": DOCUMENT_ID,
+        "section_keys": SECTION_KEYS,
+        "chunk_text": CHUNK_TEXT,
+        "embedding_text": EMBEDDING_TEXT,
+        "chunker_version": "chunker-v1",
+    } | changes
+    return chunk_version_id(**args)
+
+
 def test_chunk_version_id_follows_the_spec_formula() -> None:
     digest = sha256_hex(
-        "\x1f".join((DOCUMENT_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v1"))
+        "\x1f".join(
+            (
+                str(DOCUMENT_ID),
+                ",".join(SECTION_KEYS),
+                CHUNK_TEXT,
+                EMBEDDING_TEXT,
+                "chunker-v1",
+            )
+        )
     )
 
-    assert chunk_version_id(
-        DOCUMENT_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v1"
-    ) == uuid.uuid5(CORPUS_NAMESPACE, "chunk\x1f" + digest)
+    assert _id() == uuid.uuid5(CORPUS_NAMESPACE, "chunk\x1f" + digest)
 
 
 def test_chunk_version_id_changes_with_every_input_but_not_with_whitespace() -> None:
-    base = chunk_version_id(DOCUMENT_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v1")
+    base = _id()
     enriched = (
         f"{EMBEDDING_TEXT}\n\nThuật ngữ: G6PD = glucose-6-phosphate dehydrogenase"
     )
 
+    assert _id(chunker_version="chunker-v2") != base
+    assert _id(embedding_text=enriched) != base
+    assert _id(chunk_text=f"{CHUNK_TEXT} Trẻ em") != base
+    assert _id(document_id=uuid.uuid5(CORPUS_NAMESPACE, "document\x1fother")) != base
+    assert _id(section_keys=["drug:paracetamol:lieu-dung-2"]) != base
     assert (
-        chunk_version_id(DOCUMENT_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v2") != base
-    )
-    assert chunk_version_id(DOCUMENT_KEY, CHUNK_TEXT, enriched, "chunker-v1") != base
-    assert (
-        chunk_version_id(
-            DOCUMENT_KEY, f"{CHUNK_TEXT} Trẻ em", EMBEDDING_TEXT, "chunker-v1"
-        )
-        != base
-    )
-    assert (
-        chunk_version_id(
-            "drug:ibuprofen:lieu-dung", CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v1"
-        )
-        != base
-    )
-    assert (
-        chunk_version_id(
-            DOCUMENT_KEY,
-            f"{CHUNK_TEXT}  \n",
-            EMBEDDING_TEXT.replace("\n", "\r\n"),
-            "chunker-v1",
+        _id(
+            chunk_text=f"{CHUNK_TEXT}  \n",
+            embedding_text=EMBEDDING_TEXT.replace("\n", "\r\n"),
         )
         == base
     )

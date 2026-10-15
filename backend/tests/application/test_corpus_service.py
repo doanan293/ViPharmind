@@ -207,3 +207,30 @@ async def test_gc_deletes_documents_and_sections_no_release_uses() -> None:
     }
     assert report.purge.documents_deleted == len(small_bundle().documents)
     assert report.purge.sections_deleted == len(small_bundle().sections)
+
+
+async def test_gc_deletes_points_that_no_live_release_names() -> None:
+    s = services()
+    release = await s.publish_bundle(small_bundle())
+    item, vector = next(iter(s.adapters.index.points.values()))
+    # A point left behind by data that no release in Postgres knows any more, e.g. the
+    # index of a database reset by a migration.
+    stale = item.model_copy(
+        update={"chunk_version_id": uuid.uuid4(), "release_ids": [uuid.uuid4()]}
+    )
+    foreign = stale.model_copy(
+        update={"chunk_version_id": uuid.uuid4(), "collection_id": uuid.uuid4()}
+    )
+    for point in (stale, foreign):
+        s.adapters.index.points[point.chunk_version_id] = (point, vector)
+
+    report = await s.releases.gc("formulary", keep=1)
+
+    assert report.points_orphaned == 1
+    assert stale.chunk_version_id not in s.adapters.index.points
+    assert foreign.chunk_version_id in s.adapters.index.points
+    assert all(
+        release.id in point.release_ids
+        for point, _ in s.adapters.index.points.values()
+        if point.collection_id == item.collection_id
+    )

@@ -68,9 +68,10 @@ async def reset_corpus(database: Database) -> None:
 
 
 def long_paragraph(marker: str) -> str:
-    """About 2,500 characters: one chunk on its own, too long to merge with a neighbour."""
+    """About 2,900 characters: one chunk on its own, since two never fit in
+    MAX_CHUNK_CHARS together, so a section of n paragraphs gives n chunks."""
     sentence = "Liều dùng kéo dài cho người lớn theo đúng phác đồ điều trị. "
-    return f"Mã đoạn {marker}. " + sentence * 40
+    return f"Mã đoạn {marker}. " + sentence * 48
 
 
 def paracetamol_document() -> DocumentRecord:
@@ -216,7 +217,7 @@ async def seed_release(
                 )
             )
         await session.flush()
-        chunks = chunk_document(document, sections, glossary, mappings)
+        chunks = chunk_document(document_id, document, sections, glossary, mappings)
         for section in sections:
             drafts[section.key] = [d for d in chunks if section.key in d.section_keys]
         session.add_all(

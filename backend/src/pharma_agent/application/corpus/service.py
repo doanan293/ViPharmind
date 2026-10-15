@@ -32,6 +32,8 @@ class GcReport(BaseModel):
     retired: list[uuid.UUID]
     points_updated: int
     points_deleted: int
+    # Points of the collection that no live release names, deleted by the last step.
+    points_orphaned: int
     purge: PurgeResult
 
 
@@ -155,10 +157,18 @@ class CorpusService:
             points_updated, points_deleted = len(live), len(dead)
 
         purge = await self._repository.purge_retired(collection.id)
+        live = [
+            summary.release.id
+            for summary in await self._repository.list_releases(collection_key)
+            if summary.release.status is not ReleaseStatus.RETIRED
+        ]
+        await self._index.ensure_collection()
+        orphaned = await self._index.delete_unreleased(collection.id, live)
         return GcReport(
             retired=[release.id for release in doomed],
             points_updated=points_updated,
             points_deleted=points_deleted,
+            points_orphaned=orphaned,
             purge=purge,
         )
 
