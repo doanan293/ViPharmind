@@ -32,7 +32,12 @@ def row(**changes: Any) -> dict[str, Any]:
 
 
 def payload(section: str, index: int = 1) -> dict[str, Any]:
-    return {"chunk_id": f"{section}:chunk-{index:03d}", "section_id": section}
+    document = section.rsplit(":", 1)[0]
+    return {
+        "chunk_id": f"{document}:chunk-{index:03d}",
+        "document_id": document,
+        "section_ids": [section],
+    }
 
 
 def test_single_answer_is_covered_when_a_gold_chunk_is_in_the_top_k() -> None:
@@ -53,7 +58,7 @@ def test_multi_required_lists_each_missing_section() -> None:
 
 
 def test_judged_chunks_outside_gold_count_as_found() -> None:
-    accepted = {"drug:paracetamol:lieu-dung": frozenset({"drug:b:x:chunk-001"})}
+    accepted = {"drug:paracetamol:lieu-dung": frozenset({"drug:b:chunk-001"})}
     ranked = [payload("drug:b:x")]
     assert coverage(ranked, row(), accepted, top_k=8).missing == ()
 

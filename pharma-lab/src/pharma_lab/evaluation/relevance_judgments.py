@@ -383,29 +383,22 @@ def _accepted_leaflet_chunks(
     sections: defaultdict[str, list[Mapping[str, Any]]] = defaultdict(list)
     drug_titles: dict[str, str] = {}
     for row in chunk_rows:
-        section_id = str(row["section_id"])
-        # A leaflet split by heading is judged as one page: its active ingredients are
-        # read from the "Thành phần" section and apply to every other section.
-        group = (
-            ":".join(section_id.split(":")[:3])
-            if section_id.startswith("leaflet:")
-            else section_id
-        )
-        sections[group].append(row)
-        if section_id.startswith("drug:"):
-            drug_titles.setdefault(section_id.split(":")[1], str(row["title"]))
+        # Chunks are judged per document: a leaflet's active ingredients are read from
+        # its "Thành phần" section and apply to every chunk of the page.
+        document_id = str(row["document_id"])
+        sections[document_id].append(row)
+        if document_id.startswith("drug:"):
+            drug_titles.setdefault(document_id.split(":")[1], str(row["title"]))
     drugs_by_first_token: defaultdict[str, list[str]] = defaultdict(list)
     for slug, title in drug_titles.items():
         components = _components(title)
         if components and components[0]:
             drugs_by_first_token[components[0][0]].append(slug)
     accepted: defaultdict[tuple[str, str], set[str]] = defaultdict(set)
-    for section_id, rows in sections.items():
-        if not section_id.startswith("leaflet:"):
+    for document_id, rows in sections.items():
+        if not document_id.startswith("leaflet:"):
             continue
-        ordered = sorted(
-            rows, key=lambda row: (str(row["section_id"]), int(row["chunk_index"]))
-        )
+        ordered = sorted(rows, key=lambda row: int(row["ordinal"]))
         texts = [str(row["chunk_text"]) for row in ordered]
         ingredients = active_ingredients("\n".join(texts))
         if ingredients is None:
@@ -436,11 +429,10 @@ def build_judgments(
     for row in evaluation_rows:
         if row.get("eval_group") not in JUDGED_EVAL_GROUPS:
             continue
-        granularity = row.get("retrieval_granularity")
         answer_mode = row.get("answer_mode")
-        if granularity == "section" and answer_mode == "single":
+        if answer_mode == "single":
             sections = [str(row["expected_section_id"])]
-        elif granularity == "multi_section" and answer_mode == "multi_required":
+        elif answer_mode == "multi_required":
             sections = expected_section_ids(dict(row))
         else:
             continue

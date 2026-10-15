@@ -133,10 +133,13 @@ def test_a_leaflet_matches_a_monograph_only_with_the_same_active_ingredients(
 
 
 def _chunk(section_id: str, index: int, title: str, text: str) -> dict:
+    parts = section_id.split(":")
+    document = ":".join(parts[:3] if parts[0] == "leaflet" else parts[:2])
     return {
-        "chunk_id": f"{section_id}:chunk-{index:03d}",
-        "section_id": section_id,
-        "chunk_index": index,
+        "chunk_id": f"{document}:chunk-{index:03d}",
+        "document_id": document,
+        "ordinal": index,
+        "section_ids": [section_id],
         "title": title,
         "chunk_text": text,
     }
@@ -162,14 +165,12 @@ def test_judgments_accept_same_ingredient_leaflet_chunks_of_the_asked_intent() -
             "query_id": "q-dosage",
             "eval_group": "formulary",
             "answer_mode": "single",
-            "retrieval_granularity": "section",
             "expected_section_id": "drug:acarbose:lieu-luong-va-cach-dung",
         },
         {
             "query_id": "q-multi",
             "eval_group": "multi_intent",
             "answer_mode": "multi_required",
-            "retrieval_granularity": "multi_section",
             "expected_section_id": "drug:acarbose:chi-dinh",
             "expected_section_ids": [
                 "drug:acarbose:chi-dinh",
@@ -180,14 +181,12 @@ def test_judgments_accept_same_ingredient_leaflet_chunks_of_the_asked_intent() -
             "query_id": "q-brand",
             "eval_group": "formulary",
             "answer_mode": "single",
-            "retrieval_granularity": "chunk_exact",
             "expected_section_id": "drug:acarbose:ten-thuong-mai",
         },
         {
             "query_id": "q-leaflet",
             "eval_group": "leaflet",
             "answer_mode": "single",
-            "retrieval_granularity": "section",
             "expected_section_id": acarbose,
         },
     ]
@@ -291,7 +290,7 @@ def test_a_leaflet_split_by_heading_is_judged_as_one_page() -> None:
         ),
         _chunk(
             f"{page}:03-cach-dung-lieu-dung",
-            1,
+            2,
             "Acarbose A 50 mg",
             "# Acarbose A 50 mg\n\n### 3. Cách dùng - Liều dùng\n\nUống 50 mg mỗi ngày.",
         ),
@@ -301,7 +300,6 @@ def test_a_leaflet_split_by_heading_is_judged_as_one_page() -> None:
             "query_id": "q-dosage",
             "eval_group": "formulary",
             "answer_mode": "single",
-            "retrieval_granularity": "section",
             "expected_section_id": "drug:acarbose:lieu-luong-va-cach-dung",
         }
     ]
@@ -315,7 +313,7 @@ def test_a_leaflet_split_by_heading_is_judged_as_one_page() -> None:
                 {
                     "section_id": "drug:acarbose:lieu-luong-va-cach-dung",
                     "intent": "dosage",
-                    "accepted_chunk_ids": [f"{page}:03-cach-dung-lieu-dung:chunk-001"],
+                    "accepted_chunk_ids": [f"{page}:chunk-002"],
                 }
             ],
         }

@@ -42,6 +42,12 @@ def evaluation_chunk_rows(bundle: KnowledgeBundle) -> list[dict[str, Any]]:
                     "embedding_text": draft.embedding_text,
                     "has_table": BlockKind.TABLE in held,
                     "has_list": bool(held & LIST_KINDS),
+                    # Sections of this chunk whose blocks hold a table or a list.
+                    "structured_section_ids": [
+                        key
+                        for key in draft.section_keys
+                        if kinds[key] & ({BlockKind.TABLE} | LIST_KINDS)
+                    ],
                     "colloquial_mapping": {}
                     if draft.colloquial is None
                     else {

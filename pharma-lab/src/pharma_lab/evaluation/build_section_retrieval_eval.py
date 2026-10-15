@@ -17,7 +17,6 @@ from pharma_lab.evaluation.section_eval_schema import (
     ALLOWED_EVAL_GROUPS,
     ALLOWED_INTENT_CATEGORIES,
     ALLOWED_QUERY_FORMS,
-    ALLOWED_RETRIEVAL_GRANULARITIES,
     ALLOWED_SOURCE_FAMILIES,
     DEFAULT_EVAL_GROUP_QUOTAS,
     DEFAULT_MAX_ROWS,
@@ -31,7 +30,6 @@ from pharma_lab.evaluation.section_eval_schema import (
     answer_mode_for_expected_ids,
     clean_query_label,
     normalize_eval_tags,
-    retrieval_granularity_from_hydrate_strategy,
     source_family_for_section,
     taxonomy_for_source_category,
 )
@@ -237,14 +235,9 @@ def build_hybrid_entity_intent_query(
 def chunk_role_for_section(
     section_id: str, chunks_by_section: dict[str, list[dict]]
 ) -> str:
-    roles = [
-        chunk.get("chunk_role", "")
-        for chunk in chunks_by_section.get(section_id, [])
-        if chunk.get("chunk_role")
-    ]
-    if not roles:
-        return ""
-    return sorted(set(roles))[0]
+    """ "table" when a chunk holding the section carries a table, else ""."""
+    chunks = chunks_by_section.get(section_id, [])
+    return "table" if any(chunk.get("has_table") for chunk in chunks) else ""
 
 
 def category_for_section(section: dict, chunks: list[dict]) -> tuple[str, str]:
@@ -260,7 +253,7 @@ def category_for_section(section: dict, chunks: list[dict]) -> tuple[str, str]:
     for category, keywords, expected_role in SECTION_CATEGORY_RULES:
         if any(keyword in haystack for keyword in keywords):
             return category, expected_role
-    if any(chunk.get("chunk_content_type") == "table" for chunk in chunks):
+    if any(chunk.get("has_table") for chunk in chunks):
         return "table_lookup", "table"
     sid = section.get("id", "")
     if section.get("content_type") == "general_monograph":
@@ -283,13 +276,10 @@ def make_row(
     intent_category: str,
     source_subcategory: str,
     section: dict,
-    expected_chunk_role: str,
+    role: str,
     notes: str,
     expected_section_ids: list[str] | None = None,
     answer_mode: str = "single",
-    expected_chunk_id: str = "",
-    expected_chunk_index: int = -1,
-    retrieval_granularity: str = "section",
     eval_tags: list[str] | set[str] | tuple[str, ...] = (),
 ) -> dict:
     all_expected_ids = expected_section_ids or [section["id"]]
@@ -301,6 +291,8 @@ def make_row(
         source_subcategory,
     }
     base_tags.update(eval_tags)
+    if role == "table":
+        base_tags.add("table")
     return {
         "query_id": query_id,
         "query": normalize_spaces(query),
@@ -314,12 +306,6 @@ def make_row(
         "query_intent_count": len(all_expected_ids),
         "answer_mode": answer_mode,
         "expected_title": section_label(section),
-        "expected_chunk_id": expected_chunk_id,
-        "expected_chunk_index": (
-            expected_chunk_index if expected_chunk_index is not None else None
-        ),
-        "expected_chunk_role": expected_chunk_role,
-        "retrieval_granularity": retrieval_granularity,
         "eval_tags": normalize_eval_tags(base_tags),
         "notes": notes,
     }
@@ -742,29 +728,33 @@ def typo_query(query: str, seed: int) -> str:
     return " ".join(words)
 
 
-def widen_duplicate_text_rows(rows: list[dict], chunks: list[dict]) -> list[dict]:
-    """A gold chunk whose text also exists in another section (same drug, other strength)
-    makes that section acceptable too."""
+def widen_duplicate_text_rows(rows: list[dict], sections: list[dict]) -> list[dict]:
+    """A gold section whose text also exists in another section (same drug, other
+    strength) makes that section acceptable too."""
     owners: dict[str, set[str]] = defaultdict(set)
-    text_by_chunk: dict[str, str] = {}
-    for chunk in chunks:
-        key = normalize_spaces(chunk_body_text(chunk)).lower()
-        if not key:
+    text_by_section: dict[str, str] = {}
+    for section in sections:
+        # The title line names the strength or pack, so compare the body under it.
+        body = re.sub(r"\A# [^\n]*\n", "", str(section.get("text") or "").strip())
+        key = normalize_spaces(body).lower()
+        section_id = str(section.get("id") or "")
+        if not key or not section_id:
             continue
-        owners[key].add(str(chunk.get("section_id")))
-        text_by_chunk[chunk_identifier(chunk)] = key
+        owners[key].add(section_id)
+        text_by_section[section_id] = key
     for row in rows:
-        chunk_id = row.get("expected_chunk_id") or ""
-        if not chunk_id or row.get("answer_mode") != "single":
+        if row.get("answer_mode") != "single":
             continue
-        primary = row["expected_section_id"]
-        others = sorted(owners.get(text_by_chunk.get(chunk_id, ""), set()) - {primary})
+        primary = str(row["expected_section_id"])
+        others = sorted(owners.get(text_by_section.get(primary, ""), set()) - {primary})
         if not others:
             continue
         row["expected_section_ids"] = [primary, *others]
         row["query_intent_count"] = len(row["expected_section_ids"])
-        row["answer_mode"] = "any_acceptable"
-        row["eval_tags"] = [*row.get("eval_tags", []), "duplicate_text"]
+        row["answer_mode"] = answer_mode_for_expected_ids(row["expected_section_ids"])
+        tags = set(row.get("eval_tags") or [])
+        tags.add("any_acceptable")
+        row["eval_tags"] = normalize_eval_tags(tags)
     return rows
 
 
@@ -828,7 +818,7 @@ def auto_query_for_chunk(chunk: dict, section: dict, category: str) -> str:
     body_text = chunk_body_text(chunk)
     text = clean_markdown_preview(body_text)
     first_sentence = text.split(". ")[0][:140].strip(" -")
-    if chunk.get("chunk_role") == "index_entry":
+    if chunk.get("has_list") and "biet-duoc" in str(section.get("id", "")):
         brand_match = re.search(r"\*\*([^*]+)\*\*", body_text)
         if brand_match:
             return f"{brand_match.group(1)} là biệt dược của hoạt chất nào?"
@@ -841,7 +831,7 @@ def auto_query_for_chunk(chunk: dict, section: dict, category: str) -> str:
                 return ""
         query, _style = leaflet_query_for_category(section, category)
         return query
-    if chunk.get("chunk_content_type") == "table" or chunk.get("chunk_role") == "table":
+    if chunk.get("has_table"):
         return f"Bảng trong mục {section_label(section)} nói về thông tin gì?"
     if category == "indication":
         return f"Tìm thông tin chỉ định của {title}"
@@ -860,16 +850,15 @@ def auto_query_for_chunk(chunk: dict, section: dict, category: str) -> str:
 
 def sections_in_bundle(sections: list[dict], chunks: list[dict]) -> list[dict]:
     """Keep the sections the bundle exports; chunks come from the bundle, sections not."""
-    exported = {chunk.get("section_id") for chunk in chunks}
+    exported = {key for chunk in chunks for key in chunk.get("section_ids") or []}
     return [section for section in sections if section.get("id") in exported]
 
 
 def build_chunks_by_section(chunks: list[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = defaultdict(list)
     for chunk in chunks:
-        section_id = chunk.get("section_id")
-        if section_id:
-            grouped[section_id].append(chunk)
+        for section_id in chunk.get("section_ids") or []:
+            grouped[str(section_id)].append(chunk)
     return grouped
 
 
@@ -982,19 +971,22 @@ def auto_candidate_chunks(
     candidate_target: int,
 ) -> list[tuple[dict, dict, str, str]]:
     by_category: dict[str, list[tuple[dict, dict, str, str]]] = defaultdict(list)
-    for chunk in sorted(
-        chunks, key=lambda item: (item.get("chunk_key", 0), item.get("section_id", ""))
-    ):
-        section_id = chunk.get("section_id")
-        if not isinstance(section_id, str):
-            continue
-        section = sections_by_id.get(section_id)
-        if not section:
-            continue
-        category, expected_role = category_for_section(
-            section, chunks_by_section.get(section_id, [])
-        )
-        by_category[category].append((chunk, section, category, expected_role))
+    ordered = sorted(
+        chunks,
+        key=lambda item: (
+            str(item.get("document_id", "")),
+            int(item.get("ordinal", 0)),
+        ),
+    )
+    for chunk in ordered:
+        for section_id in chunk.get("section_ids") or []:
+            section = sections_by_id.get(str(section_id))
+            if not section:
+                continue
+            category, expected_role = category_for_section(
+                section, chunks_by_section.get(str(section_id), [])
+            )
+            by_category[category].append((chunk, section, category, expected_role))
 
     category_order = [
         "brand_lookup",
@@ -1234,7 +1226,6 @@ def build_multi_intent_eval_rows(
             "multi-section query generated from paired final RAG sections",
             expected_section_ids=[primary_section["id"], secondary_section["id"]],
             answer_mode="multi_required",
-            retrieval_granularity="multi_section",
             eval_tags=["multi_intent", "formulary"],
         )
         if query.lower() not in seen_queries:
@@ -1251,12 +1242,9 @@ def is_leaflet_section(section: dict) -> bool:
     ).startswith("leaflet:")
 
 
-def is_chunk_risk(chunk: dict) -> bool:
-    return (
-        chunk.get("hydrate_strategy") in {"chunk_window", "search_only"}
-        or chunk.get("chunk_content_type") == "table"
-        or chunk.get("chunk_role") in {"table", "index_entry", "appendix_list"}
-    )
+def is_structured(chunk: dict) -> bool:
+    """A chunk whose text holds a table or a list: the answer sits in structure."""
+    return bool(chunk.get("has_table") or chunk.get("has_list"))
 
 
 def leaflet_page_id(section: dict) -> str:
@@ -1296,7 +1284,7 @@ def leaflet_candidates(
             continue
         chunks = sorted(
             chunks_by_section.get(section["id"], []),
-            key=lambda item: (item.get("chunk_index", 0), chunk_identifier(item)),
+            key=lambda item: (int(item.get("ordinal", 0)), chunk_identifier(item)),
         )
         section_categories = [
             category
@@ -1323,7 +1311,7 @@ def leaflet_candidates(
         key=lambda item: (
             priority.get(item[2], len(priority)),
             item[0]["id"],
-            -1 if item[1] is None else int(item[1].get("chunk_index", 0)),
+            -1 if item[1] is None else int(item[1].get("ordinal", 0)),
         ),
     )
 
@@ -1387,22 +1375,12 @@ def eval_group_for_row(query_form: str, section: dict, source_hint: str = "") ->
     if query_form in {"noisy", "typo"}:
         return "noisy"
     if query_form == "chunk_coverage" or source_hint == "coverage":
-        return "chunk_risk"
+        return "structured"
     if query_form in {"brand_template", "colloquial_alias"} or is_leaflet_section(
         section
     ):
         return "leaflet"
     return "formulary"
-
-
-def retrieval_granularity_for_row(
-    section: dict, chunk: dict | None = None, role: str = ""
-) -> str:
-    strategy = section.get("hydrate_strategy", "full_section")
-    if chunk:
-        strategy = chunk.get("hydrate_strategy", strategy)
-        role = role or chunk.get("chunk_role", "")
-    return retrieval_granularity_from_hydrate_strategy(strategy, role)
 
 
 def make_leaflet_row(
@@ -1412,14 +1390,11 @@ def make_leaflet_row(
     category: str,
 ) -> dict:
     query, style = leaflet_query_for_category(section, category)
-    expected_chunk_id = chunk_identifier(chunk) if chunk else ""
-    expected_chunk_index = chunk.get("chunk_index", -1) if chunk else -1
-    role = chunk.get("chunk_role", "prose") if chunk else "prose"
+    role = "table" if chunk and chunk.get("has_table") else "prose"
     intent_category, source_subcategory = taxonomy_for_section_category(
         section, category
     )
     query_form = query_form_for_style(style)
-    granularity = retrieval_granularity_for_row(section, chunk, role)
     return make_row(
         query_id=query_id,
         query=query,
@@ -1429,11 +1404,8 @@ def make_leaflet_row(
         intent_category=intent_category,
         source_subcategory=source_subcategory,
         section=section,
-        expected_chunk_role=role,
+        role=role,
         notes=f"coverage leaflet subsection {category}",
-        expected_chunk_id=expected_chunk_id,
-        expected_chunk_index=expected_chunk_index,
-        retrieval_granularity=granularity,
         eval_tags=["leaflet", category],
     )
 
@@ -1507,13 +1479,10 @@ def make_colloquial_alias_row(
         category, COLLOQUIAL_ALIAS_QUERY_TEMPLATES["brand_product"]
     )
     query = template.format(alias=alias)
-    expected_chunk_id = chunk_identifier(chunk) if chunk else ""
-    expected_chunk_index = chunk.get("chunk_index", -1) if chunk else -1
-    role = chunk.get("chunk_role", "prose") if chunk else "prose"
+    role = "table" if chunk and chunk.get("has_table") else "prose"
     intent_category, source_subcategory = taxonomy_for_section_category(
         section, category
     )
-    granularity = retrieval_granularity_for_row(section, chunk, role)
     return make_row(
         query_id=query_id,
         query=query,
@@ -1523,11 +1492,8 @@ def make_colloquial_alias_row(
         intent_category=intent_category,
         source_subcategory=source_subcategory,
         section=section,
-        expected_chunk_role=role,
+        role=role,
         notes=f"colloquial alias query generated from product_aliases for {category}",
-        expected_chunk_id=expected_chunk_id,
-        expected_chunk_index=expected_chunk_index,
-        retrieval_granularity=granularity,
         eval_tags=["leaflet", category, "colloquial_alias"],
     )
 
@@ -1551,13 +1517,10 @@ def make_colloquial_alias_any_acceptable_row(
         intent_category=intent_category,
         source_subcategory=source_subcategory,
         section=section,
-        expected_chunk_role="prose",
+        role="prose",
         notes="ambiguous colloquial alias query generated from product_aliases",
         expected_section_ids=expected_section_ids,
         answer_mode=answer_mode_for_expected_ids(expected_section_ids),
-        expected_chunk_id="",
-        expected_chunk_index=-1,
-        retrieval_granularity="section",
         eval_tags=[
             "leaflet",
             "brand_product",
@@ -1568,20 +1531,26 @@ def make_colloquial_alias_any_acceptable_row(
     )
 
 
-def chunk_risk_candidates(
+def structured_candidates(
     chunks: list[dict],
     sections_by_id: dict[str, dict],
 ) -> list[tuple[dict, dict]]:
+    """(chunk, section) pairs for the sections whose blocks hold a table or a list."""
     candidates = []
-    for chunk in sorted(
-        chunks, key=lambda item: (item.get("chunk_key", 0), chunk_identifier(item))
-    ):
-        if not is_chunk_risk(chunk):
+    ordered = sorted(
+        chunks,
+        key=lambda item: (
+            str(item.get("document_id", "")),
+            int(item.get("ordinal", 0)),
+        ),
+    )
+    for chunk in ordered:
+        if not is_structured(chunk):
             continue
-        section = sections_by_id.get(chunk.get("section_id", ""))
-        if not section:
-            continue
-        candidates.append((chunk, section))
+        for section_id in chunk.get("structured_section_ids") or []:
+            section = sections_by_id.get(section_id)
+            if section:
+                candidates.append((chunk, section))
     return candidates
 
 
@@ -1642,28 +1611,13 @@ def generate_rows(
         if query is None:
             return False
 
-        section_chunks = chunks_by_section.get(section["id"], [])
-        if section_chunks:
-            first_chunk = section_chunks[0]
-            expected_chunk_id = chunk_identifier(first_chunk)
-            expected_chunk_index = first_chunk.get("chunk_index", 0)
-        else:
-            first_chunk = None
-            expected_chunk_id = ""
-            expected_chunk_index = -1
-
         query_form = query_form_for_style(query_style)
         intent_category, source_subcategory = taxonomy_for_section_category(
             section, category
         )
-        granularity = retrieval_granularity_for_row(section, first_chunk, expected_role)
         tags = ["curated", category]
         if expected_role == "table":
             tags.append("table")
-        if granularity == "chunk_exact":
-            tags.append("search_index")
-        if granularity == "chunk_window":
-            tags.append("chunk_window")
         row = make_row(
             f"{query_form}-{style_count:04d}",
             query,
@@ -1675,9 +1629,6 @@ def generate_rows(
             section,
             expected_role,
             f"{query_style} query generated from final RAG section metadata",
-            expected_chunk_id=expected_chunk_id,
-            expected_chunk_index=expected_chunk_index,
-            retrieval_granularity=granularity,
             eval_tags=tags,
         )
         return accumulator.add(row)
@@ -1692,7 +1643,7 @@ def generate_rows(
         source_type: str = "auto",
         notes: str | None = None,
     ) -> bool:
-        role = chunk.get("chunk_role") or expected_role
+        role = "table" if chunk.get("has_table") else expected_role
         if is_leaflet_section(section) and not category.startswith("brand_"):
             category = leaflet_intent(section)
         query = unique_query(
@@ -1702,23 +1653,15 @@ def generate_rows(
         if query is None:
             return False
 
-        expected_chunk_id = chunk_identifier(chunk)
-        expected_chunk_index = chunk.get("chunk_index", 0)
-
         query_form = query_form_for_style(query_style)
         intent_category, source_subcategory = taxonomy_for_section_category(
             section, category
         )
-        granularity = retrieval_granularity_for_row(section, chunk, role)
         tags = ["auto", category]
         if source_type == "coverage":
             tags.append("coverage")
         if role == "table":
             tags.append("table")
-        if granularity == "chunk_exact":
-            tags.append("search_index")
-        if granularity == "chunk_window":
-            tags.append("chunk_window")
         row = make_row(
             f"{query_style.replace('_', '-')}-{auto_count:04d}",
             query,
@@ -1730,9 +1673,6 @@ def generate_rows(
             section,
             role,
             notes or f"generated from chunk {chunk_identifier(chunk)}",
-            expected_chunk_id=expected_chunk_id,
-            expected_chunk_index=expected_chunk_index,
-            retrieval_granularity=granularity,
             eval_tags=tags,
         )
         return accumulator.add(row)
@@ -1872,33 +1812,33 @@ def generate_rows(
                 leaflet_count += 1
         leaflet_index += 1
 
-    chunk_risk_count = 0
-    chunk_risk_items = spread_items(
-        chunk_risk_candidates(chunks, sections_by_id), quotas["chunk_risk"]
+    structured_count = 0
+    structured_items = spread_items(
+        structured_candidates(chunks, sections_by_id), quotas["structured"]
     )
-    chunk_risk_index = 0
-    while chunk_risk_count < quotas["chunk_risk"] and chunk_risk_index < len(
-        chunk_risk_items
+    structured_index = 0
+    while structured_count < quotas["structured"] and structured_index < len(
+        structured_items
     ):
-        chunk, section = chunk_risk_items[chunk_risk_index]
+        chunk, section = structured_items[structured_index]
         category, expected_role = category_for_section(
             section, chunks_by_section.get(section["id"], [])
         )
         if is_leaflet_section(section):
             category = leaflet_intent(section)
-            expected_role = chunk.get("chunk_role") or "prose"
+            expected_role = "table" if chunk.get("has_table") else "prose"
         if append_auto_row(
             chunk,
             section,
             category,
             expected_role,
-            chunk_risk_count + 1,
+            structured_count + 1,
             "coverage_chunk",
             source_type="coverage",
-            notes=f"coverage chunk-risk {chunk_identifier(chunk)}",
+            notes=f"coverage structured {chunk_identifier(chunk)}",
         ):
-            chunk_risk_count += 1
-        chunk_risk_index += 1
+            structured_count += 1
+        structured_index += 1
 
     style_targets = weighted_targets(FORMULARY_QUERY_FORM_TARGETS, quotas["formulary"])
     style_targets.update(weighted_targets(NOISY_QUERY_FORM_TARGETS, quotas["noisy"]))
@@ -2039,19 +1979,12 @@ def row_eval_groups(row: dict) -> set[str]:
         groups.update(tag for tag in tags if tag)
     else:
         groups.update(tag for tag in str(tags).split("|") if tag)
-    role = row.get("expected_chunk_role", "")
-    granularity = row.get("retrieval_granularity", "")
-
     if row.get("source_family") == "drug_formulary":
         groups.add("drug_formulary")
     if row.get("source_family") == "leaflet_brand":
         groups.add("leaflet")
-    if row.get("intent_category") == "table_lookup" or role == "table":
+    if row.get("intent_category") == "table_lookup":
         groups.add("table")
-    if role in {"index_entry", "appendix_list"} or granularity == "chunk_exact":
-        groups.add("search_index")
-    if granularity == "chunk_window":
-        groups.add("chunk_window")
     return groups
 
 
@@ -2066,10 +1999,8 @@ def validate_required_eval_groups(
     required = required_groups or {
         "formulary",
         "leaflet",
-        "chunk_risk",
+        "structured",
         "table",
-        "search_index",
-        "chunk_window",
         "multi_intent",
         "noisy",
     }
@@ -2133,7 +2064,6 @@ def validate_rows(
     required_groups: set[str] | None = None,
 ) -> None:
     section_ids = {section["id"] for section in sections if section.get("id")}
-    chunks_by_id = build_chunks_by_id(chunks or [])
     query_ids: set[str] = set()
     query_pairs: set[tuple[str, tuple[str, ...] | str]] = set()
     eval_groups: set[str] = set()
@@ -2176,35 +2106,11 @@ def validate_rows(
             ("query_form", ALLOWED_QUERY_FORMS),
             ("intent_category", ALLOWED_INTENT_CATEGORIES),
             ("answer_mode", ALLOWED_ANSWER_MODES),
-            ("retrieval_granularity", ALLOWED_RETRIEVAL_GRANULARITIES),
         ):
             if row[field] not in allowed:
                 raise ValueError(f"row {index} has unknown {field}: {row[field]}")
         if not row["source_subcategory"]:
             raise ValueError(f"row {index} has empty source_subcategory")
-        expected_chunk_id = row.get("expected_chunk_id", "")
-        if expected_chunk_id:
-            chunk = chunks_by_id.get(expected_chunk_id)
-            if not chunk:
-                raise ValueError(
-                    f"row {index} has unknown expected_chunk_id: {expected_chunk_id}"
-                )
-            if chunk.get("section_id") not in expected_ids:
-                raise ValueError(
-                    f"row {index} has expected_chunk_id outside expected sections: {expected_chunk_id}"
-                )
-            try:
-                row_chunk_index = int(row.get("expected_chunk_index", -1))
-                actual_chunk_index = int(chunk.get("chunk_index", 0))
-            except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    f"row {index} has non-integer expected_chunk_index"
-                ) from exc
-            if row_chunk_index != actual_chunk_index:
-                raise ValueError(
-                    f"row {index} has mismatched expected_chunk_index for {expected_chunk_id}: "
-                    f"{row_chunk_index} != {actual_chunk_index}"
-                )
         try:
             query_intent_count = int(row["query_intent_count"])
         except (TypeError, ValueError) as exc:
@@ -2222,20 +2128,6 @@ def validate_rows(
         if row["answer_mode"] == "single" and len(expected_ids) != 1:
             raise ValueError(
                 f"row {index} is single answer with multiple expected sections"
-            )
-        if (
-            row["retrieval_granularity"] == "multi_section"
-            and row["answer_mode"] != "multi_required"
-        ):
-            raise ValueError(
-                f"row {index} is multi_section retrieval without multi_required answer_mode"
-            )
-        if (
-            row["answer_mode"] == "multi_required"
-            and row["retrieval_granularity"] != "multi_section"
-        ):
-            raise ValueError(
-                f"row {index} is multi_required without multi_section retrieval"
             )
         eval_groups.add(row["eval_group"])
         source_families.add(row["source_family"])
@@ -2298,7 +2190,6 @@ def distribution_summary(
         ("intent_category", "intent_category"),
         ("source_subcategory", "source_subcategory"),
         ("answer_mode", "answer_mode"),
-        ("retrieval_granularity", "retrieval_granularity"),
     ):
         values = ", ".join(f"{key}={value}" for key, value in counts_for(field)[:12])
         lines.append(f"  {label}: {values}")
@@ -2343,29 +2234,16 @@ def load_patient_queries(
                 "Patient query expected_section_id must be a leaflet section "
                 f"(leaflet:*), got '{section_id}' for query: '{query}'"
             )
-        chunks = chunks_by_section.get(section_id, [])
-        expected_chunk_role = (
-            chunk_role_for_section(section_id, chunks_by_section) or "prose"
-        )
-        first_chunk = chunks[0] if chunks else {}
-        expected_chunk_id = chunk_identifier(first_chunk) if first_chunk else ""
-        expected_chunk_index = first_chunk.get("chunk_index", 0) if first_chunk else -1
+        role = chunk_role_for_section(section_id, chunks_by_section) or "prose"
         query_id = f"patient-{idx:03d}"
         expected_ids = [section_id]
         answer_mode = answer_mode_for_expected_ids(expected_ids)
         intent_category, source_subcategory = taxonomy_for_section_category(
             section, category
         )
-        granularity = retrieval_granularity_for_row(
-            section, first_chunk, expected_chunk_role
-        )
         tags = ["leaflet_short", category]
         if len(expected_ids) > 1:
             tags.append("brand_overlap")
-        if granularity == "chunk_window":
-            tags.append("chunk_window")
-        if granularity == "chunk_exact":
-            tags.append("search_index")
         row = make_row(
             query_id=query_id,
             query=query,
@@ -2375,13 +2253,10 @@ def load_patient_queries(
             intent_category=intent_category,
             source_subcategory=source_subcategory,
             section=section,
-            expected_chunk_role=expected_chunk_role,
+            role=role,
             notes=notes,
             expected_section_ids=expected_ids,
             answer_mode=answer_mode,
-            expected_chunk_id=expected_chunk_id,
-            expected_chunk_index=expected_chunk_index,
-            retrieval_granularity=granularity,
             eval_tags=tags,
         )
         rows.append(row)
@@ -2419,7 +2294,7 @@ def build_jsonl(
         target_rows=target_rows,
         patient_rows=patient_rows,
     )
-    rows = widen_duplicate_text_rows(rows, chunks)
+    rows = widen_duplicate_text_rows(rows, sections)
     rows = widen_leaflet_intent_siblings(
         rows, {section["id"]: section for section in sections if section.get("id")}
     )
@@ -2427,12 +2302,10 @@ def build_jsonl(
     required_groups = {
         "formulary",
         "leaflet",
-        "chunk_risk",
+        "structured",
         "multi_intent",
         "noisy",
         "table",
-        "search_index",
-        "chunk_window",
     }
     if patient_rows:
         required_groups.add("leaflet_short")

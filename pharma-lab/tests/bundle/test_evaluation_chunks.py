@@ -23,6 +23,7 @@ FIELDS_READ_BY_THE_BUILDERS = (
     "embedding_text",
     "has_table",
     "has_list",
+    "structured_section_ids",
     "colloquial_mapping",
     "term_annotations",
 )
@@ -67,6 +68,11 @@ def test_structure_flags_follow_the_block_kinds_of_the_packed_sections(
         held = set().union(*(kinds[key] for key in row["section_ids"]))
         assert row["has_table"] == ("table" in held)
         assert row["has_list"] == bool(held & {"list", "index_entries"})
+        assert row["structured_section_ids"] == [
+            key
+            for key in row["section_ids"]
+            if kinds[key] & {"table", "list", "index_entries"}
+        ]
 
 
 def test_write_evaluation_chunks_writes_one_row_per_chunk(tmp_path: Path) -> None:

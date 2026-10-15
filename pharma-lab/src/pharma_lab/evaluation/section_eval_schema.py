@@ -8,7 +8,7 @@ DEFAULT_EVAL_GROUP_QUOTAS = {
     "formulary": 5000,
     "leaflet": 2500,
     "leaflet_short": 500,
-    "chunk_risk": 1000,
+    "structured": 1000,
     "multi_intent": 500,
     "noisy": 500,
 }
@@ -49,10 +49,6 @@ EVAL_HEADER = [
     "query_intent_count",
     "answer_mode",
     "expected_title",
-    "expected_chunk_id",
-    "expected_chunk_index",
-    "expected_chunk_role",
-    "retrieval_granularity",
     "eval_tags",
     "notes",
 ]
@@ -99,12 +95,6 @@ ALLOWED_INTENT_CATEGORIES = {
     "multi_intent",
 }
 ALLOWED_ANSWER_MODES = {"single", "multi_required", "any_acceptable"}
-ALLOWED_RETRIEVAL_GRANULARITIES = {
-    "section",
-    "chunk_window",
-    "chunk_exact",
-    "multi_section",
-}
 
 FORMULARY_CATEGORY_MAP = {
     "indication": ("indication", "formulary_indication"),
@@ -159,16 +149,6 @@ def source_family_for_section(section: dict) -> str:
     if content_type == "general_monograph" or section_id.startswith("general:"):
         return "general_guidance"
     return "drug_formulary"
-
-
-def retrieval_granularity_from_hydrate_strategy(
-    strategy: str, chunk_role: str = ""
-) -> str:
-    if strategy == "chunk_window":
-        return "chunk_window"
-    if strategy == "search_only" or chunk_role in {"index_entry", "appendix_list"}:
-        return "chunk_exact"
-    return "section"
 
 
 def answer_mode_for_expected_ids(
