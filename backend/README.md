@@ -212,6 +212,9 @@ uv run pytest -q -m integration  # cần Docker (Qdrant thật)
 
 - `src/pharma_agent/domain`: Python thuần, không framework. Aggregate `AgentRun`, retrieval,
   guardrail, prompt.
+  Chunk là đơn vị đọc: `chunk_document` gộp các mục liền kề của một tài liệu thành chunk khoảng
+  1.024 token, và LLM đọc đúng text chunk đó, không hydrate. Mỗi vòng hybrid lấy 40 ứng viên,
+  reranker giữ 5 chunk (`rerank.top_n`); tối đa 3 vòng, evidence tối đa 60.000 ký tự.
 - `src/pharma_agent/application`: use case theo từng feature (`chat`, `conversation`,
   `feedback`, `memory`, `corpus`), gồm cả vòng lặp agentic RAG trên LangGraph và progress events.
 - `src/pharma_agent/infrastructure`: OpenAI, Qdrant, llama.cpp, Postgres, settings, composition root.
