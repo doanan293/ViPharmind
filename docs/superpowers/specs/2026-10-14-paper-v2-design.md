@@ -325,11 +325,12 @@ chạy trước Task 7 của plan pha D.
   91 % mục chỉ có một chunk nên bước này tốn một truy vấn mà không thêm thông tin.
 - **Chunk là đơn vị đọc.** Chunk vừa là đơn vị embed, rerank, vừa là đúng văn bản LLM đọc; không
   còn hydrate. Chunker mới `chunk_document` gộp các mục liền kề của cùng một tài liệu theo thứ tự
-  trong tài liệu: thêm mục kế tiếp chừng nào tổng còn dưới `TARGET_CHUNK_CHARS = 5400`; mục dài hơn
-  `MAX_CHUNK_CHARS = 5600` được cắt bằng bộ cắt đoạn hiện có thành nhiều chunk của riêng mục đó. Đo
+  trong tài liệu: thêm mục kế tiếp chừng nào tổng còn dưới `TARGET_CHUNK_CHARS = 4200`; mục dài hơn
+  `MAX_CHUNK_CHARS = 5600` được cắt bằng bộ cắt đoạn hiện có, rồi các mảnh được gói lại theo thứ tự
+  tới `MAX_CHUNK_CHARS` thành nhiều chunk của riêng mục đó, để câu dẫn đi cùng bảng nó giới thiệu. Đo
   ở target 3.200 cho trung bình chỉ 781 token, vì nhiều tài liệu ngắn hơn target nên chunk cuối của
-  tài liệu luôn non; target 5.400 cho 13.298 chunk, trung bình 1.011 token, trung vị 1.078, p99
-  2.207, max 3.098 (`docs/research/paper-v2/07-dataset-review.md`). Không gộp qua tài liệu khác.
+  tài liệu luôn non; target 4.200 cho 13.412 chunk, trung bình 1.001 token, trung vị 1.054, p99
+  2.224, max 3.098 (`docs/research/paper-v2/07-dataset-review.md`). Không gộp qua tài liệu khác.
   Text chunk giữ heading của từng mục dưới dạng `## <heading>`; header context là
   `<tiêu đề> > <heading 1>; <heading 2>; ...`.
   Embedding text là header, tên colloquial chưa xuất hiện, chunk text, rồi phần mở rộng thuật ngữ

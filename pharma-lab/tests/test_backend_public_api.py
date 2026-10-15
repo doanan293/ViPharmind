@@ -39,7 +39,7 @@ def test_backend_public_module_imports(module: str) -> None:
 def test_pinned_backend_names_have_expected_values() -> None:
     assert BUNDLE_SCHEMA_VERSION == "knowledge-bundle/v1"
     assert CHUNKER_VERSION == "chunker-v2"
-    assert (TARGET_CHUNK_CHARS, MAX_CHUNK_CHARS) == (5400, 5600)
+    assert (TARGET_CHUNK_CHARS, MAX_CHUNK_CHARS) == (4200, 5600)
     assert model_slug("qwen3-embedding:4b-q8_0") == "qwen3_embedding_4b_q8_0"
     assert callable(chunk_document)
     assert "embedder" in inspect.signature(build_retrieval_service).parameters
