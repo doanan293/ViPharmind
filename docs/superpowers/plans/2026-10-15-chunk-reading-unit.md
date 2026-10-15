@@ -14,7 +14,7 @@
 
 - Không giữ đường tương thích ngược: không cờ, không nhánh "legacy", không migration dữ liệu cũ; DB production xuất phát trống (spec §0, §3.0c).
 - `TARGET_CHUNK_CHARS = 3200`, `MAX_CHUNK_CHARS = 5600`, `CHUNKER_VERSION = "chunker-v2"` (spec §3.0c).
-- `rerank.top_n = 5`, `max_evidence_chars = 30000`; mọi chỗ "top 8" thành 5 (spec §3.0c).
+- `rerank.top_n = 5`, `max_evidence_chars = 60000` (evidence tích luỹ tới 15 chunk qua 3 vòng, `pack` xếp theo điểm rerank xuyên vòng); mọi chỗ "top 8" thành 5 (spec §3.0c).
 - Nhãn gold chunk `<document_key>:chunk-NNN`, NNN một-based ba chữ số (spec §3.0c).
 - Nhóm benchmark `chunk_risk` đổi tên `structured`, quota 1.000; golden schema `e2e-golden-v3`, không `gold_chunk_ids` (spec §3.0c).
 - `PIPELINE_VERSION` (version của `pharma-lab` trong `pharma-lab/pyproject.toml`) lên `0.4.0` (spec §3.0c).
@@ -1049,6 +1049,6 @@ git commit -m "docs: chunks as the reading unit, five chunks per round"
 
 ## Self-review
 
-- **Spec coverage §3.0c:** gộp mục và hằng số (Task 1); định danh theo tài liệu, bỏ `section_revisions`, Qdrant payload (Task 2); bỏ hydrate, `top_n = 5`, `max_evidence_chars = 30000`, citation một chunk, API và frontend (Task 3); nhãn chunk và hàng đánh giá (Task 4); bỏ nhãn mức chunk, nhóm `structured`, hit theo mục trong chunk, nhiều đơn vị một chunk (Task 5); golden v3, `rounds` theo section (Task 6); rag-final không chunk, `PIPELINE_VERSION` 0.4.0, bỏ index-only (Task 7); số đo token và dữ liệu dựng lại (Task 8); "top 8" thành 5 ở mọi tài liệu (Task 9).
+- **Spec coverage §3.0c:** gộp mục và hằng số (Task 1); định danh theo tài liệu, bỏ `section_revisions`, Qdrant payload (Task 2); bỏ hydrate, `top_n = 5`, `max_evidence_chars = 60000`, citation một chunk, API và frontend (Task 3); nhãn chunk và hàng đánh giá (Task 4); bỏ nhãn mức chunk, nhóm `structured`, hit theo mục trong chunk, nhiều đơn vị một chunk (Task 5); golden v3, `rounds` theo section (Task 6); rag-final không chunk, `PIPELINE_VERSION` 0.4.0, bỏ index-only (Task 7); số đo token và dữ liệu dựng lại (Task 8); "top 8" thành 5 ở mọi tài liệu (Task 9).
 - **Kiểu dữ liệu:** `Hit.section_keys`/`headings` (Task 3) được Task 4 đọc; `gold_chunk_label(document_key, ordinal)` (Task 4) được Task 6 dùng; payload search `{"document", "ordinal", "sections"}` (Task 3) được Task 6 đọc; `satisfied_units` (Task 5) được `one_round.coverage` dùng.
 - **Review Focus:** mục 1, 2 có test ở Task 1; mục 3, 4 ở Task 5; mục 5 ở Task 3.
