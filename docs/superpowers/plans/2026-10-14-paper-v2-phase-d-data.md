@@ -1083,9 +1083,10 @@ git commit -m "data: regenerate the retrieval benchmark without question hints"
 
 > Chạy sau plan `2026-10-15-chunk-reading-unit.md` (spec §3.0c): chunk gộp mục, nhãn
 > `<document_key>:chunk-NNN`, nhóm `structured` thay `chunk_risk`, reranker trả 5 chunk. Mọi "top 8"
-> trong Task 7 và 7b đọc là top 5. Bước đầu của Task 7 là đo throughput rerank trên T4 với 200 câu
-> (chunk dài gấp ba, spec §6); nếu bảng đủ 10.000 câu × 40 ứng viên không vừa quota tuần thì quyết số
-> ứng viên cho khối so sánh bốn reranker trước khi chạy đủ. Báo Hit@5 và nDCG@5 cạnh các mốc khác. Khối
+> trong Task 7 và 7b đọc là top 5. Rerank chạy thẳng đủ 10.000 câu × 30 ứng viên (bằng `candidate_k`
+> của backend) cho cả bốn reranker, không chạy thử 200 câu và không giảm ứng viên: hết quota tuần thì
+> chạy lại cùng lệnh sau khi Kaggle reset (quyết định ngày 2026-10-15). Báo Hit@5 và nDCG@5 cạnh các
+> mốc khác. Khối
 > D7 (spec §4.D) chạy cùng bảng này: biến thể chunk theo từng mục dựng bằng `chunk_document` với
 > `target_chars=1` (mỗi mục một chunk), không khôi phục chunker cũ.
 

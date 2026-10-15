@@ -573,10 +573,10 @@ rẻ. Mỗi run chạy thử 20 item trước khi chạy đủ.
 - Quota GPU Kaggle và giới hạn thời gian mỗi phiên kernel: mỗi run chạy được tiếp sau khi kernel
   khởi động lại vì harness đã ghi `answers.jsonl` từng item; xếp run Qwen theo quota và ưu tiên
   cấu hình chính (A2, A3, ReAct) trước quét τ và ablation.
-- Rerank trên chunk dài gấp ba: bảng retrieval chấm 10.000 câu × 40 ứng viên × khoảng 1.000 token,
-  tức khoảng 400 triệu token mỗi reranker, gấp ba v1. Việc đầu tiên của bảng retrieval là đo
-  throughput rerank trên T4 với 200 câu; nếu không vừa quota tuần thì quyết định số ứng viên cho
-  khối so sánh bốn reranker trước khi chạy đủ, còn cấu hình chính giữ 40 để khớp backend.
+- Rerank trên chunk dài gấp ba: bảng retrieval chấm 10.000 câu × 30 ứng viên × khoảng 1.000 token,
+  tức khoảng 300 triệu token mỗi reranker, gấp ba v1. Giữ nguyên 30 ứng viên (bằng `candidate_k` của
+  backend) cho cả bốn reranker; nếu không vừa quota tuần thì chạy tiếp sau khi Kaggle reset, harness
+  giữ điểm từng cặp trong cache.
 - Ngân sách evidence 60.000 ký tự cộng prompt và lịch sử phải vừa slot 32.768 của Qwen3.5-9B: run thử
   20 item ở pha 0 kiểm tra không có lượt nào chạm trần ngữ cảnh; nếu có thì hạ `max_evidence_chars`
   cho mọi cấu hình cùng lúc, không hạ riêng một nhánh.
