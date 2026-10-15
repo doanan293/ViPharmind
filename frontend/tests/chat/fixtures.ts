@@ -120,24 +120,8 @@ export function citationDetail(
     section: "Liều lượng và cách dùng",
     start_page: 811,
     end_page: 812,
-    strategy: "full_section",
     is_current: true,
-    chunks: [
-      {
-        id: "7b0f4f4e-2c1f-4f0e-9a5e-000000000000",
-        text: "**Liều thường dùng**",
-        matched: false,
-        start_page: 811,
-        end_page: 811,
-      },
-      {
-        id: "7b0f4f4e-2c1f-4f0e-9a5e-000000000001",
-        text: "Người lớn và trẻ em trên 12 tuổi uống 0,5–1 g mỗi 4–6 giờ.",
-        matched: true,
-        start_page: 812,
-        end_page: 812,
-      },
-    ],
+    text: "## Liều lượng và cách dùng\n\n**Liều thường dùng**\n\nNgười lớn và trẻ em trên 12 tuổi uống 0,5–1 g mỗi 4–6 giờ.",
     ...overrides,
   }
 }

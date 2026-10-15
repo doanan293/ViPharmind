@@ -12,16 +12,13 @@ from pharma_agent.domain.guardrail.service import GuardrailService
 from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.models import (
-    Chunk,
     Hit,
-    HydrateStrategy,
     Query,
     ReleaseScope,
 )
 from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
 from pharma_agent.domain.shared.clock import FixedClock
-from tests.domain.factories import chunk_of
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -110,13 +107,6 @@ class FakeReranker:
         ]
 
 
-class FakeHydrator:
-    async def hydrate(self, hit: Hit, strategy: HydrateStrategy) -> list[Chunk]:
-        if strategy is HydrateStrategy.SEARCH_ONLY:
-            return []
-        return [chunk_of(hit)]
-
-
 FAKE_EMBEDDING_MODEL = "fake-embedding-4d"
 FAKE_EMBEDDING_DIMENSION = 4
 
@@ -164,7 +154,6 @@ def build_deps(
         retrieval=RetrievalService(
             retriever,
             reranker if reranker is not None else FakeReranker(),
-            FakeHydrator(),
             RetrievalConfig(candidate_k=5, rerank_top_n=3),
         ),
         clock=FixedClock(NOW),
@@ -175,7 +164,6 @@ __all__ = [
     "FAKE_EMBEDDING_DIMENSION",
     "FAKE_EMBEDDING_MODEL",
     "FakeEmbedder",
-    "FakeHydrator",
     "FakeLlm",
     "FakeReranker",
     "FakeRetriever",

@@ -29,7 +29,6 @@ from pharma_agent.infrastructure.openai_client import build_async_openai
 from pharma_agent.infrastructure.persistence.postgres.database import Database
 from pharma_agent.infrastructure.retrieval.postgres_corpus import (
     PostgresCorpusReader,
-    PostgresHydrator,
 )
 from pharma_agent.infrastructure.retrieval.qdrant_adapter import (
     OpenAiEmbedder,
@@ -152,7 +151,6 @@ def build_retrieval_service(
     service = RetrievalService(
         retriever,
         reranker,
-        PostgresHydrator(reader, window=retrieval_settings.hydrate_window),
         RetrievalConfig(
             candidate_k=retrieval_settings.candidate_k,
             rerank_top_n=retrieval_settings.rerank.top_n,

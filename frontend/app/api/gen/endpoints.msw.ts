@@ -12,7 +12,6 @@ import type { RequestHandlerOptions } from "msw"
 import {
   AuditAction,
   DocumentKind,
-  HydrateStrategy,
   InvitationStatus,
   JobStatus,
   JobStep,
@@ -554,10 +553,6 @@ export const getChatResponseMock = (
       { length: faker.number.int({ min: 1, max: 10 }) },
       (_, i) => i + 1
     ).map(() => ({
-      block_chunk_version_ids: Array.from(
-        { length: faker.number.int({ min: 1, max: 10 }) },
-        (_, i) => i + 1
-      ).map(() => faker.string.uuid()),
       chunk_version_id: faker.string.uuid(),
       end_page: faker.helpers.arrayElement([faker.number.int(), null]),
       index: faker.number.int(),
@@ -566,7 +561,6 @@ export const getChatResponseMock = (
       snippet: faker.string.alpha({ length: { min: 10, max: 20 } }),
       source: faker.string.alpha({ length: { min: 10, max: 20 } }),
       start_page: faker.helpers.arrayElement([faker.number.int(), null]),
-      strategy: faker.helpers.arrayElement(Object.values(HydrateStrategy)),
       title: faker.string.alpha({ length: { min: 10, max: 20 } }),
     })),
     undefined,
@@ -1373,16 +1367,6 @@ export const getInvitationsAcceptResponseMock = (
 export const getGetMessageCitationResponseMock = (
   overrideResponse: Partial<Extract<CitationDetail, object>> = {}
 ): CitationDetail => ({
-  chunks: Array.from(
-    { length: faker.number.int({ min: 1, max: 10 }) },
-    (_, i) => i + 1
-  ).map(() => ({
-    end_page: faker.helpers.arrayElement([faker.number.int(), null]),
-    id: faker.string.uuid(),
-    matched: faker.datatype.boolean(),
-    start_page: faker.helpers.arrayElement([faker.number.int(), null]),
-    text: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  })),
   document_title: faker.string.alpha({ length: { min: 10, max: 20 } }),
   end_page: faker.helpers.arrayElement([faker.number.int(), null]),
   index: faker.number.int(),
@@ -1390,7 +1374,7 @@ export const getGetMessageCitationResponseMock = (
   section: faker.string.alpha({ length: { min: 10, max: 20 } }),
   source: faker.string.alpha({ length: { min: 10, max: 20 } }),
   start_page: faker.helpers.arrayElement([faker.number.int(), null]),
-  strategy: faker.helpers.arrayElement(Object.values(HydrateStrategy)),
+  text: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...overrideResponse,
 })
 

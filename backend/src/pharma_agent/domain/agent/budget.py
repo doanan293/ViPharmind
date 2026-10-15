@@ -14,7 +14,7 @@ class BudgetLimits(BaseModel):
     max_search_rounds: int = 3
     max_llm_calls: int = 10
     max_tokens: int = 40_000
-    max_evidence_chars: int = 24_000
+    max_evidence_chars: int = 30_000
     deadline_seconds: float = 90.0
 
 

@@ -26,7 +26,7 @@ from pharma_agent.domain.corpus.chunking import (
     ChunkDraft,
     chunk_document,
 )
-from pharma_agent.domain.retrieval.models import Hit, HydrateStrategy
+from pharma_agent.domain.retrieval.models import Hit
 from pharma_agent.domain.shared.text import make_snippet
 from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     ChunkVersionTable,
@@ -56,6 +56,7 @@ MAPPINGS = [
 @dataclass(frozen=True)
 class SeededRelease:
     collection_id: uuid.UUID
+    document_id: uuid.UUID
     release_id: uuid.UUID
     drafts: dict[str, list[ChunkDraft]]
 
@@ -260,6 +261,7 @@ async def seed_release(
             )
     return SeededRelease(
         collection_id=collection_id,
+        document_id=document_id,
         release_id=release_id,
         drafts=drafts,
     )
@@ -325,19 +327,14 @@ def citation_for(
     *,
     index: int,
     position: int,
-    block: Sequence[int] = (0, 1, 2),
     release_id: uuid.UUID | None = None,
-    strategy: HydrateStrategy = HydrateStrategy.FULL_SECTION,
 ) -> Citation:
     """The exact `Citation` the repository rebuilds from the seeded rows."""
-    drafts = dosage_drafts(seeded)
-    matched = drafts[position]
+    matched = dosage_drafts(seeded)[position]
     return Citation(
         index=index,
         chunk_version_id=matched.chunk_version_id,
         release_id=release_id if release_id is not None else seeded.release_id,
-        strategy=strategy,
-        block_chunk_version_ids=[drafts[n].chunk_version_id for n in block],
         source=CITED_SOURCE,
         title=CITED_TITLE,
         section=CITED_SECTION,
@@ -354,20 +351,16 @@ def hit_for(seeded: SeededRelease, position: int = 0, *, fusion: float = 0.9) ->
         release_id=seeded.release_id,
         collection_id=seeded.collection_id,
         document_key=paracetamol_document().key,
-        section_key=DOSAGE_KEY,
-        section_revision_id=seeded.revisions[DOSAGE_KEY],
         ordinal=draft.ordinal,
-        hydrate_strategy=HydrateStrategy.SEARCH_ONLY,
+        section_keys=list(draft.section_keys),
+        headings=list(draft.headings),
         source=CITED_SOURCE,
         title=CITED_TITLE,
-        section=CITED_SECTION,
         start_page=draft.start_page,
         end_page=draft.end_page,
         context_header=draft.context_header,
         chunk_text=draft.chunk_text,
         embedding_text=draft.embedding_text,
-        kind=draft.kind.value,
-        table_key=draft.table_key,
         fusion_score=fusion,
         matched_queries=[],
     )

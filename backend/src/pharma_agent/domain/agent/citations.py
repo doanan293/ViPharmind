@@ -68,8 +68,6 @@ def citations_from(
                 index=index,
                 chunk_version_id=hit.chunk_version_id,
                 release_id=hit.release_id,
-                strategy=evidence.applied_strategy,
-                block_chunk_version_ids=evidence.text_chunk_version_ids(),
                 source=hit.source,
                 title=hit.title,
                 section=hit.section,

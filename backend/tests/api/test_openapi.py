@@ -247,5 +247,5 @@ def test_citation_detail_is_documented() -> None:
             "application/problem+json": PROBLEM_CONTENT
         }
     schemas = doc["components"]["schemas"]
-    assert {"CitationDetail", "CitationChunk"} <= set(schemas)
-    assert "document_title" in schemas["CitationDetail"]["properties"]
+    assert "CitationDetail" in schemas and "CitationChunk" not in schemas
+    assert {"document_title", "text"} <= set(schemas["CitationDetail"]["properties"])

@@ -6,7 +6,7 @@ from collections.abc import Collection
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from pharma_agent.domain.conversation.models import CitationBlock, CitedChunk
+from pharma_agent.domain.conversation.models import CitationBlock
 from pharma_agent.infrastructure.persistence.postgres.citation_rows import (
     citation_from_row,
 )
@@ -14,8 +14,6 @@ from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     ChunkVersionTable,
     CollectionTable,
     DocumentTable,
-    SectionRevisionTable,
-    SectionTable,
 )
 from pharma_agent.infrastructure.persistence.postgres.tables import (
     ConversationTable,
@@ -69,49 +67,26 @@ class PostgresCitationReader:
             link = (await session.execute(link_query)).scalar_one_or_none()
             if link is None:
                 return None
-            block_ids = list(link.block_chunk_version_ids) or [link.chunk_version_id]
             chunk_query = (
                 select(
                     ChunkVersionTable,
-                    SectionTable.heading,
                     DocumentTable.title,
                     DocumentTable.source_title,
                     CollectionTable.current_release_id,
                 )
-                .join(
-                    SectionRevisionTable,
-                    SectionRevisionTable.id == ChunkVersionTable.section_revision_id,
-                )
-                .join(SectionTable, SectionTable.id == SectionRevisionTable.section_id)
-                .join(DocumentTable, DocumentTable.id == SectionTable.document_id)
+                .join(DocumentTable, DocumentTable.id == ChunkVersionTable.document_id)
                 .join(
                     CollectionTable, CollectionTable.id == DocumentTable.collection_id
                 )
-                .where(ChunkVersionTable.id.in_([*block_ids, link.chunk_version_id]))
+                .where(ChunkVersionTable.id == link.chunk_version_id)
             )
-            rows = (await session.execute(chunk_query)).tuples().all()
-        by_id = {row[0].id: row for row in rows}
-        # FK RESTRICT keeps the matched chunk version and its section/document rows.
-        chunk, heading, document_title, source_title, current_release_id = by_id[
-            link.chunk_version_id
-        ]
+            row = (await session.execute(chunk_query)).tuples().one()
+        # FK RESTRICT keeps the cited chunk version and its document rows.
+        chunk, document_title, source_title, current_release_id = row
         return CitationBlock(
             citation=citation_from_row(
-                link,
-                chunk,
-                heading=heading,
-                document_title=document_title,
-                source_title=source_title,
+                link, chunk, document_title=document_title, source_title=source_title
             ),
-            chunks=[
-                CitedChunk(
-                    chunk_version_id=chunk_version_id,
-                    text=by_id[chunk_version_id][0].chunk_text,
-                    start_page=by_id[chunk_version_id][0].start_page,
-                    end_page=by_id[chunk_version_id][0].end_page,
-                )
-                for chunk_version_id in block_ids
-                if chunk_version_id in by_id
-            ],
+            text=chunk.chunk_text,
             is_current=current_release_id == link.release_id,
         )

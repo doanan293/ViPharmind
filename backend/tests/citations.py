@@ -3,7 +3,6 @@
 import uuid
 
 from pharma_agent.domain.conversation.models import Citation
-from pharma_agent.domain.retrieval.models import HydrateStrategy
 
 CURRENT_RELEASE_ID = uuid.UUID("00000000-0000-4000-8000-00000000aa01")
 OLD_RELEASE_ID = uuid.UUID("00000000-0000-4000-8000-00000000aa02")
@@ -20,15 +19,11 @@ def build_citation(
     *,
     chunk: int = 1,
     release_id: uuid.UUID = CURRENT_RELEASE_ID,
-    strategy: HydrateStrategy = HydrateStrategy.FULL_SECTION,
-    block: tuple[int, ...] = (1,),
 ) -> Citation:
     return Citation(
         index=index,
         chunk_version_id=chunk_id(chunk),
         release_id=release_id,
-        strategy=strategy,
-        block_chunk_version_ids=[chunk_id(n) for n in block],
         source=SOURCE_TITLE,
         title="Paracetamol",
         section="Liều lượng và cách dùng",

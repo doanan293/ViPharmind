@@ -3,31 +3,20 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from pharma_agent.domain.retrieval.models import (
-    Hit,
-    HydrateStrategy,
-    Query,
-    ReleaseScope,
-    RetrievedItem,
-)
-from pharma_agent.domain.retrieval.ports import (
-    Hydrator,
-    Reranker,
-    RetrievalError,
-    Retriever,
-)
+from pharma_agent.domain.retrieval.models import Hit, Query, ReleaseScope
+from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError, Retriever
 
 
 class RetrievalConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     candidate_k: int = 30
-    rerank_top_n: int = 8
+    rerank_top_n: int = 5
     rerank_candidates: int = Field(default=40, ge=1)
 
 
 class SearchResult(BaseModel):
-    items: list[RetrievedItem] = Field(default_factory=list)
+    items: list[Hit] = Field(default_factory=list)
     queries: list[Query] = Field(default_factory=list)
     rerank_failed: bool = False
     rerank_scored: int = 0
@@ -40,18 +29,13 @@ class SearchResult(BaseModel):
 
 
 class RetrievalService:
-    """Pure orchestration over the retrieval ports: search many, dedupe, rerank, hydrate."""
+    """Pure orchestration over the retrieval ports: search many, dedupe, rerank."""
 
     def __init__(
-        self,
-        retriever: Retriever,
-        reranker: Reranker,
-        hydrator: Hydrator,
-        config: RetrievalConfig,
+        self, retriever: Retriever, reranker: Reranker, config: RetrievalConfig
     ) -> None:
         self._retriever = retriever
         self._reranker = reranker
-        self._hydrator = hydrator
         self._config = config
 
     async def search(
@@ -62,7 +46,7 @@ class RetrievalService:
         *,
         scope: ReleaseScope | None = None,
     ) -> SearchResult:
-        """Search every query, keep a capped candidate pool, rerank it and hydrate the top hits.
+        """Search every query, keep a capped candidate pool and rerank it; a hit is read as is.
 
         `known_scores` maps chunk_version_id to a rerank score already computed for the same
         `rerank_query` (an earlier round of the same run); those chunks are not scored again.
@@ -102,17 +86,8 @@ class RetrievalService:
                 : self._config.rerank_top_n
             ]
 
-        items: list[RetrievedItem] = []
-        for hit in ranked:
-            chunks = []
-            if hit.hydrate_strategy is not HydrateStrategy.SEARCH_ONLY:
-                try:
-                    chunks = await self._hydrator.hydrate(hit, hit.hydrate_strategy)
-                except RetrievalError:
-                    chunks = []
-            items.append(RetrievedItem(hit=hit, chunks=chunks))
         return SearchResult(
-            items=items,
+            items=ranked,
             queries=list(queries),
             rerank_failed=rerank_failed,
             rerank_scored=len(fresh),

@@ -19,9 +19,9 @@ from pharma_agent.domain.agent.schemas import (
 )
 from pharma_agent.domain.guardrail.models import Verdict, VerdictSource
 from pharma_agent.domain.llm.models import LlmUsage
-from pharma_agent.domain.retrieval.models import Query, QueryOrigin, RetrievedItem
+from pharma_agent.domain.retrieval.models import Query, QueryOrigin
 from pharma_agent.domain.retrieval.service import SearchResult
-from tests.domain.factories import NOW, chunk_of, make_hit, make_run, search_result
+from tests.domain.factories import NOW, make_hit, make_run, search_result
 
 PASS = Verdict(passed=True, in_scope=True, source=VerdictSource.LLM)
 BLOCK = Verdict(
@@ -196,16 +196,23 @@ def test_each_search_logs_the_evidence_it_leaves_active() -> None:
     run = make_run()
     run.record_guard(PASS, now=NOW)
     run.record_rephrase(rephrased(), now=NOW)
-    items = [
-        RetrievedItem(hit=hit, chunks=[chunk_of(hit)])
-        for hit in (
-            make_hit("c1", section_key="drug:a:lieu-dung", ordinal=2),
-            make_hit("c2", section_key="drug:a:chi-dinh", ordinal=1),
-        )
+    hits = [
+        make_hit("c1", ordinal=2, section_keys=["drug:a:lieu-dung"]),
+        make_hit(
+            "c2", ordinal=1, section_keys=["drug:a:chi-dinh", "drug:a:thanh-phan"]
+        ),
     ]
-    run.record_search(Q1, SearchResult(items=items), now=NOW)
+    run.record_search(Q1, SearchResult(items=hits), now=NOW)
     search = run.actions.entries[-1]
     assert search.payload["evidence"] == [
-        ["drug:a:lieu-dung", 2],
-        ["drug:a:chi-dinh", 1],
+        {
+            "document": "drug:paracetamol",
+            "ordinal": 2,
+            "sections": ["drug:a:lieu-dung"],
+        },
+        {
+            "document": "drug:paracetamol",
+            "ordinal": 1,
+            "sections": ["drug:a:chi-dinh", "drug:a:thanh-phan"],
+        },
     ]

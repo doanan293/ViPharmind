@@ -12,7 +12,6 @@ from pharma_agent.domain.conversation.models import (
     Message,
     MessageRole,
 )
-from pharma_agent.domain.retrieval.models import HydrateStrategy
 from pharma_agent.infrastructure.persistence.postgres.conversation_repository import (
     ConversationRowMissing,
     PostgresConversationRepository,
@@ -306,14 +305,7 @@ async def test_citations_round_trip_through_message_citations(
     await repo.create(conversation)
     cited = [
         citation_for(seeded, index=1, position=1),
-        citation_for(
-            seeded,
-            index=2,
-            position=2,
-            release_id=unpublished,
-            strategy=HydrateStrategy.SEARCH_ONLY,
-            block=(2,),
-        ),
+        citation_for(seeded, index=2, position=2, release_id=unpublished),
     ]
     user_msg, assistant_msg = turn(conversation.conversation_id, 0, citations=cited)
     conversation.record_turn(assistant_msg.created_at)
@@ -334,30 +326,9 @@ async def test_citations_round_trip_through_message_citations(
             .scalars()
             .all()
         )
-    assert [
-        (
-            row.index,
-            row.chunk_version_id,
-            row.release_id,
-            row.strategy,
-            row.block_chunk_version_ids,
-        )
-        for row in rows
-    ] == [
-        (
-            1,
-            drafts[1].chunk_version_id,
-            seeded.release_id,
-            "full_section",
-            [draft.chunk_version_id for draft in drafts],
-        ),
-        (
-            2,
-            drafts[2].chunk_version_id,
-            unpublished,
-            "search_only",
-            [drafts[2].chunk_version_id],
-        ),
+    assert [(row.index, row.chunk_version_id, row.release_id) for row in rows] == [
+        (1, drafts[1].chunk_version_id, seeded.release_id),
+        (2, drafts[2].chunk_version_id, unpublished),
     ]
 
 

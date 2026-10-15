@@ -153,14 +153,14 @@ async def test_users_only_hit_what_they_may_see(world: World) -> None:
 
     hits_b = await world.retrieval.search(QUERY, "paracetamol", scope=scope_b)
     assert hits_b.items
-    assert {item.hit.collection_id for item in hits_b.items} == {world.shared}
+    assert {item.collection_id for item in hits_b.items} == {world.shared}
 
 
 async def test_narrowing_keeps_only_the_requested_collection(world: World) -> None:
     scope = await world.scopes.resolve(user_id=world.a.hex, requested=[world.personal])
     result = await world.retrieval.search(QUERY, "paracetamol", scope=scope)
     assert result.items
-    assert {item.hit.collection_id for item in result.items} == {world.personal}
+    assert {item.collection_id for item in result.items} == {world.personal}
 
 
 async def test_leaving_the_organization_empties_the_scope_next_turn(

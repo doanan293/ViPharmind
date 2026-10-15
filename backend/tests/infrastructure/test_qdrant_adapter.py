@@ -7,9 +7,7 @@ import pytest
 from qdrant_client import models
 
 from pharma_agent.domain.retrieval.models import (
-    Chunk,
     ChunkRecord,
-    HydrateStrategy,
     Query,
     QueryOrigin,
 )
@@ -37,7 +35,7 @@ def record(
     release_id: uuid.UUID = RELEASE_ID,
     collection_id: uuid.UUID = COLLECTION_ID,
 ) -> ChunkRecord:
-    hit = make_hit(label, strategy=HydrateStrategy.FULL_SECTION, text=f"text {label}")
+    hit = make_hit(label, text=f"text {label}")
     fields = hit.model_dump(exclude={"fusion_score", "rerank_score", "matched_queries"})
     return ChunkRecord.model_validate(
         {**fields, "release_id": release_id, "collection_id": collection_id}
@@ -64,14 +62,9 @@ class FakeReader:
         wanted = set(keys)
         return [r for r in self.records if (r.release_id, r.chunk_version_id) in wanted]
 
-    async def section_chunks(
-        self,
-        release_id: uuid.UUID,
-        section_revision_id: uuid.UUID,
-        *,
-        around: int | None,
-        radius: int,
-    ) -> list[Chunk]:
+    async def document_chunks(
+        self, release_id: uuid.UUID, document_key: str, ordinals: Sequence[int]
+    ) -> list[ChunkRecord]:
         return []
 
 

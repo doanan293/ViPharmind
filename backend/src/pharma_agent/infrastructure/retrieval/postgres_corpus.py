@@ -9,14 +9,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharma_agent.domain.retrieval.models import (
-    Chunk,
     ChunkRecord,
     ColloquialMapping,
-    Hit,
-    HydrateStrategy,
     TermAnnotation,
 )
-from pharma_agent.domain.retrieval.ports import ChunkKey, CorpusReader, RetrievalError
+from pharma_agent.domain.retrieval.ports import ChunkKey, RetrievalError
 from pharma_agent.infrastructure.persistence.postgres.corpus_repository import (
     embedding_text_of,
 )
@@ -25,28 +22,22 @@ from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     CollectionTable,
     DocumentTable,
     ReleaseChunkTable,
-    SectionTable,
 )
 
 
 def _record(
-    link: ReleaseChunkTable,
-    chunk: ChunkVersionTable,
-    section: SectionTable,
-    document: DocumentTable,
+    link: ReleaseChunkTable, chunk: ChunkVersionTable, document: DocumentTable
 ) -> ChunkRecord:
     return ChunkRecord(
         chunk_version_id=link.chunk_version_id,
         release_id=link.release_id,
         collection_id=document.collection_id,
         document_key=document.key,
-        section_key=section.key,
-        section_revision_id=link.section_revision_id,
         ordinal=link.ordinal,
-        hydrate_strategy=HydrateStrategy(link.hydrate_strategy),
+        section_keys=list(chunk.section_keys),
+        headings=list(chunk.headings),
         source=document.source_title,
         title=document.title,
-        section=section.heading,
         start_page=chunk.start_page,
         end_page=chunk.end_page,
         context_header=chunk.context_header,
@@ -57,8 +48,6 @@ def _record(
             colloquial=chunk.colloquial,
             term_annotations=chunk.term_annotations,
         ),
-        kind=chunk.kind,
-        table_key=chunk.table_key,
         colloquial_mapping=ColloquialMapping.model_validate(chunk.colloquial)
         if chunk.colloquial is not None
         else None,
@@ -96,13 +85,12 @@ class PostgresCorpusReader:
         if not keys:
             return []
         query = (
-            select(ReleaseChunkTable, ChunkVersionTable, SectionTable, DocumentTable)
+            select(ReleaseChunkTable, ChunkVersionTable, DocumentTable)
             .join(
                 ChunkVersionTable,
                 ChunkVersionTable.id == ReleaseChunkTable.chunk_version_id,
             )
-            .join(SectionTable, SectionTable.id == ReleaseChunkTable.section_id)
-            .join(DocumentTable, DocumentTable.id == SectionTable.document_id)
+            .join(DocumentTable, DocumentTable.id == ReleaseChunkTable.document_id)
             .where(
                 tuple_(
                     ReleaseChunkTable.release_id, ReleaseChunkTable.chunk_version_id
@@ -114,69 +102,32 @@ class PostgresCorpusReader:
                 rows = (await session.execute(query)).tuples().all()
         except SQLAlchemyError as exc:
             raise RetrievalError(f"cannot load {len(keys)} chunks: {exc}") from exc
-        return [
-            _record(link, chunk, section, document)
-            for link, chunk, section, document in rows
-        ]
+        return [_record(link, chunk, document) for link, chunk, document in rows]
 
-    async def section_chunks(
-        self,
-        release_id: UUID,
-        section_revision_id: UUID,
-        *,
-        around: int | None,
-        radius: int,
-    ) -> list[Chunk]:
+    async def document_chunks(
+        self, release_id: UUID, document_key: str, ordinals: Sequence[int]
+    ) -> list[ChunkRecord]:
+        if not ordinals:
+            return []
         query = (
-            select(ReleaseChunkTable, ChunkVersionTable)
+            select(ReleaseChunkTable, ChunkVersionTable, DocumentTable)
             .join(
                 ChunkVersionTable,
                 ChunkVersionTable.id == ReleaseChunkTable.chunk_version_id,
             )
+            .join(DocumentTable, DocumentTable.id == ReleaseChunkTable.document_id)
             .where(
                 ReleaseChunkTable.release_id == release_id,
-                ReleaseChunkTable.section_revision_id == section_revision_id,
+                DocumentTable.key == document_key,
+                ReleaseChunkTable.ordinal.in_(list(ordinals)),
             )
             .order_by(ReleaseChunkTable.ordinal)
         )
-        if around is not None:
-            query = query.where(
-                ReleaseChunkTable.ordinal.between(around - radius, around + radius)
-            )
         try:
             async with self._sessions() as session:
                 rows = (await session.execute(query)).tuples().all()
         except SQLAlchemyError as exc:
             raise RetrievalError(
-                f"cannot hydrate section revision {section_revision_id}: {exc}"
+                f"cannot read chunks of document {document_key}: {exc}"
             ) from exc
-        return [
-            Chunk(
-                chunk_version_id=chunk.id,
-                section_revision_id=link.section_revision_id,
-                ordinal=link.ordinal,
-                text=chunk.chunk_text,
-                kind=chunk.kind,
-                table_key=chunk.table_key,
-                start_page=chunk.start_page,
-                end_page=chunk.end_page,
-            )
-            for link, chunk in rows
-        ]
-
-
-class PostgresHydrator:
-    """`Hydrator` reading the release that produced the hit: the whole section revision
-    (`full_section`) or the chunks within ordinal ± window (`chunk_window`)."""
-
-    def __init__(self, reader: CorpusReader, *, window: int = 1) -> None:
-        self._reader = reader
-        self._window = window
-
-    async def hydrate(self, hit: Hit, strategy: HydrateStrategy) -> list[Chunk]:
-        if strategy is HydrateStrategy.SEARCH_ONLY:
-            return []
-        around = hit.ordinal if strategy is HydrateStrategy.CHUNK_WINDOW else None
-        return await self._reader.section_chunks(
-            hit.release_id, hit.section_revision_id, around=around, radius=self._window
-        )
+        return [_record(link, chunk, document) for link, chunk, document in rows]

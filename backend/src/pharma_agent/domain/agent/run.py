@@ -258,7 +258,14 @@ class AgentRun(BaseModel):
                 "active_evidence": len(active),
                 # What this round leaves for the judge, so an evaluation can measure
                 # how much gold evidence each round finds.
-                "evidence": [[e.hit.section_key, e.hit.ordinal] for e in active],
+                "evidence": [
+                    {
+                        "document": e.hit.document_key,
+                        "ordinal": e.hit.ordinal,
+                        "sections": list(e.hit.section_keys),
+                    }
+                    for e in active
+                ],
                 "rerank_failed": result.rerank_failed,
                 "rerank_scored": result.rerank_scored,
                 "rerank_reused": result.rerank_reused,

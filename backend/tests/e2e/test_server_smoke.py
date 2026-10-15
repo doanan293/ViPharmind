@@ -103,9 +103,8 @@ async def test_register_login_chat_and_open_a_citation(
         assert detail.status_code == 200, detail.text
         citation = detail.json()
         assert citation["index"] == 1 and citation["is_current"] is True
-        assert [chunk["id"] for chunk in citation["chunks"] if chunk["matched"]] == [
-            sources[0]["sourceId"]
-        ]
+        assert citation["text"] and "chunks" not in citation
+        assert citation["document_title"] and sources[0]["sourceId"]
 
         blocked = await stream_turn(
             client, conversation_id, "[e2e:blocked] Paracetamol là gì?"

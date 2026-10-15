@@ -23,7 +23,7 @@ describe("CitationSheet", () => {
     await page.viewport(1280, 800)
   })
 
-  test("shows the source header, strategy and the highlighted matched chunk", async () => {
+  test("shows the source header and the cited passage", async () => {
     await page.viewport(1280, 800)
     worker.use(
       getGetMessageCitationMockHandler(citationDetail(1, { is_current: false }))
@@ -39,17 +39,15 @@ describe("CitationSheet", () => {
     await expect
       .element(page.getByText("Paracetamol › Liều lượng và cách dùng"))
       .toBeVisible()
-    await expect.element(page.getByText("Toàn bộ mục")).toBeVisible()
     await expect.element(page.getByText("Trang 811–812")).toBeVisible()
     await expect
       .element(page.getByText("Nguồn đã có phiên bản mới hơn"))
       .toBeVisible()
     await expect.element(page.getByText("Liều thường dùng")).toBeVisible()
-    const matched = page.getByRole("region", { name: "Đoạn được trích dẫn" })
+    const cited = page.getByRole("region", { name: "Đoạn được trích dẫn" })
     await expect
-      .element(matched)
+      .element(cited)
       .toMatchTextContent("Người lớn và trẻ em trên 12 tuổi")
-    await expect.element(matched).toHaveAttribute("data-matched", "true")
     expect(document.querySelector('[data-slot="sheet-content"]')).not.toBeNull()
   })
 
@@ -82,7 +80,6 @@ describe("CitationSheet", () => {
     worker.use(getGetMessageCitationMockHandler(citationDetail(1)))
     const onClose = vi.fn<() => void>()
     await renderRoutes(sheetPage(onClose), { initialEntry: "/chat/c1" })
-    await expect.element(page.getByText("Toàn bộ mục")).toBeVisible()
     await userEvent.keyboard("{Escape}")
     expect(onClose).toHaveBeenCalledOnce()
   })
@@ -90,16 +87,12 @@ describe("CitationSheet", () => {
   test("uses a drawer on a phone-sized viewport", async () => {
     await page.viewport(375, 800)
     worker.use(
-      getGetMessageCitationMockHandler(
-        citationDetail(1, { strategy: "chunk_window" })
-      )
+      getGetMessageCitationMockHandler(citationDetail(1, { is_current: true }))
     )
     await renderRoutes(sheetPage(vi.fn<() => void>()), {
       initialEntry: "/chat/c1",
     })
-    await expect
-      .element(page.getByText("Đoạn và các đoạn lân cận"))
-      .toBeVisible()
+    await expect.element(page.getByText("Liều thường dùng")).toBeVisible()
     expect(document.querySelector('[data-slot="sheet-content"]')).toBeNull()
   })
 })

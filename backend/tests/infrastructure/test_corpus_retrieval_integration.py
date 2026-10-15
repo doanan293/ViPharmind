@@ -18,13 +18,8 @@ from pharma_agent.domain.corpus.bundle import (
     KnowledgeBundle,
     SectionRecord,
 )
-from pharma_agent.domain.corpus.chunking import chunk_section
-from pharma_agent.domain.retrieval.models import (
-    Hit,
-    HydrateStrategy,
-    Query,
-    QueryOrigin,
-)
+from pharma_agent.domain.corpus.chunking import chunk_document
+from pharma_agent.domain.retrieval.models import Hit, Query, QueryOrigin
 from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.infrastructure.composition import (
     RetrievalStack,
@@ -35,7 +30,6 @@ from pharma_agent.infrastructure.corpus_factory import (
     open_corpus_services,
 )
 from pharma_agent.infrastructure.persistence.postgres.database import Database
-from pharma_agent.infrastructure.retrieval.postgres_corpus import PostgresHydrator
 from pharma_agent.infrastructure.settings import Settings
 from tests.corpus_fixtures import (
     COLLECTION_KEY,
@@ -49,8 +43,8 @@ from tests.fakes import FAKE_EMBEDDING_DIMENSION, FAKE_EMBEDDING_MODEL, FakeEmbe
 pytestmark = pytest.mark.integration
 
 LONG_SECTION_SUFFIX = ":lieu-dung-keo-dai"
-# Seven blocks of about 2,500 characters: one chunk each, and the section is longer than
-# FULL_SECTION_MAX_CHARS, so the hydrate policy picks chunk_window.
+# Seven blocks of about 2,500 characters: the section is longer than MAX_CHUNK_CHARS, so
+# the chunker splits it into several chunks of its own.
 FIRST_MARKERS = [f"kxdoan{i}" for i in range(1, 8)]
 EDITED_MARKERS = ["kxmoi1", *FIRST_MARKERS[1:]]
 
@@ -86,7 +80,6 @@ def settings_for(
 class Platform:
     corpus: CorpusServices
     retrieval: RetrievalStack
-    hydrator: PostgresHydrator
     dsn: str
     qdrant_url: str
 
@@ -106,9 +99,6 @@ async def platform(
             yield Platform(
                 corpus=corpus,
                 retrieval=retrieval,
-                hydrator=PostgresHydrator(
-                    retrieval.reader, window=settings.retrieval.hydrate_window
-                ),
                 dsn=migrated_dsn,
                 qdrant_url=qdrant_url,
             )
@@ -156,7 +146,7 @@ def with_marker(hits: Sequence[Hit], marker: str) -> list[Hit]:
     return [hit for hit in hits if f"Mã đoạn {marker}." in hit.chunk_text]
 
 
-async def test_imported_bundle_is_searchable_and_hydrates_both_strategies(
+async def test_imported_bundle_is_searchable_and_chunks_are_read_as_stored(
     platform: Platform,
 ) -> None:
     retrieval = platform.retrieval
@@ -178,41 +168,39 @@ async def test_imported_bundle_is_searchable_and_hydrates_both_strategies(
 
     [top] = with_marker(await search(retrieval, "kxdoan4"), "kxdoan4")
     assert releases[top.collection_id] == top.release_id
-    assert top.section_key.endswith(LONG_SECTION_SUFFIX)
-    assert top.hydrate_strategy is HydrateStrategy.CHUNK_WINDOW
+    assert [k for k in top.section_keys if k.endswith(LONG_SECTION_SUFFIX)]
 
-    section = next(s for s in bundle.sections if s.key == top.section_key)
-    document = next(d for d in bundle.documents if d.key == section.document_key)
-    drafts = chunk_section(
-        document, section, bundle.glossary, bundle.colloquial_mappings
+    document = next(d for d in bundle.documents if d.key == top.document_key)
+    sections = [s for s in bundle.sections if s.document_key == document.key]
+    drafts = chunk_document(
+        document, sections, bundle.glossary, bundle.colloquial_mappings
     )
     draft = next(d for d in drafts if d.chunk_version_id == top.chunk_version_id)
-    assert (top.context_header, top.embedding_text) == (
+    assert (top.context_header, top.embedding_text, top.chunk_text) == (
         draft.context_header,
         draft.embedding_text,
+        draft.chunk_text,
     )
+    assert top.headings == draft.headings and top.ordinal == draft.ordinal
 
-    full = await platform.hydrator.hydrate(top, HydrateStrategy.FULL_SECTION)
-    assert [c.chunk_version_id for c in full] == [d.chunk_version_id for d in drafts]
-    window = await platform.hydrator.hydrate(top, HydrateStrategy.CHUNK_WINDOW)
-    assert [c.ordinal for c in window] == [
-        d.ordinal for d in drafts if abs(d.ordinal - top.ordinal) <= 1
+    around = await retrieval.reader.document_chunks(
+        top.release_id, top.document_key, [top.ordinal - 1, top.ordinal + 1]
+    )
+    assert [c.ordinal for c in around] == [
+        d.ordinal for d in drafts if abs(d.ordinal - top.ordinal) == 1
     ]
-    assert len(window) == 3
-    assert await platform.hydrator.hydrate(top, HydrateStrategy.SEARCH_ONLY) == []
+    assert all(c.document_key == top.document_key for c in around)
 
     dosage = next(s for s in bundle.sections if s.key == DOSAGE_SECTION)
     dosage_hits = await search(retrieval, dosage.blocks[0].markdown[:200])
-    assert DOSAGE_SECTION in {hit.section_key for hit in dosage_hits}
+    assert DOSAGE_SECTION in {key for hit in dosage_hits for key in hit.section_keys}
 
-    # The composed RetrievalService hydrates through the same PostgresHydrator.
+    # The composed RetrievalService returns the same chunk text, nothing hydrated.
     result = await retrieval.service.search(
         [Query(text="kxdoan4", origin=QueryOrigin.INITIAL)], rerank_query="kxdoan4"
     )
-    item = next(
-        i for i in result.items if i.hit.chunk_version_id == top.chunk_version_id
-    )
-    assert [c.ordinal for c in item.chunks] == [c.ordinal for c in window]
+    item = next(i for i in result.items if i.chunk_version_id == top.chunk_version_id)
+    assert item.chunk_text == top.chunk_text
 
 
 async def test_bm25_mode_searches_the_imported_release_without_embedding(
@@ -299,5 +287,7 @@ async def test_publish_and_rollback_switch_search_results(platform: Platform) ->
     [original] = with_marker(restored, "kxdoan1")
     assert {hit.release_id for hit in restored} == set(first.values())
     assert with_marker(await search(retrieval, "kxmoi1"), "kxmoi1") == []
-    window = await platform.hydrator.hydrate(original, HydrateStrategy.CHUNK_WINDOW)
-    assert window and all("kxmoi1" not in chunk.text for chunk in window)
+    around = await retrieval.reader.document_chunks(
+        original.release_id, original.document_key, [original.ordinal + 1]
+    )
+    assert around and all("kxmoi1" not in chunk.chunk_text for chunk in around)
