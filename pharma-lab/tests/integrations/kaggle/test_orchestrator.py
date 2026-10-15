@@ -167,7 +167,7 @@ def _request(tmp_path, *, candidates: int = 1):
     (tmp_path / "manifest.json").write_text("{}\n", encoding="utf-8")
     return stage_request(
         StageName.RERANK,
-        "qwen3-reranker:0.6b-fp16",
+        "qwen3-reranker:0.6b-q8_0",
         candidates_path,
         output_dir=tmp_path / "remote",
         owner_configuration=owners(),

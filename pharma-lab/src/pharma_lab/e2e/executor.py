@@ -111,6 +111,14 @@ def answer_record(
             for action in entries
             if action.kind is ActionKind.SEARCH
         ],
+        rounds=[
+            [
+                gold_chunk_label(key, ordinal)
+                for key, ordinal in action.payload["evidence"]
+            ]
+            for action in entries
+            if action.kind is ActionKind.SEARCH
+        ],
         judge_outcomes=[
             action.outcome for action in entries if action.kind is ActionKind.JUDGE
         ],
@@ -222,6 +230,7 @@ class ClosedBookExecutor:
             retrieved_chunk_ids=[],
             standalone_query=item.question,
             search_queries=[],
+            rounds=[],
             judge_outcomes=[],
             llm_calls=1,
             usage_by_role=usage,

@@ -66,11 +66,11 @@ def test_cache_lock_serializes_writers(tmp_path):
 
 def test_lock_file_is_named_after_the_target_inside_data(tmp_path: Path) -> None:
     data = tmp_path / "data"
-    target = data / "cache" / "text_embeddings" / "qwen3_embedding_4b_fp16.jsonl"
+    target = data / "cache" / "text_embeddings" / "qwen3_embedding_4b_q8_0.jsonl"
 
     assert (
         lock_file_name(target, "job", data_dir=data)
-        == "cache__text_embeddings__qwen3_embedding_4b_fp16.jsonl.job.lock"
+        == "cache__text_embeddings__qwen3_embedding_4b_q8_0.jsonl.job.lock"
     )
 
 

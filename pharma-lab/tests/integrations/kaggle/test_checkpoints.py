@@ -22,7 +22,7 @@ def _identity() -> JobIdentity:
     return JobIdentity.create(
         stage=StageName.RERANK,
         contract_version=3,
-        model="qwen3-reranker:0.6b-fp16",
+        model="qwen3-reranker:0.6b-q8_0",
         model_sha256="a" * 64,
         input_sha256="b" * 64,
         runtime_parameters={"request_contract_sha256": "c" * 64},
@@ -134,7 +134,7 @@ def test_checkpoint_inspect_rejects_wrong_artifact_type(tmp_path):
 
 def test_rerank_checkpoint_reference_respects_kaggle_slug_limit(tmp_path):
     service = CheckpointService(UnusedDatasets(), "owner")
-    job = stage_job(tmp_path, stage=StageName.RERANK, model="qwen3-reranker:0.6b-fp16")
+    job = stage_job(tmp_path, stage=StageName.RERANK, model="qwen3-reranker:0.6b-q8_0")
     reuse_prefix = job.identity.reuse_sha256[:8]
 
     reference = service.reference(job)

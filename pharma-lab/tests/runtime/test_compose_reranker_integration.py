@@ -16,7 +16,7 @@ from pharma_lab.runtime.runtime_profiles import reranker_candidate
 
 pytestmark = pytest.mark.integration
 
-MODEL = "qwen3-reranker:0.6b-fp16"
+MODEL = "qwen3-reranker:0.6b-q8_0"
 PROJECT = "seed-rerank-integration"
 PORT = "18435"
 # The smallest ubatch the catalog allows: the longest prompt of the corpus is 2,074

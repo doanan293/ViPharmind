@@ -4,7 +4,6 @@ from pharma_lab.runtime.catalog import (
     RERANKER_MODELS,
     ModelKind,
     ModelSpec,
-    ModelTopology,
     require_model,
 )
 
@@ -14,6 +13,5 @@ __all__ = [
     "RERANKER_MODELS",
     "ModelKind",
     "ModelSpec",
-    "ModelTopology",
     "require_model",
 ]

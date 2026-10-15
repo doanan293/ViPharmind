@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
 from typing import Annotated
 
@@ -20,6 +21,7 @@ from pharma_lab.config.paths import (
     GOLD_DIR,
     GOLDEN_E2E_PATH,
     e2e_run_dir,
+    run_dir,
 )
 from pharma_lab.e2e.calibration import CONFIGS as CALIBRATION_CONFIGS
 from pharma_lab.e2e.calibration import (
@@ -39,11 +41,11 @@ from pharma_lab.e2e.golden import (
     read_items,
     validate_items,
 )
-from pharma_lab.e2e.golden_remap import remap_files
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
 from pharma_lab.e2e.judging.service import JudgeRequest, run_judge
 from pharma_lab.e2e.judging.structured import JUDGE_MODEL
 from pharma_lab.e2e.model_server import attach_model, env_path, serve_model
+from pharma_lab.e2e.one_round import load_one_round, trim_covered
 from pharma_lab.e2e.report import write_report
 from pharma_lab.e2e.sampling import (
     replacement_candidates,
@@ -219,31 +221,67 @@ def golden_check(
     run_handler(state_from_context(ctx), handler)
 
 
-@golden_app.command("remap")
-def golden_remap(
+@golden_app.command("hard-candidates")
+def golden_hard_candidates(
     ctx: typer.Context,
+    run_name: Annotated[str, typer.Option("--run")],
+    model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
+    top_k: Annotated[int, typer.Option("--top-k", min=1)] = 8,
     authoring_dir: Annotated[
         Path, typer.Option("--authoring-dir", file_okay=False)
     ] = E2E_AUTHORING_DIR,
-    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
 ) -> None:
-    """Move authored items onto the bundle's leaflet subsections; notes go to remap.todo.md."""
+    """List benchmark questions one retrieval round misses, by multi-hop kind."""
 
     def handler() -> CommandResult:
-        knowledge = read_bundle(bundle)
-        paths = sorted(authoring_dir.glob("*.authored.jsonl"))
-        todo = authoring_dir / "remap.todo.md"
-        changed = remap_files(
-            paths,
-            corpus_text(knowledge),
-            lambda section_ids: chunk_texts(knowledge, section_ids),
-            todo,
+        candidates = load_one_round(
+            run_dir(run_name), model=model, top_k=top_k
+        ).hard_candidates()
+        output = authoring_dir / "multi-hop.todo.jsonl"
+        output.write_text(
+            "".join(json.dumps(c, ensure_ascii=False) + "\n" for c in candidates),
+            encoding="utf-8",
         )
+        kinds = Counter(str(c["kind"]) for c in candidates)
         return CommandResult(
-            "e2e golden remap",
+            "e2e golden hard-candidates", CommandStatus.COMPLETE, output, dict(kinds)
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@golden_app.command("trim")
+def golden_trim(
+    ctx: typer.Context,
+    run_name: Annotated[str, typer.Option("--run")],
+    model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
+    top_k: Annotated[int, typer.Option("--top-k", min=1)] = 8,
+    per_group: Annotated[
+        int, typer.Option("--per-group", min=1)
+    ] = ANSWERABLE_PER_GROUP,
+    authoring_dir: Annotated[
+        Path, typer.Option("--authoring-dir", file_okay=False)
+    ] = E2E_AUTHORING_DIR,
+) -> None:
+    """Drop answerable items one retrieval round covers, evenly per group."""
+
+    def handler() -> CommandResult:
+        paths = sorted(authoring_dir.glob("answerable-*.authored.jsonl"))
+        items = [item for path in paths for item in read_items(path)[0]]
+        found = load_one_round(run_dir(run_name), model=model, top_k=top_k).coverage
+        dropped = set(trim_covered(items, found, keep_per_group=per_group))
+        for path in paths:
+            kept = [
+                line
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if line.strip() and json.loads(line)["item_id"] not in dropped
+            ]
+            path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+        return CommandResult(
+            "e2e golden trim",
             CommandStatus.COMPLETE,
-            todo,
-            {"files": len(paths), "changed": changed},
+            authoring_dir,
+            {"dropped": len(dropped), "kept": len(items) - len(dropped)},
         )
 
     run_handler(state_from_context(ctx), handler)
@@ -291,7 +329,7 @@ def run(
         int | None,
         typer.Option("--limit", min=1, help="Only N items spread across the set"),
     ] = None,
-    concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 4,
+    concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 8,
     retry_errors: Annotated[bool, typer.Option("--retry-errors")] = False,
     deadline_seconds: Annotated[
         float | None,
@@ -334,7 +372,7 @@ def judge(
     run_name: Annotated[str, typer.Option("--run")],
     config: Annotated[E2EConfig, typer.Option("--config")],
     golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
-    concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 4,
+    concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 8,
     force: Annotated[
         bool, typer.Option("--force", help="Judge every answer again")
     ] = False,
@@ -528,7 +566,7 @@ def _attach_option(stage: str) -> object:
 @e2e_app.command("rerank-server")
 def rerank_server(
     ctx: typer.Context,
-    model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-fp16",
+    model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
     hours: HoursOption = 8.0,
     kaggle_account: AccountOption = "auto",
     attach: Annotated[str | None, _attach_option("rerank-serve")] = None,
@@ -547,7 +585,7 @@ def rerank_server(
 @e2e_app.command("llm-server")
 def llm_server(
     ctx: typer.Context,
-    model: Annotated[str, typer.Option("--model")] = "qwen3.5:9b-f16",
+    model: Annotated[str, typer.Option("--model")] = "qwen3.5:9b-q8_0",
     hours: HoursOption = 8.0,
     kaggle_account: AccountOption = "auto",
     attach: Annotated[str | None, _attach_option("llm-serve")] = None,

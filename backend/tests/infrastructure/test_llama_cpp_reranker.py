@@ -32,7 +32,7 @@ async def test_native_reranker_scores_every_candidate_in_one_request(
         )
     )
     async with httpx.AsyncClient(base_url=BASE) as http:
-        hits = await NativeReranker(http, model="qwen3-reranker:4b-fp16").rerank(
+        hits = await NativeReranker(http, model="qwen3-reranker:4b-q8_0").rerank(
             "Q", [make_hit("a"), make_hit("b")], top_n=1
         )
 
@@ -41,7 +41,7 @@ async def test_native_reranker_scores_every_candidate_in_one_request(
     assert len(route.calls) == 1
     body = json.loads(route.calls[0].request.content)
     assert (body["model"], body["query"], body["top_n"]) == (
-        "qwen3-reranker:4b-fp16",
+        "qwen3-reranker:4b-q8_0",
         "Q",
         2,
     )

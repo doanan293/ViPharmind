@@ -20,7 +20,7 @@ from pharma_lab.integrations.kaggle.models import (
 from pharma_lab.runtime.catalog import require_model
 from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
 
-RERANK_MODEL = "qwen3-reranker:0.6b-fp16"
+RERANK_MODEL = "qwen3-reranker:0.6b-q8_0"
 
 
 def owners(

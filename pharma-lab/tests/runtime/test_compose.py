@@ -60,7 +60,7 @@ def test_reranker_without_runtime_keeps_the_compose_defaults(tmp_path: Path) -> 
     runner = RecordingRunner()
 
     endpoint = _manager(tmp_path, runner).ensure(
-        "reranker", _spec(tmp_path, "qwen3-reranker:4b-fp16"), tmp_path
+        "reranker", _spec(tmp_path, "qwen3-reranker:4b-q8_0"), tmp_path
     )
 
     command, environment = runner.calls[0]
@@ -83,7 +83,7 @@ def test_reranker_runtime_recreates_the_service_with_its_level(tmp_path: Path) -
     level = LOCAL_RERANK_SEARCH_SPACE.candidates[1]
 
     _manager(tmp_path, runner).ensure(
-        "reranker", _spec(tmp_path, "qwen3-reranker:4b-fp16"), tmp_path, runtime=level
+        "reranker", _spec(tmp_path, "qwen3-reranker:4b-q8_0"), tmp_path, runtime=level
     )
 
     _command, environment = runner.calls[0]
@@ -100,7 +100,7 @@ def test_runtime_is_rejected_for_the_embedding_service(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="llama-reranker"):
         _manager(tmp_path, RecordingRunner()).ensure(
             "embedding",
-            _spec(tmp_path, "qwen3-embedding:4b-fp16"),
+            _spec(tmp_path, "qwen3-embedding:4b-q8_0"),
             tmp_path,
             runtime=LOCAL_RERANK_SEARCH_SPACE.candidates[0],
         )
@@ -124,7 +124,7 @@ def test_the_manager_layers_the_local_models_file_over_the_base(
 ) -> None:
     runner = RecordingRunner()
     _manager(tmp_path, runner).ensure(
-        "reranker", _spec(tmp_path, "qwen3-reranker:4b-fp16"), tmp_path
+        "reranker", _spec(tmp_path, "qwen3-reranker:4b-q8_0"), tmp_path
     )
     command, _environment = runner.calls[0]
     assert command[:6] == [

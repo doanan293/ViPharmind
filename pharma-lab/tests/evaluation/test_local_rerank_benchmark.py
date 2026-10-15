@@ -20,7 +20,7 @@ from pharma_lab.runtime.catalog import (
 from pharma_lab.runtime.compose import LlamaCppComposeManager, file_sha256
 
 CPU = "13th Gen Intel(R) Core(TM) i5-13420H"
-MODEL = "qwen3-reranker:4b-fp16"
+MODEL = "qwen3-reranker:4b-q8_0"
 
 
 class FakeClock:
@@ -192,7 +192,7 @@ def test_lowest_p95_level_becomes_the_local_profile(bench: Bench):
     assert result.profile.selected == LOCAL_RERANK_SEARCH_SPACE.candidates[1]
     assert (
         result.path
-        == bench.root / "profiles" / "rerank" / "qwen3_reranker_4b_fp16.json"
+        == bench.root / "profiles" / "rerank" / "qwen3_reranker_4b_q8_0.json"
     )
     assert result.profile.identity.payload["machine_shape"] == CPU
     assert result.profile.sample_count == 90

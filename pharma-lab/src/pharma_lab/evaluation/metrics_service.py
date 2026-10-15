@@ -242,6 +242,34 @@ def load_and_validate_metric_inputs(request: MetricsRequest) -> MetricInputs:
     )
 
 
+def ranked_payloads(
+    record: dict, row: dict, rerank_input: RerankMetricInput | None = None
+) -> list[dict]:
+    """Payloads of one query's candidates in retrieval order, or reranked."""
+    candidates = [
+        RetrievalCandidate(
+            chunk_id=item["chunk_id"],
+            score=float(item["retrieval_score"]),
+            rank=int(item["retrieval_rank"]),
+            source=str(item["source"]),
+            payload=dict(item.get("payload") or {}),
+            document_text=str(item["document_text"]),
+            document_hash=str(item["document_hash"]),
+        )
+        for item in record["candidates"]
+    ]
+    if rerank_input is not None:
+        scored = [
+            (rerank_input.cache.require_score(rerank_input.model, row, c), c)
+            for c in candidates
+        ]
+        candidates = [
+            c.with_rerank_score(score, rank)
+            for rank, (score, c) in enumerate(sorted(scored, key=lambda x: -x[0]), 1)
+        ]
+    return [c.payload for c in candidates]
+
+
 def _records(
     inputs: MetricInputs,
     top_k: int,
@@ -255,30 +283,7 @@ def _records(
     output = []
     for record in inputs.candidates:
         row = inputs.evaluation_rows[record["query_id"]]
-        candidates = [
-            RetrievalCandidate(
-                chunk_id=item["chunk_id"],
-                score=float(item["retrieval_score"]),
-                rank=int(item["retrieval_rank"]),
-                source=str(item["source"]),
-                payload=dict(item.get("payload") or {}),
-                document_text=str(item["document_text"]),
-                document_hash=str(item["document_hash"]),
-            )
-            for item in record["candidates"]
-        ]
-        if rerank_input is not None:
-            scored = [
-                (rerank_input.cache.require_score(rerank_input.model, row, c), c)
-                for c in candidates
-            ]
-            candidates = [
-                c.with_rerank_score(score, rank)
-                for rank, (score, c) in enumerate(
-                    sorted(scored, key=lambda x: -x[0]), 1
-                )
-            ]
-        payloads = [c.payload for c in candidates]
+        payloads = ranked_payloads(record, row, rerank_input)
         hits = score_ranked_payloads(
             payloads,
             row,

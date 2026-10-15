@@ -73,7 +73,7 @@ def _config(
     _write_candidates(candidates, query_count, candidates_per_query, candidate_counts)
     manifest.write_text("{}\n", encoding="utf-8")
     return {
-        "model": "qwen3-reranker:0.6b-fp16",
+        "model": "qwen3-reranker:0.6b-q8_0",
         "protocol": "native_rerank",
         "output_dir": str(tmp_path / "output"),
         "batch_size": 32,
@@ -210,7 +210,7 @@ class _SucceedOnceThenDisconnect:
 
 def test_rerank_worker_seals_partial_artifact_after_server_failure(tmp_path):
     config = _config(tmp_path, query_count=2, candidates_per_query=1)
-    config["model"] = "bge-reranker-v2-m3:f16"
+    config["model"] = "bge-reranker-v2-m3:q8_0"
     config["protocol"] = "native_rerank"
     config["runtime_overrides"] = {
         "server_slots": 1,
@@ -247,7 +247,7 @@ class _AlwaysInvalidClient:
 
 def test_rerank_worker_keeps_response_errors_fatal(tmp_path):
     config = _config(tmp_path, query_count=1, candidates_per_query=1)
-    config["model"] = "bge-reranker-v2-m3:f16"
+    config["model"] = "bge-reranker-v2-m3:q8_0"
     config["protocol"] = "native_rerank"
     config["runtime_overrides"] = {
         "server_slots": 1,
@@ -298,7 +298,7 @@ def test_rerank_worker_sends_one_request_per_query_with_derived_concurrency(
 ):
     config = _config(tmp_path, query_count=3, candidates_per_query=30)
     config["runtime_overrides"] = rerank_runtime_profile(
-        "qwen3-reranker:0.6b-fp16"
+        "qwen3-reranker:0.6b-q8_0"
     ).to_dict()
     client = _RecordingClient()
     captured = {}
@@ -326,14 +326,17 @@ def test_rerank_worker_sends_one_request_per_query_with_derived_concurrency(
         "query 2",
     ]
     assert all(len(documents) == 30 for _query, documents in client.calls)
-    # ceil(4 slots / 30 documents) + 1 requests per server keep every slot busy.
-    assert captured == {"concurrency": 2, "servers": 2}
+    # The profile's requests in flight are spread over the two replicas.
+    assert captured == {
+        "concurrency": config["runtime_overrides"]["concurrency"],
+        "servers": 2,
+    }
 
 
 def test_rerank_worker_splits_a_query_larger_than_the_request_batch(tmp_path):
     config = _config(tmp_path, query_count=1, candidates_per_query=5)
     config["runtime_overrides"] = {
-        **rerank_runtime_profile("qwen3-reranker:0.6b-fp16").to_dict(),
+        **rerank_runtime_profile("qwen3-reranker:0.6b-q8_0").to_dict(),
         "request_batch_size": 2,
     }
     client = _RecordingClient()

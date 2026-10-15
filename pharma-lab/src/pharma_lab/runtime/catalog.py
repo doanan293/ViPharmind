@@ -24,30 +24,33 @@ class ModelKind(StrEnum):
     CHAT = "chat"
 
 
-class ModelTopology(StrEnum):
-    REPLICATED_2X1 = "replicated_2x1"
-    SHARDED_1X2 = "sharded_1x2"
+# Every model fits one T4 at Q8_0, so a Kaggle kernel runs one replica per GPU.
+KAGGLE_TOPOLOGY = "replicated_2x1"
 
 
 KAGGLE_RERANK_REQUEST_BATCH_SIZE = 30
 LOCAL_RERANK_REQUEST_BATCH_SIZE = 15
-# Reranker levels as (-np, -ub). Every slot may hold a whole ubatch, so -c is
-# -ub x (slots + 1) and -ub alone bounds the longest prompt the server accepts.
-# On a T4 (14,806 MiB free) compute takes about 0.6 MiB per ubatch token and KV
-# 0.11 MiB (0.6b) or 0.14 MiB (4b, 8b) per -c token, so the larger models take fewer
-# slots.
+# Reranker levels as (-np, -ub, requests in flight). Every slot may hold a whole ubatch,
+# so -c is -ub x (slots + 1) and -ub alone bounds the longest prompt the server accepts.
+# On a T4 (14,806 MiB free) compute takes about 0.6 MiB per ubatch token (2,458 MiB at
+# -ub 4096) and KV 0.11 MiB (0.6b) or 0.14 MiB (4b, 8b) per -c token. Q8_0 weights take
+# about 0.6 GiB (0.6b), 4.0 GiB (4b) and 7.5 GiB (8b), which leaves room for up to 12
+# slots on the 4b and 6 on the 8b.
 # A batch carries at most -np whole documents, so a level with too few slots leaves the
-# ubatch (and the GPU) half empty; the levels below sweep slots and requests in flight so
-# the benchmark can measure which one actually wins.
-SMALL_RERANK_LEVELS = ((2, 4096, 2), (4, 4096, 2), (4, 4096, 4))
+# ubatch (and the GPU) half empty; the levels below sweep slots and requests in flight
+# over both replicas so the benchmark can measure which one actually wins.
 SMALL_MODEL_KAGGLE_RERANK_LEVELS = (
-    (4, 4096, 2),
-    (8, 4096, 2),
     (8, 4096, 4),
     (16, 4096, 4),
+    (16, 4096, 8),
 )
-# The 8b model is sharded over both T4s, so its KV costs half as much per GPU.
-SHARDED_RERANK_LEVELS = ((2, 4096, 2), (4, 4096, 4), (8, 4096, 4))
+MEDIUM_MODEL_KAGGLE_RERANK_LEVELS = (
+    (4, 4096, 4),
+    (8, 4096, 4),
+    (8, 4096, 8),
+    (12, 4096, 8),
+)
+LARGE_MODEL_KAGGLE_RERANK_LEVELS = ((2, 4096, 2), (4, 4096, 4), (6, 4096, 4))
 # The local CPU machine serves one request of at most 15 candidates at a time.
 LOCAL_RERANK_LEVELS = ((4, 4096, 1),)
 # Local CPU llama-reranker levels. The backend sends one request with at most 15
@@ -74,7 +77,6 @@ class ModelSpec:
     canonical_filename: str
     byte_size: int
     sha256: str
-    topology: ModelTopology
     kaggle_parallel: int
     kaggle_request_batch_size: int
     local_request_batch_size: int = 1
@@ -113,13 +115,12 @@ def _embedding(
     size: int,
     sha256: str,
     dimension: int,
-    topology: ModelTopology,
+    *,
     parallel: int,
     batch: int,
 ) -> ModelSpec:
-    benchmark_concurrency = (
-        (1, 2) if topology is ModelTopology.SHARDED_1X2 else (1, 2, 4)
-    )
+    # Two replicas, each with `parallel` slots: sweep requests in flight up to every slot.
+    benchmark_concurrency = tuple(sorted({2, parallel, 2 * parallel}))
     embedding_profile = EmbeddingRuntimeProfile(
         query=EmbeddingWorkloadProfile(
             production_batch_size=batch,
@@ -160,7 +161,6 @@ def _embedding(
         canonical_filename=filename,
         byte_size=size,
         sha256=sha256,
-        topology=topology,
         kaggle_parallel=parallel,
         kaggle_request_batch_size=batch,
         vector_dimension=dimension,
@@ -177,7 +177,6 @@ def _reranker(
     filename: str,
     size: int,
     sha256: str,
-    topology: ModelTopology,
     *,
     levels: tuple[tuple[int, int, int], ...],
 ) -> ModelSpec:
@@ -199,7 +198,6 @@ def _reranker(
         canonical_filename=filename,
         byte_size=size,
         sha256=sha256,
-        topology=topology,
         kaggle_parallel=smallest.server_slots,
         kaggle_request_batch_size=KAGGLE_RERANK_REQUEST_BATCH_SIZE,
         kaggle_context_per_slot=smallest.context_per_slot,
@@ -212,56 +210,54 @@ def _reranker(
     )
 
 
+# Published Q8_0 GGUFs, pinned by Hugging Face commit and sha256 (docs/guides/evaluation.md).
+# Q8_0 halves the weights of F16 at near-identical quality, and decoding on a T4 is bound by
+# memory bandwidth, so every model fits one T4 and runs as one replica per GPU.
 EMBEDDING_MODELS = {
-    "embeddinggemma:300m": _embedding(
-        "embeddinggemma:300m",
-        "embeddinggemma-300m-bf16.gguf",
-        612_429_792,
-        "95a1f284251f78a1409a9c9e52dd4026c2180b13a90a5ede2a878bb8141fba08",
+    "embeddinggemma:300m-q8_0": _embedding(
+        "embeddinggemma:300m-q8_0",
+        "embeddinggemma-300m-q8_0.gguf",
+        333_590_944,
+        "b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63",
         768,
-        ModelTopology.REPLICATED_2X1,
-        4,
-        32,
+        parallel=8,
+        batch=32,
     ),
-    "bge-m3:567m-fp16": _embedding(
-        "bge-m3:567m-fp16",
-        "bge-m3-567m-fp16.gguf",
-        1_157_671_200,
-        "daec91ffb5dd0c27411bd71f29932917c49cf529a641d0168496c3a501e3062c",
+    "bge-m3:567m-q8_0": _embedding(
+        "bge-m3:567m-q8_0",
+        "bge-m3-567m-q8_0.gguf",
+        634_553_760,
+        "950f4a8e5e19477a6d3c26d2f162233c20002c601f75e4b002e3239997821167",
         1024,
-        ModelTopology.REPLICATED_2X1,
-        2,
-        16,
+        parallel=8,
+        batch=32,
     ),
-    "qwen3-embedding:0.6b-fp16": _embedding(
-        "qwen3-embedding:0.6b-fp16",
-        "qwen3-embedding-0.6b-fp16.gguf",
-        1_197_629_632,
-        "421a27e58d165478cc7acb984a688c2aa41404968b0203e7cd743ece44c54340",
+    "qwen3-embedding:0.6b-q8_0": _embedding(
+        "qwen3-embedding:0.6b-q8_0",
+        "qwen3-embedding-0.6b-q8_0.gguf",
+        639_150_592,
+        "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439",
         1024,
-        ModelTopology.REPLICATED_2X1,
-        1,
-        8,
+        parallel=8,
+        batch=32,
     ),
-    "qwen3-embedding:4b-fp16": _embedding(
-        "qwen3-embedding:4b-fp16",
-        "qwen3-embedding-4b-fp16.gguf",
-        8_049_889_824,
-        "e8b4e85c8fcc26079d27418cf8d6a16df1a09890cba0966324a97280f91e782c",
+    "qwen3-embedding:4b-q8_0": _embedding(
+        "qwen3-embedding:4b-q8_0",
+        "qwen3-embedding-4b-q8_0.gguf",
+        4_279_660_224,
+        "b60ae5ce2dd6a0b77f82cadf21def1f310a3e10cde380ad0081b07a9d416949d",
         2560,
-        ModelTopology.REPLICATED_2X1,
-        1,
-        8,
+        parallel=4,
+        batch=16,
     ),
-    "qwen3-embedding:8b-fp16": _embedding(
-        "qwen3-embedding:8b-fp16",
-        "qwen3-embedding-8b-fp16.gguf",
-        15_141_156_384,
-        "9a2dfcc2e867828909456dd52a69e3775b677bdce1816f7cc55f3657393e7e53",
+    "qwen3-embedding:8b-q8_0": _embedding(
+        "qwen3-embedding:8b-q8_0",
+        "qwen3-embedding-8b-q8_0.gguf",
+        8_047_105_824,
+        "d20ddc71e8a5c4344f2343481e242233a997dc5eaff442427a945836c97b4deb",
         4096,
-        ModelTopology.SHARDED_1X2,
-        1,
-        4,
+        parallel=2,
+        batch=8,
     ),
 }
 
@@ -269,61 +265,55 @@ EMBEDDING_MODELS = {
 RERANKER_MODELS = {
     # The Qwen3 files carry the Vietnamese medical rerank instruction; the instruction
     # decision and the derivation are in docs/guides/evaluation.md.
-    "qwen3-reranker:0.6b-fp16": _reranker(
-        "qwen3-reranker:0.6b-fp16",
-        "qwen3-reranker-0.6b-f16-vimed.gguf",
-        1_197_634_336,
-        "fa17b7c742ffeeb6f80529e50c9c35a8179c4369baa4a039ef94381c0665f851",
-        ModelTopology.REPLICATED_2X1,
+    "qwen3-reranker:0.6b-q8_0": _reranker(
+        "qwen3-reranker:0.6b-q8_0",
+        "qwen3-reranker-0.6b-q8_0-vimed.gguf",
+        639_153_216,
+        "ec7dc43df4b778258631125d3366d1b4bc8543d9594fbd02650a0332db95180e",
         levels=SMALL_MODEL_KAGGLE_RERANK_LEVELS,
     ),
-    "qwen3-reranker:4b-fp16": _reranker(
-        "qwen3-reranker:4b-fp16",
-        "qwen3-reranker-4b-f16-vimed.gguf",
-        8_049_922_912,
-        "4b428e981efc9a209c674a0af9f1ec527b5570896e0bcc431382c16f1e839c7a",
-        ModelTopology.REPLICATED_2X1,
-        levels=SMALL_RERANK_LEVELS,
+    "qwen3-reranker:4b-q8_0": _reranker(
+        "qwen3-reranker:4b-q8_0",
+        "qwen3-reranker-4b-q8_0-vimed.gguf",
+        4_279_678_912,
+        "424c3a97b813b53760ffce9fe266fc85cc092c215a5adfef543200f7bde5e526",
+        levels=MEDIUM_MODEL_KAGGLE_RERANK_LEVELS,
     ),
-    "qwen3-reranker:8b-fp16": _reranker(
-        "qwen3-reranker:8b-fp16",
-        "qwen3-reranker-8b-f16-vimed.gguf",
-        15_141_207_776,
-        "c6516333e32d4f1d8aad8325d5d5bdb8165f9778e892eed4ca8b0eaf3339a810",
-        ModelTopology.SHARDED_1X2,
-        levels=SHARDED_RERANK_LEVELS,
+    "qwen3-reranker:8b-q8_0": _reranker(
+        "qwen3-reranker:8b-q8_0",
+        "qwen3-reranker-8b-q8_0-vimed.gguf",
+        8_047_134_176,
+        "79011330370fdf760fd2d0bd87688826396e06843e682f58f51f60fc43969aef",
+        levels=LARGE_MODEL_KAGGLE_RERANK_LEVELS,
     ),
     # XLM-R cross-encoder (568M, 8,192 positions) in the 0.6b size class; its inputs carry
     # no chat template, so it takes the 0.6b levels.
-    "bge-reranker-v2-m3:f16": _reranker(
-        "bge-reranker-v2-m3:f16",
-        "bge-reranker-v2-m3-f16.gguf",
-        1_159_774_912,
-        "3c2de408d2c0a85a9472dc09f9d5a22c9b73743c6343952c15053299c777c298",
-        ModelTopology.REPLICATED_2X1,
+    "bge-reranker-v2-m3:q8_0": _reranker(
+        "bge-reranker-v2-m3:q8_0",
+        "bge-reranker-v2-m3-q8_0.gguf",
+        635_676_416,
+        "a43c7c9b11a4c1517e5bf95151960e1621d1b72f7a493364b01e386cf1aaa1d3",
         levels=SMALL_MODEL_KAGGLE_RERANK_LEVELS,
     ),
 }
 
 CHAT_MODELS = {
-    # Qwen3.5-9B (Apache 2.0) converted from the BF16 GGUF to F16, because T4 GPUs have
-    # no bfloat16 kernels; the derivation is in docs/guides/e2e-evaluation.md. At 17.9 GB
-    # it is split over both T4s. Only 8 of its 32 layers keep a KV cache (32 KiB per
-    # token), so four 32k-token slots take 4 GiB of KV cache in total, 2 GiB per GPU
-    # next to about 9 GB of weights. 32k leaves room for a ReAct conversation, whose
-    # tool results accumulate in one request.
-    "qwen3.5:9b-f16": ModelSpec(
-        name="qwen3.5:9b-f16",
+    # Qwen3.5-9B (Apache 2.0), the Q8_0 GGUF published by Unsloth. At 9.5 GB it fits one T4,
+    # so each GPU serves its own replica. Only 8 of its 32 layers keep a KV cache (32 KiB per
+    # token), so four 32k-token slots take 4 GiB per GPU next to the weights. 32k leaves
+    # room for a ReAct conversation, whose tool results accumulate in one request; the two
+    # replicas take eight requests at once.
+    "qwen3.5:9b-q8_0": ModelSpec(
+        name="qwen3.5:9b-q8_0",
         kind=ModelKind.CHAT,
-        canonical_filename="qwen3.5-9b-f16.gguf",
-        byte_size=17_920_697_312,
-        sha256="863a67e28486f4c3ad7a30c49614a398d5a07caf8d0067a018d0e5f0abf79f2d",
-        topology=ModelTopology.SHARDED_1X2,
-        kaggle_parallel=1,
+        canonical_filename="qwen3.5-9b-q8_0.gguf",
+        byte_size=9_527_502_048,
+        sha256="809626574d0cb43d4becfa56169980da2bb448f2299270f7be443cb89d0a6ae4",
+        kaggle_parallel=4,
         kaggle_request_batch_size=1,
         serve_runtime=RuntimeCandidate(
             server_slots=4,
-            concurrency=4,
+            concurrency=8,
             request_batch_size=1,
             context_per_slot=32768,
             logical_batch_size=2048,

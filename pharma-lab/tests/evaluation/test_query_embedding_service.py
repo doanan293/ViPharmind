@@ -9,7 +9,7 @@ from pharma_lab.integrations.kaggle import auto_profile
 from pharma_lab.integrations.kaggle import service as kaggle_service
 from pharma_lab.runtime.catalog import require_model
 
-MODEL = "qwen3-embedding:4b-fp16"
+MODEL = "qwen3-embedding:4b-q8_0"
 
 
 def test_kaggle_query_embedding_propagates_selected_account(tmp_path, monkeypatch):

@@ -49,6 +49,8 @@ class AnswerRecord(ItemRecord):
     retrieved_chunk_ids: list[str] = Field(default_factory=list)
     standalone_query: str = ""
     search_queries: list[list[str]] = Field(default_factory=list)
+    # Gold labels of the evidence each search round left active, one list per round.
+    rounds: list[list[str]] = Field(default_factory=list)
     judge_outcomes: list[str] = Field(default_factory=list)
     llm_calls: int = 0
     usage_by_role: dict[str, TokenUsage] = Field(default_factory=dict)

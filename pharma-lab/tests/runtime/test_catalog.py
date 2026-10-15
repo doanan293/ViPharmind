@@ -3,27 +3,26 @@ import pytest
 from pharma_lab.runtime.catalog import (
     MODEL_CATALOG,
     ModelKind,
-    ModelTopology,
     require_model,
 )
 
-CHAT_MODEL = "qwen3.5:9b-f16"
+CHAT_MODEL = "qwen3.5:9b-q8_0"
 
 VIMED_FILES = {
-    "qwen3-reranker:0.6b-fp16": (
-        "qwen3-reranker-0.6b-f16-vimed.gguf",
-        1_197_634_336,
-        "fa17b7c742ffeeb6f80529e50c9c35a8179c4369baa4a039ef94381c0665f851",
+    "qwen3-reranker:0.6b-q8_0": (
+        "qwen3-reranker-0.6b-q8_0-vimed.gguf",
+        639_153_216,
+        "ec7dc43df4b778258631125d3366d1b4bc8543d9594fbd02650a0332db95180e",
     ),
-    "qwen3-reranker:4b-fp16": (
-        "qwen3-reranker-4b-f16-vimed.gguf",
-        8_049_922_912,
-        "4b428e981efc9a209c674a0af9f1ec527b5570896e0bcc431382c16f1e839c7a",
+    "qwen3-reranker:4b-q8_0": (
+        "qwen3-reranker-4b-q8_0-vimed.gguf",
+        4_279_678_912,
+        "424c3a97b813b53760ffce9fe266fc85cc092c215a5adfef543200f7bde5e526",
     ),
-    "qwen3-reranker:8b-fp16": (
-        "qwen3-reranker-8b-f16-vimed.gguf",
-        15_141_207_776,
-        "c6516333e32d4f1d8aad8325d5d5bdb8165f9778e892eed4ca8b0eaf3339a810",
+    "qwen3-reranker:8b-q8_0": (
+        "qwen3-reranker-8b-q8_0-vimed.gguf",
+        8_047_134_176,
+        "79011330370fdf760fd2d0bd87688826396e06843e682f58f51f60fc43969aef",
     ),
 }
 
@@ -47,17 +46,23 @@ def test_every_gguf_dataset_slug_fits_the_kaggle_limit() -> None:
     assert too_long == {}
 
 
-def test_the_open_weight_chat_model_is_served_sharded_with_a_fixed_runtime() -> None:
+def test_the_open_weight_chat_model_is_the_published_q8_0_with_a_fixed_runtime() -> (
+    None
+):
     spec = require_model(CHAT_MODEL)
 
     assert spec.kind is ModelKind.CHAT
-    assert spec.topology is ModelTopology.SHARDED_1X2
     assert (spec.canonical_filename, spec.byte_size, spec.sha256) == (
-        "qwen3.5-9b-f16.gguf",
-        17_920_697_312,
-        "863a67e28486f4c3ad7a30c49614a398d5a07caf8d0067a018d0e5f0abf79f2d",
+        "qwen3.5-9b-q8_0.gguf",
+        9_527_502_048,
+        "809626574d0cb43d4becfa56169980da2bb448f2299270f7be443cb89d0a6ae4",
     )
-    assert spec.gguf_dataset_slug == "vector-cache-gguf-qwen3-5-9b-f16"
+    assert spec.gguf_dataset_slug == "vector-cache-gguf-qwen3-5-9b-q8_0"
     assert spec.serve_runtime is not None
-    assert spec.serve_runtime.context_per_slot >= 16384
+    assert spec.serve_runtime.context_per_slot == 32768
+    assert spec.serve_runtime.concurrency == 2 * spec.serve_runtime.server_slots
     assert spec.rerank_search_space is None and spec.vector_dimension is None
+
+
+def test_every_model_is_a_q8_0_file() -> None:
+    assert all("q8_0" in spec.canonical_filename for spec in MODEL_CATALOG.values())

@@ -20,11 +20,10 @@ from pharma_lab.integrations.kaggle.models import (
     Completion,
     JobIdentity,
 )
-from pharma_lab.integrations.kaggle.workers.topology import server_layout
+from pharma_lab.integrations.kaggle.workers.topology import SERVER_LAYOUTS
 from pharma_lab.runtime.catalog import (
     ModelKind,
     ModelSpec,
-    ModelTopology,
     require_model,
 )
 from pharma_lab.runtime.runtime_profiles import reranker_context_size
@@ -390,8 +389,6 @@ def build_server_command(
         command.append("--jinja")
     else:
         command.extend(["--reranking", "--kv-unified"])
-    if spec.topology is ModelTopology.SHARDED_1X2:
-        command.extend(["--tensor-split", "1,1"])
     return command
 
 
@@ -451,7 +448,7 @@ def managed_model_servers(
     if not isinstance(raw_overrides, dict):
         raise ValueError("runtime_overrides is required")
     runtime_overrides = {str(key): int(value) for key, value in raw_overrides.items()}
-    for index, layout in enumerate(server_layout(spec)):
+    for index, layout in enumerate(SERVER_LAYOUTS):
         port = base_port + index
         command = build_server_command(
             binary=binary,

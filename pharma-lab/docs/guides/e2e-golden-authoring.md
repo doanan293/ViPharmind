@@ -1,12 +1,13 @@
 # Soạn bộ golden E2E
 
-Hướng dẫn này là quy trình soạn `data/evaluation/e2e/golden_e2e.jsonl` (schema `e2e-golden-v1`).
+Hướng dẫn này là quy trình soạn `data/evaluation/e2e/golden_e2e.jsonl` (schema `e2e-golden-v2`).
 
 ## Quy trình
 
 ```bash
-uv run pharma-lab e2e golden sample              # ghi authoring/*.todo.jsonl (420 answerable, 50 multi-turn)
-# soạn mỗi lô X.todo.jsonl thành X.authored.jsonl, cộng thêm special.authored.jsonl
+uv run pharma-lab e2e golden sample              # ghi authoring/*.todo.jsonl (270 answerable, 50 multi-turn)
+uv run pharma-lab e2e golden hard-candidates --run hybrid-qwen4b-v2-p50-k30-rrf2   # ứng viên multi-hop
+# soạn mỗi lô X.todo.jsonl thành X.authored.jsonl, cộng thêm multi-hop-NN và special.authored.jsonl
 uv run pharma-lab e2e golden check data/evaluation/e2e/authoring/X.authored.jsonl
 uv run pharma-lab e2e golden build               # kiểm đủ số lượng, ghi golden_e2e.jsonl và manifest
 uv run pharma-lab data push --kaggle-account acc1 --message "Add the E2E golden set"
@@ -33,7 +34,7 @@ Mỗi dòng của `*.authored.jsonl` là một `GoldenItem` JSON do tác giả s
   - Chỉ dùng thông tin có trong section.
 - **Các trường lấy từ dòng nguồn:**
   - `source_query_id` = `query_id`;
-  - `eval_group`, `difficulty` giữ nguyên;
+  - `eval_group` giữ nguyên;
   - `tags` = `eval_tags`;
   - `gold_section_ids` = `expected_section_ids`;
   - `gold_chunk_ids` = `[expected_chunk_id]` khi có.
@@ -45,11 +46,17 @@ Mỗi dòng của `*.authored.jsonl` là một `GoldenItem` JSON do tác giả s
   - `expected_behavior` là `grounded`.
   - `answer_mode = any_acceptable`: key fact lấy từ section trả lời trực tiếp nhất.
   - `answer_mode = multi_required`: key fact phải phủ mọi ý được hỏi, lấy từ các section tương ứng.
+- **`multi_hop`** (150 câu, `grounded`, id `e2e-mhop-`): câu mà một lượt tìm kiếm (hybrid + rerank, top 8) thiếu một phần section gold, nên phải có vòng judge-refine mới đủ bằng chứng.
+  - Ứng viên lấy từ `authoring/multi-hop.todo.jsonl` do `golden hard-candidates` ghi: mỗi dòng có câu benchmark, loại và các section gold mà vòng đầu bỏ sót (`missing`).
+  - `tags` có đúng một loại: `three_intent` (một câu hỏi ba mục của cùng thuốc), `two_drug` (tương tác hoặc so sánh, bằng chứng từ hai chuyên luận), `brand_to_ingredient` (tờ hướng dẫn của biệt dược thiếu mục, Dược thư của hoạt chất có), `noisy_retry` (câu nhiễu hoặc gõ sai mà vòng đầu trượt). Mỗi loại 30 đến 45 câu.
+  - `turns` là đúng một lượt `user`; key fact phải có quote từ mọi section gold, kể cả section vòng đầu bỏ sót.
+  - `eval_group` để trống.
+- **Bỏ bớt answerable.** Sau khi soạn, `uv run pharma-lab e2e golden trim --run <run>` bỏ 25 câu mỗi nhóm trong số câu mà một lượt đã phủ đủ gold, để còn 45 câu mỗi nhóm.
 - **`multi_turn`**: dùng hai dòng nguồn A và B về cùng một thuốc.
   - **Lượt 1** (`user`) là câu hỏi của A, có thể sửa nhẹ cho tự nhiên.
   - **Lượt 2** (`assistant`) trả lời đúng A trong 1–2 câu, lấy từ section của A.
   - **Lượt 3** (`user`) hỏi tiếp về nội dung của B nhưng không nhắc tên thuốc. Dùng đại từ hoặc tỉnh lược, ví dụ "Thuốc này có dùng được cho phụ nữ có thai không?" hay "Còn liều cho trẻ em thì sao?".
-  - Key fact, `gold_*`, `source_query_id`, `eval_group` và `difficulty` lấy theo B.
+  - Key fact, `gold_*`, `source_query_id` và `eval_group` lấy theo B.
   - `tags` thêm `multi_turn`.
 - **`unanswerable`** (10 câu, `abstain`)
   - Hỏi về thuốc hoặc hoạt chất có thật nhưng không có trong corpus.

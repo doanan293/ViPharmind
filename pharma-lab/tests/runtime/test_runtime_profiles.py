@@ -32,11 +32,11 @@ def identity(runtime_sha256: str = "a" * 64) -> RuntimeProfileIdentity:
     space = RuntimeSearchSpace((candidate(2), candidate(4)))
     return RuntimeProfileIdentity.create(
         workload="rerank",
-        model="qwen3-reranker:0.6b-fp16",
+        model="qwen3-reranker:0.6b-q8_0",
         model_sha256="b" * 64,
         runtime_sha256=runtime_sha256,
         inference_cache_policy_sha256=inference_cache_policy(
-            require_model("qwen3-reranker:0.6b-fp16")
+            require_model("qwen3-reranker:0.6b-q8_0")
         ).sha256,
         machine_shape="NvidiaTeslaT4",
         topology="replicated_2x1",
@@ -52,7 +52,7 @@ def test_profile_identity_excludes_input_but_changes_with_runtime():
 def test_runtime_profile_identity_changes_with_inference_cache_policy():
     common = {
         "workload": "rerank",
-        "model": "bge-reranker-v2-m3:f16",
+        "model": "bge-reranker-v2-m3:q8_0",
         "model_sha256": "a" * 64,
         "runtime_sha256": "b" * 64,
         "machine_shape": "NvidiaTeslaT4",
@@ -80,18 +80,18 @@ def test_profile_store_round_trips_and_rejects_corruption(tmp_path):
         measurements=({"candidate": candidate(4).to_dict(), "status": "ok"},),
         benchmark_job_sha256="d" * 64,
     )
-    path = store.save(profile, model_slug="qwen3_reranker_0_6b_fp16")
+    path = store.save(profile, model_slug="qwen3_reranker_0_6b_q8_0")
     assert path.parent.parent == tmp_path
-    assert path.name == "qwen3_reranker_0_6b_fp16.json"
+    assert path.name == "qwen3_reranker_0_6b_q8_0.json"
 
     assert (
-        store.load(profile.identity, model_slug="qwen3_reranker_0_6b_fp16") == profile
+        store.load(profile.identity, model_slug="qwen3_reranker_0_6b_q8_0") == profile
     )
 
     payload = json.loads(path.read_text(encoding="utf-8"))
     payload["selected"]["concurrency"] = 99
     path.write_text(json.dumps(payload), encoding="utf-8")
-    assert store.load(profile.identity, model_slug="qwen3_reranker_0_6b_fp16") is None
+    assert store.load(profile.identity, model_slug="qwen3_reranker_0_6b_q8_0") is None
 
 
 def test_search_space_rejects_empty_or_duplicate_candidates():

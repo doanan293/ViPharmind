@@ -84,7 +84,7 @@ def test_bundle_embed_command_uses_the_selected_backend(
             "--backend",
             "kaggle",
             "--model",
-            "qwen3-embedding:4b-fp16",
+            "qwen3-embedding:4b-q8_0",
             "--cache",
             str(tmp_path / "cache.jsonl"),
             "--work-dir",

@@ -35,12 +35,12 @@ uv run pharma-lab bundle export --output data/corpus/formulary --force
 
 ```bash
 uv run pharma-lab bundle embed --bundle data/corpus/formulary --backend kaggle \
-  --model qwen3-embedding:4b-fp16 --kaggle-account acc1 --dry-run
+  --model qwen3-embedding:4b-q8_0 --kaggle-account acc1 --dry-run
 uv run pharma-lab bundle embed --bundle data/corpus/formulary --backend kaggle \
-  --model qwen3-embedding:4b-fp16 --kaggle-account acc1
+  --model qwen3-embedding:4b-q8_0 --kaggle-account acc1
 ```
 
-Lệnh stream log kernel, tải artifact về và merge vào `data/cache/text_embeddings/qwen3_embedding_4b_fp16.jsonl`. Exit code 3 nghĩa là kernel chưa xong hoặc hết budget: chạy lại đúng lệnh để resume từ checkpoint. Khi cache đủ, lệnh ghi `embeddings/qwen3_embedding_4b_fp16.jsonl` vào bundle. `Ctrl-C` chỉ dừng theo dõi; kernel vẫn chạy và lần chạy sau tự attach.
+Lệnh stream log kernel, tải artifact về và merge vào `data/cache/text_embeddings/qwen3_embedding_4b_q8_0.jsonl`. Exit code 3 nghĩa là kernel chưa xong hoặc hết budget: chạy lại đúng lệnh để resume từ checkpoint. Khi cache đủ, lệnh ghi `embeddings/qwen3_embedding_4b_q8_0.jsonl` vào bundle. `Ctrl-C` chỉ dừng theo dõi; kernel vẫn chạy và lần chạy sau tự attach.
 
 ## 4. Import vào backend
 
@@ -56,7 +56,7 @@ cd ../pharma-lab
 
 ```bash
 uv run pharma-lab evaluation build --bundle data/corpus/formulary
-uv run pharma-lab embed queries --backend kaggle --model qwen3-embedding:4b-fp16 --kaggle-account acc1
+uv run pharma-lab embed queries --backend kaggle --model qwen3-embedding:4b-q8_0 --kaggle-account acc1
 uv run pharma-lab retrieve --run backend-bm25-k30 --retriever bm25 --candidate-k 30
 uv run pharma-lab retrieve --run backend-hybrid-qwen4b-p50-k30-rrf2 --retriever hybrid \
   --prefetch-k 50 --candidate-k 30 --rrf-k 2
@@ -72,10 +72,10 @@ Một model có thể cần nhiều phiên GPU 6 giờ, nên mỗi model chạy 
 ```bash
 tmux new-session -s rerank -n qwen3-reranker-4b
 uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend kaggle \
-  --model qwen3-reranker:4b-fp16 --kaggle-account auto --dry-run
+  --model qwen3-reranker:4b-q8_0 --kaggle-account auto --dry-run
 uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend kaggle \
-  --model qwen3-reranker:4b-fp16 --kaggle-account auto
-uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --model qwen3-reranker:4b-fp16 --top-k 30
+  --model qwen3-reranker:4b-q8_0 --kaggle-account auto
+uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --model qwen3-reranker:4b-q8_0 --top-k 30
 ```
 
 Với `--kaggle-account auto`, trước mỗi phiên lệnh:
@@ -98,10 +98,10 @@ acc2     account_phu_2                 0.20h   30.00h  2026-09-19T00:00:00      
 
 `refresh_at` là lúc Kaggle làm mới quota của tài khoản; `locked=yes` là tài khoản đang chạy phiên của lệnh khác. Chạy lại đúng lệnh sau thời điểm đó để chấm tiếp.
 
-Mỗi lệnh `pharma-lab rerank` ghi thêm vào `data/work/logs/rerank/<model>.log` (ví dụ `qwen3_reranker_4b_fp16.log`), có timestamp: tài khoản được chọn, quota trước và sau phiên, kernel, số cặp, lỗi và lý do dừng. Log nằm ngoài `/tmp` nên còn sau khi máy khởi động lại. Theo dõi từ cửa sổ khác:
+Mỗi lệnh `pharma-lab rerank` ghi thêm vào `data/work/logs/rerank/<model>.log` (ví dụ `qwen3_reranker_4b_q8_0.log`), có timestamp: tài khoản được chọn, quota trước và sau phiên, kernel, số cặp, lỗi và lý do dừng. Log nằm ngoài `/tmp` nên còn sau khi máy khởi động lại. Theo dõi từ cửa sổ khác:
 
 ```bash
-tail -f data/work/logs/rerank/qwen3_reranker_4b_fp16.log
+tail -f data/work/logs/rerank/qwen3_reranker_4b_q8_0.log
 ```
 
 Kaggle không truy cập Postgres/Qdrant và không tính metrics; rerank chỉ nhận candidate JSONL cùng manifest.

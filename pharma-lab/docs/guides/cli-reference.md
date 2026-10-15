@@ -23,7 +23,7 @@ pharma-lab rerank --run NAME --backend local|kaggle --model MODEL [--kaggle-acco
 pharma-lab rerank --run NAME --backend local --benchmark --model MODEL
 pharma-lab metrics --run NAME
 pharma-lab metrics compare --run NAME --baseline MODEL --candidate MODEL
-pharma-lab e2e golden sample|resample|check|build
+pharma-lab e2e golden sample|resample|hard-candidates|trim|check|build
 pharma-lab e2e run --run NAME --config CONFIG [--limit N] [--deadline-seconds S] [--retry-errors]
 pharma-lab e2e judge --run NAME --config CONFIG [--judge-model MODEL] [--force]
 pharma-lab e2e calibration export|refresh|score --run NAME
@@ -48,7 +48,7 @@ Global `--json` in envelope máy đọc được, `--debug` bật traceback. `uv
 | `pharma-lab bundle export --output DIR [--rag-final-dir DIR] [--glossary FILE] [--mappings FILE] [--force]` | Đọc `rag-final/{sections,blocks,manifest}` và resources, xuất `knowledge-bundle/v1`, validate bằng `read_bundle` trước khi thay `DIR` |
 | `pharma-lab bundle embed --bundle DIR --backend local\|kaggle --model MODEL [--cache FILE] [--work-dir DIR] [--kaggle-account accN] [--dry-run] [--force]` | Gom cặp `(embedding_text_sha256, embedding_text)` duy nhất, embed phần thiếu, ghi `embeddings/<model_slug>.jsonl` và manifest; exit 3 nếu Kaggle chưa xong (chạy lại để resume) |
 
-`--model` của `bundle embed` phải trùng `PHARMA_RETRIEVAL__EMBEDDING__MODEL` của backend, ví dụ `qwen3-embedding:4b-fp16`. Cache nằm ở `data/cache/text_embeddings/<model-slug>.jsonl`; Kaggle dùng dataset input `vipharmind-bundle`, stage `corpus-embed` contract version 3.
+`--model` của `bundle embed` phải trùng `PHARMA_RETRIEVAL__EMBEDDING__MODEL` của backend, ví dụ `qwen3-embedding:4b-q8_0`. Cache nằm ở `data/cache/text_embeddings/<model-slug>.jsonl`; Kaggle dùng dataset input `vipharmind-bundle`, stage `corpus-embed` contract version 3.
 
 ## Run, retriever và model
 
@@ -98,13 +98,13 @@ Rerank chỉ gọi `POST /v1/rerank` với file GGUF bản convert classifier; m
 `--backend local --benchmark` đo từng mức của search space CPU: (`-np`, `-ub`) là (4, 4096), `-b` bằng `-ub`, `-c` bằng `-ub` nhân số slot cộng một, `--threads` 8/12. Mỗi mức dựng lại `llama-reranker`, chạy một nhóm khởi động không tính giờ rồi 6 nhóm câu hỏi × 15 ứng viên chọn phân tầng theo tổng số ký tự. Mức nào xếp hạng ứng viên khác mức hợp lệ đầu tiên thì bị loại (`rank_mismatch`); lệnh chọn p95 thấp nhất (bằng nhau thì số cặp/giây cao hơn), lưu profile và in `selected=`, `latency_p95_seconds=`, `env=`. Chép `env=` vào `.env` ở gốc repo và đặt `RERANK_TIMEOUT_SECONDS` ít nhất gấp đôi `latency_p95_seconds`.
 
 ```bash
-uv run pharma-lab rerank --run hybrid-qwen4b-p50-k30-rrf2 --backend local --benchmark --model qwen3-reranker:4b-fp16
+uv run pharma-lab rerank --run hybrid-qwen4b-p50-k30-rrf2 --backend local --benchmark --model qwen3-reranker:4b-q8_0
 ```
 
 ```bash
-uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend kaggle --model qwen3-reranker:4b-fp16 --kaggle-account auto
+uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account auto
 uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --top-k 30
-uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --model qwen3-reranker:4b-fp16 --top-k 30
+uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --model qwen3-reranker:4b-q8_0 --top-k 30
 ```
 
 Report nằm ở `reports/baseline/top<K>-window<N>/` và `reports/rerank/<model>/top<K>-window<N>/`; chạy lại cùng cutoff với input khác thì lệnh dừng, `--force` thay report. Metrics gồm Hit@3/5/10/30, MRR, và với `answer_mode=multi_required`: Multi-section Recall@K, Multi-all-hit@K. `--top-k` không được lớn hơn `candidate-k`.
@@ -112,7 +112,7 @@ Report nằm ở `reports/baseline/top<K>-window<N>/` và `reports/rerank/<model
 `pharma-lab metrics compare` so sánh hai reranker đã có report cùng cutoff trên cùng run. Lệnh ghép từng câu hỏi trong `metrics.jsonl` của hai report, bootstrap theo cặp (lấy mẫu lại có hoàn lại các câu hỏi `--resamples` lần bằng `--seed`) cho hiệu trung bình `candidate − baseline` của `--metric` (mặc định `mrr`, tức MRR@K), rồi in trung bình của từng model, hiệu, khoảng tin cậy 95% (`ci95_low`, `ci95_high`, phân vị 2,5% và 97,5%) và `decision`. `decision` là `--candidate` khi `ci95_low > 0`, ngược lại là `--baseline`. Lệnh dừng nếu hai report khác evaluation, candidates hoặc tập câu hỏi.
 
 ```bash
-uv run pharma-lab metrics compare --run hybrid-qwen4b-p50-k30-rrf2-sample1000 --baseline qwen3-reranker:0.6b-fp16 --candidate qwen3-reranker:0.6b-fp16-vimed --metric mrr --top-k 30 --resamples 10000 --seed 0
+uv run pharma-lab metrics compare --run hybrid-qwen4b-p50-k30-rrf2-sample1000 --baseline qwen3-reranker:0.6b-q8_0 --candidate qwen3-reranker:0.6b-q8_0-vimed --metric mrr --top-k 30 --resamples 10000 --seed 0
 ```
 
 `pharma-lab embed queries --backend local|kaggle --model MODEL` tạo cache vector query (`data/cache/query_embeddings/<model-slug>.jsonl`) mà `pharma-lab retrieve` dùng cho `dense` và `hybrid`; `--model` phải trùng model embedding của backend. Candidate `document_text` là `embedding_text` của hit, đúng văn bản reranker của benchmark cũ chấm.
@@ -150,8 +150,10 @@ Chi tiết trong [e2e-evaluation.md](e2e-evaluation.md).
 
 | Command | Việc |
 | --- | --- |
-| `pharma-lab e2e golden sample [--seed S] [--force]` | Chọn 420 câu answerable (70 × 6 nhóm, phân tầng theo độ khó và answer mode) và 50 cặp multi-turn, ghi `data/evaluation/e2e/authoring/*.todo.jsonl` kèm text section và chunk trọng tâm |
+| `pharma-lab e2e golden sample [--seed S] [--force]` | Chọn 270 câu answerable (45 × 6 nhóm, phân tầng theo intent và answer mode) và 50 cặp multi-turn, ghi `data/evaluation/e2e/authoring/*.todo.jsonl` kèm text section và chunk trọng tâm |
 | `pharma-lab e2e golden resample --slots IDS [--per-slot N]` | Đưa N câu chưa dùng cùng tầng cho các slot mà section gold không trả lời câu hỏi, ghi `replacement-NN.todo.jsonl` |
+| `pharma-lab e2e golden hard-candidates --run RUN [--model RERANKER] [--top-k 8]` | Liệt kê câu benchmark mà một lượt (run retrieval, rerank, top k) thiếu section gold, gán loại multi-hop, ghi `authoring/multi-hop.todo.jsonl` |
+| `pharma-lab e2e golden trim --run RUN [--per-group 45]` | Bỏ câu answerable mà một lượt phủ đủ gold, đều theo nhóm, cho đến khi mỗi nhóm còn `--per-group` câu |
 | `pharma-lab e2e golden check FILE` | Kiểm một lô `*.authored.jsonl` (quote nằm trong section, hành vi theo nhóm, `absent_terms` vắng trong corpus) |
 | `pharma-lab e2e golden build` | Kiểm đủ số lượng từng nhóm rồi ghi `golden_e2e.jsonl` và manifest |
 | `pharma-lab e2e run --run NAME --config full\|one-step\|no-judge-refine\|no-rephrase\|no-rerank\|closed-book [--limit N] [--concurrency N] [--deadline-seconds S] [--retry-errors]` | Chạy agent trên bộ golden, ghi `runs/<run>/<config>/answers.jsonl`; chạy lại để resume |
@@ -161,4 +163,4 @@ Chi tiết trong [e2e-evaluation.md](e2e-evaluation.md).
 | `pharma-lab e2e calibration score --run NAME` | Tính κ và ρ giữa judge và `calibration/grades.jsonl` (dừng nếu mẫu còn câu đã đổi mà chưa refresh) |
 | `pharma-lab e2e report --run NAME` | Ghi bảng CSV/LaTeX và phân tích lỗi vào `runs/<run>/reports/` |
 | `pharma-lab e2e rerank-server [--model MODEL] [--hours H] [--kaggle-account accN\|auto]` | Phục vụ reranker từ GPU Kaggle qua tunnel cloudflared có API key; ghi `data/work/serve/<model>.env` để các lượt `e2e run` dùng |
-| `pharma-lab e2e llm-server [--model MODEL] [--hours H] [--kaggle-account accN\|auto] [--attach OWNER/SLUG]` | Phục vụ model chat open-weight (mặc định `qwen3.5:9b-f16`, chia trên hai T4) qua tunnel; file env trỏ mọi bước của pipeline vào tunnel |
+| `pharma-lab e2e llm-server [--model MODEL] [--hours H] [--kaggle-account accN\|auto] [--attach OWNER/SLUG]` | Phục vụ model chat open-weight (mặc định `qwen3.5:9b-q8_0`, chia trên hai T4) qua tunnel; file env trỏ mọi bước của pipeline vào tunnel |

@@ -15,8 +15,8 @@ from pharma_lab.evaluation.run_workspace import (
 )
 from pharma_lab.evaluation.variant_identity import RerankVariantIdentity
 
-MODEL = "qwen3-reranker:0.6b-fp16"
-SLUG = "qwen3_reranker_0_6b_fp16"
+MODEL = "qwen3-reranker:0.6b-q8_0"
+SLUG = "qwen3_reranker_0_6b_q8_0"
 
 
 def workspace_for(run: Path) -> RunWorkspace:

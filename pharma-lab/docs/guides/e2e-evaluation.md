@@ -7,7 +7,7 @@
 Harness gọi backend trong cùng tiến trình, như `pharma-lab retrieve`, với settings đọc từ `../backend/.env` (`--backend-env-file`).
 
 **Cần sẵn sàng:**
-- Postgres và Qdrant đã import và publish release. Alias `chunks_current` trỏ vào collection của `qwen3-embedding:4b-fp16`.
+- Postgres và Qdrant đã import và publish release. Alias `chunks_current` trỏ vào collection của `qwen3-embedding:4b-q8_0`.
 - Endpoint LLM trong `PHARMA_LLM__*`. Model của từng role lấy từ `.env` và được ghi vào `run.json`.
 - llama.cpp embedding (`PHARMA_RETRIEVAL__EMBEDDING__*`) và reranker (`PHARMA_RETRIEVAL__RERANK__*`), chạy qua `docker compose -f compose.yaml -f compose.local-models.yaml up -d` ở thư mục gốc repo.
 
@@ -16,7 +16,7 @@ Harness gọi backend trong cùng tiến trình, như `pharma-lab retrieve`, v�
 **Reranker trên GPU.** Reranker trên CPU quá chậm cho E2E: trên laptop i5, 40 tài liệu mất khoảng 10 phút với model 4B. Vì vậy các cấu hình có rerank dùng reranker chạy trên GPU Kaggle, qua tunnel có API key.
 
 ```bash
-uv run pharma-lab e2e rerank-server --model qwen3-reranker:4b-fp16 --hours 8 --kaggle-account auto
+uv run pharma-lab e2e rerank-server --model qwen3-reranker:4b-q8_0 --hours 8 --kaggle-account auto
 ```
 
 Lệnh này:
@@ -31,38 +31,25 @@ uv run pharma-lab e2e rerank-server --kaggle-account acc1 --attach OWNER/rerank-
 
 URL được đọc bằng `kaggle kernels logs -f`. Khi API log của Kaggle trục trặc, tiến trình này có thể treo mà không in gì; watcher mở lại nó nếu log im lặng quá 10 phút (kernel in dòng `alive` mỗi 5 phút). Muốn có URL ngay thì dùng lệnh `--attach` ở trên.
 
-Trong session chạy E2E, nạp file env trước (`set -a; . data/work/serve/qwen3_reranker_4b_fp16.env; set +a`).
+Trong session chạy E2E, nạp file env trước (`set -a; . data/work/serve/qwen3_reranker_4b_q8_0.env; set +a`).
 
 **Endpoint LLM còn phục vụ judge**, mặc định `gpt-5-mini` với reasoning `medium`. Proxy antigravity không có model này. Run `e2e-gemini` chấm bằng `--judge-model gemini-3.1-flash-lite`: model này khác model trả lời (`gemini-3.8-flash-high`), nhanh (khoảng 3 giây mỗi lần gọi), và có quota lớn nhất trong các model đã thử.
 
 **Chạy với model open-weight.** Run `e2e-qwen35-9b` dùng Qwen3.5-9B (9,65 tỉ tham số, Apache 2.0) cho mọi bước của pipeline; judge vẫn dùng endpoint mặc định trong `backend/.env`.
 
-*Chuẩn bị file GGUF F16* (một lần, ở thư mục gốc repo). T4 không có kernel bfloat16, nên bản BF16 được chuyển sang F16 bằng `llama-quantize` của cùng bản build llama.cpp với compose:
+*File GGUF.* Model là bản Q8_0 Unsloth công bố (`qwen3.5:9b-q8_0`, 9,5 GB), tải theo commit và kiểm sha256 cùng các model khác ([Đánh giá retrieval](evaluation.md), mục "File GGUF"). Template chat trong file nhận `chat_template_kwargs.enable_thinking: false`. Lần chạy stage đầu tiên tự đưa file lên dataset Kaggle `vector-cache-gguf-qwen3-5-9b-q8_0`. Bản llama.cpp trên Kaggle (b9637) đã hỗ trợ kiến trúc `qwen35`.
+
+*Phục vụ trên Kaggle.* Mỗi T4 chạy một bản model (4 slot, mỗi slot 32.768 token), proxy round-robin trong kernel chia request cho hai bản, nên kernel nhận 8 request cùng lúc; `pharma-lab e2e run` mặc định `--concurrency 8` cho khớp. Reranker và embedding chạy ở kernel riêng trên tài khoản khác, song song với LLM:
 
 ```bash
-mkdir -p ai-models/downloads
-curl -fL -C - -o ai-models/downloads/Qwen3.5-9B-BF16.gguf \
-  https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/3885219b6810b007914f3a7950a8d1b469d598a5/Qwen3.5-9B-BF16.gguf
-echo "daebe40eeea7057c1cdf35ac56d13f507d8bf12171bbb7a6b6b0d3f05439159a  ai-models/downloads/Qwen3.5-9B-BF16.gguf" | sha256sum -c -
-docker run --rm -v "$PWD/ai-models:/models" --entrypoint /app/llama-quantize \
-  ghcr.io/ggml-org/llama.cpp:full-b10920 \
-  /models/downloads/Qwen3.5-9B-BF16.gguf /models/gguf/qwen3.5-9b-f16.gguf F16
-echo "863a67e28486f4c3ad7a30c49614a398d5a07caf8d0067a018d0e5f0abf79f2d  ai-models/gguf/qwen3.5-9b-f16.gguf" | sha256sum -c -
+uv run pharma-lab e2e llm-server --model qwen3.5:9b-q8_0 --hours 10 --kaggle-account auto
+uv run pharma-lab e2e rerank-server --model qwen3-reranker:4b-q8_0 --hours 10 --kaggle-account auto
 ```
 
-Kích thước và sha256 của file F16 được ghi trong catalog (`qwen3.5:9b-f16`). So từng tensor với file BF16: 250/427 tensor được đổi (8,95 tỉ giá trị, trọng số lớn nhất 1,07), sai lệch tuyệt đối lớn nhất 3,0×10⁻⁸, 17.320 giá trị nhỏ hơn khoảng 3×10⁻⁸ bị làm tròn về 0; các tensor F32 giữ nguyên. Chạy thử bằng `server-b10920` trên CPU cho output JSON đúng schema và không sinh phần suy luận khi `enable_thinking` là `false`. Lần chạy stage đầu tiên tự đưa file lên dataset Kaggle `vector-cache-gguf-qwen3-5-9b-f16`. Bản llama.cpp trên Kaggle (b9637) đã hỗ trợ kiến trúc `qwen35`.
-
-*Phục vụ trên Kaggle.* Model 17,9 GB được chia đôi trên hai T4 (4 slot, mỗi slot 32.768 token). Hai GPU dành cho LLM, nên reranker chạy ở một kernel khác:
+`llm-server` ghi `data/work/serve/qwen3_5_9b_q8_0.env`: endpoint của cả sáu bước trỏ vào tunnel, `EXTRA_BODY` tắt chế độ suy luận mặc định của Qwen3.5, và timeout 600 giây. Trong tmux session của run, nạp cả hai file env rồi chạy thử `--limit 20` trước:
 
 ```bash
-uv run pharma-lab e2e llm-server --model qwen3.5:9b-f16 --hours 10 --kaggle-account auto
-uv run pharma-lab e2e rerank-server --model qwen3-reranker:4b-fp16 --hours 10 --kaggle-account auto
-```
-
-`llm-server` ghi `data/work/serve/qwen3_5_9b_f16.env`: endpoint của cả sáu bước trỏ vào tunnel, `EXTRA_BODY` tắt chế độ suy luận mặc định của Qwen3.5, và timeout 600 giây. Trong tmux session của run, nạp cả hai file env rồi chạy thử `--limit 20` trước:
-
-```bash
-set -a; . data/work/serve/qwen3_5_9b_f16.env; . data/work/serve/qwen3_reranker_4b_fp16.env; set +a
+set -a; . data/work/serve/qwen3_5_9b_q8_0.env; . data/work/serve/qwen3_reranker_4b_q8_0.env; set +a
 uv run pharma-lab e2e run --run e2e-qwen35-9b --config full --limit 20 --deadline-seconds 900
 ```
 
@@ -110,7 +97,7 @@ uv run pharma-lab e2e golden build
 
 **Sửa bộ golden khi đã có run.** Sửa item trong các file `*.authored.jsonl`, kiểm bằng `golden check`, rồi `golden build`. Build giữ bản cũ thành `golden_e2e.<sha256>.jsonl`. Lần `e2e run` hoặc `e2e judge` kế tiếp trên một run cũ so hai bản theo từng item: item đổi lượt hội thoại thì câu trả lời và điểm bị thay (`status=superseded`) và được chạy lại, item chỉ đổi đáp án chuẩn hoặc hành vi mong đợi thì chỉ được chấm lại, các item khác giữ nguyên. Vì vậy chạy lại đúng các lệnh `e2e run` (không cần `--retry-errors`) rồi `e2e judge` của mọi cấu hình. Sau đó `e2e calibration refresh --run NAME` đưa các câu mù bị ảnh hưởng về trạng thái chưa chấm; chấm lại chúng trước khi `calibration score`. Không sửa golden khi một tiến trình `e2e judge` còn đang chạy trên run đó, vì nó chấm theo bản cũ đã nạp.
 
-Lần rà soát ngày 22/09/2026 sửa 57 item theo tiêu chí cố định, áp như nhau cho mọi hệ thống: câu hỏi không nêu đối tượng (mẫu "tên biệt dược này"), gợi ý "(phần …)" lệch với câu hỏi, câu chép từ tài liệu không phải câu hỏi, câu hỏi "tra ở đâu" trong khi đáp án là nội dung, slug lọt vào câu hỏi (42 item sửa câu hỏi); ý chính nằm ngoài phạm vi câu hỏi hoặc không có trong đoạn trích (15 item chỉ sửa đáp án). Lỗi chính tả, không dấu và tên thuốc dễ nhầm của các nhóm `noisy` (trước là `noisy_confuser`) và `leaflet_short` (trước là `patient_natural`) là độ khó có chủ đích nên giữ nguyên.
+Lần rà soát ngày 22/09/2026 sửa 57 item theo tiêu chí cố định, áp như nhau cho mọi hệ thống: câu hỏi không nêu đối tượng (mẫu "tên biệt dược này"), gợi ý "(phần …)" lệch với câu hỏi, câu chép từ tài liệu không phải câu hỏi, câu hỏi "tra ở đâu" trong khi đáp án là nội dung, slug lọt vào câu hỏi (42 item sửa câu hỏi); ý chính nằm ngoài phạm vi câu hỏi hoặc không có trong đoạn trích (15 item chỉ sửa đáp án). Lỗi chính tả, không dấu và tên thuốc dễ nhầm của các nhóm `noisy` và `leaflet_short` là độ khó có chủ đích nên giữ nguyên.
 
 ## 3. Chạy, chấm và báo cáo
 

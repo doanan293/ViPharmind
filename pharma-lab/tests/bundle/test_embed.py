@@ -28,8 +28,8 @@ from pharma_lab.embeddings.text_cache import (
 from pharma_lab.runtime.catalog import require_model
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "rag_final_small"
-MODEL = "qwen3-embedding:4b-fp16"
-OTHER_MODEL = "embeddinggemma:300m"
+MODEL = "qwen3-embedding:4b-q8_0"
+OTHER_MODEL = "embeddinggemma:300m-q8_0"
 DIMS = require_model(MODEL).vector_dimension or 0
 
 

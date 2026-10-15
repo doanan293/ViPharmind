@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from pharma_lab.config.defaults import DEFAULT_EMBEDDING_MODEL
 from pharma_lab.config.enums import Backend
 from pharma_lab.config.environment import PROJECT_ENV_FILE, parse_env_file
 from pharma_lab.config.paths import (
@@ -16,9 +17,10 @@ from pharma_lab.config.paths import (
     SOURCES_CURATION_DIR,
     SOURCES_DIR,
 )
+from pharma_lab.runtime.catalog import require_model
 
 DEFAULT_ENV_PATH = PROJECT_ENV_FILE
-EMBEDDING_MODEL_FILENAME = "qwen3-embedding-0.6b-fp16.gguf"
+EMBEDDING_MODEL_FILENAME = require_model(DEFAULT_EMBEDDING_MODEL).canonical_filename
 
 
 class KaggleRunner(Protocol):

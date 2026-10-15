@@ -113,7 +113,7 @@ def test_embedding_command_sizes_context_per_slot():
         model="model.gguf",
         port=11434,
         visible_devices="0",
-        spec=require_model("bge-m3:567m-fp16"),
+        spec=require_model("bge-m3:567m-q8_0"),
         runtime_overrides={
             "server_slots": 8,
             "context_per_slot": 4096,
@@ -133,7 +133,7 @@ def test_embedding_command_sizes_context_per_slot():
 
 @pytest.mark.parametrize(
     "model",
-    ("qwen3-reranker:0.6b-fp16", "qwen3-reranker:8b-fp16", "bge-reranker-v2-m3:f16"),
+    ("qwen3-reranker:0.6b-q8_0", "qwen3-reranker:8b-q8_0", "bge-reranker-v2-m3:q8_0"),
 )
 def test_reranker_command_sizes_the_unified_kv_for_a_batch_and_every_slot_prompt(
     model,
@@ -155,42 +155,29 @@ def test_reranker_command_sizes_the_unified_kv_for_a_batch_and_every_slot_prompt
     assert command[command.index("-c") + 1] == str(4096 * (4 + 1))
 
 
-def test_chat_command_serves_chat_completions_over_both_gpus():
+def test_chat_command_serves_one_replica_per_gpu():
     command = build_server_command(
         binary="llama-server",
         model="model.gguf",
         port=11434,
-        visible_devices="0,1",
-        spec=require_model("qwen3.5:9b-f16"),
+        visible_devices="0",
+        spec=require_model("qwen3.5:9b-q8_0"),
         runtime_overrides={
             "server_slots": 4,
-            "context_per_slot": 16384,
+            "context_per_slot": 32768,
             "logical_batch_size": 2048,
             "physical_batch_size": 512,
         },
     )
 
     assert command[command.index("-np") + 1] == "4"
-    assert command[command.index("-c") + 1] == str(4 * 16384)
+    assert command[command.index("-c") + 1] == str(4 * 32768)
     assert command[command.index("-ub") + 1] == "512"
     assert "--jinja" in command
     assert "--reranking" not in command
     assert "--embedding" not in command
     assert "--kv-unified" not in command
-    assert command[command.index("--tensor-split") + 1] == "1,1"
-
-
-def test_sharded_reranker_splits_one_server_over_two_gpus():
-    command = build_server_command(
-        binary="llama-server",
-        model="model.gguf",
-        port=11434,
-        visible_devices="0,1",
-        spec=require_model("qwen3-reranker:8b-fp16"),
-        runtime_overrides=RERANK_LEVEL,
-    )
-
-    assert command[command.index("--tensor-split") + 1] == "1,1"
+    assert "--tensor-split" not in command
 
 
 def test_reranker_command_rejects_split_batch_and_ubatch():
@@ -200,7 +187,7 @@ def test_reranker_command_rejects_split_batch_and_ubatch():
             model="model.gguf",
             port=11434,
             visible_devices="0",
-            spec=require_model("qwen3-reranker:0.6b-fp16"),
+            spec=require_model("qwen3-reranker:0.6b-q8_0"),
             runtime_overrides={**RERANK_LEVEL, "physical_batch_size": 2048},
         )
 
@@ -208,9 +195,9 @@ def test_reranker_command_rejects_split_batch_and_ubatch():
 @pytest.mark.parametrize(
     "model",
     (
-        "bge-m3:567m-fp16",
-        "bge-reranker-v2-m3:f16",
-        "qwen3-reranker:0.6b-fp16",
+        "bge-m3:567m-q8_0",
+        "bge-reranker-v2-m3:q8_0",
+        "qwen3-reranker:0.6b-q8_0",
     ),
 )
 def test_build_server_command_enforces_stateless_prompt_cache(model):
@@ -232,7 +219,7 @@ def test_build_server_command_enforces_stateless_prompt_cache(model):
     assert "--no-cache-idle-slots" in command
 
 
-@pytest.mark.parametrize("model", ("bge-reranker-v2-m3:f16", "qwen3-reranker:4b-fp16"))
+@pytest.mark.parametrize("model", ("bge-reranker-v2-m3:q8_0", "qwen3-reranker:4b-q8_0"))
 def test_reranker_policy_is_stateless_per_query_group(model):
     policy = inference_cache_policy(require_model(model))
 
@@ -243,7 +230,7 @@ def test_reranker_policy_is_stateless_per_query_group(model):
 
 
 def test_embedding_policy_is_batch_independent():
-    policy = inference_cache_policy(require_model("qwen3-embedding:4b-fp16"))
+    policy = inference_cache_policy(require_model("qwen3-embedding:4b-q8_0"))
 
     assert policy.workload_locality == "batch-independent-v1"
 
@@ -277,7 +264,7 @@ def test_build_server_command_requires_runtime_overrides():
             model="model.gguf",
             port=11434,
             visible_devices="0",
-            spec=require_model("qwen3-reranker:0.6b-fp16"),
+            spec=require_model("qwen3-reranker:0.6b-q8_0"),
             runtime_overrides=None,
         )
 
@@ -372,7 +359,7 @@ def test_managed_model_servers_reports_early_process_failure(monkeypatch, tmp_pa
     )
 
     config = {
-        "model": "qwen3-reranker:0.6b-fp16",
+        "model": "qwen3-reranker:0.6b-q8_0",
         "runtime_overrides": {
             "server_slots": 4,
             "context_per_slot": 4096,
@@ -433,7 +420,7 @@ def test_managed_model_servers_reports_all_replicas_on_timeout(monkeypatch, tmp_
     )
 
     config = {
-        "model": "qwen3-reranker:0.6b-fp16",
+        "model": "qwen3-reranker:0.6b-q8_0",
         "runtime_overrides": {
             "server_slots": 4,
             "context_per_slot": 4096,
@@ -501,7 +488,7 @@ def test_managed_model_servers_default_startup_timeout_allows_five_minute_window
     monkeypatch.setattr(runtime.time, "monotonic", lambda: next(times))
     monkeypatch.setattr(runtime.time, "sleep", lambda _seconds: None)
     config = {
-        "model": "qwen3-reranker:0.6b-fp16",
+        "model": "qwen3-reranker:0.6b-q8_0",
         "runtime_overrides": {
             "server_slots": 4,
             "context_per_slot": 4096,
@@ -559,7 +546,7 @@ def test_managed_model_servers_wraps_mid_run_exit_with_diagnostics(
     )
     monkeypatch.setattr(client.LlamaCppClient, "health", lambda _self: None)
     config = {
-        "model": "qwen3-reranker:0.6b-fp16",
+        "model": "qwen3-reranker:0.6b-q8_0",
         "runtime_overrides": {
             "server_slots": 2,
             "context_per_slot": 4096,
@@ -635,7 +622,7 @@ def test_managed_model_servers_can_leave_telemetry_open_and_name_restart_logs(
     monkeypatch.setattr(client.LlamaCppClient, "health", lambda _self: None)
     telemetry = RecordingTelemetry()
     config = {
-        "model": "qwen3-reranker:0.6b-fp16",
+        "model": "qwen3-reranker:0.6b-q8_0",
         "runtime_overrides": {
             "server_slots": 2,
             "context_per_slot": 4096,

@@ -1094,7 +1094,7 @@ Theo spec §2.1b mọi model tự host ở Q8_0, tải bản Q8_0 đã công b�
 (không tự quantize); reranker Qwen3 đổi template rerank sang tiếng Việt y tế bằng
 `gguf-new-metadata` như `docs/guides/evaluation.md`. Ghi size và sha256 vào `runtime/catalog.py`,
 đổi tên catalog sang hậu tố `-q8_0`. Sau khi gate qua, dọn legacy theo bảng "Dữ liệu trên Kaggle"
-ở spec §0: xoá 13 dataset `vector-cache-gguf-*` F16/BF16, `corpus-pipeline-rag-final`,
+ở spec §0: xoá 12 dataset `vector-cache-gguf-*` F16/BF16, `corpus-pipeline-rag-final`,
 `seed-pipeline-bundle` và mọi `pipeline-input-*` trên acc1, acc2, acc3; giữ nguyên `vipharma-rag`
 (link của bài SoICT), `vipharmind-data` version 1 và `vector-cache-llama-cpp-cuda-t4`. Ở local xoá
 file GGUF F16, cache embedding, rerank và profile F16, `data/work/archive-v1-root` và
@@ -1174,6 +1174,12 @@ uv run pharma-lab metrics --run dense-qwen4b-v2-k30 --model qwen3-reranker:4b-q8
 Tên model reranker lấy đúng theo catalog (`uv run pharma-lab rerank --help` và `runtime/catalog.py`); v1 dùng biến thể `-vimed` cho Qwen3 reranker với instruction tiếng Việt y tế, giữ đúng biến thể v1 đã báo trong bài (xem `data/evaluation/runs/hybrid-qwen4b-p50-k30-rrf2/run.json` mục `rerank_variants`).
 
 Expected: `reports/rerank/<slug>/top30-window3/report.md` cho bốn reranker và cho dense + 4B. Đây là hàng D1 của spec.
+
+Tuỳ chọn, chạy cùng đợt rerank: kiểm lại instruction tiếng Việt y tế trên benchmark v2 ở Q8_0 theo
+đúng quy tắc đã chốt ở `docs/guides/evaluation.md` §5 (tập con 1.000 câu, bootstrap theo cặp 10.000
+lần, seed 0, hiệu MRR@30). Bản gốc là file Q8_0 tải về chưa đổi template, chạy với tên model tạm
+ngoài catalog. Cận dưới khoảng tin cậy 95% lớn hơn 0 thì giữ `-vimed`, ngược lại cả ba reranker
+Qwen3 dùng template gốc.
 
 - [ ] **Step 5: Lưu archive và commit**
 

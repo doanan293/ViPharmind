@@ -154,6 +154,35 @@ def _alce(view: ItemView) -> float | None:
     )
 
 
+def _round_coverage(view: ItemView, labels: Sequence[str]) -> float:
+    """Share of the item's gold sections that a round's evidence holds."""
+    gold = view.item.gold_section_ids
+    sections = {label.rsplit(":chunk-", 1)[0] for label in labels}
+    found = sum(
+        1
+        for section in gold
+        if section in sections or view.accepted.get(section, frozenset()) & set(labels)
+    )
+    return found / len(gold)
+
+
+def _coverage_after(index: int) -> Callable[[ItemView], float | None]:
+    def read(view: ItemView) -> float | None:
+        rounds = view.answer.rounds
+        if not rounds or not view.item.gold_section_ids:
+            return None
+        return _round_coverage(view, rounds[index])
+
+    return read
+
+
+def _rescued(view: ItemView) -> float | None:
+    first, final = _coverage_after(0)(view), _coverage_after(-1)(view)
+    if first is None or final is None or first == 1.0:
+        return None
+    return float(final == 1.0)
+
+
 METRICS: tuple[Metric, ...] = (
     # Truthfulness (CRAG): wrong answers cost more than missing ones.
     Metric("truthfulness", _crag_score, False, True),
@@ -201,6 +230,16 @@ METRICS: tuple[Metric, ...] = (
         False,
         False,
     ),
+    # The retrieval loop: gold evidence found by the first and the last search round.
+    Metric("gold_coverage_round1", _coverage_after(0), False, False),
+    Metric("gold_coverage_final", _coverage_after(-1), False, False),
+    Metric(
+        "rounds_used",
+        lambda v: float(len(v.answer.rounds)) if v.answer.rounds else None,
+        False,
+        False,
+    ),
+    Metric("rescued_rate", _rescued, True, False),
     # Cost.
     Metric("tokens_per_turn", lambda v: float(v.answer.total_tokens), False, True),
     Metric("llm_calls_per_turn", lambda v: float(v.answer.llm_calls), False, True),

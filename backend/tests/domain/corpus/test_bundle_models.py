@@ -67,7 +67,7 @@ def test_bundle_models_reject_unknown_enum_values_and_loose_types() -> None:
 @pytest.mark.parametrize(
     ("model", "slug"),
     [
-        ("qwen3-embedding:4b-fp16", "qwen3_embedding_4b_fp16"),
+        ("qwen3-embedding:4b-q8_0", "qwen3_embedding_4b_q8_0"),
         ("Qwen/Qwen3-Embedding-4B", "qwen_qwen3_embedding_4b"),
         ("fake-embedding-4d", "fake_embedding_4d"),
         ("--", ""),

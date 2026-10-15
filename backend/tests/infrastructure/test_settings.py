@@ -12,7 +12,7 @@ def test_defaults_match_spec(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.retrieval.qdrant_collection == "chunks_current"
     assert settings.retrieval.collections == ["formulary"]
     assert settings.retrieval.mode == "hybrid"
-    assert settings.retrieval.embedding.model == "qwen3-embedding:4b-fp16"
+    assert settings.retrieval.embedding.model == "qwen3-embedding:4b-q8_0"
     assert settings.retrieval.embedding.dimension == 2560
     assert (
         settings.retrieval.prefetch_k,
@@ -20,7 +20,7 @@ def test_defaults_match_spec(monkeypatch: pytest.MonkeyPatch) -> None:
         settings.retrieval.candidate_k,
     ) == (50, 2, 30)
     assert settings.retrieval.rerank.protocol == "native_rerank"
-    assert settings.retrieval.rerank.model == "qwen3-reranker:4b-fp16"
+    assert settings.retrieval.rerank.model == "qwen3-reranker:4b-q8_0"
     assert (
         settings.budget.max_llm_calls == 10 and settings.budget.deadline_seconds == 90
     )

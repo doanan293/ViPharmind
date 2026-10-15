@@ -81,7 +81,7 @@ def fake_local_backend():
     return LocalRerankBackend(reranker_factory=lambda _spec, _timeout: FakeReranker())
 
 
-MODEL = "qwen3-reranker:0.6b-fp16"
+MODEL = "qwen3-reranker:0.6b-q8_0"
 
 
 def _session_contexts(*names: str) -> tuple[KaggleExecutionContext, ...]:
@@ -149,7 +149,7 @@ def kaggle_sessions(monkeypatch, tmp_path) -> dict[str, float]:
 
 def _score_record(*, query_id: str, score: float) -> dict[str, object]:
     return {
-        "reranker": "qwen3-reranker:0.6b-fp16",
+        "reranker": "qwen3-reranker:0.6b-q8_0",
         "model_sha256": "model-sha",
         "request_contract_sha256": "contract-sha",
         "query_id": query_id,
@@ -208,8 +208,8 @@ def test_two_models_register_two_variants_without_mutating_candidates(complete_r
     before = candidates_path.read_bytes()
     backend = fake_local_backend()
 
-    first = backend.run(request(complete_run, "qwen3-reranker:0.6b-fp16"))
-    second = backend.run(request(complete_run, "bge-reranker-v2-m3:f16"))
+    first = backend.run(request(complete_run, "qwen3-reranker:0.6b-q8_0"))
+    second = backend.run(request(complete_run, "bge-reranker-v2-m3:q8_0"))
 
     record = load_run_record(complete_run / "run.json")
     assert len(record.rerank_variants) == 2
@@ -221,11 +221,11 @@ def test_two_models_register_two_variants_without_mutating_candidates(complete_r
 
 def test_local_rerun_reuses_the_same_variant(complete_run):
     backend = fake_local_backend()
-    first = backend.run(request(complete_run, "qwen3-reranker:0.6b-fp16"))
+    first = backend.run(request(complete_run, "qwen3-reranker:0.6b-q8_0"))
     assert first.artifact_dir is not None
     score_bytes = (first.artifact_dir / "rerank_scores.jsonl").read_bytes()
 
-    second = backend.run(request(complete_run, "qwen3-reranker:0.6b-fp16"))
+    second = backend.run(request(complete_run, "qwen3-reranker:0.6b-q8_0"))
 
     assert second.artifact_dir is not None
     assert second.variant_sha256 == first.variant_sha256
@@ -268,7 +268,7 @@ def test_kaggle_dry_run_formats_resource_identity_and_does_not_register(
     monkeypatch.setattr(auto_profile, "ensure_runtime_profile", isolated_profile)
 
     result = KaggleRerankBackend().run(
-        request(complete_run, "qwen3-reranker:0.6b-fp16", dry_run=True)
+        request(complete_run, "qwen3-reranker:0.6b-q8_0", dry_run=True)
     )
 
     assert result.incomplete
@@ -287,7 +287,7 @@ def test_kaggle_rerank_allows_different_models_in_the_same_run(
     release_first = threading.Event()
 
     def run_unlocked(rerank_request):
-        if rerank_request.model == "qwen3-reranker:0.6b-fp16":
+        if rerank_request.model == "qwen3-reranker:0.6b-q8_0":
             first_entered.set()
             assert release_first.wait(2)
         return rerank_request.model
@@ -298,8 +298,8 @@ def test_kaggle_rerank_allows_different_models_in_the_same_run(
         staticmethod(run_unlocked),
     )
     backend = KaggleRerankBackend()
-    first_request = request(complete_run, "qwen3-reranker:0.6b-fp16")
-    second_request = request(complete_run, "bge-reranker-v2-m3:f16")
+    first_request = request(complete_run, "qwen3-reranker:0.6b-q8_0")
+    second_request = request(complete_run, "bge-reranker-v2-m3:q8_0")
 
     with ThreadPoolExecutor(max_workers=1) as executor:
         first = executor.submit(backend.run, first_request)
@@ -332,8 +332,8 @@ def test_kaggle_rerank_serializes_same_model_across_runs(tmp_path, monkeypatch):
         staticmethod(run_unlocked),
     )
     backend = KaggleRerankBackend()
-    first_request = request(tmp_path / "run-a", "qwen3-reranker:0.6b-fp16")
-    second_request = request(tmp_path / "run-b", "qwen3-reranker:0.6b-fp16")
+    first_request = request(tmp_path / "run-a", "qwen3-reranker:0.6b-q8_0")
+    second_request = request(tmp_path / "run-b", "qwen3-reranker:0.6b-q8_0")
 
     with ThreadPoolExecutor(max_workers=1) as executor:
         first = executor.submit(backend.run, first_request)
@@ -377,12 +377,12 @@ def test_completed_stage_cleanup_rejects_artifact_outside_staging_root(tmp_path)
 
 def test_local_dry_run_reports_target_and_missing_pairs(complete_run):
     result = fake_local_backend().run(
-        request(complete_run, "qwen3-reranker:0.6b-fp16", dry_run=True)
+        request(complete_run, "qwen3-reranker:0.6b-q8_0", dry_run=True)
     )
 
     assert "missing_pairs=1" in result.actions
     assert (
-        f"target={complete_run / 'rerank' / 'qwen3_reranker_0_6b_fp16'}"
+        f"target={complete_run / 'rerank' / 'qwen3_reranker_0_6b_q8_0'}"
         in result.actions
     )
     assert load_run_record(complete_run / "run.json").rerank_variants == {}
@@ -390,14 +390,14 @@ def test_local_dry_run_reports_target_and_missing_pairs(complete_run):
 
 def test_forced_rerank_rescores_into_the_same_variant(complete_run):
     backend = fake_local_backend()
-    first = backend.run(request(complete_run, "qwen3-reranker:0.6b-fp16"))
+    first = backend.run(request(complete_run, "qwen3-reranker:0.6b-q8_0"))
 
-    second = backend.run(request(complete_run, "qwen3-reranker:0.6b-fp16", force=True))
+    second = backend.run(request(complete_run, "qwen3-reranker:0.6b-q8_0", force=True))
 
     assert second.artifact_dir == first.artifact_dir
     assert "scored=1" in second.actions
     assert list(load_run_record(complete_run / "run.json").rerank_variants) == [
-        "qwen3_reranker_0_6b_fp16"
+        "qwen3_reranker_0_6b_q8_0"
     ]
 
 
@@ -414,10 +414,10 @@ def test_local_rerank_from_a_complete_cache_starts_no_reranker(
         raise AssertionError("a complete cache must not start a reranker")
 
     result = LocalRerankBackend(reranker_factory=no_server).run(
-        request(complete_run, "qwen3-reranker:0.6b-fp16")
+        request(complete_run, "qwen3-reranker:0.6b-q8_0")
     )
 
-    assert result.artifact_dir == complete_run / "rerank" / "qwen3_reranker_0_6b_fp16"
+    assert result.artifact_dir == complete_run / "rerank" / "qwen3_reranker_0_6b_q8_0"
     assert "scored=0" in result.actions
 
 
@@ -437,7 +437,7 @@ def test_local_rerank_scores_each_query_in_one_request(two_candidate_run):
     reranker = RecordingReranker()
 
     result = LocalRerankBackend(reranker_factory=lambda _spec, _timeout: reranker).run(
-        request(two_candidate_run, "qwen3-reranker:0.6b-fp16")
+        request(two_candidate_run, "qwen3-reranker:0.6b-q8_0")
     )
 
     assert reranker.calls == [("test query", ["chunk-1", "chunk-2"])]
@@ -454,7 +454,7 @@ def test_local_benchmark_reports_the_selected_level_without_registering(
     )
     identity = RuntimeProfileIdentity.create(
         workload="rerank",
-        model="qwen3-reranker:4b-fp16",
+        model="qwen3-reranker:4b-q8_0",
         model_sha256="a" * 64,
         runtime_sha256="b" * 64,
         inference_cache_policy_sha256="c" * 64,
@@ -469,7 +469,7 @@ def test_local_benchmark_reports_the_selected_level_without_registering(
         measurements=[measurement.to_dict()],
         benchmark_job_sha256="d" * 64,
     )
-    report = Path("profiles/rerank/qwen3_reranker_4b_fp16.json")
+    report = Path("profiles/rerank/qwen3_reranker_4b_q8_0.json")
     seen = []
 
     def fake_benchmark(spec, candidate_data_path, timeout):
@@ -481,11 +481,11 @@ def test_local_benchmark_reports_the_selected_level_without_registering(
 
     result = LocalRerankBackend(
         reranker_factory=no_server, benchmark_runner=fake_benchmark
-    ).run(replace(request(complete_run, "qwen3-reranker:4b-fp16"), benchmark=True))
+    ).run(replace(request(complete_run, "qwen3-reranker:4b-q8_0"), benchmark=True))
 
     assert seen == [
         (
-            "qwen3-reranker:4b-fp16",
+            "qwen3-reranker:4b-q8_0",
             complete_run / "candidates" / "candidates.jsonl",
             5.0,
         )
@@ -501,7 +501,7 @@ def test_local_benchmark_reports_the_selected_level_without_registering(
 
 
 def test_local_reranker_starts_compose_with_the_stored_local_profile(monkeypatch):
-    spec = require_model("qwen3-reranker:4b-fp16")
+    spec = require_model("qwen3-reranker:4b-q8_0")
     selected = LOCAL_RERANK_SEARCH_SPACE.candidates[1]
     ensured = []
 
@@ -529,7 +529,7 @@ def test_local_reranker_starts_compose_with_the_stored_local_profile(monkeypatch
 def test_kaggle_backend_leaves_benchmarks_to_the_runtime_profile(complete_run):
     with pytest.raises(ValueError, match="--backend local"):
         KaggleRerankBackend().run(
-            replace(request(complete_run, "qwen3-reranker:0.6b-fp16"), benchmark=True)
+            replace(request(complete_run, "qwen3-reranker:0.6b-q8_0"), benchmark=True)
         )
 
 
@@ -556,7 +556,7 @@ def test_kaggle_rerank_merges_session_scores_and_registers_the_variant(
     )
 
     assert not result.incomplete
-    assert result.artifact_dir == complete_run / "rerank" / "qwen3_reranker_0_6b_fp16"
+    assert result.artifact_dir == complete_run / "rerank" / "qwen3_reranker_0_6b_q8_0"
     assert [
         (
             call["kaggle_account"],
@@ -675,7 +675,7 @@ def test_kaggle_rerank_finalizes_a_complete_local_cache_without_kaggle(
 
     result = KaggleRerankBackend().run(request(complete_run, MODEL))
 
-    assert result.artifact_dir == complete_run / "rerank" / "qwen3_reranker_0_6b_fp16"
+    assert result.artifact_dir == complete_run / "rerank" / "qwen3_reranker_0_6b_q8_0"
     assert "reuse=local score cache" in result.actions
 
 
@@ -747,7 +747,7 @@ def test_recover_kernel_merges_its_scores_and_registers_a_complete_variant(
     assert seen == [("inspect", KERNEL), ("download", "user-acc2")]
     assert "recovered_pairs=1" in result.actions
     assert "missing_pairs=0" in result.actions
-    assert result.artifact_dir == complete_run / "rerank" / "qwen3_reranker_0_6b_fp16"
+    assert result.artifact_dir == complete_run / "rerank" / "qwen3_reranker_0_6b_q8_0"
 
 
 def test_recover_kernel_refuses_a_running_kernel(
@@ -775,7 +775,7 @@ def test_recover_kernel_rejects_scores_of_another_model(
         "KernelService",
         _fake_kernel_service(
             KernelStatus.COMPLETE,
-            _kernel_output(complete_rerank_cache, model="bge-reranker-v2-m3:f16"),
+            _kernel_output(complete_rerank_cache, model="bge-reranker-v2-m3:q8_0"),
             [],
         ),
     )

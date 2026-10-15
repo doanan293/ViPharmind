@@ -40,7 +40,7 @@ def test_pinned_backend_names_have_expected_values() -> None:
     assert BUNDLE_SCHEMA_VERSION == "knowledge-bundle/v1"
     assert CHUNKER_VERSION == "chunker-v1"
     assert MAX_CHUNK_CHARS == 3000
-    assert model_slug("qwen3-embedding:4b-fp16") == "qwen3_embedding_4b_fp16"
+    assert model_slug("qwen3-embedding:4b-q8_0") == "qwen3_embedding_4b_q8_0"
     assert callable(chunk_section)
     assert "embedder" in inspect.signature(build_retrieval_service).parameters
     assert RetrievalStack.__name__ == "RetrievalStack"
