@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -104,9 +105,9 @@ class ModelSpec:
 
     @property
     def gguf_dataset_slug(self) -> str:
-        return "vector-cache-gguf-" + self.canonical_filename.removesuffix(
-            ".gguf"
-        ).replace(".", "-")
+        # Kaggle slugs allow letters, digits and "-" only, so "q8_0" becomes "q8-0".
+        stem = self.canonical_filename.removesuffix(".gguf").casefold()
+        return "vector-cache-gguf-" + re.sub(r"[^a-z0-9]+", "-", stem).strip("-")
 
 
 def _embedding(
