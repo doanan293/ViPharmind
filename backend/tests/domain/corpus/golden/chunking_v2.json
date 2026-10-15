@@ -1,0 +1,658 @@
+{
+  "glossary": [
+    {
+      "term": "ADR",
+      "case_sensitive": true,
+      "vietnamese_expansions": [
+        "tác dụng không mong muốn",
+        "phản ứng có hại của thuốc"
+      ],
+      "english_expansions": [
+        "Adverse Drug Reactions"
+      ],
+      "aliases": [
+        "adverse drug reaction"
+      ],
+      "category": "safety",
+      "confidence": "high",
+      "source": "curated"
+    },
+    {
+      "term": "NSAID",
+      "case_sensitive": true,
+      "vietnamese_expansions": [
+        "thuốc chống viêm không steroid",
+        "thuốc kháng viêm không steroid"
+      ],
+      "english_expansions": [
+        "Nonsteroidal Anti-inflammatory Drug"
+      ],
+      "aliases": [
+        "NSAIDs"
+      ],
+      "category": "drug_class",
+      "confidence": "high",
+      "source": "curated"
+    },
+    {
+      "term": "INR",
+      "case_sensitive": true,
+      "vietnamese_expansions": [
+        "tỷ số chuẩn hóa quốc tế"
+      ],
+      "english_expansions": [
+        "International Normalized Ratio"
+      ],
+      "aliases": [],
+      "category": "laboratory",
+      "confidence": "high",
+      "source": "curated"
+    },
+    {
+      "term": "G6PD",
+      "case_sensitive": true,
+      "vietnamese_expansions": [
+        "glucose-6-phosphate dehydrogenase"
+      ],
+      "english_expansions": [
+        "glucose-6-phosphate dehydrogenase"
+      ],
+      "aliases": [
+        "thiếu men G6PD",
+        "thiếu enzym G6PD"
+      ],
+      "category": "laboratory",
+      "confidence": "high",
+      "source": "curated"
+    }
+  ],
+  "colloquial_mappings": [
+    {
+      "key": "panadol-extra-gsk-150-vien-11440",
+      "aliases": [
+        "Panadol đỏ",
+        "Panadol extra đỏ",
+        "Panadol vỉ đỏ",
+        "Panadol hộp đỏ"
+      ],
+      "visual_sign": "Hộp màu đỏ, vỉ thuốc màu đỏ",
+      "product_names": [
+        "Panadol Extra GSK giảm đau, hạ sốt",
+        "Panadol Extra GSK"
+      ],
+      "section_keys": [
+        "leaflet:thuoc-giam-dau-ha-sot:panadol-extra-gsk-150-vien-11440"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "name": "monograph",
+      "target_chars": 260,
+      "max_chars": 400,
+      "document": {
+        "key": "drug:paracetamol",
+        "kind": "drug_monograph",
+        "title": "PARACETAMOL",
+        "source": {
+          "title": "Dược thư Quốc gia Việt Nam 2022",
+          "url": null
+        },
+        "attributes": {}
+      },
+      "sections": [
+        {
+          "key": "drug:paracetamol:lieu-luong-va-cach-dung",
+          "document_key": "drug:paracetamol",
+          "heading": "Liều lượng và cách dùng",
+          "context_path": [
+            "Liều lượng và cách dùng"
+          ],
+          "ordinal": 1,
+          "start_page": 1203,
+          "end_page": 1204,
+          "retrieval": "default",
+          "blocks": [
+            {
+              "kind": "prose",
+              "markdown": "Người lớn: uống 500 mg - 1 g mỗi 4 - 6 giờ khi cần, tối đa 4 g/ngày.\n\nTrẻ em: 10 - 15 mg/kg mỗi 4 - 6 giờ, không quá 5 lần trong 24 giờ.\n\nNgười bệnh thiếu men G6PD hoặc đang dùng NSAID cần theo dõi ADR trên gan và thận. Giảm liều khi suy gan, suy thận nặng; tránh dùng kéo dài ở người nghiện rượu mạn tính vì nguy cơ hoại tử tế bào gan.",
+              "start_page": null,
+              "end_page": null,
+              "table_key": null
+            }
+          ]
+        },
+        {
+          "key": "drug:paracetamol:tuong-tac-thuoc",
+          "document_key": "drug:paracetamol",
+          "heading": "Tương tác thuốc",
+          "context_path": [
+            "Tương tác thuốc"
+          ],
+          "ordinal": 2,
+          "start_page": 1204,
+          "end_page": 1205,
+          "retrieval": "default",
+          "blocks": [
+            {
+              "kind": "prose",
+              "markdown": "Dùng đồng thời với thuốc cảm ứng enzym gan làm tăng độc tính trên gan của paracetamol.",
+              "start_page": 1204,
+              "end_page": 1204,
+              "table_key": null
+            },
+            {
+              "kind": "table",
+              "markdown": "| Thuốc phối hợp | Hậu quả | Xử trí |\n| --- | --- | --- |\n| Warfarin | Tăng INR khi dùng kéo dài | Theo dõi INR |\n| Rượu | Tăng độc tính trên gan | Tránh uống rượu |\n| Isoniazid | Tăng nguy cơ độc gan | Giám sát men gan |\n| Cholestyramin | Giảm hấp thu paracetamol | Uống cách 1 giờ |",
+              "start_page": 1205,
+              "end_page": 1205,
+              "table_key": "tbl-0042"
+            }
+          ]
+        }
+      ],
+      "expected": [
+        {
+          "ordinal": 1,
+          "section_keys": [
+            "drug:paracetamol:lieu-luong-va-cach-dung"
+          ],
+          "headings": [
+            "Liều lượng và cách dùng"
+          ],
+          "chunk_text": "## Liều lượng và cách dùng\n\nNgười lớn: uống 500 mg - 1 g mỗi 4 - 6 giờ khi cần, tối đa 4 g/ngày.\n\nTrẻ em: 10 - 15 mg/kg mỗi 4 - 6 giờ, không quá 5 lần trong 24 giờ.\n\nNgười bệnh thiếu men G6PD hoặc đang dùng NSAID cần theo dõi ADR trên gan và thận. Giảm liều khi suy gan, suy thận nặng; tránh dùng kéo dài ở người nghiện rượu mạn tính vì nguy cơ hoại tử tế bào gan.",
+          "start_page": 1203,
+          "end_page": 1204,
+          "context_header": "PARACETAMOL > Liều lượng và cách dùng",
+          "embedding_text": "PARACETAMOL > Liều lượng và cách dùng\n\n## Liều lượng và cách dùng\n\nNgười lớn: uống 500 mg - 1 g mỗi 4 - 6 giờ khi cần, tối đa 4 g/ngày.\n\nTrẻ em: 10 - 15 mg/kg mỗi 4 - 6 giờ, không quá 5 lần trong 24 giờ.\n\nNgười bệnh thiếu men G6PD hoặc đang dùng NSAID cần theo dõi ADR trên gan và thận. Giảm liều khi suy gan, suy thận nặng; tránh dùng kéo dài ở người nghiện rượu mạn tính vì nguy cơ hoại tử tế bào gan.\n\nThuật ngữ: G6PD = glucose-6-phosphate dehydrogenase | NSAID = thuốc chống viêm không steroid; thuốc kháng viêm không steroid; Nonsteroidal Anti-inflammatory Drug | ADR = tác dụng không mong muốn; phản ứng có hại của thuốc; Adverse Drug Reactions",
+          "term_annotations": [
+            {
+              "term": "G6PD",
+              "vi": [
+                "glucose-6-phosphate dehydrogenase"
+              ],
+              "en": [
+                "glucose-6-phosphate dehydrogenase"
+              ]
+            },
+            {
+              "term": "NSAID",
+              "vi": [
+                "thuốc chống viêm không steroid",
+                "thuốc kháng viêm không steroid"
+              ],
+              "en": [
+                "Nonsteroidal Anti-inflammatory Drug"
+              ]
+            },
+            {
+              "term": "ADR",
+              "vi": [
+                "tác dụng không mong muốn",
+                "phản ứng có hại của thuốc"
+              ],
+              "en": [
+                "Adverse Drug Reactions"
+              ]
+            }
+          ],
+          "colloquial": null
+        },
+        {
+          "ordinal": 2,
+          "section_keys": [
+            "drug:paracetamol:tuong-tac-thuoc"
+          ],
+          "headings": [
+            "Tương tác thuốc"
+          ],
+          "chunk_text": "## Tương tác thuốc\n\nDùng đồng thời với thuốc cảm ứng enzym gan làm tăng độc tính trên gan của paracetamol.\n\n| Thuốc phối hợp | Hậu quả | Xử trí |\n| --- | --- | --- |\n| Warfarin | Tăng INR khi dùng kéo dài | Theo dõi INR |\n| Rượu | Tăng độc tính trên gan | Tránh uống rượu |\n| Isoniazid | Tăng nguy cơ độc gan | Giám sát men gan |\n| Cholestyramin | Giảm hấp thu paracetamol | Uống cách 1 giờ |",
+          "start_page": 1204,
+          "end_page": 1205,
+          "context_header": "PARACETAMOL > Tương tác thuốc",
+          "embedding_text": "PARACETAMOL > Tương tác thuốc\n\n## Tương tác thuốc\n\nDùng đồng thời với thuốc cảm ứng enzym gan làm tăng độc tính trên gan của paracetamol.\n\n| Thuốc phối hợp | Hậu quả | Xử trí |\n| --- | --- | --- |\n| Warfarin | Tăng INR khi dùng kéo dài | Theo dõi INR |\n| Rượu | Tăng độc tính trên gan | Tránh uống rượu |\n| Isoniazid | Tăng nguy cơ độc gan | Giám sát men gan |\n| Cholestyramin | Giảm hấp thu paracetamol | Uống cách 1 giờ |\n\nThuật ngữ: INR = tỷ số chuẩn hóa quốc tế; International Normalized Ratio",
+          "term_annotations": [
+            {
+              "term": "INR",
+              "vi": [
+                "tỷ số chuẩn hóa quốc tế"
+              ],
+              "en": [
+                "International Normalized Ratio"
+              ]
+            }
+          ],
+          "colloquial": null
+        }
+      ]
+    },
+    {
+      "name": "list",
+      "target_chars": 110,
+      "max_chars": 110,
+      "document": {
+        "key": "general:phu-luc-3-danh-muc-thuoc-phan-loai-theo-ma-atc",
+        "kind": "general_monograph",
+        "title": "PHỤ LỤC 3. DANH MỤC THUỐC PHÂN LOẠI THEO MÃ ATC",
+        "source": {
+          "title": "Dược thư Quốc gia Việt Nam 2022",
+          "url": null
+        },
+        "attributes": {}
+      },
+      "sections": [
+        {
+          "key": "general:phu-luc-3-danh-muc-thuoc-phan-loai-theo-ma-atc:bang-phan-loai-atc",
+          "document_key": "general:phu-luc-3-danh-muc-thuoc-phan-loai-theo-ma-atc",
+          "heading": "Bảng phân loại ATC",
+          "context_path": [
+            "Bảng phân loại ATC"
+          ],
+          "ordinal": 1,
+          "start_page": 1601,
+          "end_page": 1602,
+          "retrieval": "default",
+          "blocks": [
+            {
+              "kind": "list",
+              "markdown": "N02BE01 Paracetamol\nN02BA01 Acid acetylsalicylic\nM01AE01 Ibuprofen\nM01AB05 Diclofenac, dùng đường uống\nhoặc đặt trực tràng\nM01AC01 Piroxicam\nM01AH01 Celecoxib\nN02AX02 Tramadol",
+              "start_page": null,
+              "end_page": null,
+              "table_key": null
+            }
+          ]
+        }
+      ],
+      "expected": [
+        {
+          "ordinal": 1,
+          "section_keys": [
+            "general:phu-luc-3-danh-muc-thuoc-phan-loai-theo-ma-atc:bang-phan-loai-atc"
+          ],
+          "headings": [
+            "Bảng phân loại ATC"
+          ],
+          "chunk_text": "## Bảng phân loại ATC\n\nN02BE01 Paracetamol\nN02BA01 Acid acetylsalicylic\nM01AE01 Ibuprofen",
+          "start_page": 1601,
+          "end_page": 1602,
+          "context_header": "PHỤ LỤC 3. DANH MỤC THUỐC PHÂN LOẠI THEO MÃ ATC > Bảng phân loại ATC",
+          "embedding_text": "PHỤ LỤC 3. DANH MỤC THUỐC PHÂN LOẠI THEO MÃ ATC > Bảng phân loại ATC\n\n## Bảng phân loại ATC\n\nN02BE01 Paracetamol\nN02BA01 Acid acetylsalicylic\nM01AE01 Ibuprofen",
+          "term_annotations": [],
+          "colloquial": null
+        },
+        {
+          "ordinal": 2,
+          "section_keys": [
+            "general:phu-luc-3-danh-muc-thuoc-phan-loai-theo-ma-atc:bang-phan-loai-atc"
+          ],
+          "headings": [
+            "Bảng phân loại ATC"
+          ],
+          "chunk_text": "## Bảng phân loại ATC\n\nM01AB05 Diclofenac, dùng đường uống\nhoặc đặt trực tràng\nM01AC01 Piroxicam",
+          "start_page": 1601,
+          "end_page": 1602,
+          "context_header": "PHỤ LỤC 3. DANH MỤC THUỐC PHÂN LOẠI THEO MÃ ATC > Bảng phân loại ATC",
+          "embedding_text": "PHỤ LỤC 3. DANH MỤC THUỐC PHÂN LOẠI THEO MÃ ATC > Bảng phân loại ATC\n\n## Bảng phân loại ATC\n\nM01AB05 Diclofenac, dùng đường uống\nhoặc đặt trực tràng\nM01AC01 Piroxicam",
+          "term_annotations": [],
+          "colloquial": null
+        },
+        {
+          "ordinal": 3,
+          "section_keys": [
+            "general:phu-luc-3-danh-muc-thuoc-phan-loai-theo-ma-atc:bang-phan-loai-atc"
+          ],
+          "headings": [
+            "Bảng phân loại ATC"
+          ],
+          "chunk_text": "## Bảng phân loại ATC\n\nM01AH01 Celecoxib\nN02AX02 Tramadol",
+          "start_page": 1601,
+          "end_page": 1602,
+          "context_header": "PHỤ LỤC 3. DANH MỤC THUỐC PHÂN LOẠI THEO MÃ ATC > Bảng phân loại ATC",
+          "embedding_text": "PHỤ LỤC 3. DANH MỤC THUỐC PHÂN LOẠI THEO MÃ ATC > Bảng phân loại ATC\n\n## Bảng phân loại ATC\n\nM01AH01 Celecoxib\nN02AX02 Tramadol",
+          "term_annotations": [],
+          "colloquial": null
+        }
+      ]
+    },
+    {
+      "name": "index_entries",
+      "target_chars": 110,
+      "max_chars": 110,
+      "document": {
+        "key": "general:muc-luc-tra-cuu-biet-duoc-va-hoat-chat",
+        "kind": "general_monograph",
+        "title": "MỤC LỤC TRA CỨU BIỆT DƯỢC VÀ HOẠT CHẤT",
+        "source": {
+          "title": "Dược thư Quốc gia Việt Nam 2022",
+          "url": null
+        },
+        "attributes": {}
+      },
+      "sections": [
+        {
+          "key": "general:muc-luc-tra-cuu-biet-duoc-va-hoat-chat:bang-tra-cuu-biet-duoc",
+          "document_key": "general:muc-luc-tra-cuu-biet-duoc-va-hoat-chat",
+          "heading": "Bảng tra cứu biệt dược",
+          "context_path": [
+            "Bảng tra cứu biệt dược"
+          ],
+          "ordinal": 1,
+          "start_page": 1650,
+          "end_page": 1652,
+          "retrieval": "index_only",
+          "blocks": [
+            {
+              "kind": "index_entries",
+              "markdown": "- **Efferalgan**: Paracetamol\n- **Hapacol**: Paracetamol\n- **Panadol Extra**: Paracetamol, cafein\n- **Voltaren**: Diclofenac\n- **Celebrex**: Celecoxib",
+              "start_page": null,
+              "end_page": null,
+              "table_key": null
+            }
+          ]
+        }
+      ],
+      "expected": [
+        {
+          "ordinal": 1,
+          "section_keys": [
+            "general:muc-luc-tra-cuu-biet-duoc-va-hoat-chat:bang-tra-cuu-biet-duoc"
+          ],
+          "headings": [
+            "Bảng tra cứu biệt dược"
+          ],
+          "chunk_text": "## Bảng tra cứu biệt dược\n\n- **Efferalgan**: Paracetamol\n- **Hapacol**: Paracetamol",
+          "start_page": 1650,
+          "end_page": 1652,
+          "context_header": "MỤC LỤC TRA CỨU BIỆT DƯỢC VÀ HOẠT CHẤT > Bảng tra cứu biệt dược",
+          "embedding_text": "MỤC LỤC TRA CỨU BIỆT DƯỢC VÀ HOẠT CHẤT > Bảng tra cứu biệt dược\n\n## Bảng tra cứu biệt dược\n\n- **Efferalgan**: Paracetamol\n- **Hapacol**: Paracetamol",
+          "term_annotations": [],
+          "colloquial": null
+        },
+        {
+          "ordinal": 2,
+          "section_keys": [
+            "general:muc-luc-tra-cuu-biet-duoc-va-hoat-chat:bang-tra-cuu-biet-duoc"
+          ],
+          "headings": [
+            "Bảng tra cứu biệt dược"
+          ],
+          "chunk_text": "## Bảng tra cứu biệt dược\n\n- **Panadol Extra**: Paracetamol, cafein\n- **Voltaren**: Diclofenac",
+          "start_page": 1650,
+          "end_page": 1652,
+          "context_header": "MỤC LỤC TRA CỨU BIỆT DƯỢC VÀ HOẠT CHẤT > Bảng tra cứu biệt dược",
+          "embedding_text": "MỤC LỤC TRA CỨU BIỆT DƯỢC VÀ HOẠT CHẤT > Bảng tra cứu biệt dược\n\n## Bảng tra cứu biệt dược\n\n- **Panadol Extra**: Paracetamol, cafein\n- **Voltaren**: Diclofenac",
+          "term_annotations": [],
+          "colloquial": null
+        },
+        {
+          "ordinal": 3,
+          "section_keys": [
+            "general:muc-luc-tra-cuu-biet-duoc-va-hoat-chat:bang-tra-cuu-biet-duoc"
+          ],
+          "headings": [
+            "Bảng tra cứu biệt dược"
+          ],
+          "chunk_text": "## Bảng tra cứu biệt dược\n\n- **Celebrex**: Celecoxib",
+          "start_page": 1650,
+          "end_page": 1652,
+          "context_header": "MỤC LỤC TRA CỨU BIỆT DƯỢC VÀ HOẠT CHẤT > Bảng tra cứu biệt dược",
+          "embedding_text": "MỤC LỤC TRA CỨU BIỆT DƯỢC VÀ HOẠT CHẤT > Bảng tra cứu biệt dược\n\n## Bảng tra cứu biệt dược\n\n- **Celebrex**: Celecoxib",
+          "term_annotations": [],
+          "colloquial": null
+        }
+      ]
+    },
+    {
+      "name": "leaflet",
+      "target_chars": 160,
+      "max_chars": 160,
+      "document": {
+        "key": "leaflet:thuoc-giam-dau-ha-sot:panadol-extra-gsk-150-vien-11440",
+        "kind": "leaflet",
+        "title": "Panadol Extra GSK giảm đau, hạ sốt (15 vỉ x 12 viên)",
+        "source": {
+          "title": "Tờ hướng dẫn sử dụng",
+          "url": null
+        },
+        "attributes": {}
+      },
+      "sections": [
+        {
+          "key": "leaflet:thuoc-giam-dau-ha-sot:panadol-extra-gsk-150-vien-11440",
+          "document_key": "leaflet:thuoc-giam-dau-ha-sot:panadol-extra-gsk-150-vien-11440",
+          "heading": "Thông tin chi tiết",
+          "context_path": [
+            "Thông tin chi tiết"
+          ],
+          "ordinal": 1,
+          "start_page": null,
+          "end_page": null,
+          "retrieval": "default",
+          "blocks": [
+            {
+              "kind": "prose",
+              "markdown": "# Panadol Extra GSK giảm đau, hạ sốt (15 vỉ x 12 viên)\n\nPanadol đỏ chứa paracetamol 500 mg và cafein 65 mg, giúp giảm đau đầu, đau răng, đau cơ và hạ sốt.\n\nNgười lớn uống 1 - 2 viên mỗi 4 - 6 giờ, tối đa 8 viên mỗi ngày. Không dùng chung với thuốc khác chứa paracetamol.",
+              "start_page": null,
+              "end_page": null,
+              "table_key": null
+            }
+          ]
+        }
+      ],
+      "expected": [
+        {
+          "ordinal": 1,
+          "section_keys": [
+            "leaflet:thuoc-giam-dau-ha-sot:panadol-extra-gsk-150-vien-11440"
+          ],
+          "headings": [
+            "Thông tin chi tiết"
+          ],
+          "chunk_text": "## Thông tin chi tiết\n\n# Panadol Extra GSK giảm đau, hạ sốt (15 vỉ x 12 viên)",
+          "start_page": null,
+          "end_page": null,
+          "context_header": "Panadol Extra GSK giảm đau, hạ sốt (15 vỉ x 12 viên) > Thông tin chi tiết",
+          "embedding_text": "Panadol Extra GSK giảm đau, hạ sốt (15 vỉ x 12 viên) > Thông tin chi tiết\n\nTên gọi khác: Panadol đỏ, Panadol extra đỏ, Panadol vỉ đỏ, Panadol hộp đỏ\nDấu hiệu nhận biết: Hộp màu đỏ, vỉ thuốc màu đỏ\n\n## Thông tin chi tiết\n\n# Panadol Extra GSK giảm đau, hạ sốt (15 vỉ x 12 viên)",
+          "term_annotations": [],
+          "colloquial": {
+            "key": "panadol-extra-gsk-150-vien-11440",
+            "aliases": [
+              "Panadol đỏ",
+              "Panadol extra đỏ",
+              "Panadol vỉ đỏ",
+              "Panadol hộp đỏ"
+            ],
+            "visual_sign": "Hộp màu đỏ, vỉ thuốc màu đỏ",
+            "product_names": [
+              "Panadol Extra GSK giảm đau, hạ sốt",
+              "Panadol Extra GSK"
+            ]
+          }
+        },
+        {
+          "ordinal": 2,
+          "section_keys": [
+            "leaflet:thuoc-giam-dau-ha-sot:panadol-extra-gsk-150-vien-11440"
+          ],
+          "headings": [
+            "Thông tin chi tiết"
+          ],
+          "chunk_text": "## Thông tin chi tiết\n\nPanadol đỏ chứa paracetamol 500 mg và cafein 65 mg, giúp giảm đau đầu, đau răng, đau cơ và hạ sốt.",
+          "start_page": null,
+          "end_page": null,
+          "context_header": "Panadol Extra GSK giảm đau, hạ sốt (15 vỉ x 12 viên) > Thông tin chi tiết",
+          "embedding_text": "Panadol Extra GSK giảm đau, hạ sốt (15 vỉ x 12 viên) > Thông tin chi tiết\n\nTên gọi khác: Panadol extra đỏ, Panadol vỉ đỏ, Panadol hộp đỏ\nDấu hiệu nhận biết: Hộp màu đỏ, vỉ thuốc màu đỏ\n\n## Thông tin chi tiết\n\nPanadol đỏ chứa paracetamol 500 mg và cafein 65 mg, giúp giảm đau đầu, đau răng, đau cơ và hạ sốt.",
+          "term_annotations": [],
+          "colloquial": {
+            "key": "panadol-extra-gsk-150-vien-11440",
+            "aliases": [
+              "Panadol đỏ",
+              "Panadol extra đỏ",
+              "Panadol vỉ đỏ",
+              "Panadol hộp đỏ"
+            ],
+            "visual_sign": "Hộp màu đỏ, vỉ thuốc màu đỏ",
+            "product_names": [
+              "Panadol Extra GSK giảm đau, hạ sốt",
+              "Panadol Extra GSK"
+            ]
+          }
+        },
+        {
+          "ordinal": 3,
+          "section_keys": [
+            "leaflet:thuoc-giam-dau-ha-sot:panadol-extra-gsk-150-vien-11440"
+          ],
+          "headings": [
+            "Thông tin chi tiết"
+          ],
+          "chunk_text": "## Thông tin chi tiết\n\nNgười lớn uống 1 - 2 viên mỗi 4 - 6 giờ, tối đa 8 viên mỗi ngày. Không dùng chung với thuốc khác chứa paracetamol.",
+          "start_page": null,
+          "end_page": null,
+          "context_header": "Panadol Extra GSK giảm đau, hạ sốt (15 vỉ x 12 viên) > Thông tin chi tiết",
+          "embedding_text": "Panadol Extra GSK giảm đau, hạ sốt (15 vỉ x 12 viên) > Thông tin chi tiết\n\nTên gọi khác: Panadol đỏ, Panadol extra đỏ, Panadol vỉ đỏ, Panadol hộp đỏ\nDấu hiệu nhận biết: Hộp màu đỏ, vỉ thuốc màu đỏ\n\n## Thông tin chi tiết\n\nNgười lớn uống 1 - 2 viên mỗi 4 - 6 giờ, tối đa 8 viên mỗi ngày. Không dùng chung với thuốc khác chứa paracetamol.",
+          "term_annotations": [],
+          "colloquial": {
+            "key": "panadol-extra-gsk-150-vien-11440",
+            "aliases": [
+              "Panadol đỏ",
+              "Panadol extra đỏ",
+              "Panadol vỉ đỏ",
+              "Panadol hộp đỏ"
+            ],
+            "visual_sign": "Hộp màu đỏ, vỉ thuốc màu đỏ",
+            "product_names": [
+              "Panadol Extra GSK giảm đau, hạ sốt",
+              "Panadol Extra GSK"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "packed",
+      "target_chars": 1000,
+      "max_chars": 1000,
+      "document": {
+        "key": "drug:paracetamol",
+        "kind": "drug_monograph",
+        "title": "PARACETAMOL",
+        "source": {
+          "title": "Dược thư Quốc gia Việt Nam 2022",
+          "url": null
+        },
+        "attributes": {}
+      },
+      "sections": [
+        {
+          "key": "drug:paracetamol:lieu-luong-va-cach-dung",
+          "document_key": "drug:paracetamol",
+          "heading": "Liều lượng và cách dùng",
+          "context_path": [
+            "Liều lượng và cách dùng"
+          ],
+          "ordinal": 1,
+          "start_page": 1203,
+          "end_page": 1204,
+          "retrieval": "default",
+          "blocks": [
+            {
+              "kind": "prose",
+              "markdown": "Người lớn: uống 500 mg - 1 g mỗi 4 - 6 giờ khi cần, tối đa 4 g/ngày.\n\nTrẻ em: 10 - 15 mg/kg mỗi 4 - 6 giờ, không quá 5 lần trong 24 giờ.\n\nNgười bệnh thiếu men G6PD hoặc đang dùng NSAID cần theo dõi ADR trên gan và thận. Giảm liều khi suy gan, suy thận nặng; tránh dùng kéo dài ở người nghiện rượu mạn tính vì nguy cơ hoại tử tế bào gan.",
+              "start_page": null,
+              "end_page": null,
+              "table_key": null
+            }
+          ]
+        },
+        {
+          "key": "drug:paracetamol:tuong-tac-thuoc",
+          "document_key": "drug:paracetamol",
+          "heading": "Tương tác thuốc",
+          "context_path": [
+            "Tương tác thuốc"
+          ],
+          "ordinal": 2,
+          "start_page": 1204,
+          "end_page": 1205,
+          "retrieval": "default",
+          "blocks": [
+            {
+              "kind": "prose",
+              "markdown": "Dùng đồng thời với thuốc cảm ứng enzym gan làm tăng độc tính trên gan của paracetamol.",
+              "start_page": 1204,
+              "end_page": 1204,
+              "table_key": null
+            },
+            {
+              "kind": "table",
+              "markdown": "| Thuốc phối hợp | Hậu quả | Xử trí |\n| --- | --- | --- |\n| Warfarin | Tăng INR khi dùng kéo dài | Theo dõi INR |\n| Rượu | Tăng độc tính trên gan | Tránh uống rượu |\n| Isoniazid | Tăng nguy cơ độc gan | Giám sát men gan |\n| Cholestyramin | Giảm hấp thu paracetamol | Uống cách 1 giờ |",
+              "start_page": 1205,
+              "end_page": 1205,
+              "table_key": "tbl-0042"
+            }
+          ]
+        }
+      ],
+      "expected": [
+        {
+          "ordinal": 1,
+          "section_keys": [
+            "drug:paracetamol:lieu-luong-va-cach-dung",
+            "drug:paracetamol:tuong-tac-thuoc"
+          ],
+          "headings": [
+            "Liều lượng và cách dùng",
+            "Tương tác thuốc"
+          ],
+          "chunk_text": "## Liều lượng và cách dùng\n\nNgười lớn: uống 500 mg - 1 g mỗi 4 - 6 giờ khi cần, tối đa 4 g/ngày.\n\nTrẻ em: 10 - 15 mg/kg mỗi 4 - 6 giờ, không quá 5 lần trong 24 giờ.\n\nNgười bệnh thiếu men G6PD hoặc đang dùng NSAID cần theo dõi ADR trên gan và thận. Giảm liều khi suy gan, suy thận nặng; tránh dùng kéo dài ở người nghiện rượu mạn tính vì nguy cơ hoại tử tế bào gan.\n\n## Tương tác thuốc\n\nDùng đồng thời với thuốc cảm ứng enzym gan làm tăng độc tính trên gan của paracetamol.\n\n| Thuốc phối hợp | Hậu quả | Xử trí |\n| --- | --- | --- |\n| Warfarin | Tăng INR khi dùng kéo dài | Theo dõi INR |\n| Rượu | Tăng độc tính trên gan | Tránh uống rượu |\n| Isoniazid | Tăng nguy cơ độc gan | Giám sát men gan |\n| Cholestyramin | Giảm hấp thu paracetamol | Uống cách 1 giờ |",
+          "start_page": 1203,
+          "end_page": 1205,
+          "context_header": "PARACETAMOL > Liều lượng và cách dùng; Tương tác thuốc",
+          "embedding_text": "PARACETAMOL > Liều lượng và cách dùng; Tương tác thuốc\n\n## Liều lượng và cách dùng\n\nNgười lớn: uống 500 mg - 1 g mỗi 4 - 6 giờ khi cần, tối đa 4 g/ngày.\n\nTrẻ em: 10 - 15 mg/kg mỗi 4 - 6 giờ, không quá 5 lần trong 24 giờ.\n\nNgười bệnh thiếu men G6PD hoặc đang dùng NSAID cần theo dõi ADR trên gan và thận. Giảm liều khi suy gan, suy thận nặng; tránh dùng kéo dài ở người nghiện rượu mạn tính vì nguy cơ hoại tử tế bào gan.\n\n## Tương tác thuốc\n\nDùng đồng thời với thuốc cảm ứng enzym gan làm tăng độc tính trên gan của paracetamol.\n\n| Thuốc phối hợp | Hậu quả | Xử trí |\n| --- | --- | --- |\n| Warfarin | Tăng INR khi dùng kéo dài | Theo dõi INR |\n| Rượu | Tăng độc tính trên gan | Tránh uống rượu |\n| Isoniazid | Tăng nguy cơ độc gan | Giám sát men gan |\n| Cholestyramin | Giảm hấp thu paracetamol | Uống cách 1 giờ |\n\nThuật ngữ: G6PD = glucose-6-phosphate dehydrogenase | NSAID = thuốc chống viêm không steroid; thuốc kháng viêm không steroid; Nonsteroidal Anti-inflammatory Drug | ADR = tác dụng không mong muốn; phản ứng có hại của thuốc; Adverse Drug Reactions | INR = tỷ số chuẩn hóa quốc tế; International Normalized Ratio",
+          "term_annotations": [
+            {
+              "term": "G6PD",
+              "vi": [
+                "glucose-6-phosphate dehydrogenase"
+              ],
+              "en": [
+                "glucose-6-phosphate dehydrogenase"
+              ]
+            },
+            {
+              "term": "NSAID",
+              "vi": [
+                "thuốc chống viêm không steroid",
+                "thuốc kháng viêm không steroid"
+              ],
+              "en": [
+                "Nonsteroidal Anti-inflammatory Drug"
+              ]
+            },
+            {
+              "term": "ADR",
+              "vi": [
+                "tác dụng không mong muốn",
+                "phản ứng có hại của thuốc"
+              ],
+              "en": [
+                "Adverse Drug Reactions"
+              ]
+            },
+            {
+              "term": "INR",
+              "vi": [
+                "tỷ số chuẩn hóa quốc tế"
+              ],
+              "en": [
+                "International Normalized Ratio"
+              ]
+            }
+          ],
+          "colloquial": null
+        }
+      ]
+    }
+  ]
+}

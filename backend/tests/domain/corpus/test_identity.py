@@ -7,11 +7,10 @@ from pharma_agent.domain.corpus.identity import (
     CORPUS_NAMESPACE,
     canonical_json,
     chunk_version_id,
-    section_revision_id,
     sha256_hex,
 )
 
-SECTION_KEY = "drug:paracetamol:lieu-luong-va-cach-dung"
+DOCUMENT_KEY = "drug:paracetamol"
 BLOCKS = [
     BlockRecord(
         kind=BlockKind.PROSE,
@@ -51,54 +50,29 @@ def test_sha256_hex_hashes_utf8_text() -> None:
     assert sha256_hex("Liều") == hashlib.sha256("Liều".encode()).hexdigest()
 
 
-def test_section_revision_id_follows_the_spec_formula() -> None:
-    blocks_json = canonical_json([block.model_dump(mode="json") for block in BLOCKS])
-    expected = uuid.uuid5(
-        CORPUS_NAMESPACE,
-        "section-revision\x1f" + SECTION_KEY + "\x1f" + sha256_hex(blocks_json),
-    )
-
-    assert section_revision_id(SECTION_KEY, BLOCKS) == expected
-
-
-def test_section_revision_id_is_deterministic_and_content_sensitive() -> None:
-    base = section_revision_id(SECTION_KEY, BLOCKS)
-    with_crlf = [
-        BLOCKS[0].model_copy(update={"markdown": BLOCKS[0].markdown + "  \r\n"}),
-        BLOCKS[1],
-    ]
-    with_other_page = [BLOCKS[0].model_copy(update={"start_page": 1202}), BLOCKS[1]]
-
-    assert section_revision_id(SECTION_KEY, [b.model_copy() for b in BLOCKS]) == base
-    assert section_revision_id(SECTION_KEY, with_crlf) == base
-    assert section_revision_id(SECTION_KEY, with_other_page) != base
-    assert section_revision_id(SECTION_KEY, list(reversed(BLOCKS))) != base
-    assert section_revision_id("drug:paracetamol:chong-chi-dinh", BLOCKS) != base
-
-
 def test_chunk_version_id_follows_the_spec_formula() -> None:
     digest = sha256_hex(
-        "\x1f".join((SECTION_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v1"))
+        "\x1f".join((DOCUMENT_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v1"))
     )
 
     assert chunk_version_id(
-        SECTION_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v1"
+        DOCUMENT_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v1"
     ) == uuid.uuid5(CORPUS_NAMESPACE, "chunk\x1f" + digest)
 
 
 def test_chunk_version_id_changes_with_every_input_but_not_with_whitespace() -> None:
-    base = chunk_version_id(SECTION_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v1")
+    base = chunk_version_id(DOCUMENT_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v1")
     enriched = (
         f"{EMBEDDING_TEXT}\n\nThuật ngữ: G6PD = glucose-6-phosphate dehydrogenase"
     )
 
     assert (
-        chunk_version_id(SECTION_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v2") != base
+        chunk_version_id(DOCUMENT_KEY, CHUNK_TEXT, EMBEDDING_TEXT, "chunker-v2") != base
     )
-    assert chunk_version_id(SECTION_KEY, CHUNK_TEXT, enriched, "chunker-v1") != base
+    assert chunk_version_id(DOCUMENT_KEY, CHUNK_TEXT, enriched, "chunker-v1") != base
     assert (
         chunk_version_id(
-            SECTION_KEY, f"{CHUNK_TEXT} Trẻ em", EMBEDDING_TEXT, "chunker-v1"
+            DOCUMENT_KEY, f"{CHUNK_TEXT} Trẻ em", EMBEDDING_TEXT, "chunker-v1"
         )
         != base
     )
@@ -110,7 +84,7 @@ def test_chunk_version_id_changes_with_every_input_but_not_with_whitespace() -> 
     )
     assert (
         chunk_version_id(
-            SECTION_KEY,
+            DOCUMENT_KEY,
             f"{CHUNK_TEXT}  \n",
             EMBEDDING_TEXT.replace("\n", "\r\n"),
             "chunker-v1",
