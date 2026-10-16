@@ -316,7 +316,7 @@ def serve_model(
         resolve_session_contexts,
         run_kaggle_stage,
     )
-    from pharma_lab.integrations.kaggle.sessions import reserve_session_account
+    from pharma_lab.integrations.kaggle.sessions import reserve_session_account_waiting
     from pharma_lab.integrations.kaggle.stages import get_stage_adapter
 
     stage = serve_stage(model)
@@ -326,7 +326,7 @@ def serve_model(
     request_path, api_key = write_request(SERVE_DIR, hours=hours)
     output_dir = SERVE_DIR / "kernels"
     target = env_path(model)
-    with reserve_session_account(
+    with reserve_session_account_waiting(
         contexts, requested_budget_seconds=budget, log=log
     ) as reserved:
         context = reserved.context
