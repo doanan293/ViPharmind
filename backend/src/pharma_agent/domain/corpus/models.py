@@ -231,7 +231,8 @@ def section_id_for(document_id: uuid.UUID, key: str) -> uuid.UUID:
 
 
 def bundle_digest(bundle: KnowledgeBundle) -> str:
-    """sha256 of the knowledge content; manifest and precomputed vectors are excluded."""
+    """sha256 of the knowledge content and its chunking; the rest of the manifest and
+    precomputed vectors are excluded."""
     content = {
         "documents": [record.model_dump(mode="json") for record in bundle.documents],
         "sections": [record.model_dump(mode="json") for record in bundle.sections],
@@ -239,6 +240,8 @@ def bundle_digest(bundle: KnowledgeBundle) -> str:
         "colloquial_mappings": [
             mapping.model_dump(mode="json") for mapping in bundle.colloquial_mappings
         ],
+        # Chunking decides the chunks, so a bundle rechunked is another release.
+        "chunking": bundle.manifest.chunking.model_dump(mode="json"),
     }
     return sha256_hex(canonical_json(content))
 
@@ -300,6 +303,8 @@ def build_snapshot(bundle: KnowledgeBundle) -> CorpusSnapshot:
             members,
             bundle.glossary,
             bundle.colloquial_mappings,
+            target_chars=bundle.manifest.chunking.target_chars,
+            max_chars=bundle.manifest.chunking.max_chars,
         )
         for draft in drafts:
             if draft.chunk_version_id in chunks:

@@ -19,7 +19,14 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    ValidationError,
+    model_validator,
+)
 
 from pharma_agent.domain.shared.errors import DomainError
 
@@ -158,6 +165,31 @@ class BundleEmbeddingFile(BaseModel):
     file: str
 
 
+# A chunk grows by whole sections until the next one would pass this; packed chunks
+# average about 1,000 Qwen3 tokens on the corpus (measured, spec v2 §3.0c).
+TARGET_CHUNK_CHARS = 4200
+# A single section longer than this is split on its own. Tables and lists take more
+# tokens per character than prose, so the longest chunk reaches about 3,200 tokens,
+# inside the 4,096-token embedding slot and rerank ubatch.
+MAX_CHUNK_CHARS = 5600
+
+
+class BundleChunking(BaseModel):
+    """How the chunker packs this bundle's sections. The default is the packed reading
+    unit; target_chars=1 gives every section its own chunk (spec v2 §4.D, D7)."""
+
+    model_config = _STRICT
+
+    target_chars: int = Field(default=TARGET_CHUNK_CHARS, gt=0)
+    max_chars: int = Field(default=MAX_CHUNK_CHARS, gt=0)
+
+    @model_validator(mode="after")
+    def _target_within_max(self) -> "BundleChunking":
+        if self.target_chars > self.max_chars:
+            raise ValueError("target_chars must not exceed max_chars")
+        return self
+
+
 class BundleManifest(BaseModel):
     model_config = _STRICT
 
@@ -169,6 +201,7 @@ class BundleManifest(BaseModel):
     section_count: int
     files: dict[str, BundleFile]
     embeddings: list[BundleEmbeddingFile] = Field(default_factory=list)
+    chunking: BundleChunking = Field(default_factory=BundleChunking)
 
 
 class KnowledgeBundle(BaseModel):
