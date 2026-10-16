@@ -10,7 +10,14 @@ from pydantic import BaseModel
 from pharma_agent.application.chat.context import TurnDeps
 from pharma_agent.domain.guardrail.service import GuardrailService
 from pharma_agent.domain.llm.decision import Decision, DecisionPort, NoulQuestion
-from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
+from pharma_agent.domain.llm.models import (
+    ChatMessage,
+    LlmRole,
+    LlmUsage,
+    StreamDelta,
+    ToolSpec,
+    ToolTurn,
+)
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.models import (
     Hit,
@@ -37,9 +44,27 @@ class FakeLlm:
         self.stream_error: Exception | None = None
         self.stream_delay: float = 0.0
         self.calls: list[tuple[LlmRole, list[ChatMessage]]] = []
+        self.tool_turns: list[ToolTurn | Exception] = []
+        self.tool_calls_seen: list[
+            tuple[LlmRole, list[ChatMessage], list[ToolSpec]]
+        ] = []
 
     def script(self, role: LlmRole, *responses: BaseModel | Exception) -> None:
         self.structured_responses.setdefault(role, []).extend(responses)
+
+    def script_tool_turns(self, *turns: ToolTurn | Exception) -> None:
+        self.tool_turns.extend(turns)
+
+    async def tool_call(
+        self, role: LlmRole, messages: Sequence[ChatMessage], tools: Sequence[ToolSpec]
+    ) -> tuple[ToolTurn, LlmUsage]:
+        self.tool_calls_seen.append((role, list(messages), list(tools)))
+        if not self.tool_turns:
+            raise AssertionError("no scripted tool turn")
+        turn = self.tool_turns.pop(0)
+        if isinstance(turn, Exception):
+            raise turn
+        return turn, LlmUsage(prompt_tokens=200, completion_tokens=20)
 
     async def structured(
         self, role: LlmRole, messages: Sequence[ChatMessage], schema: type[T]

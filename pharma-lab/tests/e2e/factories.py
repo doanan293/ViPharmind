@@ -7,7 +7,14 @@ from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import TypeVar
 
 from pharma_agent.domain.llm.decision import Decision, NoulQuestion
-from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
+from pharma_agent.domain.llm.models import (
+    ChatMessage,
+    LlmRole,
+    LlmUsage,
+    StreamDelta,
+    ToolSpec,
+    ToolTurn,
+)
 from pharma_agent.domain.retrieval.models import Hit, Query, ReleaseScope
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
 from pharma_agent.infrastructure.retrieval.llama_cpp_reranker import NoopReranker
@@ -26,9 +33,22 @@ class ScriptedLlm:
         self.stream_error = stream_error
         self.scripts: dict[LlmRole, list[BaseModel | Exception]] = {}
         self.calls: list[tuple[LlmRole, list[ChatMessage]]] = []
+        self.tool_turns: list[ToolTurn | Exception] = []
 
     def script(self, role: LlmRole, *responses: BaseModel | Exception) -> None:
         self.scripts.setdefault(role, []).extend(responses)
+
+    def script_tool_turns(self, *turns: ToolTurn | Exception) -> None:
+        self.tool_turns.extend(turns)
+
+    async def tool_call(
+        self, role: LlmRole, messages: Sequence[ChatMessage], tools: Sequence[ToolSpec]
+    ) -> tuple[ToolTurn, LlmUsage]:
+        self.calls.append((role, list(messages)))
+        turn = self.tool_turns.pop(0)
+        if isinstance(turn, Exception):
+            raise turn
+        return turn, LlmUsage(prompt_tokens=200, completion_tokens=20)
 
     async def structured(
         self, role: LlmRole, messages: Sequence[ChatMessage], schema: type[T]
