@@ -181,18 +181,21 @@ def build_retrieval_service(
 
 def guard_thresholds(llm: LlmSettings) -> GuardThresholds:
     """The guard role's extra_body["thresholds"] (block, review, scope, asks) when the
-    decision model serves that role; missing keys keep the defaults."""
+    decision model serves that role; missing keys keep the defaults, an unknown key is
+    refused so a misspelt tuned value cannot be silently dropped."""
     if LlmRole.GUARDRAIL not in llm.decision_roles():
         return GuardThresholds()
     configured = (llm.resolve(LlmRole.GUARDRAIL).extra_body or {}).get(
         "thresholds"
     ) or {}
-    known = {
-        key: float(configured[key])
-        for key in ("block", "review", "scope", "asks")
-        if key in configured
-    }
-    return GuardThresholds(**known)
+    allowed = ("block", "review", "scope", "asks")
+    unknown = sorted(set(configured) - set(allowed))
+    if unknown:
+        raise ValueError(
+            f"unknown guard threshold key(s) {', '.join(unknown)}; "
+            f"allowed: {', '.join(allowed)}"
+        )
+    return GuardThresholds(**{key: float(configured[key]) for key in configured})
 
 
 def build_application(
