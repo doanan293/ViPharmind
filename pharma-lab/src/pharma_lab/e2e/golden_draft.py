@@ -44,7 +44,7 @@ Cho một câu hỏi và các mục tài liệu (mỗi mục có id), hãy trả
 - key_facts: 2 đến 6 ý nguyên tử mà câu trả lời đúng phải nêu, chỉ gồm những ý trả lời đúng điều được hỏi. Mỗi mục tài liệu phải có ít nhất một key fact.
 Mỗi key fact có:
 - fact: ý đó, viết ngắn.
-- evidence_quote: chép nguyên văn một đoạn 5 đến 30 từ của đúng mục đó, giữ nguyên dấu và ký hiệu markdown. Chọn đoạn văn thường, tránh ranh giới ô bảng.
+- evidence_quote: chép nguyên văn một đoạn 5 đến 30 từ của đúng mục đó, giữ nguyên dấu và ký hiệu markdown. Chọn đoạn văn thường, tránh ranh giới ô bảng. Văn bản có chỗ xuống dòng giữa câu do lấy từ PDF; quote được phép đi qua chỗ xuống dòng, hãy lấy trọn cụm từ thay vì dừng ở cuối dòng.
 - section_id: id của mục chứa quote, đúng như được cho."""
 
 
@@ -92,9 +92,14 @@ def select_candidates(
     by_kind: dict[str, list[Mapping[str, object]]] = {
         kind: [] for kind in MULTI_HOP_KINDS
     }
-    for row in candidates:
-        if str(row["query_id"]) not in exclude:
-            by_kind[str(row["kind"])].append(row)
+    # The benchmark asks the same section pair in both orders; one item is enough.
+    seen_sections: set[frozenset[str]] = set()
+    for row in sorted(candidates, key=lambda row: str(row["query_id"])):
+        sections = frozenset(_gold(row))
+        if str(row["query_id"]) in exclude or sections in seen_sections:
+            continue
+        seen_sections.add(sections)
+        by_kind[str(row["kind"])].append(row)
     rng = random.Random(seed)
     for rows in by_kind.values():
         rows.sort(key=lambda row: str(row["query_id"]))
