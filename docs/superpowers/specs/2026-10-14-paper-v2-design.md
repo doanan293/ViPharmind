@@ -178,13 +178,11 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   của judge (RAGAS và judge cấu trúc, hằng `JUDGE_REASONING` trong `judging/structured.py`) đổi từ
   `medium` của v1 sang `none`, vì judge gọi rất nhiều lần mỗi item. Qua proxy, flash-lite có thinking
   thật ở `medium` (291 token reasoning trên một câu tính liều) còn `low` và `none` đều 0 token, nên
-  chỉ có hai mức thực sự khác nhau. Trước khi đổi, chấm lại các item dược sĩ đã chấm mù của v1
-  (`e2e-gemini` và `e2e-qwen35-9b`, `calibration/grades.jsonl`) bằng `none` vào một run root riêng,
-  không ghi đè judgments v1, rồi so κ và AC1 với người chấm ở `medium`. Chênh không đáng kể thì dùng
-  `none` cho mọi run v2; tụt rõ thì giữ
-  `medium` và bài ghi lý do. Phép thử nhanh ngày 2026-10-14 cho thấy rủi ro là thật: một câu tính
-  thể tích (400 mg từ ống 250 mg/5 ml) đúng 8 ml ở `medium` nhưng sai 6,4 ml ở cả `none` và `low`,
-  ba lần gọi như nhau.
+  chỉ có hai mức thực sự khác nhau. Mọi run v2 chấm ở `none` (quyết định ngày 2026-10-16, không
+  chấm lại nhãn v1): hiệu chuẩn dược sĩ trên chính các run v2 (§3.3) đo độ khớp của judge; nếu độ
+  khớp kém thì chấm lại ở `medium`. Rủi ro đã biết: một câu tính thể tích (400 mg từ ống 250 mg/5
+  ml) đúng 8 ml ở `medium` nhưng sai 6,4 ml ở `none` và `low` (thử ngày 2026-10-14), nên bài báo
+  cáo độ khớp với dược sĩ của chính judge này.
 
 ### 2.2 Judge-refine kiểu quyết định
 

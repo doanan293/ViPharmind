@@ -15,8 +15,9 @@ from pharma_lab.e2e.golden import GoldenItem
 from pharma_lab.e2e.judging.code_metrics import cited_sentences, context_blocks
 
 JUDGE_MODEL = "gpt-5-mini"
-# The v1 judge ran at medium; phase 0 checks none against the pharmacist grades.
-DEFAULT_JUDGE_REASONING: ReasoningEffort = "medium"
+# v1 judged at medium; v2 judges at none, and the pharmacist calibration of the v2
+# runs (spec v2 §3.3) measures its agreement (decision 2026-10-16).
+DEFAULT_JUDGE_REASONING: ReasoningEffort = "none"
 
 Verdict = Literal["supported", "missing", "contradicted"]
 
