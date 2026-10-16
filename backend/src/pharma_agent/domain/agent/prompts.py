@@ -82,6 +82,7 @@ Trả về JSON:
 - decision: "answer" nếu evidence đã bao phủ mọi ý của câu hỏi (mọi thuốc, mọi đối tượng, mọi khía cạnh được hỏi); "search_more" nếu còn thiếu.
 - gaps: danh sách ngắn (tối đa 3) các ý còn thiếu, mỗi ý là một cụm cụ thể có thể dùng để tìm tiếp (ví dụ "liều paracetamol cho trẻ 2 tuổi", "tương tác warfarin với aspirin"). Rỗng nếu decision là "answer".
 - reason: một câu.
+- confidence: xác suất (0 đến 1) rằng evidence đã đủ để trả lời trọn vẹn.
 
 Lưu ý: evidence chỉ là đoạn tóm tắt; nếu tiêu đề/mục đúng chủ đề thì coi là đủ. Nếu evidence có "gợi ý thuật ngữ" cho thấy người dùng dùng tên biệt dược hay tên dân gian, gaps nên nêu tên hoạt chất tương ứng."""
 

@@ -17,6 +17,11 @@ from pharma_agent.domain.agent.citations import (
     CitationSanitizer,
     citations_from,
 )
+from pharma_agent.domain.agent.decisions import (
+    judge_decision,
+    judge_questions,
+    judge_state,
+)
 from pharma_agent.domain.agent.prompts import (
     answer_messages,
     fallback_text,
@@ -32,6 +37,7 @@ from pharma_agent.domain.agent.schemas import (
     RephraseResult,
 )
 from pharma_agent.domain.guardrail.models import Verdict, VerdictSource
+from pharma_agent.domain.llm.decision import Decision
 from pharma_agent.domain.llm.models import LlmRole, LlmUsage
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.models import Query, QueryOrigin
@@ -158,20 +164,55 @@ async def judge_node(
         run.skip_judge(now=now)
         return {"run": run, "last_gaps": []}
     gaps: list[str] = []
+    tau = runtime.context.pipeline.refine_threshold
+    decision_port = deps.decisions.get(LlmRole.JUDGE)
     try:
-        decision, usage = await deps.llm.structured(
-            LlmRole.JUDGE,
-            judge_messages(run, run.evidence.summary_view()),
-            JudgeDecision,
-        )
+        raw: Decision | None = None
+        if decision_port is not None:
+            packed = run.evidence.pack(run.limits.max_evidence_chars)
+            raw = await decision_port.decide(
+                LlmRole.JUDGE,
+                judge_state(
+                    run.original_query, run.standalone_query, run.asked_intents, packed
+                ),
+                judge_questions(run.asked_intents),
+            )
+            decision = judge_decision(
+                raw.answers, run.asked_intents, tau if tau is not None else 0.5
+            )
+            usage = LlmUsage(prompt_tokens=raw.input_tokens)
+        else:
+            decision, usage = await deps.llm.structured(
+                LlmRole.JUDGE,
+                judge_messages(run, run.evidence.summary_view()),
+                JudgeDecision,
+            )
+            if tau is not None:
+                decision = decision.model_copy(
+                    update={
+                        "decision": JudgeOutcome.ANSWER
+                        if decision.confidence >= tau
+                        else JudgeOutcome.SEARCH_MORE
+                    }
+                )
         run.charge(usage)
         run.record_judge(
-            decision.decision, gaps=decision.gaps, reason=decision.reason, now=now
+            decision.decision,
+            gaps=decision.gaps,
+            reason=decision.reason,
+            confidence=decision.confidence,
+            now=now,
+            decision=raw,
         )
         gaps = list(decision.gaps)
     except (LlmError, BudgetExhausted) as exc:
         run.record_judge(
-            JudgeOutcome.ANSWER, gaps=[], reason=str(exc), now=now, failed=True
+            JudgeOutcome.ANSWER,
+            gaps=[],
+            reason=str(exc),
+            confidence=0.0,
+            now=now,
+            failed=True,
         )
     return {"run": run, "last_gaps": gaps}
 

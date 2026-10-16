@@ -54,7 +54,7 @@ def test_happy_path_search_judge_answer() -> None:
     assert run.allowed_steps() == {Step.JUDGE}
     assert run.usage.search_rounds == 1
 
-    run.record_judge(JudgeOutcome.ANSWER, gaps=[], reason="đủ", now=NOW)
+    run.record_judge(JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=0.5, now=NOW)
     assert run.allowed_steps() == {Step.ANSWER}
 
     plan = run.decide_answer()
@@ -71,7 +71,11 @@ def test_search_more_goes_through_refine_and_rejects_duplicate_queries() -> None
     run.record_rephrase(rephrased(), now=NOW)
     run.record_search(Q1, search_result("c1"), now=NOW)
     run.record_judge(
-        JudgeOutcome.SEARCH_MORE, gaps=["liều tối đa"], reason="thiếu", now=NOW
+        JudgeOutcome.SEARCH_MORE,
+        gaps=["liều tối đa"],
+        reason="thiếu",
+        confidence=0.5,
+        now=NOW,
     )
     assert run.allowed_steps() == {Step.REFINE}
 
@@ -83,7 +87,9 @@ def test_search_more_goes_through_refine_and_rejects_duplicate_queries() -> None
     assert run.allowed_steps() == {Step.SEARCH}
 
     run.record_search(fresh, search_result("c1", "c3"), now=NOW)
-    run.record_judge(JudgeOutcome.SEARCH_MORE, gaps=["trẻ em"], reason="", now=NOW)
+    run.record_judge(
+        JudgeOutcome.SEARCH_MORE, gaps=["trẻ em"], reason="", confidence=0.5, now=NOW
+    )
     only_dupes = run.record_refine(["paracetamol liều tối đa mỗi ngày"], now=NOW)
     assert only_dupes == []
     assert run.allowed_steps() == {Step.ANSWER}
@@ -95,7 +101,9 @@ def test_search_round_limit_forces_partial_answer() -> None:
     run.record_guard(PASS, now=NOW)
     run.record_rephrase(rephrased(), now=NOW)
     run.record_search(Q1, search_result("c1"), now=NOW)
-    run.record_judge(JudgeOutcome.SEARCH_MORE, gaps=["x"], reason="", now=NOW)
+    run.record_judge(
+        JudgeOutcome.SEARCH_MORE, gaps=["x"], reason="", confidence=0.5, now=NOW
+    )
     assert run.allowed_steps() == {Step.ANSWER}
     assert run.decide_answer().partial is True
 
@@ -105,7 +113,7 @@ def test_no_evidence_leads_to_abstain() -> None:
     run.record_guard(PASS, now=NOW)
     run.record_rephrase(rephrased(), now=NOW)
     run.record_search(Q1, search_result(error="qdrant down"), now=NOW)
-    run.record_judge(JudgeOutcome.ANSWER, gaps=[], reason="", now=NOW)
+    run.record_judge(JudgeOutcome.ANSWER, gaps=[], reason="", confidence=0.5, now=NOW)
     assert run.decide_answer() == AnswerPlan(mode=AnswerMode.ABSTAIN)
     with pytest.raises(EvidenceRequired):
         run.submit_plan(AnswerPlan(mode=AnswerMode.GROUNDED), now=NOW)
@@ -156,7 +164,12 @@ def test_judge_failure_marks_partial_and_terminal_transitions_are_guarded() -> N
     assert run.standalone_query == run.original_query
     run.record_search(Q1, search_result("c1"), now=NOW)
     run.record_judge(
-        JudgeOutcome.ANSWER, gaps=[], reason="judge failed", failed=True, now=NOW
+        JudgeOutcome.ANSWER,
+        gaps=[],
+        reason="judge failed",
+        failed=True,
+        confidence=0.0,
+        now=NOW,
     )
     assert run.decide_answer().partial is True
 

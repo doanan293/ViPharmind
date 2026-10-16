@@ -295,22 +295,30 @@ class AgentRun(BaseModel):
 
     def record_judge(
         self,
-        decision: JudgeOutcome,
+        outcome: JudgeOutcome,
+        /,
         *,
         gaps: Sequence[str],
         reason: str,
+        confidence: float,
         now: datetime,
         failed: bool = False,
+        decision: Decision | None = None,
     ) -> None:
-        self.last_judge = decision
+        self.last_judge = outcome
         if failed:
             self.partial_reason = "judge_failed"
+        payload: dict[str, Any] = {"gaps": list(gaps), "confidence": confidence}
+        if decision is not None:
+            payload["decision"] = decision.model_dump(exclude={"raw"}) | {
+                "raw": decision.raw
+            }
         self._log(
             ActionKind.JUDGE,
             now,
-            outcome="failed" if failed else decision.value,
+            outcome="failed" if failed else outcome.value,
             reason=reason,
-            payload={"gaps": list(gaps)},
+            payload=payload,
         )
 
     def skip_judge(self, *, now: datetime) -> None:
