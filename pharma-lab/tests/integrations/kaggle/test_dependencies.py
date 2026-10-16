@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -90,7 +91,6 @@ def test_desired_datasets_multi_owner_resolution(tmp_path, monkeypatch):
     owner_configuration = owners(
         "worker-acc",
         runtime="runtime-acc",
-        corpus="corpus-acc",
         checkpoint="worker-acc",
     )
     desired = dependencies.default_desired_datasets(job, owner_configuration, tmp_path)
@@ -98,8 +98,20 @@ def test_desired_datasets_multi_owner_resolution(tmp_path, monkeypatch):
 
     assert by_kind["model"].reference == "runtime-acc/model-slug"
     assert by_kind["model"].public is True
-    assert by_kind["input"].reference.startswith("corpus-acc/pipeline-input-")
-    assert by_kind["input"].public is True
+    # Inputs hold the evaluation questions and corpus text, so each account keeps its
+    # own private copy; only the model, open weights, is public and shared.
+    assert by_kind["input"].reference.startswith("worker-acc/pipeline-input-")
+    assert by_kind["input"].public is False
+
+
+def test_corpus_embed_input_is_a_pipeline_input_like_every_stage(tmp_path):
+    job, _, _ = _job(tmp_path)
+    corpus_embed = replace(job, stage=StageName.CORPUS_EMBED)
+
+    assert dependencies.input_dataset_slug(
+        corpus_embed
+    ) == dependencies.input_dataset_slug(job)
+    assert dependencies.input_dataset_slug(job).startswith("pipeline-input-")
 
 
 class UnusedRunner:
@@ -186,7 +198,7 @@ def test_missing_shared_dataset_is_created_by_the_shared_owner_profile(
 
     actions = service.reconcile(
         stage_job(tmp_path),
-        owners("tertiary-user", runtime="primary-user", corpus="primary-user"),
+        owners("tertiary-user", runtime="primary-user"),
         tmp_path,
         force=False,
         check_only=False,

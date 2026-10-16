@@ -40,7 +40,6 @@ def test_explicit_profile_resolves_acc2_and_shared_owners():
     assert owners.execution == "secondary-user"
     assert owners.checkpoint == "secondary-user"
     assert owners.runtime == "primary-user"
-    assert owners.corpus == "primary-user"
 
 
 def test_profile_environment_contains_only_selected_secret():

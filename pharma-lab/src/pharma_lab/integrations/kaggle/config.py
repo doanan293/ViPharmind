@@ -7,9 +7,15 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class OwnerConfiguration:
+    """Kaggle accounts behind each kind of dataset a stage uses.
+
+    `runtime` (the shared owner) holds what every account mounts: the llama.cpp build and
+    the open-weight models, published publicly. Inputs and checkpoints carry evaluation
+    questions and corpus text, so they stay private with the account that runs the kernel.
+    """
+
     execution: str
     runtime: str
-    corpus: str
     checkpoint: str
 
 
@@ -76,11 +82,9 @@ def profile_owner_configuration(
     if not shared_owner:
         raise ValueError("Kaggle profile mode requires KAGGLE_SHARED_OWNER")
     runtime = environ.get("KAGGLE_RUNTIME_OWNER", "").strip() or shared_owner
-    corpus = environ.get("KAGGLE_CORPUS_OWNER", "").strip() or shared_owner or runtime
     return OwnerConfiguration(
         execution=profile.username,
         runtime=runtime,
-        corpus=corpus,
         checkpoint=profile.username,
     )
 
@@ -122,26 +126,15 @@ def resolve_owner_configuration(
             "Kaggle owner is unavailable: set --owner/KAGGLE_USERNAME "
             "or authenticate with 'kaggle auth login'"
         )
-    shared = (
-        environ.get("KAGGLE_SHARED_OWNER")
-        or environ.get("KAGGLE_DATASET_OWNER")
-        or environ.get("KAGGLE_STORAGE_OWNER")
-    )
     runtime = (
         getattr(args, "runtime_owner", None)
         or environ.get("KAGGLE_RUNTIME_OWNER")
-        or shared
+        or environ.get("KAGGLE_SHARED_OWNER")
         or execution
-    )
-    corpus = (
-        getattr(args, "corpus_owner", None)
-        or environ.get("KAGGLE_CORPUS_OWNER")
-        or shared
-        or runtime
     )
     checkpoint = (
         getattr(args, "checkpoint_owner", None)
         or environ.get("KAGGLE_CHECKPOINT_OWNER")
         or execution
     )
-    return OwnerConfiguration(execution, runtime, corpus, checkpoint)
+    return OwnerConfiguration(execution, runtime, checkpoint)

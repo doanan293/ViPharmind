@@ -88,9 +88,7 @@ def _session_contexts(*names: str) -> tuple[KaggleExecutionContext, ...]:
     return tuple(
         KaggleExecutionContext(
             KaggleAccountProfile(name, f"user-{name}", f"token-{name}"),
-            OwnerConfiguration(
-                f"user-{name}", "user-acc1", "user-acc1", f"user-{name}"
-            ),
+            OwnerConfiguration(f"user-{name}", "user-acc1", f"user-{name}"),
             KaggleCommandRunner(environment={}),
         )
         for name in names

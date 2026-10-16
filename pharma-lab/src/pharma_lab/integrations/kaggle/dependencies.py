@@ -28,13 +28,8 @@ DesiredBuilder = Callable[
     [StageJob, OwnerConfiguration, Path], Sequence[DesiredDataset]
 ]
 
-# Kept from the project's former name: corpus-embed jobs mount this existing dataset.
-BUNDLE_INPUT_DATASET_SLUG = "vipharmind-bundle"
-
 
 def input_dataset_slug(job: StageJob) -> str:
-    if getattr(job.stage, "value", job.stage) == "corpus-embed":
-        return BUNDLE_INPUT_DATASET_SLUG
     return f"pipeline-input-{job.identity.sha256[:16]}"
 
 
@@ -178,10 +173,9 @@ def default_desired_datasets(
 
     input_digest = job.input_bundle.sha256
     input_slug = input_dataset_slug(job)
-    # Inputs live with the shared owner, like the model, so every account mounts the
-    # same dataset and none of them has to create it.
-    input_owner = owners.corpus or owners.runtime or owners.execution
-    input_ref = f"{input_owner}/{input_slug}"
+    # Inputs hold evaluation questions and corpus text, so they stay private with the
+    # account that runs the kernel; a session on another account uploads its own copy.
+    input_ref = f"{owners.execution}/{input_slug}"
 
     def materialize_input(root: Path) -> Path:
         target = Path(root)
@@ -227,7 +221,7 @@ def default_desired_datasets(
             f"Kaggle Pipeline Input {job.stage.value}"[:50],
             input_digest,
             "dependency_manifest.json",
-            True,
+            False,
             materialize_input,
         ),
     )

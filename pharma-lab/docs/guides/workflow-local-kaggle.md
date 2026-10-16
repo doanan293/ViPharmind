@@ -23,6 +23,8 @@ docker compose -f ../compose.yaml -f ../compose.local-models.yaml up -d postgres
 
 Production stage ở profile mode tự tìm checkpoint tương thích trong mọi profile `accN` và mirror sang owner đích trước khi submit kernel.
 
+Chỉ dataset của `KAGGLE_SHARED_OWNER` mà mọi tài khoản cần mount là công khai: bản build llama.cpp `vector-cache-llama-cpp-cuda-t4` và model `vector-cache-gguf-*`, vốn là trọng số open-weight. Input và checkpoint luôn riêng tư.
+
 ## 2. Build, validate và export bundle
 
 ```bash
@@ -84,7 +86,7 @@ Với `--kaggle-account auto`, trước mỗi phiên lệnh:
 - bỏ tài khoản đang bị lệnh khác khoá (`data/work/locks/kaggle-accounts/<accN>.lock`), chọn tài khoản còn nhiều giờ GPU nhất, bằng nhau thì chọn `accN` nhỏ hơn;
 - đặt ngân sách phiên = min(`--budget-seconds`, giờ còn lại − 0,5 giờ) và chỉ nộp kernel khi ngân sách ít nhất 1 giờ.
 
-Sau mỗi phiên, điểm (kể cả khi kernel dừng giữa chừng) được gộp vào `data/cache/rerank_scores/<model>.jsonl` trước, rồi mới publish checkpoint. Trước phiên kế tiếp, nguồn có nhiều cặp nhất trong cache ở máy và checkpoint của mọi tài khoản được publish làm checkpoint của tài khoản sắp chạy, nên đổi tài khoản không mất điểm. Lệnh chạy tới khi đủ cặp hoặc hết quota; `--max-runs N` giới hạn số phiên. `--kaggle-account accN` chỉ dùng một tài khoản, với cùng quy tắc quota. Dataset model và input chưa có luôn được tạo bằng profile của `KAGGLE_SHARED_OWNER` (acc1), vì vậy `.env` phải có profile đó.
+Sau mỗi phiên, điểm (kể cả khi kernel dừng giữa chừng) được gộp vào `data/cache/rerank_scores/<model>.jsonl` trước, rồi mới publish checkpoint. Trước phiên kế tiếp, nguồn có nhiều cặp nhất trong cache ở máy và checkpoint của mọi tài khoản được publish làm checkpoint của tài khoản sắp chạy, nên đổi tài khoản không mất điểm. Lệnh chạy tới khi đủ cặp hoặc hết quota; `--max-runs N` giới hạn số phiên. `--kaggle-account accN` chỉ dùng một tài khoản, với cùng quy tắc quota. Dataset model chưa có được tạo công khai bằng profile của `KAGGLE_SHARED_OWNER` (acc1), vì vậy `.env` phải có profile đó; mọi tài khoản mount chung model và bản build llama.cpp. Dataset input (câu hỏi đánh giá, text corpus) là riêng tư của tài khoản chạy kernel: khi phiên chuyển sang tài khoản khác, tài khoản đó tự upload bản input của mình, còn tiến độ đi qua cache ở máy và checkpoint riêng tư.
 
 Nhiều model chạy song song, mỗi model một cửa sổ tmux (`tmux new-window -n qwen3-reranker-8b`); khoá tài khoản bảo đảm mỗi tài khoản chỉ chạy một phiên GPU.
 
