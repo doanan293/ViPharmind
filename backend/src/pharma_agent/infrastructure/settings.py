@@ -14,8 +14,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.llm.models import LlmRole
 
+Provider = Literal["openai", "systemone"]
+
 
 class LlmEndpoint(BaseModel):
+    # "openai": any OpenAI-compatible chat server. "systemone": TypeSafe's decision model
+    # (POST /v1/systemone), which only the guard and judge roles can use (spec v2 §2.1).
+    provider: Provider | None = None
     base_url: str | None = None
     api_key: str | None = None
     model: str | None = None
@@ -34,6 +39,7 @@ class LlmEndpoint(BaseModel):
 class ResolvedEndpoint(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    provider: Provider = "openai"
     base_url: str | None
     api_key: str
     model: str
@@ -71,6 +77,7 @@ class LlmSettings(BaseModel):
                 f"or PHARMA_LLM__ROLES__{role.name}__MODEL"
             )
         return ResolvedEndpoint(
+            provider=override.provider or self.default.provider or "openai",
             base_url=override.base_url or self.default.base_url,
             api_key=api_key,
             model=model,
@@ -81,6 +88,11 @@ class LlmSettings(BaseModel):
             max_tokens_param=override.max_tokens_param
             or self.default.max_tokens_param
             or "max_completion_tokens",
+        )
+
+    def decision_roles(self) -> frozenset[LlmRole]:
+        return frozenset(
+            role for role in LlmRole if self.resolve(role).provider == "systemone"
         )
 
 
