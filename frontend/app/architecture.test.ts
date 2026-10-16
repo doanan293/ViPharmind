@@ -158,3 +158,37 @@ describe("frontend architecture", () => {
     }
   })
 })
+
+const TESTS = path.join(APP, "..", "tests")
+const TEST_FILE = /\.test\.tsx?$/
+
+function allFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const full = path.join(dir, name)
+    return statSync(full).isDirectory() ? allFiles(full) : [full]
+  })
+}
+
+describe("frontend test placement", () => {
+  test("every test file sits in app/ next to the code it tests", () => {
+    const misplaced = sourceFiles(APP)
+      .filter((file) => TEST_FILE.test(file))
+      .filter(
+        (file) =>
+          !readdirSync(path.dirname(file)).some(
+            (name) => /\.tsx?$/.test(name) && !TEST_FILE.test(name)
+          )
+      )
+    expect(misplaced.map((file) => path.relative(APP, file))).toEqual([])
+  })
+
+  test("tests/ holds only support code and Playwright e2e specs", () => {
+    const stray = allFiles(TESTS).filter(
+      (file) =>
+        TEST_FILE.test(file) ||
+        (/\.e2e\.ts$/.test(file) &&
+          path.dirname(file) !== path.join(TESTS, "e2e"))
+    )
+    expect(stray.map((file) => path.relative(TESTS, file))).toEqual([])
+  })
+})
