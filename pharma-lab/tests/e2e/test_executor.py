@@ -73,7 +73,9 @@ def llm(*, judge: bool, rephrase: bool) -> ScriptedLlm:
     if judge:
         fake.script(
             LlmRole.JUDGE,
-            JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ"),
+            JudgeDecision(
+                decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+            ),
         )
     return fake
 
@@ -253,7 +255,9 @@ def test_recording_llm_sums_reasoning_tokens() -> None:
             )
 
     llm = ReasoningLlm()
-    decision = JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="r")
+    decision = JudgeDecision(
+        decision=JudgeOutcome.ANSWER, gaps=[], reason="r", confidence=1.0
+    )
     llm.script(LlmRole.JUDGE, decision, decision)
     recorder = RecordingLlm(llm)
     for _ in range(2):

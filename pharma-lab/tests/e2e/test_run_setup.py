@@ -86,7 +86,9 @@ def test_total_tokens_sums_roles() -> None:
 
 async def test_recording_llm_counts_calls_per_role() -> None:
     inner = ScriptedLlm()
-    decision = JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="ok")
+    decision = JudgeDecision(
+        decision=JudgeOutcome.ANSWER, gaps=[], reason="ok", confidence=1.0
+    )
     inner.script(LlmRole.JUDGE, decision, decision)
     llm = RecordingLlm(inner)
 
