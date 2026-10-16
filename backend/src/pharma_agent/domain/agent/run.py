@@ -212,9 +212,7 @@ class AgentRun(BaseModel):
             "asked_intents": list(asked_intents),
         }
         if decision is not None:
-            payload["decision"] = decision.model_dump(exclude={"raw"}) | {
-                "raw": decision.raw
-            }
+            payload["decision"] = _decision_payload(decision)
         self._log(
             ActionKind.GUARD,
             now,
@@ -309,15 +307,19 @@ class AgentRun(BaseModel):
         now: datetime,
         failed: bool = False,
         decision: Decision | None = None,
+        intents_decision: Decision | None = None,
     ) -> None:
+        """`intents_decision` is the asks_<intent> call a decision-model judge makes
+        when the guard did not ask them; the e2e record keeps it as a guardrail call."""
         self.last_judge = outcome
         if failed:
             self.partial_reason = "judge_failed"
         payload: dict[str, Any] = {"gaps": list(gaps), "confidence": confidence}
         if decision is not None:
-            payload["decision"] = decision.model_dump(exclude={"raw"}) | {
-                "raw": decision.raw
-            }
+            payload["decision"] = _decision_payload(decision)
+        if intents_decision is not None:
+            payload["intents_decision"] = _decision_payload(intents_decision)
+            payload["asked_intents"] = list(self.asked_intents)
         self._log(
             ActionKind.JUDGE,
             now,
@@ -325,6 +327,16 @@ class AgentRun(BaseModel):
             reason=reason,
             payload=payload,
         )
+
+    def adopt_asked_intents(self, intents: Sequence[str]) -> None:
+        """Intents a decision-model judge asked itself (the guard did not ask them)."""
+        self.asked_intents = list(intents)
+
+    def last_judge_answers(self) -> dict[str, float] | None:
+        """The last decision-model judge's probabilities, if the last judge was one."""
+        action = self.actions.last_of(ActionKind.JUDGE)
+        decision = action.payload.get("decision") if action is not None else None
+        return dict(decision["answers"]) if decision is not None else None
 
     def skip_judge(self, *, now: datetime) -> None:
         """Answer from the evidence found so far without asking the judge."""
@@ -443,3 +455,7 @@ class AgentRun(BaseModel):
                 kind=kind, at=now, outcome=outcome, reason=reason, payload=payload or {}
             )
         )
+
+
+def _decision_payload(decision: Decision) -> dict[str, Any]:
+    return decision.model_dump(exclude={"raw"}) | {"raw": decision.raw}

@@ -6,9 +6,11 @@ from pharma_agent.domain.agent.decisions import (
     GuardThresholds,
     guard_questions,
     guard_verdict,
+    intent_questions,
     judge_decision,
     judge_questions,
     judge_state,
+    refine_intents,
     template_queries,
 )
 from pharma_agent.domain.agent.schemas import JudgeOutcome
@@ -149,3 +151,19 @@ def test_template_free_text_gap_appears_once_with_two_subjects() -> None:
     assert template_queries(["paracetamol", "ibuprofen"], ["tương tác hai thuốc"]) == [
         "tương tác hai thuốc"
     ]
+
+
+def test_intent_questions_are_the_asks_nouls_only() -> None:
+    questions = intent_questions()
+    assert set(questions) == {f"asks_{intent}" for intent in INTENTS}
+    assert questions["asks_dosage"] == guard_questions()["asks_dosage"]
+
+
+def test_refine_intents_put_the_least_covered_first_and_default_to_general_info() -> (
+    None
+):
+    asked = ["dosage", "storage", "adr"]
+    answers = {"covers_dosage": 0.8, "covers_storage": 0.3, "covers_adr": 0.6}
+    assert refine_intents(asked, answers) == ["storage", "adr", "dosage"]
+    assert refine_intents(asked, None) == asked
+    assert refine_intents([], answers) == ["general_info"]

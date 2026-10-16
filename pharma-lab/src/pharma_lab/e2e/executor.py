@@ -107,24 +107,25 @@ def _search_total(entries: Sequence[Action], key: str) -> float:
 
 
 def decision_records(entries: Sequence[Action]) -> list[DecisionRecord]:
-    """The raw decision-model calls the guard and judge actions carry."""
+    """The raw decision-model calls the guard and judge actions carry. A judge action may
+    also carry the asks_<intent> call the judge made itself when the guard verdict was
+    not the decision model's; it asks guard questions, so it is recorded as "guardrail"."""
     records: list[DecisionRecord] = []
     for action in entries:
-        raw = action.payload.get("decision")
-        if raw is None:
-            continue
-        records.append(
-            DecisionRecord(
-                role=action.kind.value
-                if action.kind is ActionKind.JUDGE
-                else "guardrail",
-                model=raw["model"],
-                input_tokens=raw["input_tokens"],
-                seconds=raw["seconds"],
-                answers=raw["answers"],
-                raw=raw.get("raw", {}),
-            )
-        )
+        role = action.kind.value if action.kind is ActionKind.JUDGE else "guardrail"
+        for key, key_role in (("intents_decision", "guardrail"), ("decision", role)):
+            raw = action.payload.get(key)
+            if raw is not None:
+                records.append(
+                    DecisionRecord(
+                        role=key_role,
+                        model=raw["model"],
+                        input_tokens=raw["input_tokens"],
+                        seconds=raw["seconds"],
+                        answers=raw["answers"],
+                        raw=raw.get("raw", {}),
+                    )
+                )
     return records
 
 

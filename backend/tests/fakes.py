@@ -179,10 +179,14 @@ __all__ = [
 
 
 class FakeDecision:
-    """Scripted decision model: returns the given answers or raises the given error."""
+    """Scripted decision model: returns the given answers or raises the given error.
+    A list scripts one response per call; its last entry answers every later call."""
 
-    def __init__(self, answers: dict[str, float] | Exception) -> None:
-        self.answers = answers
+    def __init__(
+        self,
+        answers: dict[str, float] | Exception | list[dict[str, float] | Exception],
+    ) -> None:
+        self.responses = list(answers) if isinstance(answers, list) else [answers]
         self.calls: list[
             tuple[LlmRole, dict[str, object], dict[str, NoulQuestion]]
         ] = []
@@ -194,10 +198,13 @@ class FakeDecision:
         questions: Mapping[str, NoulQuestion],
     ) -> Decision:
         self.calls.append((role, dict(state), dict(questions)))
-        if isinstance(self.answers, Exception):
-            raise self.answers
+        response = (
+            self.responses.pop(0) if len(self.responses) > 1 else self.responses[0]
+        )
+        if isinstance(response, Exception):
+            raise response
         return Decision(
-            answers=self.answers,
+            answers=response,
             model="jev-1.13.0",
             input_tokens=300,
             seconds=0.2,
