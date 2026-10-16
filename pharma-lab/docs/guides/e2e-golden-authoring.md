@@ -6,7 +6,8 @@ Hướng dẫn này là quy trình soạn `data/evaluation/e2e/golden_e2e.jsonl`
 
 ```bash
 uv run pharma-lab e2e golden sample              # ghi authoring/*.todo.jsonl (270 answerable, 50 multi-turn)
-uv run pharma-lab e2e golden hard-candidates --run hybrid-qwen4b-v2-p50-k30-rrf2   # ứng viên multi-hop
+uv run pharma-lab e2e golden hard-candidates --run hybrid-qwen4b-v2-p50-k20-rrf2   # ứng viên multi-hop
+uv run pharma-lab e2e golden draft               # nháp 150 câu multi-hop bằng LLM, ghi multi-hop-NN.draft.jsonl để duyệt
 # soạn mỗi lô X.todo.jsonl thành X.authored.jsonl, cộng thêm multi-hop-NN và special.authored.jsonl
 uv run pharma-lab e2e golden check data/evaluation/e2e/authoring/X.authored.jsonl
 uv run pharma-lab e2e golden build               # kiểm đủ số lượng, ghi golden_e2e.jsonl và manifest
@@ -47,6 +48,8 @@ Mỗi dòng của `*.authored.jsonl` là một `GoldenItem` JSON do tác giả s
   - `answer_mode = multi_required`: key fact phải phủ mọi ý được hỏi, lấy từ các section tương ứng.
 - **`multi_hop`** (150 câu, `grounded`, id `e2e-mhop-`): câu mà một lượt tìm kiếm (hybrid + rerank, top 5) thiếu một phần section gold, nên phải có vòng judge-refine mới đủ bằng chứng.
   - Ứng viên lấy từ `authoring/multi-hop.todo.jsonl` do `golden hard-candidates` ghi: mỗi dòng có câu benchmark, loại và các section gold mà vòng đầu bỏ sót (`missing`).
+  - `golden draft` chia 150 câu đều cho các loại có ứng viên (tối đa 45 mỗi loại), bỏ câu benchmark mà các batch `*.authored.jsonl` đã dùng, thứ tự theo `--seed`. Mỗi câu một lời gọi `gemini-3.1-flash-lite` (`--model`) trên endpoint LLM của backend, soạn câu trả lời mẫu và key fact. Bản nháp được kiểm bằng luật của `golden check` cộng điều kiện mọi section gold có ít nhất một key fact; bản lỗi được gửi lại kèm danh sách lỗi một lần, vẫn lỗi thì lấy ứng viên kế tiếp cùng loại và ghi vào `multi-hop.failed.jsonl`.
+  - Bản nháp chưa phải bản soạn: tác giả và dược sĩ duyệt từng câu trong `multi-hop-NN.draft.jsonl` (câu hỏi có cần đủ mọi section không, key fact có đúng và đủ không), sửa rồi lưu thành `multi-hop-NN.authored.jsonl`. `golden build` chỉ đọc file `*.authored.jsonl`.
   - `tags` có đúng một loại: `three_intent` (một câu hỏi ba mục của cùng thuốc), `two_drug` (tương tác hoặc so sánh, bằng chứng từ hai chuyên luận), `brand_to_ingredient` (tờ hướng dẫn của biệt dược thiếu mục, Dược thư của hoạt chất có), `noisy_retry` (câu nhiễu hoặc gõ sai mà vòng đầu trượt). Mỗi loại 30 đến 45 câu.
   - `turns` là đúng một lượt `user`; key fact phải có quote từ mọi section gold, kể cả section vòng đầu bỏ sót.
   - `eval_group` để trống.
