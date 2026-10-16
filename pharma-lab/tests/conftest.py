@@ -10,33 +10,34 @@ from pathlib import Path
 import pytest
 
 from pharma_lab.config import environment, paths
-from pharma_lab.integrations.kaggle import job_lock
 
 KAGGLE_ENVIRONMENT_PREFIX = "KAGGLE_"
 
 
-@pytest.fixture(autouse=True)
-def isolated_lock_dir(
-    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
-) -> Path:
-    """Locks taken by tests never land in the real data/work/locks."""
-    root = tmp_path_factory.mktemp("locks")
-    monkeypatch.setattr(job_lock, "LOCK_DIR", root)
-    return root
-
-
 @dataclass(frozen=True)
-class IsolatedLogs:
+class Redirected:
+    """A data folder a test fixture points elsewhere, and the value it replaced."""
+
     root: Path
     original: Path
 
 
 @pytest.fixture(autouse=True)
+def isolated_lock_dir(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Redirected:
+    """Locks taken by tests never land in the real data/work/locks."""
+    locks = Redirected(tmp_path_factory.mktemp("locks"), paths.LOCK_DIR)
+    monkeypatch.setattr(paths, "LOCK_DIR", locks.root)
+    return locks
+
+
+@pytest.fixture(autouse=True)
 def isolated_logs_dir(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
-) -> IsolatedLogs:
+) -> Redirected:
     """Command logs written by tests never land in the real data/work/logs."""
-    logs = IsolatedLogs(tmp_path_factory.mktemp("logs"), paths.LOGS_DIR)
+    logs = Redirected(tmp_path_factory.mktemp("logs"), paths.LOGS_DIR)
     monkeypatch.setattr(paths, "LOGS_DIR", logs.root)
     return logs
 
