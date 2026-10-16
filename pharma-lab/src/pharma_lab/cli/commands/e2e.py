@@ -653,6 +653,30 @@ def rerank_server(
     )
 
 
+@e2e_app.command("embed-server")
+def embed_server(
+    ctx: typer.Context,
+    model: Annotated[
+        str,
+        typer.Option(
+            "--model", help="The agent's embedding model, e.g. qwen3-embedding:8b-q8_0"
+        ),
+    ],
+    hours: HoursOption = 8.0,
+    kaggle_account: AccountOption = "auto",
+    attach: Annotated[str | None, _attach_option("embed-serve")] = None,
+) -> None:
+    """Serve the query embedding model from a Kaggle GPU; E2E runs source the env file."""
+    _serve(
+        ctx,
+        "embed-server",
+        model=model,
+        hours=hours,
+        kaggle_account=kaggle_account,
+        attach=attach,
+    )
+
+
 @e2e_app.command("llm-server")
 def llm_server(
     ctx: typer.Context,
