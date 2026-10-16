@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-import pharma_lab.evaluation.query_hash as _query_hash
+from pharma_lab import hashing as _query_hash
 from pharma_lab.cache.jsonl_records import (
     CacheRecordError,
     ValidatedSubset,

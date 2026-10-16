@@ -13,9 +13,8 @@ from pharma_lab.evaluation.artifact_contracts import (
     write_json,
 )
 from pharma_lab.evaluation.candidate_text import candidate_document_text
-from pharma_lab.evaluation.query_hash import query_hash
-from pharma_lab.evaluation.rerank_contract import document_hash
 from pharma_lab.evaluation.retrieval_types import RetrievalCandidate
+from pharma_lab.hashing import document_hash, query_hash
 
 _RETRIEVAL_BATCH_SIZE = 64
 

@@ -46,3 +46,23 @@ testpaths = ["tests"]
 markers = ["integration: needs Docker (run with -m integration)"]
 addopts = ["--import-mode=importlib", "-m", "not integration"]
 filterwarnings = ["error"]
+
+[tool.importlinter]
+root_packages = ["pharma_lab", "pharma_agent"]
+
+[[tool.importlinter.contracts]]
+name = "pharma_lab layers, top to bottom"
+type = "layers"
+layers = [
+    "pharma_lab.cli",
+    "pharma_lab.e2e | pharma_lab.data_archive",
+    "pharma_lab.evaluation | pharma_lab.orchestration",
+    "pharma_lab.bundle",
+    "pharma_lab.embeddings",
+    "pharma_lab.integrations",
+    "pharma_lab.corpus",
+    "pharma_lab.artifacts",
+    "pharma_lab.cache",
+    "pharma_lab.runtime",
+    "pharma_lab.config | pharma_lab.hashing",
+]

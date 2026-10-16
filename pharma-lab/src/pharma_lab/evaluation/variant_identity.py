@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from pharma_lab.evaluation.artifact_contracts import canonical_sha256
+from pharma_lab.hashing import canonical_sha256
 from pharma_lab.runtime.catalog import require_model
 
 RERANK_VARIANT_CONTRACT_VERSION = 1

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from pharma_lab.config.environment import PROJECT_ENV_FILE, load_project_env
 from pharma_lab.config.paths import GGUF_ROOT, SOURCE_ROOT
+from pharma_lab.hashing import canonical_sha256
 from pharma_lab.integrations.kaggle.api import (
     KaggleCommandRunner,
     config_view_command,
@@ -47,7 +48,7 @@ from pharma_lab.integrations.kaggle.orchestrator import (
 from pharma_lab.integrations.kaggle.parsers import parse_kaggle_username
 from pharma_lab.integrations.kaggle.stages import get_stage_adapter
 from pharma_lab.integrations.kaggle.workspace import unwind_on_sigterm
-from pharma_lab.runtime.runtime_profiles import RuntimeCandidate, canonical_sha256
+from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
 
 DEFAULT_ENV_PATH = PROJECT_ENV_FILE
 AUTO_ACCOUNT = "auto"

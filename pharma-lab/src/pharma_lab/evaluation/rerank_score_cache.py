@@ -20,12 +20,11 @@ from pharma_lab.evaluation.artifact_contracts import (
     ArtifactContractError,
     require_finite_number,
 )
-from pharma_lab.evaluation.query_hash import query_hash
-from pharma_lab.evaluation.rerank_contract import document_hash
 from pharma_lab.evaluation.retrieval_candidate_artifact import (
     CandidateArtifactReader,
 )
 from pharma_lab.evaluation.retrieval_types import RetrievalCandidate
+from pharma_lab.hashing import document_hash, query_hash
 from pharma_lab.runtime.catalog import require_model
 
 

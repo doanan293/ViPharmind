@@ -14,7 +14,7 @@ from pharma_lab.evaluation.query_embedding_cache import (
     QueryEmbeddingCache,
     QueryEmbeddingCacheError,
 )
-from pharma_lab.evaluation.query_hash import query_hash
+from pharma_lab.hashing import query_hash
 
 
 class QueryEmbeddingMissing(QueryEmbeddingCacheError):

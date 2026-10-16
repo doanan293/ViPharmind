@@ -1,34 +1,18 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
 from pharma_lab.artifacts.manifest import Completion
+from pharma_lab.hashing import canonical_sha256, sha256_file
 from pharma_lab.integrations.kaggle.config import OwnerConfiguration
 from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
 
 type JSONValue = (
     bool | int | float | str | Sequence["JSONValue"] | Mapping[str, "JSONValue"] | None
 )
-
-
-def canonical_sha256(value: object) -> str:
-    payload = json.dumps(
-        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
-
-
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -47,7 +31,7 @@ class InputFile:
             raise ValueError("reserved mounted filename: dependency_manifest.json")
         if not self.filename.strip() or Path(self.filename).name != self.filename:
             raise ValueError(f"invalid mounted input filename: {self.filename!r}")
-        actual_digest = _sha256_file(self.source_path)
+        actual_digest = sha256_file(self.source_path)
         if actual_digest != self.sha256:
             raise ValueError(
                 f"input file sha256 mismatch for {self.key}: "
@@ -64,7 +48,7 @@ class InputFile:
         if not source.is_file():
             raise ValueError(f"input file is missing: {source}")
         mounted_name = source.name if filename is None else filename
-        return cls(key, source, mounted_name, _sha256_file(source))
+        return cls(key, source, mounted_name, sha256_file(source))
 
     def descriptor(self) -> dict[str, str]:
         return {"filename": self.filename, "sha256": self.sha256}
