@@ -63,7 +63,7 @@ Chính sách bàn giao và artifact: [Downstream](docs/guides/downstream.md).
 ## Cấu trúc project
 
 `src/pharma_lab/` xếp thành 11 tầng. Tầng trên được import tầng dưới; package cùng tầng không
-import nhau.
+import nhau. Package mới ngay dưới `pharma_lab/` phải được xếp vào một tầng thì lint-imports mới pass.
 
 | Tầng | Package | Vai trò |
 | --- | --- | --- |
@@ -83,8 +83,8 @@ Quy tắc phụ thuộc được ép bằng import-linter (`[tool.importlinter]`
 chạy `uv run lint-imports`):
 
 - Thứ tự tầng ở bảng trên.
-- `integrations/kaggle/workers/` không import backend (`pharma_agent`); mã worker được tải lên
-  kernel Kaggle.
+- `integrations/kaggle/workers/` không import backend (`pharma_agent`) và không import
+  `config.paths`; mã worker được tải lên kernel Kaggle, nơi không có workspace pharma-lab.
 - `pharma_lab` chỉ dùng mặt công khai của backend: không `pharma_agent.api`, không
   `pharma_agent.infrastructure.persistence`. Danh sách module backend được dùng nằm trong
   `tests/test_backend_public_api.py`.

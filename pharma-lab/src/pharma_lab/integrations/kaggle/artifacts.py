@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from pharma_lab import hashing
-from pharma_lab.hashing import canonical_sha256
 from pharma_lab.integrations.kaggle.errors import KagglePipelineError
 from pharma_lab.integrations.kaggle.models import (
     CloudArtifact,
@@ -167,8 +166,10 @@ def load_cloud_artifact(
     identity_payload = dict(manifest.identity)
     manifest_job_sha256 = str(identity_payload.pop("job_sha256", ""))
     if identity_payload:
-        derived_job_sha256 = canonical_sha256(identity_payload)
-        derived_reuse_sha256 = canonical_sha256(reuse_payload_of(identity_payload))
+        derived_job_sha256 = hashing.canonical_sha256(identity_payload)
+        derived_reuse_sha256 = hashing.canonical_sha256(
+            reuse_payload_of(identity_payload)
+        )
         if manifest_job_sha256 != derived_job_sha256:
             raise ArtifactContractError("Cloud artifact identity hash mismatch")
         if (

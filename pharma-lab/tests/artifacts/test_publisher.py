@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from tests.conftest import Redirected
+
 from pharma_lab.artifacts.publisher import publish_contract
 from pharma_lab.cache.file_locks import lock_file_name
 
@@ -12,7 +14,7 @@ def _candidate(root: Path) -> Path:
 
 
 def test_publish_keeps_its_lock_under_the_lock_directory(
-    tmp_path: Path, isolated_lock_dir
+    tmp_path: Path, isolated_lock_dir: Redirected
 ) -> None:
     final = tmp_path / "corpus" / "rag-final"
 

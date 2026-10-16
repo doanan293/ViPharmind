@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pharma_lab import hashing as _query_hash
 from pharma_lab.cache.jsonl_records import (
     CacheRecordError,
     ValidatedSubset,
@@ -17,10 +16,7 @@ from pharma_lab.cache.jsonl_records import (
 from pharma_lab.cache.jsonl_records import (
     subset_sha256 as record_subset_sha256,
 )
-
-model_slug = _query_hash.model_slug
-normalize_query_for_hash = _query_hash.normalize_query_for_hash
-query_hash = _query_hash.query_hash
+from pharma_lab.hashing import query_hash
 
 
 class QueryEmbeddingCacheError(RuntimeError):
