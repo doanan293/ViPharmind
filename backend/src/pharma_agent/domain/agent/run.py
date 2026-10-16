@@ -15,6 +15,7 @@ from pharma_agent.domain.agent.schemas import (
     RephraseResult,
 )
 from pharma_agent.domain.guardrail.models import Verdict
+from pharma_agent.domain.llm.decision import Decision
 from pharma_agent.domain.llm.models import LlmUsage
 from pharma_agent.domain.retrieval.evidence import EvidenceSet
 from pharma_agent.domain.retrieval.models import Query, QueryOrigin
@@ -107,6 +108,7 @@ class AgentRun(BaseModel):
     error_code: ErrorCode | None = None
     error_detail: str = ""
     guard_verdict: Verdict | None = None
+    asked_intents: list[str] = Field(default_factory=list)
     used_queries: list[str] = Field(default_factory=list)
     last_judge: JudgeOutcome | None = None
     partial_reason: str | None = None
@@ -192,9 +194,26 @@ class AgentRun(BaseModel):
     # ----- recording -----------------------------------------------------
 
     def record_guard(
-        self, verdict: Verdict, *, now: datetime, llm_failed: bool = False
+        self,
+        verdict: Verdict,
+        *,
+        now: datetime,
+        llm_failed: bool = False,
+        asked_intents: Sequence[str] = (),
+        decision: Decision | None = None,
     ) -> None:
         self.guard_verdict = verdict
+        self.asked_intents = list(asked_intents)
+        payload: dict[str, Any] = {
+            "source": verdict.source.value,
+            "label": verdict.label,
+            "llm_failed": llm_failed,
+            "asked_intents": list(asked_intents),
+        }
+        if decision is not None:
+            payload["decision"] = decision.model_dump(exclude={"raw"}) | {
+                "raw": decision.raw
+            }
         self._log(
             ActionKind.GUARD,
             now,
@@ -202,11 +221,7 @@ class AgentRun(BaseModel):
             if verdict.allows_processing
             else ("blocked" if not verdict.passed else "out_of_scope"),
             reason=verdict.reason,
-            payload={
-                "source": verdict.source.value,
-                "label": verdict.label,
-                "llm_failed": llm_failed,
-            },
+            payload=payload,
         )
 
     def record_rephrase(

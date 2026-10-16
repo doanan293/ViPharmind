@@ -87,12 +87,18 @@ async def guard_node(
             now=deps.clock.now(),
         )
         return {"run": run}
-    outcome = await deps.guardrail.check(run.original_query)
-    if outcome.verdict.source is VerdictSource.LLM:
+    outcome = await deps.guardrail.check(
+        run.original_query, runtime.context.conversation
+    )
+    if outcome.verdict.source in (VerdictSource.LLM, VerdictSource.DECISION):
         with suppress(BudgetExhausted):
             run.charge(outcome.usage)
     run.record_guard(
-        outcome.verdict, now=deps.clock.now(), llm_failed=outcome.llm_failed
+        outcome.verdict,
+        now=deps.clock.now(),
+        llm_failed=outcome.llm_failed,
+        asked_intents=outcome.asked_intents,
+        decision=outcome.decision,
     )
     return {"run": run}
 

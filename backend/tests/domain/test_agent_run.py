@@ -18,6 +18,7 @@ from pharma_agent.domain.agent.schemas import (
     RephraseResult,
 )
 from pharma_agent.domain.guardrail.models import Verdict, VerdictSource
+from pharma_agent.domain.llm.decision import Decision
 from pharma_agent.domain.llm.models import LlmUsage
 from pharma_agent.domain.retrieval.models import Query, QueryOrigin
 from pharma_agent.domain.retrieval.service import SearchResult
@@ -226,3 +227,25 @@ def test_search_action_records_retrieval_timing() -> None:
     payload = run.actions.entries[-1].payload
     assert payload["retrieval_seconds"] == 0.5
     assert payload["rerank_seconds"] == 0.25
+
+
+def test_record_guard_carries_asked_intents_and_the_raw_decision() -> None:
+    run = make_run()
+    decision = Decision(
+        answers={"asks_dosage": 0.9},
+        model="jev-1.13.0",
+        input_tokens=300,
+        seconds=0.2,
+        raw={"answers": {"asks_dosage": 0.9}},
+    )
+    run.record_guard(PASS, now=NOW, asked_intents=["dosage"], decision=decision)
+    assert run.asked_intents == ["dosage"]
+    payload = run.actions.entries[-1].payload
+    assert payload["asked_intents"] == ["dosage"]
+    assert payload["decision"] == {
+        "answers": {"asks_dosage": 0.9},
+        "model": "jev-1.13.0",
+        "input_tokens": 300,
+        "seconds": 0.2,
+        "raw": {"answers": {"asks_dosage": 0.9}},
+    }
