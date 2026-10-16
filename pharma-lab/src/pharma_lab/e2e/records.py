@@ -51,6 +51,17 @@ class RoundRecord(BaseModel):
     evidence_chars: int
 
 
+class StepRecord(BaseModel):
+    """One action of the agent loop: when it started and how long it took."""
+
+    model_config = _RECORD
+
+    kind: str
+    outcome: str
+    started_at: str
+    seconds: float
+
+
 class ItemRecord(BaseModel):
     """A record about one golden item within one configuration."""
 
@@ -77,6 +88,12 @@ class AnswerRecord(ItemRecord):
     latency_seconds: float = 0.0
     # Wall time outside LLM calls: retrieval, reranking and graph overhead.
     non_llm_seconds: float = 0.0
+    steps: list[StepRecord] = Field(default_factory=list)
+    # Wall time of retrieval and rerank calls summed over the search rounds.
+    retrieval_seconds: float = 0.0
+    rerank_seconds: float = 0.0
+    # Candidates the reranker scored over the turn (the priced rerank work).
+    rerank_scored: int = 0
     error: str | None = None
     retryable: bool = False
 

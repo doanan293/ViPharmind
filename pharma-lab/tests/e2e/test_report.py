@@ -297,3 +297,23 @@ def test_loop_metrics_measure_gold_found_per_search_round() -> None:
     closed_book = _loop_view([], gold)
     assert _metric("gold_coverage_round1")(closed_book) is None
     assert _metric("rounds_used")(closed_book) is None
+
+
+def test_seconds_per_turn_metrics_read_steps_and_roles() -> None:
+    record = answer(1, "full").model_copy(
+        update={
+            "retrieval_seconds": 0.4,
+            "rerank_seconds": 0.6,
+            "usage_by_role": {
+                "guardrail": TokenUsage(calls=1, seconds=0.2),
+                "judge": TokenUsage(calls=1, seconds=0.3),
+                "answer": TokenUsage(calls=1, seconds=2.0),
+            },
+        }
+    )
+    view = ItemView(golden(1), record, judgement(1, "full", 1.0), {})
+    by_name = {metric.name: metric for metric in METRICS}
+    assert by_name["llm_seconds_per_turn"].read(view) == pytest.approx(2.5)
+    assert by_name["retrieval_seconds_per_turn"].read(view) == pytest.approx(1.0)
+    assert by_name["rerank_seconds_per_turn"].read(view) == pytest.approx(0.6)
+    assert by_name["decision_seconds_per_turn"].read(view) == pytest.approx(0.5)

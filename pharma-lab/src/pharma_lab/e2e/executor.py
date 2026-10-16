@@ -10,7 +10,7 @@ from pharma_agent.application.chat.graph import ChatGraph
 from pharma_agent.application.chat.runner import ChatTurnRunner, TurnOutcome
 from pharma_agent.domain.agent.actions import Action, ActionKind
 from pharma_agent.domain.agent.budget import BudgetLimits
-from pharma_agent.domain.agent.run import AnswerMode, RunStatus
+from pharma_agent.domain.agent.run import AgentRun, AnswerMode, RunStatus
 from pharma_agent.domain.conversation.models import ConversationContext, Turn
 from pharma_agent.domain.guardrail.service import GuardrailService
 from pharma_agent.domain.llm.models import ChatMessage, ChatRole, LlmRole, system, user
@@ -26,6 +26,7 @@ from pharma_lab.e2e.records import (
     CitedSection,
     RetrievedChunk,
     RoundRecord,
+    StepRecord,
     TokenUsage,
 )
 
@@ -69,6 +70,37 @@ def degraded_steps(entries: Sequence[Action]) -> list[str]:
         if fell_back and action.kind.value not in steps:
             steps.append(action.kind.value)
     return steps
+
+
+def step_records(run: AgentRun, latency: float) -> list[StepRecord]:
+    """Seconds between consecutive actions; the answer step runs to the end of the turn
+    because its action is logged when the plan is submitted, before streaming."""
+    steps: list[StepRecord] = []
+    previous = run.started_at
+    entries = run.actions.entries
+    for index, action in enumerate(entries):
+        if index == len(entries) - 1:
+            seconds = max(0.0, latency - (previous - run.started_at).total_seconds())
+        else:
+            seconds = (action.at - previous).total_seconds()
+        steps.append(
+            StepRecord(
+                kind=action.kind.value,
+                outcome=action.outcome,
+                started_at=previous.isoformat(timespec="milliseconds"),
+                seconds=round(seconds, 3),
+            )
+        )
+        previous = action.at
+    return steps
+
+
+def _search_total(entries: Sequence[Action], key: str) -> float:
+    return sum(
+        float(action.payload.get(key, 0) or 0)
+        for action in entries
+        if action.kind is ActionKind.SEARCH
+    )
 
 
 def answer_record(
@@ -140,6 +172,10 @@ def answer_record(
         non_llm_seconds=round(
             max(0.0, latency - sum(entry.seconds for entry in usage.values())), 3
         ),
+        steps=step_records(run, latency),
+        retrieval_seconds=round(_search_total(entries, "retrieval_seconds"), 3),
+        rerank_seconds=round(_search_total(entries, "rerank_seconds"), 3),
+        rerank_scored=int(_search_total(entries, "rerank_scored")),
         error=(
             f"{run.error_code.value}: {run.error_detail}".strip()
             if run.error_code is not None

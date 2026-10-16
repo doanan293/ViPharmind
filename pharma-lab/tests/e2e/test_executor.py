@@ -259,3 +259,32 @@ def test_recording_llm_sums_reasoning_tokens() -> None:
     for _ in range(2):
         asyncio.run(recorder.structured(LlmRole.JUDGE, [], JudgeDecision))
     assert recorder.usage_by_role()["judge"].reasoning_tokens == 8
+
+
+async def test_answer_record_has_one_step_per_action_with_seconds() -> None:
+    fake = llm(judge=True, rephrase=True)
+    retriever = FakeRetriever([make_hit("a", SECTION, score=0.9)])
+
+    record = await executor(fake, retriever, E2EConfig.FULL).execute(item())
+
+    assert [s.kind for s in record.steps] == [
+        "guard",
+        "rephrase",
+        "search",
+        "judge",
+        "answer",
+    ]
+    assert all(s.seconds >= 0 for s in record.steps)
+    assert sum(s.seconds for s in record.steps) == pytest.approx(
+        record.latency_seconds, abs=0.05
+    )
+    assert record.rerank_scored == 1
+    assert record.retrieval_seconds >= 0.0
+
+
+def test_old_answer_record_loads() -> None:
+    old = {"item_id": "e2e-ans-0001", "config": "full", "status": "completed"}
+    record = AnswerRecord.model_validate(old)
+    assert record.steps == []
+    assert record.retrieval_seconds == 0.0
+    assert record.rerank_scored == 0
