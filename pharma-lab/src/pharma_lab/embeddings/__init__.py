@@ -1,1 +1,1 @@
-"""Text embeddings keyed by sha256(embedding_text). Imported by Kaggle workers: no config.paths, no backend."""
+"""Text embedding service: local llama.cpp or a Kaggle stage over pharma_lab.cache.text_embeddings."""

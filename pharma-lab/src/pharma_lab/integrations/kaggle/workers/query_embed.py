@@ -22,9 +22,9 @@ from pharma_lab.integrations.kaggle.workers.runtime import (
     resolve_optional_input_file,
     worker_deadline,
 )
-from pharma_lab.integrations.kaggle.workers.scheduling import stream_map_ordered
 from pharma_lab.integrations.kaggle.workers.telemetry import RuntimeTelemetry
 from pharma_lab.runtime.client import LlamaCppClient
+from pharma_lab.runtime.scheduling import stream_map_ordered
 
 
 def _emit_progress(message: str) -> None:

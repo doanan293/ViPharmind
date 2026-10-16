@@ -27,12 +27,12 @@ from pharma_lab.integrations.kaggle.workers.runtime import (
     resolve_optional_input_file,
     worker_deadline,
 )
-from pharma_lab.integrations.kaggle.workers.scheduling import (
-    stream_map_ordered,
-)
 from pharma_lab.integrations.kaggle.workers.telemetry import RuntimeTelemetry
 from pharma_lab.runtime.catalog import require_model
 from pharma_lab.runtime.model_profiles import NATIVE_RERANK_PROTOCOL
+from pharma_lab.runtime.scheduling import (
+    stream_map_ordered,
+)
 
 Pair = dict[str, str]
 

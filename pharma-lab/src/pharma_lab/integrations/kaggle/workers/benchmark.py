@@ -15,7 +15,6 @@ from pharma_lab.integrations.kaggle.workers.runtime import (
     managed_model_servers,
     resolve_input_file,
 )
-from pharma_lab.integrations.kaggle.workers.scheduling import stream_map_ordered
 from pharma_lab.integrations.kaggle.workers.telemetry import RuntimeTelemetry
 from pharma_lab.runtime.benchmarking import (
     BenchmarkMeasurement,
@@ -33,6 +32,7 @@ from pharma_lab.runtime.benchmarking import (
 from pharma_lab.runtime.catalog import ModelKind, ModelSpec, require_model
 from pharma_lab.runtime.client import LlamaCppClient
 from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
+from pharma_lab.runtime.scheduling import stream_map_ordered
 
 MeasureLevel = Callable[[int, RuntimeCandidate], LevelResult]
 Clients = list[tuple[int, LlamaCppClient]]
