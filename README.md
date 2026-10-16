@@ -18,7 +18,7 @@ giá trị mặc định ngay trong file compose, muốn ghi đè thì đặt bi
 `pharma-lab/.env`, mỗi file có `.env.example` bên cạnh.
 
 Mặc định LLM, embedding và reranker đều gọi OpenRouter (Qwen3.5-9B, Qwen3-Embedding-4B 2560 chiều,
-Qwen3-Reranker-4B). Production cũng gọi OpenRouter nhưng embedding là Qwen3-Embedding-8B 4096 chiều
+Qwen3-Reranker-8B, bản Qwen3 reranker duy nhất OpenRouter phục vụ). Production cũng gọi OpenRouter nhưng embedding là Qwen3-Embedding-8B 4096 chiều
 (`backend/.env.production.example`). Corpus phải được import bằng đúng model embedding mà backend
 dùng, nên corpus import ở local không dùng được cho production và ngược lại. Tạo `backend/.env` từ
 `backend/.env.example`, điền cùng một key OpenRouter vào ba biến `..._API_KEY`, rồi
