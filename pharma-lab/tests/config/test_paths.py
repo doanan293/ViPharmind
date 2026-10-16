@@ -1,7 +1,9 @@
 from pharma_lab.config import paths
 
 
-def test_evaluation_cache_corpus_and_work_folders_follow_the_layout() -> None:
+def test_evaluation_cache_corpus_and_work_folders_follow_the_layout(
+    isolated_lock_dir,
+) -> None:
     assert paths.RAG_FINAL_DIR == paths.DATA_DIR / "corpus" / "rag-final"
     assert paths.RAG_FINAL_SECTIONS_PATH == paths.RAG_FINAL_DIR / "sections.jsonl"
     assert paths.BUNDLE_DIR == paths.DATA_DIR / "corpus" / "formulary"
@@ -16,7 +18,8 @@ def test_evaluation_cache_corpus_and_work_folders_follow_the_layout() -> None:
     assert paths.CACHE_DIR == paths.DATA_DIR / "cache"
     assert paths.WORK_DIR == paths.DATA_DIR / "work"
     assert paths.BUILD_WORK_DIR == paths.WORK_DIR / "build"
-    assert paths.LOCK_DIR == paths.WORK_DIR / "locks"
+    # tests/conftest.py redirects LOCK_DIR for every test; the original is the real value.
+    assert isolated_lock_dir.original == paths.WORK_DIR / "locks"
     assert paths.TEXT_INTERIM_DIR == paths.BUILD_WORK_DIR / "text"
     assert paths.BUNDLE_EMBED_WORK_DIR == paths.WORK_DIR / "bundle-embed"
     assert paths.EVALUATION_CHUNKS_PATH == (
