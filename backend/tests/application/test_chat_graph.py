@@ -6,6 +6,7 @@ from pharma_agent.application.chat.context import PipelineOptions
 from pharma_agent.application.chat.graph import build_chat_graph
 from pharma_agent.application.chat.runner import ChatTurnRunner
 from pharma_agent.application.progress import EventType, Phase, ProgressEvent
+from pharma_agent.domain.agent.actions import ActionKind
 from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.agent.run import RunStatus
 from pharma_agent.domain.agent.schemas import (
@@ -373,3 +374,21 @@ async def test_no_judge_refine_keeps_the_rephrase() -> None:
     assert outcome.run.status is RunStatus.COMPLETED
     assert retriever.calls[0][0].text == "Liều paracetamol cho người lớn"
     assert llm.calls_for(LlmRole.JUDGE) == []
+
+
+async def test_no_guard_skips_the_guard_llm_and_records_a_skipped_verdict() -> None:
+    llm = passing_llm()
+    llm.structured_responses.pop(LlmRole.GUARDRAIL)
+    llm.script(
+        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+    )
+    retriever = FakeRetriever([make_hit("c1", fusion=0.9)])
+
+    _, outcome = await run_turn(llm, retriever, pipeline=PipelineOptions(guard=False))
+
+    guard = outcome.run.actions.entries[0]
+    assert guard.kind is ActionKind.GUARD
+    assert guard.payload["source"] == "skipped"
+    assert guard.payload["llm_failed"] is False
+    assert llm.calls_for(LlmRole.GUARDRAIL) == []
+    assert outcome.run.status is RunStatus.COMPLETED

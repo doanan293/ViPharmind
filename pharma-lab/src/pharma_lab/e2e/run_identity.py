@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,7 +23,7 @@ INFORMATIONAL = ("git_commit", "created_at")
 class RunIdentity:
     golden_sha256: str
     config: str
-    pipeline: dict[str, bool]
+    pipeline: dict[str, object]
     release_id: str
     retrieval: dict[str, Any]
     rerank: dict[str, Any]
@@ -35,7 +36,7 @@ def identity_from_settings(
     *,
     golden_sha256: str,
     config: str,
-    pipeline: dict[str, bool],
+    pipeline: Mapping[str, object],
     release_id: str,
 ) -> RunIdentity:
     retrieval = settings.retrieval
@@ -55,7 +56,7 @@ def identity_from_settings(
     return RunIdentity(
         golden_sha256=golden_sha256,
         config=config,
-        pipeline=pipeline,
+        pipeline=dict(pipeline),
         release_id=release_id,
         retrieval={
             "mode": retrieval.mode,

@@ -29,7 +29,7 @@ from pharma_lab.e2e.calibration import (
     refresh_calibration,
     score_calibration,
 )
-from pharma_lab.e2e.configs import E2EConfig
+from pharma_lab.e2e.configs import E2EConfig, config_label
 from pharma_lab.e2e.corpus_text import chunk_texts, corpus_text, load_corpus_text
 from pharma_lab.e2e.golden import (
     ANSWERABLE_PER_GROUP,
@@ -338,6 +338,13 @@ def run(
             help="Turn deadline for this run instead of the backend budget",
         ),
     ] = None,
+    pipeline_option: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--pipeline-option",
+            help="key=value override of PipelineOptions; repeatable",
+        ),
+    ] = None,
     backend_env_file: Annotated[
         Path, typer.Option("--backend-env-file", dir_okay=False)
     ] = BACKEND_ENV_FILE,
@@ -352,6 +359,7 @@ def run(
         retry_errors=retry_errors,
         limit=limit,
         deadline_seconds=deadline_seconds,
+        pipeline_options=tuple(pipeline_option or ()),
     )
 
     def handler() -> CommandResult:
@@ -359,7 +367,7 @@ def run(
         return CommandResult(
             "e2e run",
             CommandStatus.INCOMPLETE if summary.errors else CommandStatus.COMPLETE,
-            request.run_root / str(config),
+            request.run_root / config_label(config, request.pipeline_options),
             {"items": summary.total, "ran": summary.ran, "errors": summary.errors},
         )
 
@@ -370,7 +378,13 @@ def run(
 def judge(
     ctx: typer.Context,
     run_name: Annotated[str, typer.Option("--run")],
-    config: Annotated[E2EConfig, typer.Option("--config")],
+    config: Annotated[
+        str,
+        typer.Option(
+            "--config",
+            help="Configuration directory, e.g. full or full+refine_threshold=0.5",
+        ),
+    ],
     golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
     concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 8,
     force: Annotated[
@@ -405,7 +419,7 @@ def judge(
         return CommandResult(
             "e2e judge",
             CommandStatus.INCOMPLETE if summary.errors else CommandStatus.COMPLETE,
-            request.run_root / str(config),
+            request.run_root / config,
             {
                 "answers": summary.total,
                 "judged": summary.judged,

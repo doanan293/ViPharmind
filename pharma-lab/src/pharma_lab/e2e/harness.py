@@ -15,6 +15,8 @@ from pharma_agent.infrastructure.settings import Settings
 
 from pharma_lab.e2e.configs import (
     E2EConfig,
+    config_label,
+    parse_pipeline_options,
     pipeline_for,
     settings_for,
     uses_retrieval,
@@ -105,6 +107,8 @@ class E2ERunRequest:
     limit: int | None = None
     # Evaluation may wait longer than the production turn deadline; recorded in run.json.
     deadline_seconds: float | None = None
+    # key=value overrides of the configuration's PipelineOptions (--pipeline-option).
+    pipeline_options: tuple[str, ...] = ()
 
 
 def with_deadline(settings: Settings, seconds: float | None) -> Settings:
@@ -127,8 +131,11 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
         Settings(_env_file=request.backend_env_file), request.config
     )
     settings = with_deadline(settings, request.deadline_seconds)
-    pipeline = pipeline_for(request.config)
-    directory = config_dir(request.run_root, request.config)
+    pipeline = parse_pipeline_options(
+        pipeline_for(request.config), request.pipeline_options
+    )
+    label = config_label(request.config, request.pipeline_options)
+    directory = config_dir(request.run_root, label)
     reconcile_golden(directory, request.golden_path, golden)
     probe = next(
         item.question for item in items if item.category is Category.ANSWERABLE
@@ -147,7 +154,7 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
                 identity_from_settings(
                     settings,
                     golden_sha256=sha256_file(request.golden_path),
-                    config=str(request.config),
+                    config=label,
                     pipeline=asdict(pipeline),
                     release_id=release_id,
                 ),
@@ -160,17 +167,17 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
                     retrieval=app.retrieval.service,
                     limits=settings.budget,
                     pipeline=pipeline,
-                    config=str(request.config),
+                    config=label,
                 )
                 if uses_retrieval(request.config)
-                else ClosedBookExecutor(llm=app.deps.llm, config=str(request.config))
+                else ClosedBookExecutor(llm=app.deps.llm, config=label)
             )
             return runner.run(
                 run_items(
                     items,
                     executor,
                     JsonlStore(directory / ANSWERS_FILE, AnswerRecord),
-                    config=str(request.config),
+                    config=label,
                     concurrency=request.concurrency,
                     retry_errors=request.retry_errors,
                 )

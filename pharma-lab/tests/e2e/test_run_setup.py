@@ -8,7 +8,13 @@ from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.infrastructure.settings import Settings
 from tests.e2e.factories import ScriptedLlm
 
-from pharma_lab.e2e.configs import E2EConfig, pipeline_for, settings_for
+from pharma_lab.e2e.configs import (
+    E2EConfig,
+    config_label,
+    parse_pipeline_options,
+    pipeline_for,
+    settings_for,
+)
 from pharma_lab.e2e.recording_llm import RecordingLlm
 from pharma_lab.e2e.records import AnswerRecord, JsonlStore, TokenUsage
 from pharma_lab.e2e.run_identity import (
@@ -166,3 +172,29 @@ def test_open_run_resumes_only_the_same_identity(tmp_path: Path) -> None:
     open_run(tmp_path, identity(settings), commit="def")
     with pytest.raises(ValueError, match=r"\(release_id\); start a new --run"):
         open_run(tmp_path, identity(settings, release_id="r2"), commit="abc")
+
+
+def test_pipeline_options_parse_and_label() -> None:
+    options = parse_pipeline_options(PipelineOptions(), ["guard=false"])
+    assert options == PipelineOptions(guard=False)
+    assert config_label(E2EConfig.FULL, ["guard=false"]) == "full+guard=false"
+    assert config_label(E2EConfig.FULL, []) == "full"
+
+
+def test_unknown_pipeline_option_is_refused() -> None:
+    with pytest.raises(ValueError, match="unknown pipeline option 'rerank'"):
+        parse_pipeline_options(PipelineOptions(), ["rerank=false"])
+    with pytest.raises(ValueError, match="guard"):
+        parse_pipeline_options(PipelineOptions(), ["guard=maybe"])
+    with pytest.raises(ValueError, match="key=value"):
+        parse_pipeline_options(PipelineOptions(), ["guard"])
+
+
+def test_retriever_variants_change_only_retrieval_settings() -> None:
+    base = base_settings()
+    assert settings_for(base, E2EConfig.BM25).retrieval.mode == "bm25"
+    assert settings_for(base, E2EConfig.DENSE).retrieval.mode == "dense"
+    k60 = settings_for(base, E2EConfig.HYBRID_K60).retrieval
+    assert (k60.mode, k60.rrf_k) == ("hybrid", 60)
+    assert pipeline_for(E2EConfig.NO_GUARD) == PipelineOptions(guard=False)
+    assert pipeline_for(E2EConfig.BM25) == PipelineOptions()

@@ -325,6 +325,10 @@ CONFIG_LABELS: Mapping[str, str] = {
     E2EConfig.NO_JUDGE_REFINE.value: "w/o judge--refine",
     E2EConfig.NO_REPHRASE.value: "w/o rephrase",
     E2EConfig.NO_RERANK.value: "w/o rerank",
+    E2EConfig.NO_GUARD.value: "w/o guard",
+    E2EConfig.BM25.value: "BM25 retriever",
+    E2EConfig.DENSE.value: "Dense retriever",
+    E2EConfig.HYBRID_K60.value: "Hybrid, RRF $k$=60",
     E2EConfig.CLOSED_BOOK.value: "Closed-book LLM",
 }
 # The LNCS text block is 12.2 cm wide: the main table compares the two systems,
@@ -382,13 +386,22 @@ def _values(
 
 def _load(run_root: Path) -> dict[str, LoadedConfig]:
     loaded = {}
-    for config in E2EConfig:
-        directory = config_dir(run_root, config)
+    # Every judged directory: the fixed configurations in their order, then the
+    # --pipeline-option variants (e.g. full+refine_threshold=0.5) by name.
+    root = Path(run_root)
+    names = (
+        sorted(p.name for p in root.iterdir() if p.is_dir()) if root.is_dir() else []
+    )
+    fixed = [config.value for config in E2EConfig if config.value in names]
+    for directory in (
+        root / name for name in [*fixed, *(n for n in names if n not in fixed)]
+    ):
+        config = directory.name
         if (directory / JUDGMENTS_FILE).is_file():
             identity_path = directory / RUN_FILE
             if not identity_path.is_file():
                 raise ValueError(f"{directory} has judgments but no {RUN_FILE}")
-            loaded[config.value] = LoadedConfig(
+            loaded[config] = LoadedConfig(
                 JsonlStore(directory / ANSWERS_FILE, AnswerRecord).latest(),
                 JsonlStore(directory / JUDGMENTS_FILE, Judgement).latest(),
                 json.loads(identity_path.read_text(encoding="utf-8")),
@@ -533,7 +546,7 @@ def _main_tables(
         "End-to-end results of the full agent and one-step RAG: mean [95\\% CI] "
         "(Wilson for rates, percentile bootstrap otherwise).",
         "tab:e2e-main",
-        ["Metric", *(CONFIG_LABELS[config] for config in paper_configs)],
+        ["Metric", *(CONFIG_LABELS.get(config, config) for config in paper_configs)],
         tex_rows,
     )
     return [main_csv, main_tex]
@@ -672,7 +685,7 @@ def _ablation_tables(
         "$^{*}$: Holm-adjusted randomization $p<0.05$; confidence intervals are "
         "in the released CSV.",
         "tab:e2e-ablation",
-        ["Metric", *(CONFIG_LABELS[config] for config in others)],
+        ["Metric", *(CONFIG_LABELS.get(config, config) for config in others)],
         tex_rows,
     )
     return [ablation_csv, ablation_tex]

@@ -24,6 +24,7 @@ class PipelineOptions:
 
     rephrase: bool = True
     judge_refine: bool = True
+    guard: bool = True
 
 
 @dataclass(frozen=True)
