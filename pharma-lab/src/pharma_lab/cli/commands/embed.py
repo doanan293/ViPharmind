@@ -5,6 +5,7 @@ from typing import Annotated
 
 import typer
 
+from pharma_lab.cache.paths import query_embedding_cache_path
 from pharma_lab.cli.runtime import (
     CommandResult,
     CommandStatus,
@@ -15,7 +16,6 @@ from pharma_lab.config.defaults import DEFAULT_EMBEDDING_MODEL
 from pharma_lab.config.enums import Backend
 from pharma_lab.config.paths import (
     GOLD_DIR,
-    query_embedding_cache_path,
 )
 from pharma_lab.evaluation.query_embedding_service import (
     KaggleQueryEmbeddingBackend,

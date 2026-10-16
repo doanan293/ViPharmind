@@ -15,11 +15,12 @@ from pharma_agent.domain.corpus.bundle import (
 )
 
 from pharma_lab.bundle.chunks import iter_document_chunks
+from pharma_lab.cache.paths import text_embedding_cache_path
 from pharma_lab.config.defaults import (
     DEFAULT_BUDGET_SECONDS,
     DEFAULT_REQUEST_TIMEOUT_SECONDS,
 )
-from pharma_lab.config.paths import BUNDLE_EMBED_WORK_DIR, text_embedding_cache_path
+from pharma_lab.config.paths import BUNDLE_EMBED_WORK_DIR
 from pharma_lab.embeddings.service import (
     TextEmbeddingBackend,
     TextEmbeddingRequest,
