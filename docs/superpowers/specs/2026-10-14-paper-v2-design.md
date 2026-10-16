@@ -159,10 +159,12 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   proxy thuê bao, kể cả Opus 5.5, và kể cả Qwen3.5-9B tự host: Qwen tính theo giá niêm yết trên
   OpenRouter (DeepInfra bf16), tức đúng giá production sẽ trả, không theo giờ GPU Kaggle. Bài nói
   rõ điều đó. Tiền thật phải trả chỉ phát sinh ở Jev qua OpenRouter.
-- Embedding query: `qwen3-embedding:4b-q8_0`, trên Kaggle khi chạy benchmark retrieval và qua
-  `compose.local-models.yaml` khi chạy e2e local, cùng file với index đã dựng.
-- Reranker: `qwen3-reranker:4b-q8_0` tự host trên Kaggle bằng `pharma-lab e2e rerank-server` ở
-  kernel riêng, replicated 2×1.
+- Embedding query và reranker của tầng agent: chọn từ bảng retrieval v2 (§4.D) sau khi pha D
+  xong, theo quy tắc ghi trong plan pha 0 (nDCG@5 sau rerank cao nhất; chênh dưới một điểm thì
+  lấy model nhỏ hơn), không cố định trước (quyết định ngày 2026-10-16). Cả hai tự host trên
+  Kaggle ở kernel riêng, replicated 2×1, bằng `pharma-lab e2e embed-server` và `pharma-lab e2e
+  rerank-server`; mỗi model một tài khoản (LLM acc1, reranker acc2, embedding acc3). Embedding
+  phải cùng file với index đã dựng; CPU qua `compose.local-models.yaml` chỉ để demo.
 - Jev: qua OpenRouter, cả ở lab lẫn production, bằng SDK chính thức của TypeSafe với `base_url`
   `https://openrouter.ai/api` và id `~typesafe/jev-latest` (danh sách model OpenRouter ngày
   2026-10-14 hiện id `typesafe/jev-router`, giá ghi -1, tức OpenRouter không công bố giá cố định).
