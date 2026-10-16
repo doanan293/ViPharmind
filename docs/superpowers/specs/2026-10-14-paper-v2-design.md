@@ -19,10 +19,11 @@ thứ v2 đang dùng; mọi thứ khác xoá.
 | --- | --- | --- | --- |
 | `vipharma-rag` (công khai, version 2, 8,2 GB) | acc1 | Giữ, đóng băng | Bài SoICT dẫn link này; không thêm version, không đổi mô tả |
 | `vipharmind-data` version 1 (riêng tư, 4,9 GB) | acc1 | Giữ | Toàn bộ dữ liệu làm việc của v1, ghép với tag `v1.0.0`; v2 thêm version 2 |
-| `vector-cache-llama-cpp-cuda-t4` | acc1 | Giữ | Bản build llama.cpp CUDA cho T4 mà mọi kernel đang dùng |
+| `vector-cache-llama-cpp-cuda-t4` (công khai) | acc1 | Giữ | Bản build llama.cpp CUDA cho T4 mà mọi tài khoản mount |
+| `vector-cache-gguf-*-q8_0*` (công khai) | acc1 | Giữ | Model Q8_0 open-weight mà mọi tài khoản mount; stage đầu tiên tự tạo |
 | `hust-information-retrieval-corpus` | acc1 | Không đụng | Dự án khác |
 | 12 dataset `vector-cache-gguf-*` F16/BF16 (khoảng 58 GB) | acc1 | Xoá | Cache model; file v1 dựng lại được từ nguồn Hugging Face ghim commit, sha256 và lệnh `-vimed` trong `docs/guides/evaluation.md` ở tag `v1.0.0` |
-| `corpus-pipeline-rag-final`, `seed-pipeline-bundle`, mọi `pipeline-input-*` | acc1, acc2, acc3 | Xoá | Input tạm của kernel, tự sinh lại khi chạy stage |
+| `corpus-pipeline-rag-final`, `seed-pipeline-bundle`, `vipharmind-bundle`, mọi `pipeline-input-*` công khai | acc1, acc2, acc3 | Xoá | Input tạm của kernel; từ 2026-10-16 input là `pipeline-input-<hash>` riêng tư của tài khoản chạy kernel, tự sinh lại khi chạy stage |
 
 Bản công khai của v2 là một dataset công khai mới, link riêng trong bài v2, để link của bài SoICT
 luôn trỏ đúng dữ liệu đã nộp. Cache model Q8_0 (`vector-cache-gguf-*-q8_0*`) do stage đầu tiên tự

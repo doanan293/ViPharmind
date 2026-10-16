@@ -171,7 +171,6 @@ def owner_configuration(
     *,
     owner: str | None = None,
     runtime_owner: str | None = None,
-    corpus_owner: str | None = None,
     checkpoint_owner: str | None = None,
 ) -> OwnerConfiguration:
     authenticated = None
@@ -188,7 +187,6 @@ def owner_configuration(
         {
             "owner": owner,
             "runtime_owner": runtime_owner,
-            "corpus_owner": corpus_owner,
             "checkpoint_owner": checkpoint_owner,
         },
     )()

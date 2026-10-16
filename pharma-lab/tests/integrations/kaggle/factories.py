@@ -27,13 +27,11 @@ def owners(
     execution: str = "owner",
     *,
     runtime: str | None = None,
-    corpus: str | None = None,
     checkpoint: str | None = None,
 ) -> OwnerConfiguration:
     return OwnerConfiguration(
         execution=execution,
         runtime=runtime or execution,
-        corpus=corpus or execution,
         checkpoint=checkpoint or execution,
     )
 
