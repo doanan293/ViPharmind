@@ -13,7 +13,7 @@ from pharma_agent.domain.agent.schemas import (
     RephraseResult,
 )
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict
-from pharma_agent.domain.llm.models import LlmRole
+from pharma_agent.domain.llm.models import LlmRole, LlmUsage
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.infrastructure.settings import Settings
 from tests.e2e.factories import (
@@ -27,6 +27,7 @@ from pharma_lab.e2e.configs import E2EConfig, pipeline_for
 from pharma_lab.e2e.executor import BackendTurnExecutor, conversation_for
 from pharma_lab.e2e.golden import GoldenItem
 from pharma_lab.e2e.harness import run_items, spread, with_deadline
+from pharma_lab.e2e.recording_llm import RecordingLlm
 from pharma_lab.e2e.records import AnswerRecord, JsonlStore, RetrievedChunk, RoundRecord
 
 SECTION = "drug:paracetamol:lieu-dung"
@@ -241,3 +242,20 @@ def test_deadline_override_changes_only_the_budget() -> None:
     assert longer.budget.max_llm_calls == base.budget.max_llm_calls
     with pytest.raises(ValueError, match="positive"):
         with_deadline(base, 0)
+
+
+def test_recording_llm_sums_reasoning_tokens() -> None:
+    class ReasoningLlm(ScriptedLlm):
+        async def structured(self, role, messages, schema):
+            result, _ = await super().structured(role, messages, schema)
+            return result, LlmUsage(
+                prompt_tokens=10, completion_tokens=6, reasoning_tokens=4
+            )
+
+    llm = ReasoningLlm()
+    decision = JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="r")
+    llm.script(LlmRole.JUDGE, decision, decision)
+    recorder = RecordingLlm(llm)
+    for _ in range(2):
+        asyncio.run(recorder.structured(LlmRole.JUDGE, [], JudgeDecision))
+    assert recorder.usage_by_role()["judge"].reasoning_tokens == 8

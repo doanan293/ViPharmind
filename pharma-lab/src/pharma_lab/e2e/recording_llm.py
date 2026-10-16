@@ -26,6 +26,7 @@ class RecordingLlm:
             calls=current.calls + 1,
             prompt_tokens=current.prompt_tokens + usage.prompt_tokens,
             completion_tokens=current.completion_tokens + usage.completion_tokens,
+            reasoning_tokens=current.reasoning_tokens + usage.reasoning_tokens,
             seconds=round(current.seconds + time.perf_counter() - started, 3),
         )
 

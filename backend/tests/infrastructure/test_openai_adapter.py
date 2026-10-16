@@ -22,6 +22,7 @@ class FakeCompletions:
         self.create_kwargs: dict = {}
         self.parsed: object = Verdict(ok=True)
         self.raise_on_parse: Exception | None = None
+        self.usage_details: object | None = None
 
     async def parse(self, **kwargs):
         self.parse_kwargs = kwargs
@@ -30,7 +31,11 @@ class FakeCompletions:
         message = SimpleNamespace(parsed=self.parsed, refusal=None)
         return SimpleNamespace(
             choices=[SimpleNamespace(message=message)],
-            usage=SimpleNamespace(prompt_tokens=12, completion_tokens=3),
+            usage=SimpleNamespace(
+                prompt_tokens=12,
+                completion_tokens=3,
+                completion_tokens_details=self.usage_details,
+            ),
         )
 
     async def create(self, **kwargs):
@@ -342,3 +347,14 @@ async def test_output_cap_is_sent_only_when_set_under_the_configured_name() -> N
     assert judge_kwargs["max_completion_tokens"] == 512
     assert answer_kwargs["max_tokens"] == 4096
     assert "max_completion_tokens" not in answer_kwargs
+
+
+async def test_structured_reads_reasoning_tokens() -> None:
+    adapter, created = make_adapter()
+    await adapter.structured(LlmRole.GUARDRAIL, [user("q")], Verdict)
+    created[(None, "sk-cloud")].completions.usage_details = SimpleNamespace(
+        reasoning_tokens=7
+    )
+    _, usage = await adapter.structured(LlmRole.GUARDRAIL, [user("q")], Verdict)
+    assert usage.reasoning_tokens == 7
+    assert usage.completion_tokens == 3

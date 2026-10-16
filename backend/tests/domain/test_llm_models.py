@@ -24,3 +24,11 @@ def test_llm_roles_cover_every_pipeline_step() -> None:
         "answer",
         "summarizer",
     }
+
+
+def test_usage_adds_reasoning_tokens() -> None:
+    total = LlmUsage(
+        prompt_tokens=1, completion_tokens=5, reasoning_tokens=2
+    ) + LlmUsage(completion_tokens=3, reasoning_tokens=1)
+    assert total.reasoning_tokens == 3
+    assert total.completion_tokens == 8
