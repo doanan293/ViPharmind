@@ -77,7 +77,10 @@ def tokens(events: list[ProgressEvent]) -> str:
 async def test_grounded_answer_in_one_round() -> None:
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     retriever = FakeRetriever([make_hit("c1", fusion=0.9), make_hit("c2", fusion=0.4)])
 
@@ -123,8 +126,11 @@ async def test_search_more_then_refine_runs_second_search() -> None:
             decision=JudgeOutcome.SEARCH_MORE,
             gaps=["liều tối đa mỗi ngày"],
             reason="thiếu",
+            confidence=0.0,
         ),
-        JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ"),
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     llm.script(
         LlmRole.REFINE,
@@ -187,7 +193,9 @@ async def test_retriever_failure_ends_in_abstain() -> None:
     llm = passing_llm()
     llm.script(
         LlmRole.JUDGE,
-        JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="không có gì"),
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="không có gì", confidence=1.0
+        ),
     )
     llm.stream_text = "Không tìm thấy tài liệu phù hợp trong Dược thư."
     events, outcome = await run_turn(llm, FakeRetriever(RetrievalError("qdrant down")))
@@ -200,7 +208,12 @@ async def test_search_round_limit_gives_partial_status() -> None:
     llm = passing_llm()
     llm.script(
         LlmRole.JUDGE,
-        JudgeDecision(decision=JudgeOutcome.SEARCH_MORE, gaps=["x"], reason="thiếu"),
+        JudgeDecision(
+            decision=JudgeOutcome.SEARCH_MORE,
+            gaps=["x"],
+            reason="thiếu",
+            confidence=0.0,
+        ),
     )
     _, outcome = await run_turn(
         llm,
@@ -218,7 +231,10 @@ async def test_optional_steps_are_skipped_when_budget_is_tight() -> None:
         LlmRole.GUARDRAIL, LlmGuardVerdict(is_attack=False, in_scope=True, reason="ok")
     )
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     _, outcome = await run_turn(
         llm, FakeRetriever([make_hit("c1", fusion=0.9)]), BudgetLimits(max_llm_calls=3)
@@ -232,7 +248,10 @@ async def test_optional_steps_are_skipped_when_budget_is_tight() -> None:
 async def test_answer_stream_failure_falls_back() -> None:
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     llm.stream_error = LlmError("provider down")
     events, outcome = await run_turn(llm, FakeRetriever([make_hit("c1", fusion=0.9)]))
@@ -248,7 +267,10 @@ async def test_answer_stream_failure_falls_back() -> None:
 async def test_deadline_produces_timeout_status() -> None:
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     llm.stream_delay = 0.5
     events, outcome = await run_turn(
@@ -282,7 +304,10 @@ async def test_llm_guard_attack_is_blocked(attack: bool) -> None:
 async def test_consumer_leaving_early_cancels_the_graph() -> None:
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     llm.stream_delay = 5.0
     runner = ChatTurnRunner(
@@ -304,7 +329,10 @@ async def test_consumer_leaving_early_cancels_the_graph() -> None:
 async def test_slow_consumer_does_not_break_timeout_handling() -> None:
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     llm.stream_delay = 0.5
     runner = ChatTurnRunner(
@@ -350,7 +378,10 @@ async def test_one_step_pipeline_calls_guard_and_answer_only() -> None:
 async def test_no_rephrase_keeps_the_judge() -> None:
     llm = guard_only_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     retriever = FakeRetriever([make_hit("c1", fusion=0.9)])
 
@@ -380,7 +411,10 @@ async def test_no_guard_skips_the_guard_llm_and_records_a_skipped_verdict() -> N
     llm = passing_llm()
     llm.structured_responses.pop(LlmRole.GUARDRAIL)
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     retriever = FakeRetriever([make_hit("c1", fusion=0.9)])
 

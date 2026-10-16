@@ -43,6 +43,7 @@ class JudgeDecision(BaseModel):
     decision: JudgeOutcome
     gaps: list[str]
     reason: str
+    confidence: float
 
 
 class RefineResult(BaseModel):

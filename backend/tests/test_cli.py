@@ -44,7 +44,10 @@ def fake_application() -> SimpleNamespace:
         ),
     )
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     deps = build_deps(llm, FakeRetriever([make_hit("c1", fusion=0.9)]))
     runner = ChatTurnRunner(build_chat_graph(), deps, BudgetLimits())
