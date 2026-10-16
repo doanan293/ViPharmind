@@ -136,8 +136,12 @@ def _usage(usage: Any) -> LlmUsage:
     prompt = int(getattr(usage, "prompt_tokens", 0) or 0)
     completion = int(getattr(usage, "completion_tokens", 0) or 0)
     total = int(getattr(usage, "total_tokens", 0) or 0)
+    details = getattr(usage, "completion_tokens_details", None)
+    reasoning = int(getattr(details, "reasoning_tokens", 0) or 0)
     # OpenAI counts reasoning tokens inside completion_tokens; some OpenAI-compatible
     # proxies report them only in total_tokens. The larger value bills them either way.
     return LlmUsage(
-        prompt_tokens=prompt, completion_tokens=max(completion, total - prompt)
+        prompt_tokens=prompt,
+        completion_tokens=max(completion, total - prompt),
+        reasoning_tokens=reasoning,
     )

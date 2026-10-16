@@ -21,6 +21,8 @@ class LlmUsage(BaseModel):
 
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    # Reasoning tokens inside completion_tokens, when the server reports them.
+    reasoning_tokens: int = 0
 
     @property
     def total_tokens(self) -> int:
@@ -30,6 +32,7 @@ class LlmUsage(BaseModel):
         return LlmUsage(
             prompt_tokens=self.prompt_tokens + other.prompt_tokens,
             completion_tokens=self.completion_tokens + other.completion_tokens,
+            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
         )
 
 
