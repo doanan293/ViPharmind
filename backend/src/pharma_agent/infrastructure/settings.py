@@ -22,11 +22,12 @@ class LlmEndpoint(BaseModel):
     # Sent only when set: many OpenAI-compatible servers reject the parameter.
     reasoning_effort: ReasoningEffort = None
     # Provider-specific request fields passed as the OpenAI SDK's extra_body, e.g.
-    # {"chat_template_kwargs": {"enable_thinking": false}} for Qwen on vLLM/DeepInfra.
+    # {"reasoning": {"enabled": false}} on OpenRouter, or
+    # {"chat_template_kwargs": {"enable_thinking": false}} for Qwen on vLLM.
     extra_body: dict[str, Any] | None = None
     # Output cap per call, sent only when set: a thinking model spends it on reasoning too.
     max_output_tokens: int | None = Field(default=None, ge=1)
-    # OpenAI takes max_completion_tokens; DeepInfra documents max_tokens.
+    # OpenAI takes max_completion_tokens; OpenRouter and vLLM document max_tokens.
     max_tokens_param: Literal["max_completion_tokens", "max_tokens"] | None = None
 
 
@@ -93,7 +94,7 @@ class EmbeddingSettings(BaseModel):
 
 
 class RerankSettings(BaseModel):
-    protocol: Literal["native_rerank", "deepinfra", "none"] = "native_rerank"
+    protocol: Literal["native_rerank", "none"] = "native_rerank"
     base_url: str = "http://localhost:11435"
     api_key: str | None = None
     model: str = "qwen3-reranker:4b-q8_0"

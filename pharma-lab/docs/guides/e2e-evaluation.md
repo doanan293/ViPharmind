@@ -55,15 +55,15 @@ uv run pharma-lab e2e run --run e2e-qwen35-9b --config full --limit 20 --deadlin
 
 Biến môi trường được ưu tiên hơn `backend/.env`, nên các run khác không bị ảnh hưởng. `EXTRA_BODY` và tên model được ghi vào `run.json`.
 
-*Qua API thay cho Kaggle.* Cùng model có trên DeepInfra (key `DEEPINFRA_API_KEY` trong `pharma-lab/.env`); khi đó đặt endpoint từng bước bằng tay:
+*Qua API thay cho Kaggle.* Cùng model có trên OpenRouter (key `OPENROUTER_API_KEY` trong `pharma-lab/.env`); khi đó đặt endpoint từng bước bằng tay:
 
 ```bash
 set -a; . ./.env; set +a
 for ROLE in GUARDRAIL REPHRASE JUDGE REFINE ANSWER SUMMARIZER; do
-  export PHARMA_LLM__ROLES__${ROLE}__BASE_URL=https://api.deepinfra.com/v1/openai
-  export PHARMA_LLM__ROLES__${ROLE}__API_KEY=$DEEPINFRA_API_KEY
-  export PHARMA_LLM__ROLES__${ROLE}__MODEL=Qwen/Qwen3.5-9B
-  export PHARMA_LLM__ROLES__${ROLE}__EXTRA_BODY='{"chat_template_kwargs": {"enable_thinking": false}}'
+  export PHARMA_LLM__ROLES__${ROLE}__BASE_URL=https://openrouter.ai/api/v1
+  export PHARMA_LLM__ROLES__${ROLE}__API_KEY=$OPENROUTER_API_KEY
+  export PHARMA_LLM__ROLES__${ROLE}__MODEL=qwen/qwen3.5-9b
+  export PHARMA_LLM__ROLES__${ROLE}__EXTRA_BODY='{"reasoning": {"enabled": false}}'
 done
 ```
 

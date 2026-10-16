@@ -92,3 +92,35 @@ async def test_build_reranker_sends_the_api_key_only_when_configured(
         await reranker.aclose()
     assert route.calls[0].request.headers["Authorization"] == "Bearer rerank-secret"
     assert "Authorization" not in route.calls[1].request.headers
+
+
+@respx.mock
+async def test_openrouter_is_served_by_the_native_reranker(
+    respx_mock: respx.MockRouter,
+) -> None:
+    # OpenRouter's /api/v1/rerank takes the same body and answers with the same results.
+    route = respx_mock.post("https://openrouter.ai/api/v1/rerank").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "results": [
+                    {"index": 1, "relevance_score": 0.9},
+                    {"index": 0, "relevance_score": 0.2},
+                ]
+            },
+        )
+    )
+    reranker = build_reranker(
+        RerankSettings(
+            base_url="https://openrouter.ai/api",
+            api_key="sk-or-test",
+            model="qwen/qwen3-reranker-4b",
+        )
+    )
+
+    hits = await reranker.rerank("Q", [make_hit("a"), make_hit("b")], top_n=2)
+
+    assert [h.chunk_version_id for h in hits] == [chunk_uuid("b"), chunk_uuid("a")]
+    request = route.calls[0].request
+    assert request.headers["Authorization"] == "Bearer sk-or-test"
+    assert json.loads(request.content)["model"] == "qwen/qwen3-reranker-4b"

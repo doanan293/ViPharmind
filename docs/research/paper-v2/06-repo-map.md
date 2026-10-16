@@ -151,7 +151,7 @@ Settings(BaseSettings): env_prefix="PHARMA_", env_nested_delimiter="__", env_fil
 Env keys: `PHARMA_LLM__DEFAULT__{BASE_URL,API_KEY,MODEL,REASONING_EFFORT,EXTRA_BODY,
 MAX_OUTPUT_TOKENS,MAX_TOKENS_PARAM}`, `PHARMA_LLM__ROLES__{GUARDRAIL|REPHRASE|JUDGE|REFINE|
 ANSWER|SUMMARIZER}__{same fields}`, `PHARMA_LLM__TIMEOUT_SECONDS`, `PHARMA_LLM__MAX_RETRIES`.
-Examples: `backend/.env.example` (DeepInfra Qwen3.5-9B default, Gemini via cli-proxy-api
+Examples: `backend/.env.example` (OpenRouter `qwen/qwen3.5-9b` default, Gemini via cli-proxy-api
 commented), `backend/.env.production.example`. The Gemini gateway is the compose service
 `cli-proxy-api` (`compose.llm-proxy.yaml`, port 8317, config
 `devops/cli-proxy-api/config.yaml`). `pharma-lab e2e llm-server` writes
@@ -162,7 +162,7 @@ MODEL,EXTRA_BODY}` for all six roles plus `PHARMA_LLM__TIMEOUT_SECONDS=600`
 Only the model name, base URL, key and request options vary per role. There is **no
 provider/protocol switch for the LLM**: every role goes through the same
 `OpenAiLlmAdapter`. (The reranker does have one: `PHARMA_RETRIEVAL__RERANK__PROTOCOL`
-= `native_rerank | deepinfra | none`, `infrastructure/retrieval/rerankers.py:build_reranker`.)
+= `native_rerank | none`; OpenRouter's `/api/v1/rerank` uses `native_rerank`, `infrastructure/retrieval/rerankers.py:build_reranker`.)
 
 ### 1.6 LLM client abstraction
 

@@ -3,7 +3,7 @@
 # `WEB_PORT=8081 docker compose up -d`. Overridable: ports (WEB_PORT, POSTGRES_PORT,
 # QDRANT_HTTP_PORT), COOKIE_SECURE and POSTGRES_USER/PASSWORD/DB.
 #
-# By default the backend calls the model providers configured in backend/.env (DeepInfra).
+# By default the backend calls the model providers configured in backend/.env (OpenRouter).
 # Two override files add local alternatives:
 #   compose.local-models.yaml  llama.cpp embedding and reranker servers on this machine (CPU)
 #   compose.llm-proxy.yaml     the cli-proxy-api gateway (Gemini, Claude, ...) for the LLM roles

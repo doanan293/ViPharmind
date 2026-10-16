@@ -6,7 +6,7 @@
 | `backend/` | Backend AI agent (LangGraph, OpenAI SDK, Qdrant) |
 | `frontend/` | Web app (React Router, SSR) |
 | `devops/` | Cấu hình cho image bên thứ ba mà compose dùng (nginx, CLIProxyAPI) và `devops/vercel/sync_env.py` đẩy biến môi trường production lên Vercel |
-| `compose.yaml` | Stack local: Postgres, Qdrant, backend, frontend, nginx. Model gọi DeepInfra theo `backend/.env` |
+| `compose.yaml` | Stack local: Postgres, Qdrant, backend, frontend, nginx. Model gọi OpenRouter theo `backend/.env` |
 | `compose.local-models.yaml` | Override: embedding và reranker llama.cpp chạy CPU trên máy |
 | `compose.llm-proxy.yaml` | Override: các vai trò LLM gọi qua gateway CLIProxyAPI (Gemini, Claude, ...) |
 
@@ -17,11 +17,11 @@ giá trị mặc định ngay trong file compose, muốn ghi đè thì đặt bi
 `WEB_PORT=8081 docker compose up -d`. Ba file cấu hình của repo là `backend/.env`, `frontend/.env` và
 `pharma-lab/.env`, mỗi file có `.env.example` bên cạnh.
 
-Mặc định LLM, embedding và reranker đều gọi DeepInfra (Qwen3.5-9B, Qwen3-Embedding-4B 2560 chiều,
-Qwen3-Reranker-4B). Production cũng gọi DeepInfra nhưng embedding là Qwen3-Embedding-8B 4096 chiều
+Mặc định LLM, embedding và reranker đều gọi OpenRouter (Qwen3.5-9B, Qwen3-Embedding-4B 2560 chiều,
+Qwen3-Reranker-4B). Production cũng gọi OpenRouter nhưng embedding là Qwen3-Embedding-8B 4096 chiều
 (`backend/.env.production.example`). Corpus phải được import bằng đúng model embedding mà backend
 dùng, nên corpus import ở local không dùng được cho production và ngược lại. Tạo `backend/.env` từ
-`backend/.env.example`, điền cùng một key DeepInfra vào ba biến `..._API_KEY`, rồi
+`backend/.env.example`, điền cùng một key OpenRouter vào ba biến `..._API_KEY`, rồi
 `PHARMA_AUTH__JWT_SECRET`, `PHARMA_AUTH__CSRF_SECRET` và `PHARMA_AUTH__OTP_SECRET`.
 
 Cách làm việc hằng ngày: chỉ chạy dữ liệu trong Docker, backend và frontend chạy trên máy.
@@ -53,7 +53,7 @@ docker compose exec backend pharma-agent ask "Paracetamol người lớn uống 
 
 ### Chạy model trên CPU (`compose.local-models.yaml`)
 
-Embedding và reranker chạy bằng llama.cpp trên máy thay cho DeepInfra, cần file GGUF trong
+Embedding và reranker chạy bằng llama.cpp trên máy thay cho OpenRouter, cần file GGUF trong
 `ai-models/gguf` (xem `pharma-lab`).
 
 ```bash
@@ -114,7 +114,7 @@ Backend chạy trên máy thì đổi các biến embedding và rerank trong `ba
 Frontend và backend đều chạy trên Vercel (Hobby, region Singapore): frontend là project
 `vipharmind`, backend FastAPI là Vercel Function trong project `vipharmind-api` (tác vụ xuất bản
 chạy ngay trong request, tối đa 300 giây). Postgres trên Neon (Singapore), vector trên Qdrant
-Cloud, LLM, embedding và reranker trên DeepInfra, thư qua Resend. Trình duyệt chỉ gọi origin
+Cloud, LLM, embedding và reranker qua OpenRouter, thư qua Resend. Trình duyệt chỉ gọi origin
 Vercel; route `/api/*` của frontend chuyển tiếp sang backend nên cookie là first-party. Cron Vercel
 gọi `/api/v1/health` mỗi ngày để Qdrant free không bị tạm dừng vì không hoạt động.
 

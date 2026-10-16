@@ -3,7 +3,6 @@
 import httpx
 
 from pharma_agent.domain.retrieval.ports import Reranker
-from pharma_agent.infrastructure.retrieval.deepinfra_reranker import DeepInfraReranker
 from pharma_agent.infrastructure.retrieval.llama_cpp_reranker import (
     NativeReranker,
     NoopReranker,
@@ -20,10 +19,6 @@ def build_reranker(settings: RerankSettings) -> Reranker:
     http = httpx.AsyncClient(
         base_url=settings.base_url, timeout=settings.timeout_seconds, headers=headers
     )
-    if settings.protocol == "deepinfra":
-        return DeepInfraReranker(
-            http, model=settings.model, max_concurrent=settings.max_concurrent
-        )
     return NativeReranker(
         http, model=settings.model, max_concurrent=settings.max_concurrent
     )

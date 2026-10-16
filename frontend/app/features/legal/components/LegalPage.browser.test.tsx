@@ -35,7 +35,7 @@ describe("LegalPage", () => {
     expect(document.title).toBe("Chính sách quyền riêng tư · ViPharmind")
     await expect.element(page.getByText(/Neon/).first()).toBeVisible()
     await expect.element(page.getByText(/Qdrant Cloud/).first()).toBeVisible()
-    await expect.element(page.getByText(/DeepInfra/).first()).toBeVisible()
+    await expect.element(page.getByText(/OpenRouter/).first()).toBeVisible()
     await expect
       .element(page.getByText(/không được ghi vào nhật ký/).first())
       .toBeVisible()

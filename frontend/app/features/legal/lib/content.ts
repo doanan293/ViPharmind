@@ -51,7 +51,7 @@ export const LEGAL_TEXT: Record<LegalDocument, Record<Language, LegalText>> = {
           heading: "Dữ liệu được lưu ở đâu",
           paragraphs: [
             "Cơ sở dữ liệu chạy trên Neon (Postgres, khu vực Singapore). Chỉ mục tìm kiếm vector chạy trên Qdrant Cloud. Máy chủ ứng dụng và giao diện web chạy trên Vercel (khu vực Singapore).",
-            "Câu hỏi và các đoạn tài liệu liên quan được gửi tới DeepInfra để chạy mô hình ngôn ngữ, mô hình embedding và mô hình xếp hạng lại. DeepInfra xử lý dữ liệu để trả kết quả cho từng yêu cầu.",
+            "Câu hỏi và các đoạn tài liệu liên quan được gửi qua OpenRouter tới nhà cung cấp mô hình để chạy mô hình ngôn ngữ, mô hình embedding và mô hình xếp hạng lại. OpenRouter và nhà cung cấp đó xử lý dữ liệu để trả kết quả cho từng yêu cầu.",
           ],
         },
         {
@@ -100,7 +100,7 @@ export const LEGAL_TEXT: Record<LegalDocument, Record<Language, LegalText>> = {
           heading: "Where data is stored",
           paragraphs: [
             "The database runs on Neon (Postgres, Singapore region). The vector search index runs on Qdrant Cloud. The application server and the web interface run on Vercel (Singapore region).",
-            "Questions and the relevant document passages are sent to DeepInfra, which runs the language, embedding and reranking models and processes the data to answer each request.",
+            "Questions and the relevant document passages are sent through OpenRouter to the model providers that run the language, embedding and reranking models; OpenRouter and those providers process the data to answer each request.",
           ],
         },
         {

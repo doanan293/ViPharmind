@@ -46,7 +46,7 @@ pharma-lab metrics           Hit@K, MRR -> reports/baseline/ hoặc reports/rera
 - `uv`, Docker và Docker Compose.
 - PDF Dược thư, HTML tờ hướng dẫn và các file nguồn nhỏ (mappings, glossary, curated tables, danh sách âm tiết) dưới `data/sources/`; lần crawl đầu cần `pharma-lab source crawl --sitemap-url`.
 - GGUF dưới `../ai-models/gguf/`.
-- `backend/.env` cho `pharma-lab retrieve` và `pharma-agent corpus import`; `.env` của pharma-lab cho Kaggle và DeepInfra.
+- `backend/.env` cho `pharma-lab retrieve` và `pharma-agent corpus import`; `.env` của pharma-lab cho Kaggle và OpenRouter.
 
 ## Đầu ra
 
