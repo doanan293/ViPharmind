@@ -5,13 +5,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pharma_lab.artifacts.bundle import load_bundle
-from pharma_lab.artifacts.jsonl import iter_jsonl_objects
-from pharma_lab.config.defaults import DEFAULT_TOP_K
-from pharma_lab.config.paths import DATA_DIR
-from pharma_lab.evaluation.artifact_contracts import (
+from pharma_lab.artifacts.manifest import (
     ArtifactContractError,
+    iter_jsonl_objects,
     sha256_file,
 )
+from pharma_lab.config.defaults import DEFAULT_TOP_K
+from pharma_lab.config.paths import DATA_DIR
 from pharma_lab.evaluation.metrics_artifacts import (
     MetricsArtifactResult,
     publish_metrics_artifact,

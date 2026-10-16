@@ -13,6 +13,7 @@ from pharma_agent.application.chat.graph import build_chat_graph
 from pharma_agent.infrastructure.composition import build_application
 from pharma_agent.infrastructure.settings import Settings
 
+from pharma_lab.artifacts.manifest import sha256_file
 from pharma_lab.e2e.configs import (
     E2EConfig,
     pipeline_for,
@@ -24,7 +25,6 @@ from pharma_lab.e2e.golden import Category, GoldenItem, load_golden
 from pharma_lab.e2e.golden_changes import SUPERSEDED, reconcile_golden
 from pharma_lab.e2e.records import ANSWERS_FILE, AnswerRecord, JsonlStore
 from pharma_lab.e2e.run_identity import git_commit, identity_from_settings, open_run
-from pharma_lab.evaluation.artifact_contracts import sha256_file
 from pharma_lab.evaluation.backend_retrieval import current_release_id
 
 NO_RELEASE = "none"
