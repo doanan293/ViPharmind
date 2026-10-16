@@ -561,3 +561,78 @@ async def test_refine_threshold_gates_search_more_by_confidence() -> None:
     assert [
         a.outcome for a in outcome.run.actions.entries if a.kind is ActionKind.JUDGE
     ] == ["search_more", "answer"]
+
+
+def verdict(
+    outcome: JudgeOutcome, confidence: float, gaps: list[str] | None = None
+) -> JudgeDecision:
+    return JudgeDecision(
+        decision=outcome, gaps=gaps or [], reason="r", confidence=confidence
+    )
+
+
+def judge_outcomes(outcome) -> list[str]:
+    return [
+        a.outcome for a in outcome.run.actions.entries if a.kind is ActionKind.JUDGE
+    ]
+
+
+async def test_threshold_one_refines_even_at_full_llm_confidence() -> None:
+    llm = passing_llm()
+    llm.script(
+        LlmRole.JUDGE,
+        verdict(JudgeOutcome.ANSWER, 1.0),
+        verdict(JudgeOutcome.ANSWER, 1.0),
+    )
+    llm.script(LlmRole.REFINE, RefineResult(queries=["paracetamol bảo quản"]))
+    _, outcome = await run_turn(
+        llm,
+        FakeRetriever([make_hit("c1", fusion=0.9)], [make_hit("c2", fusion=0.8)]),
+        pipeline=PipelineOptions(refine_threshold=1.0),
+    )
+    assert judge_outcomes(outcome)[0] == "search_more"
+    assert llm.calls_for(LlmRole.REFINE)
+
+
+async def test_threshold_one_refines_when_every_decision_answer_is_one() -> None:
+    llm = passing_llm()
+    llm.script(LlmRole.REFINE, RefineResult(queries=["paracetamol liều dùng"]))
+    decision = FakeDecision(
+        {
+            "sufficient_overall": 1.0,
+            "covers_dosage": 1.0,
+            "evidence_conflict": 1.0,
+            "wrong_drug": 1.0,
+        }
+    )
+    _, outcome = await run_turn(
+        llm,
+        FakeRetriever([make_hit("c1", fusion=0.9)], [make_hit("c2", fusion=0.8)]),
+        pipeline=PipelineOptions(refine_threshold=1.0),
+        decisions={LlmRole.JUDGE: decision},
+        guard_decision=asking_guard("dosage"),
+    )
+    assert judge_outcomes(outcome)[0] == "search_more"
+
+
+async def test_threshold_zero_answers_even_at_zero_llm_confidence() -> None:
+    llm = passing_llm()
+    llm.script(LlmRole.JUDGE, verdict(JudgeOutcome.SEARCH_MORE, 0.0, ["x"]))
+    _, outcome = await run_turn(
+        llm, two_hits(), pipeline=PipelineOptions(refine_threshold=0.0)
+    )
+    assert judge_outcomes(outcome) == ["answer"]
+
+
+async def test_threshold_zero_answers_a_decision_judge_with_zero_sufficiency() -> None:
+    decision = FakeDecision(
+        {"sufficient_overall": 0.0, "evidence_conflict": 0.0, "wrong_drug": 0.0}
+    )
+    _, outcome = await run_turn(
+        passing_llm(),
+        two_hits(),
+        pipeline=PipelineOptions(refine_threshold=0.0),
+        decisions={LlmRole.JUDGE: decision},
+        guard_decision=asking_guard(),
+    )
+    assert judge_outcomes(outcome) == ["answer"]
