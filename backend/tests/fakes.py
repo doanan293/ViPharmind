@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import TypeVar
 
@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from pharma_agent.application.chat.context import TurnDeps
 from pharma_agent.domain.guardrail.service import GuardrailService
+from pharma_agent.domain.llm.decision import Decision, NoulQuestion
 from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.models import (
@@ -172,3 +173,30 @@ __all__ = [
     "build_deps",
     "fake_vector",
 ]
+
+
+class FakeDecision:
+    """Scripted decision model: returns the given answers or raises the given error."""
+
+    def __init__(self, answers: dict[str, float] | Exception) -> None:
+        self.answers = answers
+        self.calls: list[
+            tuple[LlmRole, dict[str, object], dict[str, NoulQuestion]]
+        ] = []
+
+    async def decide(
+        self,
+        role: LlmRole,
+        state: Mapping[str, object],
+        questions: Mapping[str, NoulQuestion],
+    ) -> Decision:
+        self.calls.append((role, dict(state), dict(questions)))
+        if isinstance(self.answers, Exception):
+            raise self.answers
+        return Decision(
+            answers=self.answers,
+            model="jev-1.13.0",
+            input_tokens=300,
+            seconds=0.2,
+            raw={"answers": {}},
+        )
