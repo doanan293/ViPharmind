@@ -1,7 +1,7 @@
 # Checklist ra mắt
 
 Những việc chỉ chủ tài khoản làm được (đăng nhập dịch vụ, nạp tiền, secret). Kiến trúc: frontend
-và backend trên Vercel, dữ liệu trên Neon và Qdrant Cloud, model trên DeepInfra, thư qua Resend. Mọi dịch vụ đang dùng gói miễn phí; chỉ DeepInfra cần nạp tiền.
+và backend trên Vercel, dữ liệu trên Neon và Qdrant Cloud, model qua OpenRouter, thư qua Resend. Mọi dịch vụ đang dùng gói miễn phí; chỉ OpenRouter cần nạp tiền.
 
 ## Trạng thái (cập nhật 2026-10-13)
 
@@ -22,8 +22,8 @@ Việc miễn phí, đã làm hoặc còn lại:
 
 **Để sau, tốn tiền:**
 
-- [ ] Nạp tiền DeepInfra, rồi nạp corpus lên Neon và Qdrant (mục 2): gọi DeepInfra tính embedding `Qwen/Qwen3-Embedding-8B` cho 24.946 đoạn, khoảng 0,3–0,5 USD. Trước bước này chat chưa trả lời được.
-- [ ] Kiểm tra số dư DeepInfra định kỳ (mọi câu trả lời trên production đều gọi DeepInfra).
+- [ ] Tạo key OpenRouter và nạp credit, rồi nạp corpus lên Neon và Qdrant (mục 2): gọi OpenRouter tính embedding `qwen/qwen3-embedding-8b` cho 13.412 chunk (khoảng 14 triệu token). Trước bước này chat chưa trả lời được.
+- [ ] Kiểm tra số dư OpenRouter định kỳ (mọi câu trả lời trên production đều gọi OpenRouter).
 
 ## 1. Deploy backend
 
@@ -49,7 +49,7 @@ uv run pharma-agent --env-file .env.production check
 ```
 
 Database production bắt đầu trống (chưa có tài khoản, hội thoại). Import tính embedding qua
-DeepInfra; bundle đã có embedding sẵn thì dùng lại, không gọi API.
+OpenRouter; bundle đã có embedding sẵn thì dùng lại, không gọi API.
 
 ## 3. Kiểm tra sau khi lên
 
@@ -71,5 +71,5 @@ DeepInfra; bundle đã có embedding sẵn thì dùng lại, không gọi API.
 | Vercel Hobby (frontend và backend) | chỉ dùng phi thương mại; function tối đa 300 giây, 4 giờ CPU mỗi tháng | Vercel Pro (20 USD/tháng) |
 | Neon | 0,5 GB | gói Launch 10 GB (19 USD/tháng) |
 | Qdrant Cloud | 1 GB, đầy trước Neon | cluster trả phí (từ 25 USD/tháng) |
-| DeepInfra | không có giới hạn cứng | khoảng 2 USD mỗi 1.000 lượt hỏi |
+| OpenRouter | không có giới hạn cứng, trả trước theo credit | trả theo token theo giá từng model |
 | Resend Free | 3.000 thư/tháng, 100 thư/ngày | gói Pro (20 USD/tháng, 50.000 thư) |

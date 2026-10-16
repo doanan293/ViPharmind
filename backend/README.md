@@ -8,11 +8,11 @@ the current backend architecture and corpus specifications.
 ```bash
 uv sync                         # ở repo root: một .venv chung cho cả uv workspace
 cd backend
-cp .env.example .env            # điền key DeepInfra và các secret auth
+cp .env.example .env            # điền key OpenRouter và các secret auth
 ```
 
 Cần Postgres và Qdrant từ `compose.yaml` ở repo root (`docker compose up -d postgres qdrant`).
-LLM, embedding và reranker mặc định gọi DeepInfra theo `.env`; muốn chạy model trên máy hoặc Gemini
+LLM, embedding và reranker mặc định gọi OpenRouter theo `.env`; muốn chạy model trên máy hoặc LLM
 qua CLIProxyAPI thì xem `compose.local-models.yaml` và `compose.llm-proxy.yaml` trong README ở
 root. Corpus nằm trong schema `corpus` của Postgres; Qdrant chỉ là
 index (alias `chunks_current`). Nạp một knowledge bundle và publish trước khi hỏi:

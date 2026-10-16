@@ -247,7 +247,7 @@ công bằng:
   trên OpenRouter, dùng cho run tự host);
   Gemini 3.8 Flash 0,75/3,75; Claude Opus 5.5 4/20 (claude.com/pricing, prompt dưới 100k token);
   gemini-3.1-flash-lite 0,25/1,50; Jev 0,042/0; Qwen3-Reranker-4B và
-  embedding theo giá DeepInfra tại ngày chạy. Mọi chi phí là giá niêm yết, không có mô hình giờ
+  embedding theo giá OpenRouter tại ngày chạy (production gọi OpenRouter, không còn DeepInfra). Mọi chi phí là giá niêm yết, không có mô hình giờ
   GPU, kể cả cho thành phần tự host trên Kaggle.
 - Metric mới: `usd_per_turn`, `usd_per_1000_turns`, `llm_seconds_per_turn`, `retrieval_seconds_per_turn`,
   `decision_seconds_per_turn`, `cost_of_pass` (USD chia tỷ lệ perfect, theo Erol et al.). Bảng

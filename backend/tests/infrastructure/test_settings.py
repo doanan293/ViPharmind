@@ -261,11 +261,13 @@ def test_short_csrf_secret_and_tiny_session_are_rejected(
         Settings(_env_file=None)
 
 
-def test_rerank_protocol_rejects_completion_logprobs(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize("protocol", ["completion_logprobs", "deepinfra"])
+def test_rerank_protocol_accepts_only_the_native_rerank_endpoint(
+    monkeypatch: pytest.MonkeyPatch, protocol: str
 ) -> None:
+    # Every reranker, local llama.cpp or OpenRouter, is served through /v1/rerank.
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-test")
-    monkeypatch.setenv("PHARMA_RETRIEVAL__RERANK__PROTOCOL", "completion_logprobs")
+    monkeypatch.setenv("PHARMA_RETRIEVAL__RERANK__PROTOCOL", protocol)
 
     with pytest.raises(ValidationError, match="protocol"):
         Settings(_env_file=None)
