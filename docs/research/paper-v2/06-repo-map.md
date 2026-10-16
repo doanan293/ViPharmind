@@ -153,7 +153,7 @@ MAX_OUTPUT_TOKENS,MAX_TOKENS_PARAM}`, `PHARMA_LLM__ROLES__{GUARDRAIL|REPHRASE|JU
 ANSWER|SUMMARIZER}__{same fields}`, `PHARMA_LLM__TIMEOUT_SECONDS`, `PHARMA_LLM__MAX_RETRIES`.
 Examples: `backend/.env.example` (DeepInfra Qwen3.5-9B default, Gemini via cli-proxy-api
 commented), `backend/.env.production.example`. The Gemini gateway is the compose service
-`cli-proxy-api` (`compose.gemini-proxy.yaml`, port 8317, config
+`cli-proxy-api` (`compose.llm-proxy.yaml`, port 8317, config
 `devops/cli-proxy-api/config.yaml`). `pharma-lab e2e llm-server` writes
 `pharma-lab/data/work/serve/<model>.env` with `PHARMA_LLM__ROLES__<ROLE>__{BASE_URL,API_KEY,
 MODEL,EXTRA_BODY}` for all six roles plus `PHARMA_LLM__TIMEOUT_SECONDS=600`

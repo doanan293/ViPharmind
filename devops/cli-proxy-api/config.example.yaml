@@ -1,7 +1,7 @@
-# CLIProxyAPI configuration for the `cli-proxy-api` service in compose.gemini-proxy.yaml.
+# CLIProxyAPI configuration for the `cli-proxy-api` service in compose.llm-proxy.yaml.
 # Copy to config.yaml in this directory (git-ignored) and replace the api-keys.
 # Every other option is documented in config.example.yaml of
-# https://github.com/router-for-me/CLIProxyAPI at the image tag pinned in compose.gemini-proxy.yaml.
+# https://github.com/router-for-me/CLIProxyAPI at the image tag pinned in compose.llm-proxy.yaml.
 
 # Listen on all interfaces inside the container; compose publishes the port on the host.
 host: ""

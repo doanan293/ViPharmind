@@ -1,6 +1,7 @@
-# The LLM roles through cli-proxy-api (Gemini via an Antigravity login) instead of the
-# provider in backend/.env. Setup: devops/cli-proxy-api/config.example.yaml. Use with:
-#   docker compose -f compose.yaml -f compose.gemini-proxy.yaml up -d
+# The LLM roles through cli-proxy-api, an OpenAI-compatible gateway to the providers it holds
+# OAuth logins for (Gemini via Antigravity, Claude, Codex, ...), instead of the provider in
+# backend/.env. Setup: devops/cli-proxy-api/config.example.yaml. Use with:
+#   docker compose -f compose.yaml -f compose.llm-proxy.yaml up -d
 # The API key and model names stay in backend/.env (see its PHARMA_LLM__* comments).
 # Overridable: CLI_PROXY_API_PORT.
 

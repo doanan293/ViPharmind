@@ -8,7 +8,7 @@
 | `devops/` | Cấu hình cho image bên thứ ba mà compose dùng (nginx, CLIProxyAPI) và `devops/vercel/sync_env.py` đẩy biến môi trường production lên Vercel |
 | `compose.yaml` | Stack local: Postgres, Qdrant, backend, frontend, nginx. Model gọi DeepInfra theo `backend/.env` |
 | `compose.local-models.yaml` | Override: embedding và reranker llama.cpp chạy CPU trên máy |
-| `compose.gemini-proxy.yaml` | Override: LLM là Gemini qua CLIProxyAPI |
+| `compose.llm-proxy.yaml` | Override: các vai trò LLM gọi qua gateway CLIProxyAPI (Gemini, Claude, ...) |
 
 ## Chạy local
 
@@ -77,7 +77,7 @@ Backend chạy trên máy thì đổi các biến embedding và rerank trong `ba
   rồi đặt các biến trong dòng `env=` lệnh in ra, với `RERANK_TIMEOUT_SECONDS` ít nhất gấp đôi
   `latency_p95_seconds`.
 
-### LLM Gemini qua CLIProxyAPI (`compose.gemini-proxy.yaml`)
+### LLM qua CLIProxyAPI (`compose.llm-proxy.yaml`)
 
 1. Tạo `devops/cli-proxy-api/config.yaml` từ `config.example.yaml` cùng thư mục và thay `api-keys`;
    `PHARMA_LLM__DEFAULT__API_KEY` phải là một trong các key đó, model Gemini đặt theo khối
@@ -87,7 +87,7 @@ Backend chạy trên máy thì đổi các biến embedding và rerank trong `ba
    `cli_proxy_auth` và lệnh tự kết thúc.
 
    ```bash
-   docker compose -f compose.yaml -f compose.gemini-proxy.yaml run --rm -p 51121:51121 cli-proxy-api ./CLIProxyAPI --antigravity-login -no-browser
+   docker compose -f compose.yaml -f compose.llm-proxy.yaml run --rm -p 51121:51121 cli-proxy-api ./CLIProxyAPI --antigravity-login -no-browser
    ```
 
    Nhà cung cấp khác dùng cờ tương ứng (`--codex-login`, `--claude-login`, ...), cổng callback đổi
@@ -105,7 +105,7 @@ Backend chạy trên máy thì đổi các biến embedding và rerank trong `ba
    `config.yaml` cũng có thể lấy từ `%APPDATA%\ProxyPal\proxy-config.yaml` (giữ khối `payload`,
    đổi `host` thành `""` và `auth-dir` thành `/root/.cli-proxy-api`). Credential là token OAuth
    có hạn, ProxyPal tự làm mới khi chạy, nên chép lại khi proxy của compose báo `auth_unavailable`.
-3. `docker compose -f compose.yaml -f compose.gemini-proxy.yaml up -d`. Hai override dùng chung
+3. `docker compose -f compose.yaml -f compose.llm-proxy.yaml up -d`. Hai override dùng chung
    được: thêm cả `-f compose.local-models.yaml`. `GET /v1/models` với key trong `config.yaml`
    liệt kê model gọi được; model Codex chỉ gồm những model tài khoản ChatGPT được dùng.
 

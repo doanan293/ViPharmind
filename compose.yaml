@@ -6,7 +6,7 @@
 # By default the backend calls the model providers configured in backend/.env (DeepInfra).
 # Two override files add local alternatives:
 #   compose.local-models.yaml  llama.cpp embedding and reranker servers on this machine (CPU)
-#   compose.gemini-proxy.yaml  the cli-proxy-api gateway to Gemini for the LLM roles
+#   compose.llm-proxy.yaml     the cli-proxy-api gateway (Gemini, Claude, ...) for the LLM roles
 # e.g. `docker compose -f compose.yaml -f compose.local-models.yaml up -d`.
 # Services reach each other by service name on the default network; host ports are published
 # only for the browser (nginx) and for tools that run on the host (backend via `uv run`,

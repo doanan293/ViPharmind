@@ -13,7 +13,7 @@ cp .env.example .env            # điền key DeepInfra và các secret auth
 
 Cần Postgres và Qdrant từ `compose.yaml` ở repo root (`docker compose up -d postgres qdrant`).
 LLM, embedding và reranker mặc định gọi DeepInfra theo `.env`; muốn chạy model trên máy hoặc Gemini
-qua CLIProxyAPI thì xem `compose.local-models.yaml` và `compose.gemini-proxy.yaml` trong README ở
+qua CLIProxyAPI thì xem `compose.local-models.yaml` và `compose.llm-proxy.yaml` trong README ở
 root. Corpus nằm trong schema `corpus` của Postgres; Qdrant chỉ là
 index (alias `chunks_current`). Nạp một knowledge bundle và publish trước khi hỏi:
 
