@@ -158,8 +158,11 @@ Mọi project Python trong repo dùng cùng một chuẩn, không project nào �
   cảnh báo cũng phải bằng 0.
 - **Pytest**: `asyncio_mode = "auto"`, `--import-mode=importlib`, test cần Docker gắn marker
   `integration`.
-- **Phiên bản dev tool** (`ruff`, `pyrefly`, `pytest`, `pytest-asyncio`, `pre-commit`) pin một lần
-  trong dev group của `pyproject.toml` ở root.
+- **import-linter**: ranh giới tầng của backend và pharma-lab là contract trong
+  `[tool.importlinter]` của `pyproject.toml` từng project; `uv run lint-imports` kiểm tra,
+  pre-commit chạy nó khi file `.py` hoặc `.toml` của project đổi. Không thêm `ignore_imports`.
+- **Phiên bản dev tool** (`ruff`, `pyrefly`, `pytest`, `pytest-asyncio`, `pre-commit`,
+  `import-linter`) pin một lần trong dev group của `pyproject.toml` ở root.
 - **Dockerfile** nằm cạnh code nó build, kèm `Dockerfile.dockerignore`; hadolint kiểm tra trong
   pre-commit.
 
@@ -167,11 +170,13 @@ Lỗi lint hoặc lỗi kiểu được sửa trong code, không dùng `# noqa`,
 
 ## Kiểm tra
 
+Quy tắc bố cục, vị trí test và ranh giới import của cả ba project tóm tắt ở `AGENTS.md`.
 Chạy trong từng project:
 
 ```bash
 uv run ruff check src tests && uv run ruff format --check src tests
 uv run pyrefly check --min-severity warn
+uv run lint-imports
 uv run pytest -q
 ```
 
