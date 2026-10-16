@@ -12,6 +12,7 @@ class ActionKind(StrEnum):
     JUDGE = "judge"
     REFINE = "refine"
     ANSWER = "answer"
+    AGENT = "agent"
 
 
 class Action(BaseModel):

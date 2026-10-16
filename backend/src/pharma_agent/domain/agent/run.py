@@ -16,9 +16,9 @@ from pharma_agent.domain.agent.schemas import (
 )
 from pharma_agent.domain.guardrail.models import Verdict
 from pharma_agent.domain.llm.decision import Decision
-from pharma_agent.domain.llm.models import LlmUsage
+from pharma_agent.domain.llm.models import LlmUsage, ToolCall
 from pharma_agent.domain.retrieval.evidence import EvidenceSet
-from pharma_agent.domain.retrieval.models import Query, QueryOrigin
+from pharma_agent.domain.retrieval.models import Hit, Query, QueryOrigin
 from pharma_agent.domain.retrieval.service import SearchResult
 from pharma_agent.domain.shared.errors import DomainError
 from pharma_agent.domain.shared.ids import new_id
@@ -88,6 +88,19 @@ _FINAL_STATUS = {
 }
 
 
+class ReactStats(BaseModel):
+    """What a ReAct turn did with its tool (spec v2 §2.4)."""
+
+    rounds: int = 0  # model responses that requested tools
+    tool_calls: int = 0
+    malformed_calls: int = 0
+    duplicate_calls: int = 0
+    # The model was made to answer without tools (round cap or LLM-call budget).
+    round_cap_hit: bool = False
+    budget_hits: int = 0  # results cut by the evidence budget
+    answered_without_search: bool = False
+
+
 class AgentRun(BaseModel):
     """One chat turn. Owns the budget, the evidence, the action log and the loop rules."""
 
@@ -113,6 +126,8 @@ class AgentRun(BaseModel):
     used_queries: list[str] = Field(default_factory=list)
     last_judge: JudgeOutcome | None = None
     partial_reason: str | None = None
+    # Set only on a ReAct turn.
+    react: ReactStats | None = None
     started_at: datetime
 
     @classmethod
@@ -293,6 +308,68 @@ class AgentRun(BaseModel):
                 "rerank_reused": result.rerank_reused,
                 "retrieval_seconds": result.retrieval_seconds,
                 "rerank_seconds": result.rerank_seconds,
+            },
+        )
+
+    def record_tool_search(
+        self,
+        query: Query,
+        result: SearchResult,
+        shown_hits: Sequence[Hit],
+        *,
+        now: datetime,
+    ) -> None:
+        """One search_corpus call of a ReAct turn. Unlike `record_search`, evidence
+        accumulates: every chunk shown to the model stays citable."""
+        self.evidence.merge(list(shown_hits))
+        self.usage = self.usage.with_search()
+        if query.normalized not in self.used_queries:
+            self.used_queries.append(query.normalized)
+        shown = {hit.chunk_version_id for hit in shown_hits}
+        self._log(
+            ActionKind.SEARCH,
+            now,
+            outcome="ok" if result.succeeded else "error",
+            reason=result.error or "",
+            payload={
+                "queries": [query.text],
+                "hits": len(result.items),
+                "active_evidence": len(self.evidence.active()),
+                # The chunks this call showed the model for the first time.
+                "evidence": [
+                    {
+                        "document": e.hit.document_key,
+                        "ordinal": e.hit.ordinal,
+                        "sections": list(e.hit.section_keys),
+                    }
+                    for e in self.evidence.items
+                    if e.hit.chunk_version_id in shown
+                ],
+                "evidence_chars": sum(e.char_count() for e in self.evidence.items),
+                "rerank_failed": result.rerank_failed,
+                "rerank_scored": result.rerank_scored,
+                "rerank_reused": result.rerank_reused,
+                "retrieval_seconds": result.retrieval_seconds,
+                "rerank_seconds": result.rerank_seconds,
+            },
+        )
+
+    def record_tool_round(
+        self,
+        calls: Sequence[ToolCall],
+        *,
+        now: datetime,
+        malformed: Sequence[bool] = (),
+    ) -> None:
+        """One response of the ReAct model: the tool calls it asked for, or its answer."""
+        self._log(
+            ActionKind.AGENT,
+            now,
+            outcome="tools" if calls else "answer",
+            payload={
+                "calls": [call.name for call in calls],
+                "arguments": [call.arguments for call in calls],
+                "malformed": list(malformed),
             },
         )
 
