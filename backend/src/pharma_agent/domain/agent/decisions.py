@@ -236,7 +236,7 @@ def guard_verdict(
         ), asked
     about = answers.get("is_about_medicines", 0.0)
     smalltalk = answers.get("is_smalltalk_or_meta", 0.0)
-    if about < thresholds.scope and smalltalk >= thresholds.scope:
+    if about < thresholds.scope and smalltalk < thresholds.scope:
         return Verdict(
             passed=True,
             in_scope=False,

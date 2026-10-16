@@ -39,19 +39,28 @@ def test_guard_verdict_blocks_above_the_block_threshold() -> None:
     assert asked == ["dosage"]
 
 
-def test_guard_verdict_redirects_smalltalk_and_passes_medicine_questions() -> None:
-    redirect, _ = guard_verdict(
-        {"is_attack": 0.1, "is_about_medicines": 0.2, "is_smalltalk_or_meta": 0.9},
+def test_guard_verdict_redirects_only_turns_that_are_neither_medicine_nor_smalltalk() -> (
+    None
+):
+    off_topic, _ = guard_verdict(
+        {"is_attack": 0.05, "is_about_medicines": 0.1, "is_smalltalk_or_meta": 0.1},
         GuardThresholds(),
     )
     assert (
-        redirect.passed and not redirect.in_scope and redirect.label == "out_of_scope"
+        off_topic.passed
+        and not off_topic.in_scope
+        and off_topic.label == "out_of_scope"
     )
-    ok, _ = guard_verdict(
+    greeting, _ = guard_verdict(
+        {"is_attack": 0.1, "is_about_medicines": 0.2, "is_smalltalk_or_meta": 0.9},
+        GuardThresholds(),
+    )
+    assert greeting.allows_processing and greeting.source is VerdictSource.DECISION
+    medicine, _ = guard_verdict(
         {"is_attack": 0.1, "is_about_medicines": 0.8, "is_smalltalk_or_meta": 0.1},
         GuardThresholds(),
     )
-    assert ok.allows_processing and ok.source is VerdictSource.DECISION
+    assert medicine.allows_processing
 
 
 def test_judge_state_carries_evidence_with_ids_and_full_text() -> None:
