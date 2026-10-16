@@ -23,6 +23,7 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.52,<2.1",
     "starlette-csrf>=3.0,<4",
     "typer>=0.21",
+    "typesafe-sdk>=0.7,<1",
     "uvicorn>=0.52,<1",
 ]
 
@@ -79,6 +80,7 @@ forbidden_modules = [
     "langfuse",
     "httpx",
     "fastembed",
+    "typesafe_sdk",
 ]
 
 [[tool.importlinter.contracts]]
@@ -96,6 +98,7 @@ forbidden_modules = [
     "starlette",
     "langfuse",
     "httpx",
+    "typesafe_sdk",
     "typer",
     "uvicorn",
 ]
