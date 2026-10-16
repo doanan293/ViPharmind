@@ -314,3 +314,16 @@ def judge_decision(
         reason=reason,
         confidence=confidence,
     )
+
+
+def template_queries(subjects: Sequence[str], gaps: Sequence[str]) -> list[str]:
+    """Template refine (spec v2 §2.2): one query per gap, "<subject> <intent phrase>"; a
+    gap that is not an intent (a free-text gap from the LLM judge) is used as it is."""
+    subject = subjects[0] if subjects else ""
+    queries: list[str] = []
+    for gap in gaps:
+        phrase = INTENT_PHRASES.get(gap)
+        query = f"{subject} {phrase}".strip() if phrase is not None else gap
+        if query and query not in queries:
+            queries.append(query)
+    return queries

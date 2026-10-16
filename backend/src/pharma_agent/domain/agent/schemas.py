@@ -35,6 +35,7 @@ class RephraseResult(BaseModel):
     audience: Audience
     language: Language
     intent: Intent
+    subjects: list[str]
 
 
 class JudgeDecision(BaseModel):

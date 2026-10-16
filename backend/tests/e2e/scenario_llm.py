@@ -68,6 +68,7 @@ def _scripted(role: LlmRole, question: str) -> BaseModel:
             audience=Audience.GENERAL_PUBLIC,
             language=Language.VI,
             intent=Intent.PHARMA_QUESTION,
+            subjects=[],
         )
     if role is LlmRole.JUDGE:
         return JudgeDecision(

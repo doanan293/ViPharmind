@@ -68,6 +68,7 @@ def llm(*, judge: bool, rephrase: bool) -> ScriptedLlm:
                 audience=Audience.GENERAL_PUBLIC,
                 language=Language.VI,
                 intent=Intent.PHARMA_QUESTION,
+                subjects=[],
             ),
         )
     if judge:

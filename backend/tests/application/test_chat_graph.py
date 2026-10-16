@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Mapping
+from typing import Any
 
 import pytest
 
@@ -37,7 +38,9 @@ from tests.fakes import (
 QUESTION = "Paracetamol người lớn uống bao nhiêu?"
 
 
-def passing_llm(intent: Intent = Intent.PHARMA_QUESTION) -> FakeLlm:
+def passing_llm(
+    intent: Intent = Intent.PHARMA_QUESTION, subjects: list[str] | None = None
+) -> FakeLlm:
     llm = FakeLlm()
     llm.script(
         LlmRole.GUARDRAIL, LlmGuardVerdict(is_attack=False, in_scope=True, reason="ok")
@@ -49,6 +52,7 @@ def passing_llm(intent: Intent = Intent.PHARMA_QUESTION) -> FakeLlm:
             audience=Audience.GENERAL_PUBLIC,
             language=Language.VI,
             intent=intent,
+            subjects=subjects or [],
         ),
     )
     return llm
@@ -636,3 +640,35 @@ async def test_threshold_zero_answers_a_decision_judge_with_zero_sufficiency() -
         guard_decision=asking_guard(),
     )
     assert judge_outcomes(outcome) == ["answer"]
+
+
+async def test_template_refine_makes_no_llm_call() -> None:
+    llm = passing_llm(subjects=["paracetamol"])
+    llm.script(
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.SEARCH_MORE,
+            gaps=["storage"],
+            reason="thiếu",
+            confidence=0.3,
+        ),
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=0.9
+        ),
+    )
+    _, outcome = await run_turn(
+        llm,
+        FakeRetriever([make_hit("c1", fusion=0.9)], [make_hit("c2", fusion=0.8)]),
+        pipeline=PipelineOptions(refine_mode="template"),
+    )
+    refine = outcome.run.actions.last_of(ActionKind.REFINE)
+    assert refine is not None
+    assert refine.payload["accepted"] == ["paracetamol bảo quản"]
+    assert refine.payload["mode"] == "template"
+    assert llm.calls_for(LlmRole.REFINE) == []
+
+
+def test_unknown_refine_mode_is_rejected() -> None:
+    options: dict[str, Any] = {"refine_mode": "magic"}
+    with pytest.raises(ValueError):
+        PipelineOptions(**options)

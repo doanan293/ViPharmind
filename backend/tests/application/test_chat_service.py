@@ -42,6 +42,7 @@ def scripted_turn(llm: FakeLlm, standalone: str) -> None:
             audience=Audience.GENERAL_PUBLIC,
             language=Language.VI,
             intent=Intent.PHARMA_QUESTION,
+            subjects=[],
         ),
     )
     llm.script(

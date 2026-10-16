@@ -21,6 +21,7 @@ from pharma_agent.domain.agent.decisions import (
     judge_decision,
     judge_questions,
     judge_state,
+    template_queries,
 )
 from pharma_agent.domain.agent.prompts import (
     answer_messages,
@@ -228,6 +229,12 @@ async def refine_node(
 ) -> NodeUpdate:
     run, deps = state.run, runtime.context.deps
     now = deps.clock.now()
+    if runtime.context.pipeline.refine_mode == "template":
+        subjects = run.subjects or [run.standalone_query]
+        fresh = run.record_refine(
+            template_queries(subjects, state.last_gaps), now=now, mode="template"
+        )
+        return {"run": run, "pending_queries": fresh}
     hints: list[str] = []
     for evidence in run.evidence.active():
         hints.extend(h for h in evidence.hit.term_hints() if h not in hints)
