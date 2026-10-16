@@ -356,3 +356,14 @@ def test_cost_table_has_usd_per_turn_and_cost_of_pass(tmp_path: Path) -> None:
     )
     tex = (tmp_path / "reports" / "cost.tex").read_text("utf-8")
     assert r"\label{tab:e2e-cost}" in tex
+
+
+def test_report_loads_swept_config_directories(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    write_config(tmp_path, "full", [1.0, 1.0, 0.5, 1.0])
+    write_config(tmp_path, "full+guard=false", [1.0, 0.0, 0.5, 1.0])
+
+    write_report(tmp_path, items)
+
+    ablation = rows(tmp_path / "reports" / "ablation.csv")
+    assert {r["config"] for r in ablation} == {"full+guard=false"}

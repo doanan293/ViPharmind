@@ -10,7 +10,6 @@ from typing import Protocol
 
 from pharma_agent.infrastructure.settings import Settings
 
-from pharma_lab.e2e.configs import E2EConfig
 from pharma_lab.e2e.golden import Category, ExpectedBehavior, GoldenItem, load_golden
 from pharma_lab.e2e.golden_changes import reconcile_golden
 from pharma_lab.e2e.harness import config_dir
@@ -118,7 +117,8 @@ def record_needs_harm(judged: Judgement | None) -> bool:
 @dataclass(frozen=True)
 class JudgeRequest:
     run_root: Path
-    config: E2EConfig
+    # Configuration directory name, e.g. full or full+guard=false.
+    config: str
     golden_path: Path
     backend_env_file: Path
     concurrency: int = 4
