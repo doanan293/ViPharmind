@@ -3,8 +3,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from pharma_lab.runtime.catalog import require_model
-
 WORKSPACE_ROOT_ENV = "PHARMA_LAB_ROOT"
 
 
@@ -90,19 +88,3 @@ def run_dir(run: str) -> Path:
 
 def e2e_run_dir(run: str) -> Path:
     return E2E_RUNS_DIR / run
-
-
-def query_embedding_cache_path(model: str) -> Path:
-    return QUERY_EMBEDDING_CACHE_DIR / f"{require_model(model).slug}.jsonl"
-
-
-def text_embedding_cache_path(model: str) -> Path:
-    return TEXT_EMBEDDING_CACHE_DIR / f"{require_model(model).slug}.jsonl"
-
-
-def rerank_score_cache_path(model: str) -> Path:
-    return RERANK_SCORE_CACHE_DIR / f"{require_model(model).slug}.jsonl"
-
-
-def rerank_log_path(model: str) -> Path:
-    return LOGS_DIR / "rerank" / f"{require_model(model).slug}.log"

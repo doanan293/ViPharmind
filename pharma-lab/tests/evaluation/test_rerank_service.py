@@ -12,7 +12,7 @@ from tests.integrations.kaggle.factories import job_identity, stage_job
 
 from pharma_lab.artifacts.manifest import Completion
 from pharma_lab.cache.jsonl_records import append_record
-from pharma_lab.config.paths import rerank_log_path
+from pharma_lab.cache.paths import rerank_log_path
 from pharma_lab.evaluation import rerank_service
 from pharma_lab.evaluation.local_rerank_benchmark import LocalRerankBenchmarkResult
 from pharma_lab.evaluation.rerank_cache_checkpoint import RerankCacheCheckpoint

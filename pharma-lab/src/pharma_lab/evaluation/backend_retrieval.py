@@ -19,7 +19,8 @@ from pharma_agent.infrastructure.settings import Settings
 from pharma_lab.artifacts.manifest import sha256_file
 from pharma_lab.bundle.chunks import gold_chunk_label
 from pharma_lab.bundle.export import COLLECTION_KEY
-from pharma_lab.config.paths import DATA_DIR, query_embedding_cache_path
+from pharma_lab.cache.paths import query_embedding_cache_path
+from pharma_lab.config.paths import DATA_DIR
 from pharma_lab.evaluation.cached_query_embedder import (
     CachedQueryEmbedder,
     cached_query_embedder,
