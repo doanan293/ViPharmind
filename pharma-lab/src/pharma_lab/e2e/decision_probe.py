@@ -74,6 +74,9 @@ async def run_probe(decision: DecisionPort, state: dict[str, object]) -> ProbeRe
 
 
 def recommended_evidence_chars(result: ProbeResult, current: int = 60_000) -> int:
-    if result.input_tokens <= TOKEN_CEILING:
+    """The probed characters scaled to TOKEN_CEILING tokens, rounded down to a thousand;
+    the evidence budget is only ever lowered, never raised above `current`."""
+    if result.input_tokens <= 0:
         return current
-    return int(current * TOKEN_CEILING / result.input_tokens // 1_000) * 1_000
+    scaled = int(result.chars * TOKEN_CEILING / result.input_tokens // 1_000) * 1_000
+    return min(current, scaled)
