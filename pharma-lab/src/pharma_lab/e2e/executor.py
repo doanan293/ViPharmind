@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from pharma_agent.application.chat.context import PipelineOptions, TurnDeps
 from pharma_agent.application.chat.graph import ChatGraph
@@ -13,6 +13,7 @@ from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.agent.run import AgentRun, AnswerMode, RunStatus
 from pharma_agent.domain.conversation.models import ConversationContext, Turn
 from pharma_agent.domain.guardrail.service import GuardrailService
+from pharma_agent.domain.llm.decision import DecisionPort
 from pharma_agent.domain.llm.models import ChatMessage, ChatRole, LlmRole, system, user
 from pharma_agent.domain.llm.port import LlmError, LlmPort
 from pharma_agent.domain.retrieval.service import RetrievalService
@@ -24,6 +25,7 @@ from pharma_lab.e2e.recording_llm import RecordingLlm
 from pharma_lab.e2e.records import (
     AnswerRecord,
     CitedSection,
+    DecisionRecord,
     RetrievedChunk,
     RoundRecord,
     StepRecord,
@@ -103,6 +105,44 @@ def _search_total(entries: Sequence[Action], key: str) -> float:
     )
 
 
+def decision_records(entries: Sequence[Action]) -> list[DecisionRecord]:
+    """The raw decision-model calls the guard and judge actions carry."""
+    records: list[DecisionRecord] = []
+    for action in entries:
+        raw = action.payload.get("decision")
+        if raw is None:
+            continue
+        records.append(
+            DecisionRecord(
+                role=action.kind.value
+                if action.kind is ActionKind.JUDGE
+                else "guardrail",
+                model=raw["model"],
+                input_tokens=raw["input_tokens"],
+                seconds=raw["seconds"],
+                answers=raw["answers"],
+            )
+        )
+    return records
+
+
+def with_decision_usage(
+    usage: dict[str, TokenUsage], decisions: Sequence[DecisionRecord]
+) -> dict[str, TokenUsage]:
+    """Decision calls bypass RecordingLlm, so their usage comes from their records."""
+    merged = dict(usage)
+    for decision in decisions:
+        current = merged.get(decision.role, TokenUsage())
+        merged[decision.role] = TokenUsage(
+            calls=current.calls + 1,
+            prompt_tokens=current.prompt_tokens + decision.input_tokens,
+            completion_tokens=current.completion_tokens,
+            reasoning_tokens=current.reasoning_tokens,
+            seconds=round(current.seconds + decision.seconds, 3),
+        )
+    return merged
+
+
 def answer_record(
     item: GoldenItem,
     config: str,
@@ -131,6 +171,8 @@ def answer_record(
     entries = run.actions.entries
     failed = run.status in (RunStatus.ERROR, RunStatus.TIMEOUT)
     degraded = degraded_steps(entries)
+    decisions = decision_records(entries)
+    usage = with_decision_usage(usage, decisions)
     return AnswerRecord(
         item_id=item.item_id,
         config=config,
@@ -168,6 +210,7 @@ def answer_record(
         ],
         llm_calls=run.usage.llm_calls,
         usage_by_role=usage,
+        decisions=decisions,
         latency_seconds=round(latency, 3),
         non_llm_seconds=round(
             max(0.0, latency - sum(entry.seconds for entry in usage.values())), 3
@@ -200,7 +243,9 @@ class BackendTurnExecutor:
         pipeline: PipelineOptions,
         config: str,
         clock: Clock | None = None,
+        decisions: Mapping[LlmRole, DecisionPort] | None = None,
     ) -> None:
+        self._decisions = dict(decisions or {})
         self._graph = graph
         self._llm = llm
         self._retrieval = retrieval
@@ -213,9 +258,12 @@ class BackendTurnExecutor:
         recorder = RecordingLlm(self._llm)
         deps = TurnDeps(
             llm=recorder,
-            guardrail=GuardrailService(recorder),
+            guardrail=GuardrailService(
+                recorder, decision=self._decisions.get(LlmRole.GUARDRAIL)
+            ),
             retrieval=self._retrieval,
             clock=self._clock,
+            decisions=self._decisions,
         )
         runner = ChatTurnRunner(
             self._graph, deps, self._limits, pipeline=self._pipeline
