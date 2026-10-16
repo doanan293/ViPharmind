@@ -195,6 +195,11 @@ async def judge_node(
                         else JudgeOutcome.SEARCH_MORE
                     }
                 )
+        if tau is not None and tau >= 1:
+            # tau = 1 means refine until the round limit, whatever the confidence.
+            decision = decision.model_copy(
+                update={"decision": JudgeOutcome.SEARCH_MORE}
+            )
         run.charge(usage)
         run.record_judge(
             decision.decision,

@@ -45,6 +45,15 @@ class JudgeDecision(BaseModel):
     reason: str
     confidence: float
 
+    @field_validator("confidence")
+    @classmethod
+    def _unit_interval(cls, value: float) -> float:
+        # A validator, not Field(ge/le): the bounds would reach the JSON schema,
+        # which strict-mode proxies may reject.
+        if not 0.0 <= value <= 1.0:
+            raise ValueError(f"confidence {value} is outside [0, 1]")
+        return value
+
 
 class RefineResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
