@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections import Counter
 from pathlib import Path
@@ -8,6 +9,8 @@ from typing import Annotated
 import typer
 from openai.types import ReasoningEffort
 from pharma_agent.domain.corpus.bundle import read_bundle
+from pharma_agent.infrastructure.llm.systemone_adapter import SystemOneAdapter
+from pharma_agent.infrastructure.settings import Settings
 from pydantic import TypeAdapter
 
 from pharma_lab.cli.runtime import (
@@ -34,6 +37,12 @@ from pharma_lab.e2e.calibration import (
 from pharma_lab.e2e.compare import SIGNIFICANCE, compare_runs
 from pharma_lab.e2e.configs import E2EConfig, config_label
 from pharma_lab.e2e.corpus_text import chunk_texts, corpus_text, load_corpus_text
+from pharma_lab.e2e.decision_probe import (
+    longest_chunk_texts,
+    probe_state,
+    recommended_evidence_chars,
+    run_probe,
+)
 from pharma_lab.e2e.golden import (
     ANSWERABLE_PER_GROUP,
     QUOTAS,
@@ -583,6 +592,40 @@ def compare(
                 row.metric: f"{row.delta:+.3f} p_holm={row.p_holm:.3f}"
                 for row in rows
                 if row.p_holm < SIGNIFICANCE
+            },
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@e2e_app.command("decision-probe")
+def decision_probe(
+    ctx: typer.Context,
+    chars: Annotated[
+        int, typer.Option("--chars", min=1, help="Characters of evidence in the state")
+    ] = 60_000,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    backend_env_file: Annotated[
+        Path, typer.Option("--backend-env-file", dir_okay=False)
+    ] = BACKEND_ENV_FILE,
+) -> None:
+    """Measure how many Jev tokens a judge state with CHARS of evidence costs."""
+
+    def handler() -> CommandResult:
+        decision = SystemOneAdapter(Settings(_env_file=backend_env_file).llm)
+        state = probe_state(longest_chunk_texts(read_bundle(bundle)), chars)
+        result = asyncio.run(run_probe(decision, state))
+        return CommandResult(
+            "e2e decision-probe",
+            CommandStatus.COMPLETE,
+            bundle,
+            {
+                "input_tokens": result.input_tokens,
+                "chars": result.chars,
+                "chars_per_token": round(result.chars_per_token, 3),
+                "seconds": round(result.seconds, 3),
+                "model": result.model,
+                "recommended_max_evidence_chars": recommended_evidence_chars(result),
             },
         )
 
