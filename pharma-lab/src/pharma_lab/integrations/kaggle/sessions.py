@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Generator, Sequence
 from contextlib import AbstractContextManager, ExitStack, contextmanager
 from dataclasses import dataclass
@@ -37,6 +38,19 @@ class QuotaExhausted(RuntimeError):
         self.quotas = quotas
         self.locked = locked
 
+    def held_with_quota(self, requested_budget_seconds: int) -> bool:
+        """Whether an account other jobs hold would have quota for a session, so
+        waiting for it beats stopping."""
+        held = tuple(quota for quota in self.quotas if quota.profile in self.locked)
+        return (
+            select_session_account(
+                held,
+                locked=frozenset(),
+                requested_budget_seconds=requested_budget_seconds,
+            )
+            is not None
+        )
+
     @property
     def table(self) -> tuple[str, ...]:
         return quota_table(self.quotas, locked=self.locked)
@@ -68,6 +82,9 @@ class SessionRunResult:
     stop_reason: StopReason
     quota_table: tuple[str, ...] = ()
 
+
+# How long a command sleeps before trying again for an account another local job holds.
+ACCOUNT_WAIT_SECONDS = 60
 
 # Kaggle runs two batch GPU sessions per account and rejects the next kernel push.
 SESSION_CAPACITY_MARKER = "maximum batch gpu session count"
@@ -251,8 +268,13 @@ def run_account_sessions(
     read_quota: QuotaReader | None = None,
     account_lock: AccountLock | None = None,
     preferred_profile: str | None = None,
+    wait: Callable[[float], None] = time.sleep,
 ) -> SessionRunResult:
-    """Run sessions until complete, out of quota, without progress or at max_sessions."""
+    """Run sessions until complete, out of quota, without progress or at max_sessions.
+
+    An account that still has quota but is held by another local command (or has no
+    free Kaggle GPU session) is waited for; only a lack of quota stops the run.
+    """
     if requested_budget_seconds < MINIMUM_SESSION_SECONDS:
         raise ValueError(
             f"--budget-seconds must be at least {MINIMUM_SESSION_SECONDS} "
@@ -283,6 +305,14 @@ def run_account_sessions(
                     unavailable=unavailable,
                 )
             except QuotaExhausted as exhausted:
+                if exhausted.held_with_quota(requested_budget_seconds):
+                    log(
+                        "waiting for an account another local job holds: "
+                        f"{', '.join(sorted(exhausted.locked))}"
+                    )
+                    wait(ACCOUNT_WAIT_SECONDS)
+                    unavailable = frozenset()
+                    continue
                 log(f"stop=quota-exhausted sessions={sessions}; GPU quota per account:")
                 for row in exhausted.table:
                     log(row)

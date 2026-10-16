@@ -17,6 +17,7 @@ from pharma_lab.embeddings.text_cache import (
     write_embedding_inputs,
 )
 from pharma_lab.integrations.kaggle.job_lock import (
+    hold_pinned_account,
     kaggle_cache_lock,
     kaggle_job_lock,
 )
@@ -107,7 +108,10 @@ class LocalTextEmbeddingBackend:
 
 class KaggleTextEmbeddingBackend:
     def run(self, request: TextEmbeddingRequest) -> TextEmbeddingResult:
-        with kaggle_job_lock(request.cache_path):
+        with (
+            kaggle_job_lock(request.cache_path),
+            hold_pinned_account(request.kaggle_account),
+        ):
             return self._run_unlocked(request)
 
     @staticmethod

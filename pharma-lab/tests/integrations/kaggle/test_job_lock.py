@@ -4,11 +4,13 @@ from pathlib import Path
 import pytest
 
 from pharma_lab.integrations.kaggle.job_lock import (
+    ACCOUNT_POLL_SECONDS,
     KaggleAccountBusy,
     kaggle_account_lock,
     kaggle_cache_lock,
     kaggle_job_lock,
     lock_file_name,
+    wait_for_kaggle_account,
 )
 
 
@@ -140,3 +142,39 @@ def test_account_lock_rejects_names_that_are_not_profiles(
 ) -> None:
     with pytest.raises(ValueError, match="invalid Kaggle account profile"):
         kaggle_account_lock(profile, lock_root=tmp_path)
+
+
+def test_waiting_for_an_account_takes_it_once_the_other_job_lets_go(tmp_path):
+    lock_root = tmp_path / "locks"
+    other = kaggle_account_lock("acc1", lock_root=lock_root)
+    other.__enter__()
+    waits: list[float] = []
+
+    def let_go(seconds: float) -> None:
+        waits.append(seconds)
+        other.__exit__(None, None, None)
+
+    with wait_for_kaggle_account(
+        "acc1", lock_root=lock_root, wait=let_go, log=lambda _line: None
+    ) as profile:
+        assert profile == "acc1"
+        with pytest.raises(KaggleAccountBusy):
+            kaggle_account_lock("acc1", lock_root=lock_root).__enter__()
+
+    assert waits == [ACCOUNT_POLL_SECONDS]
+    with kaggle_account_lock("acc1", lock_root=lock_root):
+        pass
+
+
+def test_an_error_inside_the_held_account_is_not_mistaken_for_a_busy_lock(tmp_path):
+    waits: list[float] = []
+
+    with (
+        pytest.raises(KaggleAccountBusy),
+        wait_for_kaggle_account(
+            "acc2", lock_root=tmp_path / "locks", wait=waits.append, log=print
+        ),
+    ):
+        raise KaggleAccountBusy("acc9")
+
+    assert waits == []

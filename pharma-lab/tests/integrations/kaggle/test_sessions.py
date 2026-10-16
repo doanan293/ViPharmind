@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from pharma_lab.integrations.kaggle.models import PipelineResult
 from pharma_lab.integrations.kaggle.quota import AccountQuota
 from pharma_lab.integrations.kaggle.service import KaggleExecutionContext
 from pharma_lab.integrations.kaggle.sessions import (
+    ACCOUNT_WAIT_SECONDS,
     ReservedAccount,
     StopReason,
     run_account_sessions,
@@ -368,3 +370,61 @@ def test_session_arguments_are_validated(tmp_path, budget, max_sessions, message
             log=_quiet,
             read_quota=book,
         )
+
+
+class BusyThenFree:
+    """An account lock another local job holds for the first `busy` attempts."""
+
+    def __init__(self, busy: int):
+        self.busy = busy
+        self.attempts = 0
+
+    def __call__(self, profile: str):
+        self.attempts += 1
+        if self.attempts <= self.busy:
+            raise KaggleAccountBusy(profile)
+        return nullcontext(profile)
+
+
+def test_sessions_wait_for_an_account_another_job_holds_instead_of_stopping(tmp_path):
+    book = QuotaBook(acc1=27.58)
+    sessions = ScriptedSessions(tmp_path, book, [10])
+    waits: list[float] = []
+    log: list[str] = []
+
+    outcome = run_account_sessions(
+        _contexts("acc1"),
+        sessions,
+        requested_budget_seconds=21_600,
+        max_sessions=1,
+        check_only=False,
+        log=log.append,
+        read_quota=book,
+        account_lock=BusyThenFree(busy=2),
+        wait=waits.append,
+    )
+
+    assert outcome.stop_reason is StopReason.MAX_RUNS
+    assert sessions.accounts == [("acc1", 21_600)]
+    assert waits == [ACCOUNT_WAIT_SECONDS, ACCOUNT_WAIT_SECONDS]
+    assert any("waiting for an account another local job holds" in line for line in log)
+
+
+def test_sessions_still_stop_when_the_free_accounts_lack_quota(tmp_path):
+    book = QuotaBook(acc1=0.4)
+    sessions = ScriptedSessions(tmp_path, book, [10])
+    waits: list[float] = []
+
+    outcome = run_account_sessions(
+        _contexts("acc1"),
+        sessions,
+        requested_budget_seconds=21_600,
+        max_sessions=None,
+        check_only=False,
+        log=_quiet,
+        read_quota=book,
+        wait=waits.append,
+    )
+
+    assert outcome.stop_reason is StopReason.QUOTA_EXHAUSTED
+    assert waits == []
