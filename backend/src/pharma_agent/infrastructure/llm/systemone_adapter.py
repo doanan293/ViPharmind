@@ -4,6 +4,7 @@ import time
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from pydantic import ValidationError
 from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy, TypeSafeError
 
 from pharma_agent.domain.llm.decision import Decision, NoulQuestion
@@ -22,7 +23,8 @@ def default_systemone_client(
         base_url=endpoint.base_url,
         model=endpoint.model,
         timeout=timeout,
-        retry=RetryPolicy(max_retries=max_retries),
+        # The SDK's total retry budget defaults to 30 s; cover every attempt in full.
+        retry=RetryPolicy(max_retries=max_retries, timeout=timeout * (max_retries + 1)),
     )
 
 
@@ -92,16 +94,36 @@ class SystemOneAdapter:
         ) as exc:  # every SDK, HTTP or parse failure degrades like an LLM failure
             raise LlmError(f"{role.value}: systemone request failed: {exc}") from exc
         seconds = time.perf_counter() - started
-        answers: dict[str, float] = {}
-        for key in questions:
-            probability = getattr(response.answers.get(key), "noul", None)
-            if probability is None:
-                raise LlmError(f"{role.value}: systemone answered without {key!r}")
-            answers[key] = float(probability)
-        return Decision(
-            answers=answers,
-            model=str(response.model),
-            input_tokens=int(getattr(response.usage, "input_tokens", 0) or 0),
-            seconds=round(seconds, 4),
-            raw=raw_body(response),
-        )
+        answers = {key: probability(role, response, key) for key in questions}
+        try:
+            return Decision(
+                answers=answers,
+                model=str(response.model),
+                input_tokens=int(getattr(response.usage, "input_tokens", 0) or 0),
+                seconds=round(seconds, 4),
+                raw=raw_body(response),
+            )
+        except (ValidationError, ValueError, TypeError) as exc:
+            raise LlmError(
+                f"{role.value}: malformed systemone response: {exc}"
+            ) from exc
+
+
+def probability(role: LlmRole, response: Any, key: str) -> float:
+    """The noul answer for `key` as a probability; anything else is an LlmError, so a
+    malformed answer degrades like every other decision-model failure."""
+    try:
+        value = getattr(response.answers.get(key), "noul", None)
+    except AttributeError as exc:
+        raise LlmError(f"{role.value}: systemone answers are malformed: {exc}") from exc
+    if value is None:
+        raise LlmError(f"{role.value}: systemone answered without {key!r}")
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise LlmError(
+            f"{role.value}: {key!r} is not a probability: {value!r}"
+        ) from exc
+    if not 0.0 <= number <= 1.0:  # also false for NaN
+        raise LlmError(f"{role.value}: {key!r}={number} is outside [0, 1]")
+    return number

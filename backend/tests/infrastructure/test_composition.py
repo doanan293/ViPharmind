@@ -12,6 +12,7 @@ from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.infrastructure.composition import (
     build_application,
     build_retrieval_service,
+    guard_thresholds,
 )
 from pharma_agent.infrastructure.llm.openai_adapter import OpenAiLlmAdapter
 from pharma_agent.infrastructure.llm.systemone_adapter import SystemOneAdapter
@@ -182,3 +183,12 @@ async def test_guard_thresholds_stay_default_without_a_decision_guard(
     app = build_application(settings, embedder=FakeEmbedder())
     assert app.deps.guardrail.thresholds == GuardThresholds()
     await app.aclose()
+
+
+def test_an_unknown_guard_threshold_key_is_refused() -> None:
+    llm = LlmSettings(
+        default=LlmEndpoint(api_key="k", model="m"),
+        roles={LlmRole.GUARDRAIL: _jev({"thresholds": {"block": 0.8, "blok": 0.9}})},
+    )
+    with pytest.raises(ValueError, match="blok"):
+        guard_thresholds(llm)
