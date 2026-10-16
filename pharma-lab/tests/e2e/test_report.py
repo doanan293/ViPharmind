@@ -288,3 +288,37 @@ def test_report_loads_swept_config_directories(tmp_path: Path) -> None:
 
     ablation = rows(tmp_path / "reports" / "ablation.csv")
     assert {r["config"] for r in ablation} == {"full+guard=false"}
+
+
+def write_latency_run(root: Path, config: str, seconds: float, count: int) -> None:
+    write_identity(root, config)
+    store = JsonlStore(root / config / "answers.jsonl", AnswerRecord)
+    for n in range(count):
+        store.append(answer(n, config).model_copy(update={"latency_seconds": seconds}))
+
+
+def test_latency_rows_come_from_the_latency_run(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    quality, slow = tmp_path / "q", tmp_path / "c1"
+    write_config(quality, "full", [1.0, 1.0, 0.5, 1.0])
+    write_latency_run(slow, "full", 2.0, 4)
+
+    write_report(quality, items, latency_root=slow)
+
+    table = {r["metric"]: r for r in rows(quality / "reports" / "cost.csv")}
+    assert float(table["latency_p50"]["mean"]) == 2.0
+    main = {r["metric"]: r for r in rows(quality / "reports" / "main.csv")}
+    assert float(main["latency_seconds"]["mean"]) == 2.0
+    provenance = json.loads((quality / "reports" / "provenance.json").read_text())
+    assert provenance["latency_run"] == str(slow)
+
+
+def test_latency_run_requires_the_same_config(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    quality, slow = tmp_path / "q", tmp_path / "c1"
+    write_config(quality, "full", [1.0, 1.0, 0.5, 1.0])
+    write_config(quality, "one-step", [1.0, 1.0, 0.5, 1.0])
+    write_latency_run(slow, "full", 2.0, 4)
+
+    with pytest.raises(ValueError, match="one-step"):
+        write_report(quality, items, latency_root=slow)

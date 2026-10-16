@@ -198,3 +198,13 @@ def test_retriever_variants_change_only_retrieval_settings() -> None:
     assert (k60.mode, k60.rrf_k) == ("hybrid", 60)
     assert pipeline_for(E2EConfig.NO_GUARD) == PipelineOptions(guard=False)
     assert pipeline_for(E2EConfig.BM25) == PipelineOptions()
+
+
+def test_concurrency_is_recorded_but_may_change_on_resume(tmp_path: Path) -> None:
+    identity = identity_from_settings(
+        base_settings(), golden_sha256="g", config="full", pipeline={}, release_id="r"
+    )
+    open_run(tmp_path, identity, commit="c", extra={"concurrency": 4})
+    open_run(tmp_path, identity, commit="c", extra={"concurrency": 1})
+    stored = json.loads((tmp_path / "run.json").read_text("utf-8"))
+    assert stored["concurrency"] == 4

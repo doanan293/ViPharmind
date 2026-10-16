@@ -384,6 +384,42 @@ def values_of(
     return table
 
 
+LATENCY_METRICS = (
+    LATENCY,
+    "llm_seconds_per_turn",
+    "retrieval_seconds_per_turn",
+    "rerank_seconds_per_turn",
+    "decision_seconds_per_turn",
+)
+
+
+def latency_values(
+    latency_root: Path, config: str, items: Mapping[str, GoldenItem]
+) -> dict[str, Values]:
+    """Per-item seconds of one configuration of the latency run; no judgments needed."""
+    path = config_dir(latency_root, config) / ANSWERS_FILE
+    if not path.is_file():
+        raise ValueError(f"latency run {latency_root} has no {config} answers")
+    by_name = {metric.name: metric for metric in METRICS}
+    table: dict[str, Values] = {name: {} for name in LATENCY_METRICS}
+    for key, record in JsonlStore(path, AnswerRecord).latest().items():
+        if record.error is not None or key not in items:
+            continue
+        item = items[key]
+        # The latency metrics read only the answer; the judgement is a placeholder.
+        view = ItemView(
+            item,
+            record,
+            Judgement(item_id=key, config=config, category=item.category.value),
+            {},
+        )
+        for name in LATENCY_METRICS:
+            value = by_name[name].read(view)
+            if value is not None:
+                table[name][key] = value
+    return table
+
+
 def load_run(run_root: Path) -> dict[str, LoadedConfig]:
     loaded = {}
     # Every judged directory: the fixed configurations in their order, then the
@@ -848,6 +884,7 @@ def _provenance(
     run_root: Path,
     configs: Sequence[str],
     relevance: LoadedJudgments | None,
+    latency_root: Path | None = None,
 ) -> Path:
     runs: dict[str, dict[str, object]] = {}
     for config in configs:
@@ -865,6 +902,8 @@ def _provenance(
                 "relevance_judgments_sha256": None
                 if relevance is None
                 else relevance.sha256,
+                # Every latency number comes from this concurrency-1 run, when set.
+                "latency_run": None if latency_root is None else str(latency_root),
                 "bootstrap_resamples": RESAMPLES,
                 "seed": SEED,
                 "intervals": "Wilson for rates, percentile bootstrap for means",
@@ -883,8 +922,13 @@ def write_report(
     run_root: Path,
     items: dict[str, GoldenItem],
     relevance: LoadedJudgments | None = None,
+    latency_root: Path | None = None,
 ) -> list[Path]:
-    """Write every table; `relevance` extends relevant chunks as in retrieval metrics."""
+    """Write every table; `relevance` extends relevant chunks as in retrieval metrics.
+
+    With `latency_root`, every latency number comes from that run's answers of the same
+    configuration (the concurrency-1 run of spec v2 §2.5); quality stays from this run.
+    """
     loaded = load_run(run_root)
     directory = Path(run_root) / REPORTS_DIR
     directory.mkdir(parents=True, exist_ok=True)
@@ -893,6 +937,9 @@ def write_report(
         for config, (answers, judgments, identity) in loaded.items()
     }
     configs = list(loaded)
+    if latency_root is not None:
+        for config in configs:
+            values[config].update(latency_values(latency_root, config, items))
     written = _main_tables(directory, configs, values)
     if E2EConfig.FULL.value in values:
         written += _ablation_tables(directory, configs, values)
@@ -902,5 +949,5 @@ def write_report(
     if E2EConfig.FULL.value in loaded:
         answers, judgments, _identity = loaded[E2EConfig.FULL.value]
         written.append(_error_analysis(directory, items, answers, judgments, relevance))
-    written.append(_provenance(directory, run_root, configs, relevance))
+    written.append(_provenance(directory, run_root, configs, relevance, latency_root))
     return written
