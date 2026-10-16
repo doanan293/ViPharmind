@@ -57,6 +57,7 @@ E2E_DIR = EVALUATION_DIR / "e2e"
 GOLDEN_E2E_PATH = E2E_DIR / "golden_e2e.jsonl"
 E2E_AUTHORING_DIR = E2E_DIR / "authoring"
 E2E_RUNS_DIR = E2E_DIR / "runs"
+DECISION_CALIBRATION_DIR = EVALUATION_DIR / "calibration"
 
 CACHE_DIR = DATA_DIR / "cache"
 TEXT_EMBEDDING_CACHE_DIR = CACHE_DIR / "text_embeddings"
