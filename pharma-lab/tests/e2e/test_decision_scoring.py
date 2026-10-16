@@ -8,6 +8,7 @@ import pytest
 from pharma_agent.domain.llm.decision import Decision
 from pharma_agent.domain.llm.models import LlmRole
 
+from pharma_lab.e2e import decision_scoring as scoring
 from pharma_lab.e2e.decision_scoring import (
     choose_block,
     compute_scores,
@@ -189,6 +190,29 @@ def test_resume_skips_the_calls_already_recorded(tmp_path: Path) -> None:
     more = Port()
     run(more, tmp_path, repeats=3)
     assert len(more.calls) == 6
+
+
+def test_a_changed_question_wording_redoes_the_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run(Port(), tmp_path, judge=JUDGE[:1], guard=GUARD[:1], repeats=1)
+    recorded = len((tmp_path / "d.jsonl").read_text().splitlines())
+    original = scoring.judge_questions
+
+    def reworded(asked: Any) -> Any:
+        questions = original(asked)
+        overall = questions["sufficient_overall"]
+        questions["sufficient_overall"] = overall.model_copy(
+            update={"instructions": overall.instructions + " (reworded)"}
+        )
+        return questions
+
+    monkeypatch.setattr(scoring, "judge_questions", reworded)
+    port = Port()
+    run(port, tmp_path, judge=JUDGE[:1], guard=GUARD[:1], repeats=1)
+    # Forward and reversed judge calls are redone; the unchanged guard calls are not.
+    assert [role for role, _ in port.calls] == [LlmRole.JUDGE, LlmRole.JUDGE]
+    assert len((tmp_path / "d.jsonl").read_text().splitlines()) == recorded + 2
 
 
 def test_a_model_version_change_stops_the_scoring(tmp_path: Path) -> None:

@@ -101,8 +101,13 @@ def _latest(records: Sequence[Row]) -> dict[Key, Row]:
     return {_key(record): record for record in records}
 
 
-def _state_hash(state: Mapping[str, object]) -> str:
-    text = json.dumps(state, sort_keys=True, ensure_ascii=False)
+def _call_hash(state: Mapping[str, object], questions: Mapping[str, Any]) -> str:
+    """Identity of a call's input: the state and the question wording sent with it."""
+    payload = {
+        "state": state,
+        "questions": {key: q.model_dump() for key, q in questions.items()},
+    }
+    text = json.dumps(payload, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
@@ -156,7 +161,7 @@ class _Recorder:
         asked: Sequence[str],
     ) -> Row:
         key: Key = (item_id, role.value, repeat, rotated)
-        state_sha = _state_hash(state)
+        state_sha = _call_hash(state, questions)
         stored = self.records.get(key)
         if stored is not None and stored.get("state_sha256") == state_sha:
             return stored
