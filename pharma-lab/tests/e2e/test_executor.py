@@ -181,7 +181,7 @@ async def test_answer_record_keeps_every_raw_decision() -> None:
     assert not record.retryable
 
 
-async def test_the_judges_own_intent_call_is_recorded_as_a_guardrail_decision() -> None:
+async def test_the_judges_own_intent_call_is_recorded_as_a_judge_decision() -> None:
     fake = llm(judge=False, rephrase=True)
     decision = FakeDecision({"asks_dosage": 0.9, "sufficient_overall": 0.9})
     retriever = FakeRetriever([make_hit("a", SECTION, score=0.9)])
@@ -197,12 +197,33 @@ async def test_the_judges_own_intent_call_is_recorded_as_a_guardrail_decision() 
 
     record = await full.execute(item())
 
-    assert [d.role for d in record.decisions] == ["guardrail", "judge"]
+    assert [d.role for d in record.decisions] == ["judge", "judge"]
     assert record.decisions[0].answers["asks_dosage"] == 0.9
     assert all(key.startswith("asks_") for key in decision.calls[0][2])
-    # The LLM guard and the judge's intent call.
-    assert record.usage_by_role["guardrail"].calls == 2
-    assert record.usage_by_role["judge"].calls == 1
+    assert record.usage_by_role["guardrail"].calls == 1
+    assert record.usage_by_role["judge"].calls == 2
+
+
+async def test_a_decision_judge_leaves_the_llm_guard_usage_alone() -> None:
+    fake = llm(judge=False, rephrase=True)
+    decision = FakeDecision({"asks_dosage": 0.9, "sufficient_overall": 0.9})
+    retriever = FakeRetriever([make_hit("a", SECTION, score=0.9)])
+    full = BackendTurnExecutor(
+        graph=build_chat_graph(),
+        llm=fake,
+        retrieval=retrieval_service(retriever),
+        limits=BudgetLimits(),
+        pipeline=pipeline_for(E2EConfig.FULL),
+        config="full",
+        decisions={LlmRole.JUDGE: decision},
+    )
+
+    record = await full.execute(item())
+
+    guard = record.usage_by_role["guardrail"]
+    assert (guard.calls, guard.prompt_tokens) == (1, 10)
+    judge = record.usage_by_role["judge"]
+    assert (judge.calls, judge.prompt_tokens) == (2, 600)
 
 
 @pytest.mark.parametrize(("block", "status"), [(0.5, "blocked"), (0.7, "completed")])
