@@ -13,8 +13,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from pharma_lab.artifacts.manifest import sha256_file, write_json
 from pharma_lab.e2e.corpus_text import CorpusText, normalize_space
-from pharma_lab.evaluation.artifact_contracts import sha256_file, write_json
 
 SCHEMA = "e2e-golden-v3"
 ANSWERABLE_PER_GROUP = 45

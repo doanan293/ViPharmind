@@ -11,13 +11,13 @@ from typing import IO, BinaryIO
 
 import zstandard
 
+from pharma_lab.artifacts.manifest import sha256_file
 from pharma_lab.data_archive.manifest import (
     ArchiveError,
     ArchiveFile,
     ArchiveManifest,
     ArchivePart,
 )
-from pharma_lab.evaluation.artifact_contracts import sha256_file
 
 
 @dataclass(frozen=True)

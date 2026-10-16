@@ -12,7 +12,7 @@ from typing import Any
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.infrastructure.settings import Settings
 
-from pharma_lab.evaluation.artifact_contracts import write_json
+from pharma_lab.artifacts.manifest import write_json
 
 RUN_FILE = "run.json"
 INFORMATIONAL = ("git_commit", "created_at")

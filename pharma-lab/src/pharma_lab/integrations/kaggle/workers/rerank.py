@@ -8,7 +8,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from pharma_lab.artifacts.jsonl import iter_jsonl_objects
+from pharma_lab.artifacts.manifest import iter_jsonl_objects
 from pharma_lab.cache.jsonl_records import seal_record
 from pharma_lab.hashing import document_hash, query_hash
 from pharma_lab.integrations.kaggle.models import CloudArtifact, JobIdentity

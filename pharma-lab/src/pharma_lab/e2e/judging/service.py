@@ -10,6 +10,7 @@ from typing import Protocol
 
 from pharma_agent.infrastructure.settings import Settings
 
+from pharma_lab.artifacts.manifest import write_json
 from pharma_lab.e2e.configs import E2EConfig
 from pharma_lab.e2e.golden import Category, ExpectedBehavior, GoldenItem, load_golden
 from pharma_lab.e2e.golden_changes import reconcile_golden
@@ -29,7 +30,6 @@ from pharma_lab.e2e.records import (
     JsonlStore,
     Judgement,
 )
-from pharma_lab.evaluation.artifact_contracts import write_json
 
 JUDGE_FILE = "judge.json"
 

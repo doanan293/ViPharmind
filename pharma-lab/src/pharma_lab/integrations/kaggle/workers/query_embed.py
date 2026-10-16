@@ -5,7 +5,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from pharma_lab.artifacts.jsonl import iter_jsonl_objects
+from pharma_lab.artifacts.manifest import iter_jsonl_objects
 from pharma_lab.cache.jsonl_records import seal_record
 from pharma_lab.hashing import query_hash
 from pharma_lab.integrations.kaggle.models import CloudArtifact

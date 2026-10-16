@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 from pharma_agent.domain.corpus.bundle import read_bundle
 
+from pharma_lab.artifacts.manifest import sha256_file
 from pharma_lab.cli.runtime import (
     CommandResult,
     CommandStatus,
@@ -54,7 +55,6 @@ from pharma_lab.e2e.sampling import (
     write_authoring_batches,
     write_replacement_batch,
 )
-from pharma_lab.evaluation.artifact_contracts import sha256_file
 from pharma_lab.evaluation.backend_retrieval import load_query_rows
 from pharma_lab.evaluation.relevance_judgments import judgments_path, load_judgments
 

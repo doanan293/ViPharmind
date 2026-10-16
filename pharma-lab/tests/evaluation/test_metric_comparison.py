@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from pharma_lab.evaluation.artifact_contracts import ArtifactContractError
+from pharma_lab.artifacts.manifest import ArtifactContractError
 from pharma_lab.evaluation.metric_comparison import (
     BootstrapResult,
     MetricComparisonRequest,
