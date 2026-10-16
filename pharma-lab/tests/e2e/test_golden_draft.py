@@ -78,7 +78,11 @@ def test_allocate_spreads_the_total_and_caps_each_kind() -> None:
 
 
 def test_select_drops_used_queries_and_is_seeded() -> None:
-    rows = [candidate(f"q{n}") for n in range(10)] + [candidate("used")]
+    # Distinct section sets, so dedupe keeps every one.
+    rows = [
+        dict(candidate(f"q{n}"), expected_section_ids=[A, f"drug:x{n}:lieu-dung"])
+        for n in range(10)
+    ] + [candidate("used")]
     first = select_candidates(rows, exclude={"used"}, seed=1)
     assert first == select_candidates(rows, exclude={"used"}, seed=1)
     assert first != select_candidates(rows, exclude={"used"}, seed=2)
@@ -176,3 +180,12 @@ def test_used_queries_and_draft_batches(tmp_path) -> None:
         "multi-hop.failed.jsonl",
     ]
     assert len(paths[0].read_text("utf-8").splitlines()) == 2
+
+
+def test_select_keeps_one_candidate_per_gold_section_set() -> None:
+    reversed_sections = dict(candidate("q2"), expected_section_ids=[B, A])
+    other = dict(candidate("q3"), expected_section_ids=[A])
+    chosen = select_candidates(
+        [candidate("q1"), reversed_sections, other], exclude=set(), seed=0
+    )
+    assert sorted(str(r["query_id"]) for r in chosen["three_intent"]) == ["q1", "q3"]
