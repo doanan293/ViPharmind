@@ -10,7 +10,12 @@ from pharma_agent.domain.agent.react import (
     MAX_TOOL_ROUNDS,
     ROUND_CAP_NOTE,
 )
-from pharma_agent.domain.agent.run import AnswerMode, ReactStats, RunStatus
+from pharma_agent.domain.agent.run import (
+    AnswerMode,
+    ErrorCode,
+    ReactStats,
+    RunStatus,
+)
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict
 from pharma_agent.domain.llm.models import ChatRole, LlmRole, ToolCall, ToolTurn
 from pharma_agent.domain.llm.port import LlmError
@@ -142,10 +147,14 @@ async def test_round_cap_forces_one_final_call_without_tools() -> None:
     last_role, last_messages, last_tools = llm.tool_calls_seen[-1]
     assert last_role is LlmRole.AGENT
     assert len(llm.tool_calls_seen) == MAX_TOOL_ROUNDS + 1
-    assert last_tools == []
+    # The history holds tool calls, so the tools stay declared; the model may not call.
+    assert [t.name for t in last_tools] == ["search_corpus"]
+    assert llm.tool_choices[-1] == "none"
+    assert llm.tool_choices[:-1] == ["auto"] * MAX_TOOL_ROUNDS
     assert last_messages[-1].role is ChatRole.USER
     assert last_messages[-1].content == ROUND_CAP_NOTE
     assert stats(outcome).round_cap_hit
+    assert not stats(outcome).budget_forced
     assert outcome.run.status is RunStatus.PARTIAL
 
 
@@ -242,3 +251,29 @@ async def test_search_evidence_accumulates_across_rounds() -> None:
     searches = [a for a in outcome.run.actions.entries if a.kind is ActionKind.SEARCH]
     assert [len(a.payload["evidence"]) for a in searches] == [1, 2]
     assert [a.payload["new_evidence"] for a in searches] == [1, 1]
+
+
+async def test_llm_call_budget_forces_the_final_call_without_the_round_cap() -> None:
+    llm = llm_with_guard()
+    llm.script_tool_turns(
+        searching(call("c1", "a")), searching(call("c2", "b")), answering("Đáp [1].")
+    )
+    retriever = FakeRetriever([make_hit("a", fusion=0.9)], [make_hit("b", fusion=0.8)])
+    _, outcome = await run_react(llm, retriever, BudgetLimits(max_llm_calls=4))
+    assert llm.tool_choices == ["auto", "auto", "none"]
+    assert stats(outcome).budget_forced
+    assert not stats(outcome).round_cap_hit
+    assert outcome.run.status is RunStatus.PARTIAL
+
+
+async def test_empty_final_answer_fails_the_turn() -> None:
+    llm = llm_with_guard()
+    llm.script_tool_turns(
+        searching(call("c1", "x")),
+        ToolTurn(text="  ", tool_calls=(), finish_reason="length"),
+    )
+    _, outcome = await run_react(llm, FakeRetriever([make_hit("a", fusion=0.9)]))
+    assert outcome.run.status is RunStatus.ERROR
+    assert outcome.run.error_code is ErrorCode.ANSWER_FAILED
+    agent = [a for a in outcome.run.actions.entries if a.kind is ActionKind.AGENT]
+    assert agent[-1].payload["finish_reason"] == "length"

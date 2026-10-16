@@ -87,6 +87,8 @@ class ReactRecord(BaseModel):
     malformed_calls: int = 0
     duplicate_calls: int = 0
     round_cap_hit: bool = False
+    # Answered without tools before the round cap because the LLM-call or token budget ran out.
+    budget_forced: bool = False
     budget_hits: int = 0
     answered_without_search: bool = False
 

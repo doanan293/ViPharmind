@@ -214,6 +214,12 @@ REACT_METRICS: tuple[Metric, ...] = (
         "react_round_cap_rate", _react(lambda r: float(r.round_cap_hit)), True, False
     ),
     Metric(
+        "react_budget_forced_rate",
+        _react(lambda r: float(r.budget_forced)),
+        True,
+        False,
+    ),
+    Metric(
         "react_malformed_rate",
         _react(lambda r: float(r.malformed_calls > 0)),
         True,

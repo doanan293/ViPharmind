@@ -95,8 +95,10 @@ class ReactStats(BaseModel):
     tool_calls: int = 0
     malformed_calls: int = 0
     duplicate_calls: int = 0
-    # The model was made to answer without tools (round cap or LLM-call budget).
+    # The model was made to answer without tools: after MAX_TOOL_ROUNDS rounds, or
+    # earlier because the LLM-call or token budget ran out.
     round_cap_hit: bool = False
+    budget_forced: bool = False
     budget_hits: int = 0  # results cut by the evidence budget
     answered_without_search: bool = False
 
@@ -360,6 +362,7 @@ class AgentRun(BaseModel):
         *,
         now: datetime,
         malformed: Sequence[bool] = (),
+        finish_reason: str = "",
     ) -> None:
         """One response of the ReAct model: the tool calls it asked for, or its answer."""
         self._log(
@@ -370,6 +373,7 @@ class AgentRun(BaseModel):
                 "calls": [call.name for call in calls],
                 "arguments": [call.arguments for call in calls],
                 "malformed": list(malformed),
+                "finish_reason": finish_reason,
             },
         )
 

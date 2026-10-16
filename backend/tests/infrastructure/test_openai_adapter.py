@@ -478,3 +478,15 @@ async def test_tool_call_errors_become_llm_error() -> None:
     client.completions.create = boom
     with pytest.raises(LlmError, match="agent"):
         await adapter.tool_call(LlmRole.AGENT, [user("x")], [SEARCH])
+
+
+async def test_tool_choice_none_keeps_the_tools_and_forbids_calls() -> None:
+    adapter, created = make_adapter()
+    await adapter.structured(LlmRole.GUARDRAIL, [user("warm")], Verdict)
+    client = created[(None, "sk-cloud")]
+    client.completions.tool_response = tool_response("Đáp.", None, "stop")
+    await adapter.tool_call(LlmRole.AGENT, [user("hỏi")], [SEARCH], tool_choice="none")
+    kwargs = client.completions.create_kwargs
+    assert kwargs["tool_choice"] == "none"
+    assert [t["function"]["name"] for t in kwargs["tools"]] == ["search_corpus"]
+    assert "parallel_tool_calls" not in kwargs

@@ -83,13 +83,21 @@ async def agent_node(
         )
     else:
         loop = state.react
-    final = loop.forced or stats.rounds >= MAX_TOOL_ROUNDS or run.calls_left < 2
+    capped = stats.rounds >= MAX_TOOL_ROUNDS
+    final = loop.forced or capped or run.calls_left < 2
     if final:
         loop.messages.append(user(ROUND_CAP_NOTE))
-        stats.round_cap_hit = True
+        if capped:
+            stats.round_cap_hit = True
+        else:
+            stats.budget_forced = True
     try:
+        # The final call keeps the tool declared: a history with tool calls needs it.
         turn, usage = await deps.llm.tool_call(
-            LlmRole.AGENT, loop.messages, [] if final else [SEARCH_TOOL]
+            LlmRole.AGENT,
+            loop.messages,
+            [SEARCH_TOOL],
+            tool_choice="none" if final else "auto",
         )
     except LlmError as exc:
         run.fail(ErrorCode.ANSWER_FAILED, detail=str(exc))
@@ -104,6 +112,7 @@ async def agent_node(
         calls,
         now=deps.clock.now(),
         malformed=[isinstance(_parse(call), ValueError) for call in calls],
+        finish_reason=turn.finish_reason,
     )
     if calls and over_budget:
         # No budget left for the searches it asked for: one last call answers without tools.
@@ -114,6 +123,11 @@ async def agent_node(
         )
         loop.pending_calls = list(calls)
         stats.rounds += 1
+    elif not turn.text.strip():
+        run.fail(
+            ErrorCode.ANSWER_FAILED,
+            detail=f"empty answer (finish_reason={turn.finish_reason or 'none'})",
+        )
     else:
         loop.final_text = turn.text
         loop.answered = True
@@ -200,7 +214,7 @@ async def finalize_node(
     elif not numbered:
         plan = AnswerPlan(mode=AnswerMode.ABSTAIN)
     else:
-        partial = stats.round_cap_hit or stats.budget_hits > 0
+        partial = stats.round_cap_hit or stats.budget_forced or stats.budget_hits > 0
         plan = AnswerPlan(mode=AnswerMode.GROUNDED, partial=partial)
     run.submit_plan(plan, now=deps.clock.now())
     nodes.emit_evidence(numbered)

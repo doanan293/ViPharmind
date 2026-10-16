@@ -8,6 +8,7 @@ from pharma_agent.domain.llm.models import (
     LlmRole,
     LlmUsage,
     StreamDelta,
+    ToolChoice,
     ToolSpec,
     ToolTurn,
 )
@@ -34,8 +35,13 @@ class LlmPort(Protocol):
         ...
 
     async def tool_call(
-        self, role: LlmRole, messages: Sequence[ChatMessage], tools: Sequence[ToolSpec]
+        self,
+        role: LlmRole,
+        messages: Sequence[ChatMessage],
+        tools: Sequence[ToolSpec],
+        *,
+        tool_choice: ToolChoice = "auto",
     ) -> tuple[ToolTurn, LlmUsage]:
-        """One model call that may request tools; empty `tools` forbids tool calls.
-        Raises LlmError."""
+        """One model call that may request tools. Empty `tools`, or tool_choice "none",
+        forbids tool calls. Raises LlmError."""
         ...

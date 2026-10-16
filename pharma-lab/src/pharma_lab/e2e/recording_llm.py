@@ -11,6 +11,7 @@ from pharma_agent.domain.llm.models import (
     LlmRole,
     LlmUsage,
     StreamDelta,
+    ToolChoice,
     ToolSpec,
     ToolTurn,
 )
@@ -57,10 +58,17 @@ class RecordingLlm:
         self._record(role, usage, started)
 
     async def tool_call(
-        self, role: LlmRole, messages: Sequence[ChatMessage], tools: Sequence[ToolSpec]
+        self,
+        role: LlmRole,
+        messages: Sequence[ChatMessage],
+        tools: Sequence[ToolSpec],
+        *,
+        tool_choice: ToolChoice = "auto",
     ) -> tuple[ToolTurn, LlmUsage]:
         started = time.perf_counter()
-        turn, usage = await self._inner.tool_call(role, messages, tools)
+        turn, usage = await self._inner.tool_call(
+            role, messages, tools, tool_choice=tool_choice
+        )
         self._record(role, usage, started)
         return turn, usage
 

@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -30,6 +31,10 @@ class ChatMessage(BaseModel):
     tool_calls: tuple[ToolCall, ...] = ()
     # Set on a tool message: the call it answers.
     tool_call_id: str | None = None
+
+
+# "none" keeps the declared tools (a history with tool calls needs them) but forbids calls.
+ToolChoice = Literal["auto", "none"]
 
 
 class ToolSpec(BaseModel):
