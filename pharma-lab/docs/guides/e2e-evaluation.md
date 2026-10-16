@@ -9,7 +9,16 @@ Harness gọi backend trong cùng tiến trình, như `pharma-lab retrieve`, v�
 **Cần sẵn sàng:**
 - Postgres và Qdrant đã import và publish release. Alias `chunks_current` trỏ vào collection của `qwen3-embedding:4b-q8_0`.
 - Endpoint LLM trong `PHARMA_LLM__*`. Model của từng role lấy từ `.env` và được ghi vào `run.json`.
-- llama.cpp embedding (`PHARMA_RETRIEVAL__EMBEDDING__*`) và reranker (`PHARMA_RETRIEVAL__RERANK__*`), chạy qua `docker compose -f compose.yaml -f compose.local-models.yaml up -d` ở thư mục gốc repo.
+- Embedding (`PHARMA_RETRIEVAL__EMBEDDING__*`) và reranker (`PHARMA_RETRIEVAL__RERANK__*`) của tầng agent, mỗi model một kernel Kaggle trên một tài khoản riêng (`e2e embed-server`, `e2e rerank-server`). Cặp model được chọn từ bảng retrieval v2 sau khi pha D xong (quy tắc ở plan pha 0, Task 11 bước 0), không cố định trước. Bản CPU qua `compose.local-models.yaml` chỉ dùng để demo.
+
+**Đường gọi model của bài (spec v2 §2.1b).** Reasoning tắt hoặc ở mức thấp nhất; giá dùng để tính chi phí là giá niêm yết trong `pharma_lab/e2e/pricing.py`.
+
+| Model | Cách gọi | Thinking | Giá (USD / 1M vào / ra) |
+| --- | --- | --- | --- |
+| Qwen3.5-9B | `e2e llm-server --model qwen3.5:9b-q8_0` (2 T4, acc1) | `enable_thinking: false` | 0,10 / 0,15 (OpenRouter) |
+| Gemini 3.8 Flash | proxy, `gemini-3.8-flash-high` | `thinkingLevel: low` trong `config.yaml` | 0,75 / 3,75 |
+| Claude Opus 5.5 | proxy, `claude-opus-5-5`, `PHARMA_LLM__ROLES__<ROLE>__REASONING_EFFORT=minimal` | adaptive, minimal; report ghi số token reasoning đo được | 4 / 20 |
+| gemini-3.1-flash-lite (judge) | proxy | `--judge-reasoning` | 0,25 / 1,50 |
 
 **Endpoint LLM** là service `cli-proxy-api` của compose (`docker compose -f ../compose.yaml -f ../compose.llm-proxy.yaml up -d cli-proxy-api` từ `pharma-lab/`, đăng nhập lưu trong volume `vipharmind_cli_proxy_auth`).
 
@@ -76,7 +85,11 @@ done
 | `no-judge-refine` | bật | tắt | bật |
 | `no-rephrase` | tắt | bật | bật |
 | `no-rerank` | bật | bật | tắt |
+| `no-guard` | bật | bật | bật, không guard |
+| `bm25`, `dense`, `hybrid-k60` | bật | bật | bật; retriever BM25, dense, hoặc hybrid RRF k=60 |
 | `closed-book` | – | – | – |
+
+**`--pipeline-option key=value`** (lặp được) ghi đè một trường của `PipelineOptions` cho cấu hình đó, ví dụ `--config full --pipeline-option guard=false`. Giá trị được kiểm theo kiểu của trường (`true`/`false`, số, `none`); khoá lạ bị từ chối trước khi chạy câu nào. Thư mục cấu hình thành `full+guard=false`, `run.json` ghi các giá trị, và `e2e report` đưa các thư mục này vào `ablation.csv` so với `full`. `e2e judge --config` nhận đúng tên thư mục đó.
 
 `one-step` là guard → search (câu hỏi gốc) → answer, dùng cùng retriever, prompt trả lời và ngân sách evidence như `full`.
 
@@ -121,7 +134,7 @@ uv run pharma-lab e2e report --run e2e-gemini
 
 **`--deadline-seconds S`** thay deadline của một lượt (mặc định lấy từ budget của backend, 90 giây). Dùng khi embedding/reranker chạy trên CPU hoặc endpoint LLM chậm; giá trị được ghi vào `run.json`, và latency báo cáo vẫn là thời gian thật.
 
-**`e2e judge`** ghi `judgments.jsonl` và `judge.json` (model judge). Chấm lại một cấu hình bằng judge khác cần `--force`.
+**`e2e judge`** ghi `judgments.jsonl` và `judge.json` (model, `reasoning_effort` và endpoint của judge). `--judge-reasoning none|low|medium` đặt reasoning của judge (mặc định `medium`, như v1). Chấm lại một cấu hình bằng judge khác hoặc mức reasoning khác cần `--force`.
 
 **Chỉ số.** Tên và định nghĩa theo các bài gốc; metric in đậm là metric chính, có mặt trong `main.tex` và `ablation.tex`.
 
@@ -141,7 +154,9 @@ uv run pharma-lab e2e report --run e2e-gemini
 | **redirect accuracy** | Câu ngoài phạm vi được chuyển hướng | – | out-of-scope |
 | **injection defence rate**, attack success rate | Bị chặn hoặc trả lời an toàn / làm theo lệnh chèn | AgentDojo (NeurIPS 2024) | injection |
 | answer relevancy, factual correctness F1 | Metric phụ của RAGAS | RAGAS | câu có trả lời |
-| **tokens / LLM calls per turn**, latency p50/p95 | Chi phí; latency chỉ để tham khảo vì môi trường không phải production | – | tất cả |
+| **tokens / LLM calls per turn** | Chi phí theo token và số lời gọi | – | tất cả |
+| **USD / turn**, USD / 1000 turns, cost of pass | Giá niêm yết × token của mọi bước LLM, cộng retrieval (số ứng viên rerank × 1.001 token, ký tự truy vấn ÷ 3,1); cost of pass = USD mỗi lượt chia tỉ lệ perfect | Erol et al. 2025 | tất cả |
+| latency p50/p95, LLM / retrieval / decision seconds per turn | Giây mỗi lượt và theo bước (`steps` trong `answers.jsonl`); lấy từ run concurrency 1 (`--latency-run`) | – | tất cả |
 
 **Thống kê:**
 - **Khoảng tin cậy:** Wilson cho tỉ lệ (vẫn đúng với các nhóm 10 câu), bootstrap percentile 10.000 lần cho giá trị trung bình.
@@ -163,6 +178,19 @@ uv run pharma-lab e2e report --run e2e-gemini
 - `ablation.csv|tex` (Δ so với `full`, paired bootstrap): CSV có CI và p-value; bảng LaTeX chỉ ghi Δ, dấu * khi p Holm < 0,05;
 - `by_group.csv`;
 - `calibration.csv|tex`;
+- `cost.csv|tex`: USD mỗi lượt và mỗi 1.000 lượt (CI bootstrap), cost of pass, giây theo bước, latency p50/p95;
 
-Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation`, `tab:e2e-calibration`) và tên metric/cấu hình dễ đọc, để copy thẳng vào `report/tables/` (xem `report/README.md`).
+Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation`, `tab:e2e-calibration`, `tab:e2e-cost`) và tên metric/cấu hình dễ đọc, để copy thẳng vào `report/tables/` (xem `report/README.md`).
 - `errors.md` (20 câu tệ nhất của `full`, gắn nhãn lỗi retrieval / citation / answer).
+
+## 4. Độ trễ, chi phí và so sánh hai run
+
+**Giao thức đo độ trễ (spec v2 §2.5).** Run lấy chất lượng có thể chạy `--concurrency 4` hoặc 8, nhưng mọi số giây trong bài lấy từ một run riêng chạy `--concurrency 1` trên cùng máy và cùng endpoint, đặt tên `<run>-c1`. `e2e report --run <run> --latency-run <run>-c1` thay mọi cột độ trễ bằng số của run concurrency 1; cấu hình nào thiếu trong run đó thì lệnh dừng. `provenance.json` ghi `latency_run`, `run.json` ghi `concurrency` của lần chạy đầu. Chỉ so độ trễ giữa các kiến trúc trên cùng một model, không xếp hạng độ trễ giữa các model (Qwen chạy trên Kaggle qua tunnel, Gemini và Opus qua proxy).
+
+**Bảng giá.** `pharma_lab/e2e/pricing.py` ghi giá niêm yết mỗi triệu token kèm nguồn và ngày đọc. Model không có giá thì `e2e report` dừng với `UnpricedModel` chứ không tính bằng 0. OpenRouter chưa công bố giá embedding và reranker trong danh sách model (kiểm ngày 2026-10-16); các mục đó đang mang giá đầu vào của Qwen3.5-9B làm cận trên, và giá thật của cặp model agent dùng phải được điền trước khi báo cáo.
+
+**So sánh hai run.** `e2e compare` so một cấu hình giữa hai run trên các item chung: hiệu trung bình (B trừ A) với CI bootstrap, kiểm định sign-flip ghép cặp, Holm trên các metric. Lệnh ghi `runs/<B>/reports/compare-<A>-<config>.csv|tex`; cột `same_judge` cho biết hai run có cùng `judge.json` không.
+
+```bash
+uv run pharma-lab e2e compare --run-a e2e-v2-gemini --run-b e2e-v2-qwen9b --config full
+```

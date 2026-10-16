@@ -25,11 +25,13 @@ pharma-lab rerank --run NAME --backend local --benchmark --model MODEL
 pharma-lab metrics --run NAME [--gold-only]
 pharma-lab metrics compare --run NAME --baseline MODEL --candidate MODEL
 pharma-lab e2e golden sample|resample|hard-candidates|trim|check|build
-pharma-lab e2e run --run NAME --config CONFIG [--limit N] [--deadline-seconds S] [--retry-errors]
-pharma-lab e2e judge --run NAME --config CONFIG [--judge-model MODEL] [--force]
+pharma-lab e2e run --run NAME --config CONFIG [--pipeline-option KEY=VALUE ...] [--limit N] [--deadline-seconds S] [--retry-errors]
+pharma-lab e2e judge --run NAME --config CONFIG_DIR [--judge-model MODEL] [--judge-reasoning none|low|medium] [--force]
 pharma-lab e2e calibration export|refresh|score --run NAME
-pharma-lab e2e report --run NAME
+pharma-lab e2e report --run NAME [--latency-run NAME]
+pharma-lab e2e compare --run-a NAME --run-b NAME [--config CONFIG_DIR]
 pharma-lab e2e rerank-server --model MODEL --hours H --kaggle-account accN|auto
+pharma-lab e2e embed-server --model MODEL --hours H --kaggle-account accN|auto
 pharma-lab e2e llm-server --model MODEL --hours H --kaggle-account accN|auto
 ```
 
@@ -158,11 +160,13 @@ Chi tiết trong [e2e-evaluation.md](e2e-evaluation.md).
 | `pharma-lab e2e golden trim --run RUN [--per-group 45]` | Bỏ câu answerable mà một lượt phủ đủ gold, đều theo nhóm, cho đến khi mỗi nhóm còn `--per-group` câu |
 | `pharma-lab e2e golden check FILE` | Kiểm một lô `*.authored.jsonl` (quote nằm trong section, hành vi theo nhóm, `absent_terms` vắng trong corpus) |
 | `pharma-lab e2e golden build` | Kiểm đủ số lượng từng nhóm rồi ghi `golden_e2e.jsonl` và manifest |
-| `pharma-lab e2e run --run NAME --config full\|one-step\|no-judge-refine\|no-rephrase\|no-rerank\|closed-book [--limit N] [--concurrency N] [--deadline-seconds S] [--retry-errors]` | Chạy agent trên bộ golden, ghi `runs/<run>/<config>/answers.jsonl`; chạy lại để resume |
-| `pharma-lab e2e judge --run NAME --config CONFIG [--judge-model MODEL] [--concurrency N] [--items IDS] [--force]` | Chấm bằng RAGAS và judge cấu trúc, ghi `judgments.jsonl` |
+| `pharma-lab e2e run --run NAME --config full\|one-step\|no-judge-refine\|no-rephrase\|no-rerank\|no-guard\|bm25\|dense\|hybrid-k60\|closed-book [--pipeline-option KEY=VALUE ...] [--limit N] [--concurrency N] [--deadline-seconds S] [--retry-errors]` | Chạy agent trên bộ golden, ghi `runs/<run>/<config>[+key=value...]/answers.jsonl`; chạy lại để resume |
+| `pharma-lab e2e judge --run NAME --config CONFIG_DIR [--judge-model MODEL] [--judge-reasoning none\|low\|medium] [--concurrency N] [--items IDS] [--force]` | Chấm bằng RAGAS và judge cấu trúc, ghi `judgments.jsonl` và `judge.json` |
 | `pharma-lab e2e calibration export --run NAME [--seed S] [--config C ...]` | Xuất 50 câu mù mỗi cấu hình (mặc định `full`, `one-step`) để chấm hiệu chỉnh |
 | `pharma-lab e2e calibration refresh --run NAME` | Sau khi sửa golden hoặc chạy lại câu trả lời: cập nhật các câu mù đã thay đổi trong mẫu (giữ nguyên mẫu), chuyển điểm cũ của chúng sang `grades.superseded.jsonl` và in danh sách cần chấm lại |
 | `pharma-lab e2e calibration score --run NAME` | Tính κ và ρ giữa judge và `calibration/grades.jsonl` (dừng nếu mẫu còn câu đã đổi mà chưa refresh) |
-| `pharma-lab e2e report --run NAME` | Ghi bảng CSV/LaTeX và phân tích lỗi vào `runs/<run>/reports/` |
+| `pharma-lab e2e report --run NAME [--latency-run NAME]` | Ghi bảng CSV/LaTeX (cả `cost.csv\|tex`) và phân tích lỗi vào `runs/<run>/reports/`; `--latency-run` lấy mọi số độ trễ từ run concurrency 1 |
+| `pharma-lab e2e compare --run-a NAME --run-b NAME [--config CONFIG_DIR]` | So một cấu hình giữa hai run trên item chung (sign-flip ghép cặp, Holm); ghi `runs/<B>/reports/compare-<A>-<config>.csv\|tex` |
 | `pharma-lab e2e rerank-server [--model MODEL] [--hours H] [--kaggle-account accN\|auto]` | Phục vụ reranker từ GPU Kaggle qua tunnel cloudflared có API key; ghi `data/work/serve/<model>.env` để các lượt `e2e run` dùng |
+| `pharma-lab e2e embed-server --model MODEL [--hours H] [--kaggle-account accN\|auto] [--attach OWNER/SLUG]` | Phục vụ model embedding truy vấn của agent từ GPU Kaggle qua tunnel; file env trỏ `PHARMA_RETRIEVAL__EMBEDDING__*` vào tunnel |
 | `pharma-lab e2e llm-server [--model MODEL] [--hours H] [--kaggle-account accN\|auto] [--attach OWNER/SLUG]` | Phục vụ model chat open-weight (mặc định `qwen3.5:9b-q8_0`, chia trên hai T4) qua tunnel; file env trỏ mọi bước của pipeline vào tunnel |
