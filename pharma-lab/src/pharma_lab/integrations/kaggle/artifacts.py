@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import shutil
@@ -9,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from pharma_lab import hashing
+from pharma_lab.hashing import canonical_sha256
 from pharma_lab.integrations.kaggle.errors import KagglePipelineError
 from pharma_lab.integrations.kaggle.models import (
     CloudArtifact,
@@ -16,7 +17,6 @@ from pharma_lab.integrations.kaggle.models import (
     JobIdentity,
     reuse_payload_of,
 )
-from pharma_lab.runtime.runtime_profiles import canonical_sha256
 
 
 class ArtifactContractError(KagglePipelineError):
@@ -24,14 +24,10 @@ class ArtifactContractError(KagglePipelineError):
 
 
 def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
     try:
-        with Path(path).open("rb") as handle:
-            for block in iter(lambda: handle.read(1024 * 1024), b""):
-                digest.update(block)
+        return hashing.sha256_file(path)
     except OSError as exc:
         raise ArtifactContractError(f"Cannot read artifact file: {path}") from exc
-    return digest.hexdigest()
 
 
 @dataclass(frozen=True)
