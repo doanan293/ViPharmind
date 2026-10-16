@@ -19,6 +19,7 @@ from pharma_lab.e2e.records import (
     CitedSection,
     JsonlStore,
     Judgement,
+    ReactRecord,
     RoundRecord,
     TokenUsage,
 )
@@ -322,3 +323,36 @@ def test_latency_run_requires_the_same_config(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="one-step"):
         write_report(quality, items, latency_root=slow)
+
+
+def test_report_writes_react_failures(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    write_config(tmp_path, "full", [1.0, 1.0, 0.5, 1.0])
+    write_config(tmp_path, "react", [1.0, 1.0, 0.5, 1.0])
+    store = JsonlStore(tmp_path / "react" / "answers.jsonl", AnswerRecord)
+    for n in range(4):
+        record = answer(n, "react", retrieved="other" if n == 0 else SECTION)
+        store.append(
+            record.model_copy(
+                update={
+                    "react": ReactRecord(rounds=2, tool_calls=3, round_cap_hit=n == 0),
+                    "citations": [] if n == 1 else record.citations,
+                }
+            )
+        )
+
+    write_report(tmp_path, items)
+
+    (row,) = rows(tmp_path / "reports" / "react_failures.csv")
+    assert row["config"] == "react"
+    assert row["n"] == "4"
+    assert float(row["react_round_cap_rate"]) == pytest.approx(0.25)
+    assert float(row["react_round_cap_rate_ci_low"]) < 0.25
+    assert float(row["react_uncited_rate"]) == pytest.approx(0.25)
+    assert float(row["react_rounds"]) == pytest.approx(2.0)
+    main = rows(tmp_path / "reports" / "main.csv")
+    assert {r["config"] for r in main if r["metric"] == "react_tool_calls"} == {
+        "full",
+        "react",
+    }
+    assert CONFIG_LABELS["react"] == "ReAct agent"

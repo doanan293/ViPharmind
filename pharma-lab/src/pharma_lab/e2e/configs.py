@@ -7,6 +7,8 @@ from dataclasses import asdict, fields
 from enum import StrEnum
 
 from pharma_agent.application.chat.context import PipelineOptions
+from pharma_agent.application.chat.graph import ChatGraph, build_chat_graph
+from pharma_agent.application.chat.react_graph import build_react_graph
 from pharma_agent.infrastructure.settings import Settings
 from pydantic import TypeAdapter
 
@@ -24,6 +26,8 @@ class E2EConfig(StrEnum):
     HYBRID_K60 = "hybrid-k60"
     # The answer model alone, with no retrieval: what the corpus and pipeline add.
     CLOSED_BOOK = "closed-book"
+    # One model loop over a search tool instead of the pipeline (spec v2 §2.4).
+    REACT = "react"
 
 
 _PIPELINES: dict[E2EConfig, PipelineOptions] = {
@@ -37,11 +41,17 @@ _PIPELINES: dict[E2EConfig, PipelineOptions] = {
     E2EConfig.DENSE: PipelineOptions(),
     E2EConfig.HYBRID_K60: PipelineOptions(),
     E2EConfig.CLOSED_BOOK: PipelineOptions(rephrase=False, judge_refine=False),
+    # The ReAct graph runs only the guard of these steps.
+    E2EConfig.REACT: PipelineOptions(),
 }
 
 
 def pipeline_for(config: E2EConfig) -> PipelineOptions:
     return _PIPELINES[config]
+
+
+def graph_for(config: E2EConfig) -> ChatGraph:
+    return build_react_graph() if config is E2EConfig.REACT else build_chat_graph()
 
 
 def uses_retrieval(config: E2EConfig) -> bool:

@@ -2,7 +2,8 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from pharma_agent.application.chat.graph import build_chat_graph
+from pharma_agent.application.chat.graph import ChatGraph, build_chat_graph
+from pharma_agent.application.chat.react_graph import build_react_graph
 from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.agent.decisions import GuardThresholds
 from pharma_agent.domain.agent.schemas import (
@@ -14,7 +15,7 @@ from pharma_agent.domain.agent.schemas import (
     RephraseResult,
 )
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict
-from pharma_agent.domain.llm.models import LlmRole, LlmUsage, ToolTurn
+from pharma_agent.domain.llm.models import LlmRole, LlmUsage, ToolCall, ToolTurn
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.infrastructure.settings import Settings
 from tests.e2e.factories import (
@@ -94,9 +95,15 @@ def llm(*, judge: bool, rephrase: bool) -> ScriptedLlm:
     return fake
 
 
-def executor(fake: ScriptedLlm, retriever: FakeRetriever, config: E2EConfig):
+def executor(
+    fake: ScriptedLlm,
+    retriever: FakeRetriever,
+    config: E2EConfig,
+    *,
+    graph: ChatGraph | None = None,
+):
     return BackendTurnExecutor(
-        graph=build_chat_graph(),
+        graph=graph if graph is not None else build_chat_graph(),
         llm=fake,
         retrieval=retrieval_service(retriever),
         limits=BudgetLimits(),
@@ -452,3 +459,33 @@ def test_recording_llm_records_tool_calls() -> None:
     turn, _ = asyncio.run(recorder.tool_call(LlmRole.AGENT, [], []))
     assert turn.text == "xong"
     assert recorder.usage_by_role()["agent"].calls == 1
+
+
+async def test_react_executor_records_the_react_statistics() -> None:
+    fake = llm(judge=False, rephrase=False)
+    fake.script_tool_turns(
+        ToolTurn(
+            text="",
+            tool_calls=(
+                ToolCall(id="c1", name="search_corpus", arguments='{"query": "x"}'),
+            ),
+            finish_reason="tool_calls",
+        ),
+        ToolTurn(text="Đáp [1].", tool_calls=(), finish_reason="stop"),
+    )
+    record = await executor(
+        fake,
+        FakeRetriever([make_hit("a", SECTION, score=0.9)]),
+        E2EConfig.REACT,
+        graph=build_react_graph(),
+    ).execute(item())
+    assert record.status == "completed"
+    assert record.react is not None
+    assert record.react.rounds == 1
+    assert record.react.tool_calls == 1
+    assert record.usage_by_role["agent"].calls == 2
+    assert [s.kind for s in record.steps][:2] == ["guard", "agent"]
+    assert [(c.index, c.section_ids) for c in record.citations] == [(1, [SECTION])]
+    assert record.rounds[-1].sections == [SECTION]
+    assert record.search_queries == [["x"]]
+    assert record.error is None
