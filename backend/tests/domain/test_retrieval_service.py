@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from collections.abc import Sequence
 
@@ -201,3 +202,42 @@ async def test_without_a_scope_the_retriever_uses_its_default() -> None:
     retriever = FakeRetriever([[hit("a", 0.9)]])
     await scoped_service(retriever).search(queries("q"), rerank_query="q")
     assert retriever.scopes == [None]
+
+
+class SlowRetriever(FakeRetriever):
+    async def search_many(self, queries, top_k, scope=None):
+        await asyncio.sleep(0.02)
+        return await super().search_many(queries, top_k, scope)
+
+
+class SlowReranker(FakeReranker):
+    async def rerank(self, query, hits, top_n):
+        await asyncio.sleep(0.02)
+        return await super().rerank(query, hits, top_n)
+
+
+async def test_search_reports_retrieval_and_rerank_seconds() -> None:
+    service = RetrievalService(
+        SlowRetriever([[hit("a", 0.9)]]),
+        SlowReranker(),
+        RetrievalConfig(candidate_k=5, rerank_top_n=2),
+    )
+
+    result = await service.search(queries("q1"), rerank_query="q1")
+
+    assert result.retrieval_seconds >= 0.02
+    assert result.rerank_seconds >= 0.02
+
+
+async def test_rerank_seconds_are_zero_when_every_score_is_known() -> None:
+    service = RetrievalService(
+        FakeRetriever([[hit("a", 0.9)]]),
+        SlowReranker(),
+        RetrievalConfig(candidate_k=5, rerank_top_n=2),
+    )
+
+    result = await service.search(
+        queries("q1"), rerank_query="q1", known_scores={chunk_uuid("a"): 0.5}
+    )
+
+    assert result.rerank_seconds == 0.0
