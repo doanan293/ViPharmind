@@ -49,7 +49,11 @@ from pharma_lab.e2e.decision_probe import (
     recommended_evidence_chars,
     run_probe,
 )
-from pharma_lab.e2e.decision_scoring import score_decision_set, write_scores
+from pharma_lab.e2e.decision_scoring import (
+    score_decision_set,
+    score_inputs,
+    write_scores,
+)
 from pharma_lab.e2e.golden import (
     ANSWERABLE_PER_GROUP,
     QUOTAS,
@@ -80,7 +84,6 @@ from pharma_lab.e2e.sampling import (
 from pharma_lab.evaluation.artifact_contracts import sha256_file
 from pharma_lab.evaluation.backend_retrieval import load_query_rows
 from pharma_lab.evaluation.relevance_judgments import judgments_path, load_judgments
-from pharma_lab.runtime.catalog import require_model
 
 GOLD_PATH = GOLD_DIR / "section_retrieval_eval.jsonl"
 
@@ -671,9 +674,7 @@ def decision_set_build(
     model: Annotated[str, typer.Option("--model", help="Reranker of that run")],
     size: Annotated[int, typer.Option("--size", min=1)] = 300,
     seed: Annotated[int, typer.Option("--seed")] = 0,
-    evaluation: Annotated[
-        Path, typer.Option("--evaluation", dir_okay=False)
-    ] = GOLD_PATH,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
     golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
     output: Annotated[Path, typer.Option("--output", dir_okay=False)] = (
         DECISION_CALIBRATION_DIR / "judge_set.jsonl"
@@ -684,13 +685,9 @@ def decision_set_build(
     def handler() -> CommandResult:
         path = build_judge_set(
             run_dir(run_name),
-            evaluation,
-            load_judgments(
-                judgments_path(evaluation), evaluation_sha256=sha256_file(evaluation)
-            ),
+            bundle,
             output=output,
             reranker=model,
-            rerank_slug=require_model(model).slug,
             size=size,
             seed=seed,
             golden_sources={
@@ -755,16 +752,20 @@ def decision_set_score(
         Path, typer.Option("--backend-env-file", dir_okay=False)
     ] = BACKEND_ENV_FILE,
 ) -> None:
-    """Score the decision model on the held-out set and write jev.json with tau, block and review."""
+    """Score the decision model on the held-out set (resumes from decisions.jsonl) and write jev.json."""
 
     def handler() -> CommandResult:
         decision = SystemOneAdapter(Settings(_env_file=backend_env_file).llm)
         scores = asyncio.run(
             score_decision_set(
-                decision, load_rows(judge_set), load_rows(guard_set), repeats=repeats
+                decision,
+                load_rows(judge_set),
+                load_rows(guard_set),
+                repeats=repeats,
+                decisions_path=output.with_name("decisions.jsonl"),
             )
         )
-        path = write_scores(scores, output)
+        path = write_scores(scores, output, inputs=score_inputs(judge_set, guard_set))
         return CommandResult(
             "e2e decision-set score",
             CommandStatus.COMPLETE,
