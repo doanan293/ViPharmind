@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pharma_agent.domain.corpus.bundle import BundleValidationError
+from pharma_agent.domain.corpus.bundle import MAX_CHUNK_CHARS, BundleValidationError
 
 from pharma_lab.bundle.embed import BundleEmbedRequest, embed_bundle
 from pharma_lab.bundle.export import ExportRequest, export_bundle
+from pharma_lab.bundle.rechunk import RechunkRequest, rechunk_bundle
 from pharma_lab.cli.runtime import (
     CommandResult,
     CommandStatus,
@@ -181,5 +182,67 @@ def embed(
             budget_seconds=budget_seconds,
             request_timeout_seconds=request_timeout_seconds,
             kaggle_account=kaggle_account,
+        ),
+    )
+
+
+def rechunk_command(
+    *,
+    bundle: Path,
+    out: Path,
+    collection: str,
+    title: str,
+    target_chars: int,
+    max_chars: int = MAX_CHUNK_CHARS,
+) -> CommandResult:
+    try:
+        manifest = rechunk_bundle(
+            RechunkRequest(
+                bundle_dir=bundle,
+                output_dir=out,
+                collection_key=collection,
+                collection_title=title,
+                target_chars=target_chars,
+                max_chars=max_chars,
+            )
+        )
+    except BundleValidationError as exc:
+        raise invalid_bundle(exc) from exc
+    return CommandResult(
+        command="bundle rechunk",
+        status=CommandStatus.COMPLETE,
+        artifact=out,
+        details={
+            "collection": manifest.collection.key,
+            "target_chars": manifest.chunking.target_chars,
+            "max_chars": manifest.chunking.max_chars,
+            "documents": manifest.document_count,
+            "sections": manifest.section_count,
+        },
+    )
+
+
+@bundle_app.command("rechunk")
+def rechunk(
+    ctx: typer.Context,
+    bundle: Annotated[
+        Path, typer.Option("--bundle", file_okay=False, resolve_path=True)
+    ],
+    out: Annotated[Path, typer.Option("--out", file_okay=False, resolve_path=True)],
+    collection: Annotated[str, typer.Option("--collection")],
+    title: Annotated[str, typer.Option("--title")],
+    target_chars: Annotated[int, typer.Option("--target-chars", min=1)],
+    max_chars: Annotated[int, typer.Option("--max-chars", min=1)] = MAX_CHUNK_CHARS,
+) -> None:
+    """Copy a bundle under another collection and chunking, without vectors (D7)."""
+    run_handler(
+        state_from_context(ctx),
+        lambda: rechunk_command(
+            bundle=bundle,
+            out=out,
+            collection=collection,
+            title=title,
+            target_chars=target_chars,
+            max_chars=max_chars,
         ),
     )
