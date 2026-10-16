@@ -217,14 +217,26 @@ def guard_questions() -> dict[str, NoulQuestion]:
     return questions
 
 
+def intent_questions() -> dict[str, NoulQuestion]:
+    """Only the guard battery's asks_<intent> nouls: what a decision-model judge asks
+    itself when the guard verdict did not come from the decision model."""
+    return {
+        key: question
+        for key, question in guard_questions().items()
+        if key.startswith("asks_")
+    }
+
+
+def asked_intents(answers: Mapping[str, float], threshold: float) -> list[str]:
+    return [
+        intent for intent in INTENTS if answers.get(f"asks_{intent}", 0.0) >= threshold
+    ]
+
+
 def guard_verdict(
     answers: Mapping[str, float], thresholds: GuardThresholds
 ) -> tuple[Verdict, list[str]]:
-    asked = [
-        intent
-        for intent in INTENTS
-        if answers.get(f"asks_{intent}", 0.0) >= thresholds.asks
-    ]
+    asked = asked_intents(answers, thresholds.asks)
     attack = answers.get("is_attack", 0.0)
     if attack >= thresholds.block:
         return Verdict(
@@ -328,3 +340,15 @@ def template_queries(subjects: Sequence[str], gaps: Sequence[str]) -> list[str]:
             if query and query not in queries:
                 queries.append(query)
     return queries[:3]
+
+
+def refine_intents(
+    asked: Sequence[str], judge_answers: Mapping[str, float] | None
+) -> list[str]:
+    """What template refine searches when the judge left no gaps: the asked intents,
+    least covered first by the last decision judge (stable, so asked order without one),
+    or general information when no intent was asked."""
+    if not asked:
+        return ["general_info"]
+    answers = judge_answers or {}
+    return sorted(asked, key=lambda intent: answers.get(f"covers_{intent}", 1.0))

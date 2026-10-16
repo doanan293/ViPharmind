@@ -11,6 +11,7 @@ from langgraph.runtime import Runtime
 from pharma_agent.application.chat.context import TurnContext
 from pharma_agent.application.chat.state import ChatTurnState
 from pharma_agent.application.progress import EventType, Phase, ProgressEvent
+from pharma_agent.domain.agent.actions import ActionKind
 from pharma_agent.domain.agent.budget import BudgetExhausted
 from pharma_agent.domain.agent.citations import (
     SNIPPET_CHARS,
@@ -18,9 +19,13 @@ from pharma_agent.domain.agent.citations import (
     citations_from,
 )
 from pharma_agent.domain.agent.decisions import (
+    asked_intents,
+    guard_state,
+    intent_questions,
     judge_decision,
     judge_questions,
     judge_state,
+    refine_intents,
     template_queries,
 )
 from pharma_agent.domain.agent.prompts import (
@@ -30,7 +35,7 @@ from pharma_agent.domain.agent.prompts import (
     refine_messages,
     rephrase_messages,
 )
-from pharma_agent.domain.agent.run import AnswerMode, ErrorCode
+from pharma_agent.domain.agent.run import AgentRun, AnswerMode, ErrorCode
 from pharma_agent.domain.agent.schemas import (
     JudgeDecision,
     JudgeOutcome,
@@ -167,8 +172,25 @@ async def judge_node(
     gaps: list[str] = []
     tau = runtime.context.pipeline.refine_threshold
     decision_port = deps.decisions.get(LlmRole.JUDGE)
+    intents: Decision | None = None
+    if decision_port is not None and _judge_asks_intents(run):
+        # The guard did not ask the intents on the decision model (disabled, failed
+        # open, regex or LLM guard), so the judge asks them once per turn itself.
+        try:
+            intents = await decision_port.decide(
+                LlmRole.JUDGE,
+                guard_state(runtime.context.conversation, run.original_query),
+                intent_questions(),
+            )
+            run.adopt_asked_intents(
+                asked_intents(intents.answers, deps.guardrail.thresholds.asks)
+            )
+        except LlmError:
+            run.adopt_asked_intents([])
+    raw: Decision | None = None
     try:
-        raw: Decision | None = None
+        if intents is not None:
+            run.charge(LlmUsage(prompt_tokens=intents.input_tokens))
         if decision_port is not None:
             packed = run.evidence.pack(run.limits.max_evidence_chars)
             raw = await decision_port.decide(
@@ -209,9 +231,11 @@ async def judge_node(
             confidence=decision.confidence,
             now=now,
             decision=raw,
+            intents_decision=intents,
         )
         gaps = list(decision.gaps)
     except (LlmError, BudgetExhausted) as exc:
+        # A paid decision call stays on record even when charging it ran out of budget.
         run.record_judge(
             JudgeOutcome.ANSWER,
             gaps=[],
@@ -219,8 +243,17 @@ async def judge_node(
             confidence=0.0,
             now=now,
             failed=True,
+            decision=raw,
+            intents_decision=intents,
         )
     return {"run": run, "last_gaps": gaps}
+
+
+def _judge_asks_intents(run: AgentRun) -> bool:
+    """First judge of the turn, and the guard verdict is not the decision model's."""
+    verdict = run.guard_verdict
+    first = run.actions.last_of(ActionKind.JUDGE) is None
+    return first and (verdict is None or verdict.source is not VerdictSource.DECISION)
 
 
 @guarded(ErrorCode.REFINE_FAILED)
@@ -231,8 +264,11 @@ async def refine_node(
     now = deps.clock.now()
     if runtime.context.pipeline.refine_mode == "template":
         subjects = run.subjects or [run.standalone_query]
+        gaps = state.last_gaps or refine_intents(
+            run.asked_intents, run.last_judge_answers()
+        )
         fresh = run.record_refine(
-            template_queries(subjects, state.last_gaps), now=now, mode="template"
+            template_queries(subjects, gaps), now=now, mode="template"
         )
         return {"run": run, "pending_queries": fresh}
     hints: list[str] = []
