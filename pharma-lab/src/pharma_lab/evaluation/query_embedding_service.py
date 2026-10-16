@@ -18,6 +18,7 @@ from pharma_lab.evaluation.query_embedding_cache import (
     query_hash,
 )
 from pharma_lab.integrations.kaggle.job_lock import (
+    hold_pinned_account,
     kaggle_cache_lock,
     kaggle_job_lock,
 )
@@ -131,7 +132,10 @@ class KaggleQueryEmbeddingBackend:
     def _run_kaggle_orchestrator(
         request: QueryEmbeddingRequest,
     ) -> QueryEmbeddingStageResult:
-        with kaggle_job_lock(request.output_dir):
+        with (
+            kaggle_job_lock(request.output_dir),
+            hold_pinned_account(request.kaggle_account),
+        ):
             return KaggleQueryEmbeddingBackend._run_kaggle_unlocked(request)
 
     @staticmethod
