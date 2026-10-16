@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from pharma_agent.application.chat.context import TurnDeps
 from pharma_agent.domain.guardrail.service import GuardrailService
-from pharma_agent.domain.llm.decision import Decision, NoulQuestion
+from pharma_agent.domain.llm.decision import Decision, DecisionPort, NoulQuestion
 from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.models import (
@@ -148,16 +148,19 @@ def build_deps(
     llm: FakeLlm,
     retriever: FakeRetriever,
     reranker: Reranker | None = None,
+    decisions: Mapping[LlmRole, DecisionPort] | None = None,
+    guard_decision: DecisionPort | None = None,
 ) -> TurnDeps:
     return TurnDeps(
         llm=llm,
-        guardrail=GuardrailService(llm),
+        guardrail=GuardrailService(llm, decision=guard_decision),
         retrieval=RetrievalService(
             retriever,
             reranker if reranker is not None else FakeReranker(),
             RetrievalConfig(candidate_k=5, rerank_top_n=3),
         ),
         clock=FixedClock(NOW),
+        decisions=dict(decisions or {}),
     )
 
 

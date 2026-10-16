@@ -4,6 +4,7 @@ import json
 from pharma_agent.domain.agent.prompts import (
     ASSISTANT_ROLE,
     DISCLAIMER_PHRASES,
+    JUDGE_SYSTEM,
     answer_messages,
     fallback_text,
     judge_messages,
@@ -170,3 +171,7 @@ def test_audience_changes_wording_but_keeps_every_fact() -> None:
 
         assert "ngắn gọn" not in prompt
         assert "đầy đủ" in prompt
+
+
+def test_judge_prompt_asks_for_a_confidence() -> None:
+    assert "- confidence: xác suất (0 đến 1)" in JUDGE_SYSTEM
