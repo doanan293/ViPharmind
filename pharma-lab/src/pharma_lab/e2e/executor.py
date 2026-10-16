@@ -10,9 +10,10 @@ from pharma_agent.application.chat.graph import ChatGraph
 from pharma_agent.application.chat.runner import ChatTurnRunner, TurnOutcome
 from pharma_agent.domain.agent.actions import Action, ActionKind
 from pharma_agent.domain.agent.budget import BudgetLimits
+from pharma_agent.domain.agent.decisions import GuardThresholds
 from pharma_agent.domain.agent.run import AgentRun, AnswerMode, RunStatus
 from pharma_agent.domain.conversation.models import ConversationContext, Turn
-from pharma_agent.domain.guardrail.service import GuardrailService
+from pharma_agent.domain.guardrail.service import DEFAULT_THRESHOLDS, GuardrailService
 from pharma_agent.domain.llm.decision import DecisionPort
 from pharma_agent.domain.llm.models import ChatMessage, ChatRole, LlmRole, system, user
 from pharma_agent.domain.llm.port import LlmError, LlmPort
@@ -121,6 +122,7 @@ def decision_records(entries: Sequence[Action]) -> list[DecisionRecord]:
                 input_tokens=raw["input_tokens"],
                 seconds=raw["seconds"],
                 answers=raw["answers"],
+                raw=raw.get("raw", {}),
             )
         )
     return records
@@ -244,7 +246,9 @@ class BackendTurnExecutor:
         config: str,
         clock: Clock | None = None,
         decisions: Mapping[LlmRole, DecisionPort] | None = None,
+        guard_thresholds: GuardThresholds = DEFAULT_THRESHOLDS,
     ) -> None:
+        self._guard_thresholds = guard_thresholds
         self._decisions = dict(decisions or {})
         self._graph = graph
         self._llm = llm
@@ -259,7 +263,9 @@ class BackendTurnExecutor:
         deps = TurnDeps(
             llm=recorder,
             guardrail=GuardrailService(
-                recorder, decision=self._decisions.get(LlmRole.GUARDRAIL)
+                recorder,
+                decision=self._decisions.get(LlmRole.GUARDRAIL),
+                thresholds=self._guard_thresholds,
             ),
             retrieval=self._retrieval,
             clock=self._clock,
