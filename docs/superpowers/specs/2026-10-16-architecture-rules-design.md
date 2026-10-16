@@ -116,20 +116,23 @@ Tầng trên được import tầng dưới. Package cùng tầng độc lập n
 
 | Từ | Đến | Lý do |
 | --- | --- | --- |
-| `evaluation/artifact_contracts.py` | gộp vào `artifacts/manifest.py` | `artifacts/` và `bundle/` đang import nó; hai class `Completion` giống hệt nhau gộp làm một. `iter_jsonl_objects` chuyển hẳn sang `artifacts/jsonl.py`, bỏ re-export. |
+| `evaluation/artifact_contracts.py` | gộp vào `artifacts/manifest.py` | `artifacts/` và `bundle/` đang import nó; hai class `Completion` giống hệt nhau gộp làm một. `artifacts/jsonl.py` (chỉ re-export `iter_jsonl_objects`) bị xóa, mọi chỗ import từ `artifacts/manifest.py`. |
 | `evaluation/query_hash.py`, `evaluation/rerank_contract.py` | `pharma_lab/hashing.py` | Worker Kaggle đang import; là hàm thuần trên chuỗi. |
-| `sha256_file` (3 bản), `canonical_sha256` (3 bản) | một định nghĩa mỗi hàm trong `pharma_lab/hashing.py` | `runtime/runtime_profiles.py` dùng `canonical_sha256`, nên nơi định nghĩa phải ở dưới `runtime`. |
+| `sha256_file` (3 bản), `canonical_sha256` (4 bản kể cả bản private) | một vòng lặp hash cho mỗi hàm trong `pharma_lab/hashing.py` | `runtime/runtime_profiles.py` dùng `canonical_sha256`, nên nơi định nghĩa phải ở dưới `runtime`. `artifacts/manifest.py` và `integrations/kaggle/artifacts.py` giữ wrapper `sha256_file` của riêng mình chỉ để đổi `OSError` thành `ArtifactContractError` (và cache digest ở manifest), vì gọi tới loại lỗi đó. |
 | `embeddings/text_cache.py` | `cache/text_embeddings.py` | Worker `corpus_embed` đang import; `embeddings/service.py` gọi Kaggle nên cache phải nằm dưới `integrations`. |
 | `integrations/kaggle/workers/scheduling.py` | `runtime/scheduling.py` | Helper asyncio thuần, `text_cache` cần nó. |
 | `query_embedding_cache_path`, `text_embedding_cache_path`, `rerank_score_cache_path`, `rerank_log_path` trong `config/paths.py` | `cache/paths.py` | Bốn hàm này gọi `runtime.catalog.require_model`, tạo vòng `config` ↔ `runtime`. Hằng thư mục (`QUERY_EMBEDDING_CACHE_DIR`...) ở lại `config/paths.py`. Test tương ứng trong `tests/config/test_paths.py` sang `tests/cache/test_paths.py`. |
-| `lock_file_name`, `_flock`, `_acquire` trong `integrations/kaggle/job_lock.py` | `cache/file_locks.py` | `artifacts/publisher.py` chỉ cần khóa file thuần. Phần khóa tài khoản Kaggle (`kaggle_job_lock`, `kaggle_cache_lock`, `kaggle_account_lock`, `wait_for_kaggle_account`, `hold_pinned_account`, `KaggleAccountBusy`) ở lại `job_lock.py` và import từ `cache/file_locks.py`. |
+| `lock_file_name`, `_flock` (thành `flock`), `_LockHeldError` (thành `LockHeldError`) trong `integrations/kaggle/job_lock.py` | `cache/file_locks.py` | `artifacts/publisher.py` chỉ cần tên file khóa và thư mục khóa. `_acquire` và phần khóa tài khoản Kaggle (`kaggle_job_lock`, `kaggle_cache_lock`, `kaggle_account_lock`, `wait_for_kaggle_account`, `hold_pinned_account`, `KaggleAccountBusy`) ở lại `job_lock.py`, import từ `cache/file_locks.py`, và đọc thư mục khóa mặc định qua `config.paths.LOCK_DIR` lúc gọi để conftest đổi hướng ở một chỗ. |
 
 Mỗi module dời giữ nguyên tên hàm, class và chữ ký. Mọi chỗ import sửa sang đường dẫn mới, không để
-lại module re-export ở chỗ cũ. Test dời theo cây gương: `tests/evaluation/test_rerank_contract.py`
-sang `tests/test_hashing.py`, `tests/embeddings/test_text_cache.py` sang
-`tests/cache/test_text_embeddings.py`, `tests/integrations/kaggle/test_worker_scheduling.py` sang
-`tests/runtime/test_scheduling.py`, phần test khóa file thuần trong
-`tests/integrations/kaggle/test_job_lock.py` sang `tests/cache/test_file_locks.py`.
+lại module re-export ở chỗ cũ. Test dời theo cây gương: `tests/test_hashing.py` mới cho `hashing.py`
+(`tests/evaluation/test_rerank_contract.py` ở lại vì nó test `runtime/model_profiles.py`, không
+test `rerank_contract.py`); `tests/embeddings/test_text_cache.py` thành
+`tests/embeddings/test_service.py` vì nó test `embeddings/service.py` là chính;
+`tests/integrations/kaggle/test_worker_scheduling.py` sang `tests/runtime/test_scheduling.py`;
+hai test `lock_file_name` trong `tests/integrations/kaggle/test_job_lock.py` sang
+`tests/cache/test_file_locks.py`; `tests/artifacts/test_manifest.py` và `tests/cache/test_paths.py`
+mới cho hai module nhận code.
 
 ### 5.3 Contract import-linter
 
