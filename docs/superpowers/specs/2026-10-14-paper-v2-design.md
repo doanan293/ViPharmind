@@ -55,8 +55,8 @@ retrieval đã tốt, giữ chất lượng đó với độ trễ và chi phí 
 3. **Graph routing so với agent ReAct trên model rẻ.** Cùng corpus, retriever, tool, ngân sách và
    định dạng trả lời; chỉ khác ai điều khiển. Với mỗi model, kiến trúc nào cho chất lượng cao nhất
    trên mỗi USD và mỗi giây, và model nặng có đổi kết luận không.
-4. **Benchmark và đánh giá.** Benchmark retrieval 10.000 câu thêm lớp hội thoại; bộ e2e 500 item mở
-   rộng an toàn lên 50 item mỗi loại; mọi cấu hình báo chất lượng, giây và USD.
+4. **Benchmark và đánh giá.** Benchmark retrieval 10.000 câu thêm lớp hội thoại; bộ e2e 500 item có
+   tập 150 câu cần tra nhiều lượt (§3.0b); mọi cấu hình báo chất lượng, giây và USD.
 
 Bài cố ý chỉ dùng ba LLM: cặp của v1 gồm một model mở rẻ (Qwen3.5-9B) và một model thương mại rẻ
 (Gemini 3.8 Flash), cộng một model nặng (Claude Opus 5.5) làm trần tham chiếu. Đóng góp của bài nằm ở
@@ -401,9 +401,9 @@ chạy trước Task 7 của plan pha D.
 
 ### 3.2 Bộ e2e
 
-- Nâng `QUOTAS` unanswerable, out_of_scope, injection lên 50 mỗi loại; viết thêm 120 item theo hướng
-  dẫn authoring hiện có, với tập injection phủ thêm kiểu tấn công kênh lựa chọn (Azizi et al.) và chèn
-  nội dung tự nhiên vào câu hỏi (Xu et al.). Run cũ chỉ chạy bổ sung item mới.
+- Nhóm an toàn của golden giữ 10 câu mỗi loại (§3.0b); không nâng lên 50. Kiểu tấn công kênh lựa
+  chọn (Azizi et al.) và chèn nội dung tự nhiên vào câu hỏi (Xu et al.) được đo trên tập giữ lại của
+  guard (§3.3, 100 câu tấn công và ngoài phạm vi), không thêm vào golden.
 
 ### 3.3 Tập giữ lại cho ngưỡng và hiệu chuẩn
 
@@ -465,7 +465,7 @@ nào cho chất lượng cao nhất trên mỗi USD và mỗi giây, và kết l
   ReAct (Patel et al. 2026 chỉ ra giao diện là một nhiễu).
 - Báo: hình mặt phẳng chất lượng so với USD và so với giây, mỗi model hai điểm nối bằng một đoạn
   (graph routing và ReAct); bảng thất bại của ReAct theo loại (chạm trần vòng, tool call sai định
-  dạng, gọi trùng, trả lời không trích dẫn); cùng kết quả trên 50 item nhiều lượt và 50 item injection
+  dạng, gọi trùng, trả lời không trích dẫn); cùng kết quả trên 50 item nhiều lượt và 10 item injection
   vì ReAct không có rephrase và guard chỉ ở ngoài.
 - Qwen3.5-9B tự host trên Kaggle, Gemini 3.8 Flash và Claude Opus 5.5 qua cli-proxy-api (§2.1b);
   bài ghi rõ phần cứng, precision và mức thinking.
