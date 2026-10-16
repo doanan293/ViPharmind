@@ -50,6 +50,83 @@ markers = ["integration: needs Docker (run with -m integration)"]
 addopts = ["--import-mode=importlib", "-m", "not integration"]
 filterwarnings = ["error"]
 
+[tool.importlinter]
+root_package = "pharma_agent"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "api > infrastructure > application > domain"
+type = "layers"
+layers = [
+    "pharma_agent.api",
+    "pharma_agent.infrastructure",
+    "pharma_agent.application",
+    "pharma_agent.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "domain is framework-free"
+type = "forbidden"
+source_modules = ["pharma_agent.domain"]
+forbidden_modules = [
+    "langgraph",
+    "langchain_core",
+    "openai",
+    "qdrant_client",
+    "sqlalchemy",
+    "fastapi",
+    "langfuse",
+    "httpx",
+]
+
+[[tool.importlinter.contracts]]
+name = "application reaches databases, SDKs and transports only through domain ports"
+type = "forbidden"
+source_modules = ["pharma_agent.application"]
+forbidden_modules = [
+    "openai",
+    "qdrant_client",
+    "sqlalchemy",
+    "psycopg",
+    "alembic",
+    "fastapi",
+    "fastapi_users",
+    "starlette",
+    "langfuse",
+    "httpx",
+    "typer",
+]
+
+[[tool.importlinter.contracts]]
+name = "application features are independent"
+type = "independence"
+modules = [
+    "pharma_agent.application.access",
+    "pharma_agent.application.account",
+    "pharma_agent.application.admin",
+    "pharma_agent.application.audit",
+    "pharma_agent.application.chat",
+    "pharma_agent.application.conversation",
+    "pharma_agent.application.corpus",
+    "pharma_agent.application.feedback",
+    "pharma_agent.application.memory",
+    "pharma_agent.application.organizations",
+]
+
+[[tool.importlinter.contracts]]
+name = "api calls application, never domain"
+type = "forbidden"
+source_modules = ["pharma_agent.api"]
+forbidden_modules = ["pharma_agent.domain"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "routers reach infrastructure only through api.deps and api.app"
+type = "forbidden"
+source_modules = ["pharma_agent.api.routers"]
+forbidden_modules = ["pharma_agent.infrastructure"]
+allow_indirect_imports = true
+
 [tool.vercel]
 # Vercel Functions import this FastAPI instance; `pharma-agent serve` stays the way to run
 # the API anywhere else.
