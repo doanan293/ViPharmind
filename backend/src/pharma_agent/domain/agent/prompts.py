@@ -129,14 +129,14 @@ def refine_messages(
 
 # ----- answer ------------------------------------------------------------
 
-_CITATION_RULES = """Quy tắc trích dẫn:
+CITATION_RULES = """Quy tắc trích dẫn:
 - Mỗi nguồn trong phần "Tài liệu" có số [n]. Đặt [n] ngay sau câu hoặc ý lấy từ nguồn đó.
 - Mọi thông tin về liều, chống chỉ định, tương tác, tác dụng phụ đều phải có [n].
 - Chỉ dùng số [n] có trong Tài liệu. Không bịa thông tin ngoài Tài liệu; nếu Tài liệu không nói, ghi rõ là tài liệu không đề cập."""
 
 _MODE_INSTRUCTIONS = {
     AnswerMode.GROUNDED: "Trả lời câu hỏi dựa trên Tài liệu bên dưới.\n"
-    + _CITATION_RULES,
+    + CITATION_RULES,
     AnswerMode.NO_RETRIEVAL: (
         "Câu hỏi là lời chào, cảm ơn hoặc hỏi về chính trợ lý. Trả lời ngắn gọn, thân thiện, "
         "giới thiệu rằng bạn tra cứu thông tin thuốc từ Dược thư Quốc gia và mời người dùng đặt câu hỏi về thuốc. Không trích dẫn."
