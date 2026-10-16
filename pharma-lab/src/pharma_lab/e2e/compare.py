@@ -114,9 +114,8 @@ def _write(
 ) -> None:
     directory = run_b / REPORTS_DIR
     directory.mkdir(parents=True, exist_ok=True)
-    stem = f"compare-{name_a}-{config}"
-    if config_b != config:
-        stem += f"-vs-{config_b}"
+    pair = config if config_b == config else f"{config}-vs-{config_b}"
+    stem = f"compare-{name_a}-{pair}"
     write_csv(
         directory / f"{stem}.csv",
         [field.name for field in fields(CompareRow)],
@@ -128,7 +127,7 @@ def _write(
         f"Paired comparison of {config if config_b == config else f'{config} and {config_b}'}: "
         f"{run_b.name} minus {name_a}, mean difference "
         "[95\\% CI]; * marks Holm-adjusted p < 0.05.",
-        f"tab:e2e-compare-{config}",
+        f"tab:e2e-compare-{pair}",
         ["Metric", name_a, run_b.name, "$\\Delta$"],
         [
             [

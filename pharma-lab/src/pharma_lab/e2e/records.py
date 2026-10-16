@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -32,6 +33,8 @@ class DecisionRecord(BaseModel):
     input_tokens: int
     seconds: float
     answers: dict[str, float]
+    # The undecoded response body, as the backend stored it.
+    raw: dict[str, Any] = Field(default_factory=dict)
 
 
 class RetrievedChunk(BaseModel):

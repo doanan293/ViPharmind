@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from pharma_agent.application.chat.graph import build_chat_graph
 from pharma_agent.domain.agent.budget import BudgetLimits
+from pharma_agent.domain.agent.decisions import GuardThresholds
 from pharma_agent.domain.agent.schemas import (
     Audience,
     Intent,
@@ -173,10 +174,34 @@ async def test_answer_record_keeps_every_raw_decision() -> None:
     assert [d.role for d in record.decisions] == ["guardrail", "judge"]
     assert record.decisions[0].model == "jev-1.13.0"
     assert record.decisions[1].answers["sufficient_overall"] == 0.9
+    assert record.decisions[1].raw == {"answers": {}}
     assert record.usage_by_role["judge"].prompt_tokens == 300
     assert record.usage_by_role["guardrail"].calls == 1
     assert record.llm_calls == 4
     assert not record.retryable
+
+
+@pytest.mark.parametrize(("block", "status"), [(0.5, "blocked"), (0.7, "completed")])
+async def test_executor_applies_the_configured_guard_thresholds(
+    block: float, status: str
+) -> None:
+    fake = llm(judge=False, rephrase=False)
+    decision = FakeDecision({"is_attack": 0.6, "is_about_medicines": 0.9})
+    retriever = FakeRetriever([make_hit("a", SECTION, score=0.9)])
+    guarded = BackendTurnExecutor(
+        graph=build_chat_graph(),
+        llm=fake,
+        retrieval=retrieval_service(retriever),
+        limits=BudgetLimits(),
+        pipeline=pipeline_for(E2EConfig.ONE_STEP),
+        config="one_step",
+        decisions={LlmRole.GUARDRAIL: decision},
+        guard_thresholds=GuardThresholds(block=block),
+    )
+
+    record = await guarded.execute(item())
+
+    assert record.status == status
 
 
 async def test_one_step_searches_the_raw_question_without_a_judge() -> None:
