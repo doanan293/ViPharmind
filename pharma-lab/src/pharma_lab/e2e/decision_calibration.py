@@ -1,8 +1,9 @@
 """Held-out calibration set of the decision model (spec v2 §3.3).
 
 The judge set is benchmark questions with the evidence one retrieval round hands the
-judge (the reranked top 5 of an agent run), labelled by gold coverage. The guard set is
-attack and out-of-scope turns an LLM drafts from fixed templates for the author to review.
+judge (the reranked top 5 of an agent run, rendered as the agent renders it), labelled by gold
+coverage. The guard set is
+attack, out-of-scope and small-talk turns an LLM drafts from fixed templates for the author to review.
 Neither overlaps the golden set, whose source queries are excluded.
 """
 
@@ -11,66 +12,53 @@ from __future__ import annotations
 import asyncio
 import json
 import random
+import uuid
 from collections import defaultdict
 from collections.abc import Collection, Mapping
 from pathlib import Path
 from typing import Any
 
-from pharma_agent.domain.agent.decisions import INTENTS
+from pharma_agent.domain.agent.decisions import judge_state
+from pharma_agent.domain.corpus.bundle import (
+    DocumentRecord,
+    KnowledgeBundle,
+    read_bundle,
+)
+from pharma_agent.domain.corpus.chunking import ChunkDraft
 from pharma_agent.domain.llm.models import LlmRole, system, user
 from pharma_agent.domain.llm.port import LlmPort
+from pharma_agent.domain.retrieval.evidence import Evidence
+from pharma_agent.domain.retrieval.models import Hit
 from pydantic import BaseModel
 
+from pharma_lab.bundle.chunks import gold_chunk_label, iter_document_chunks
 from pharma_lab.e2e.calibration_templates import (
     ATTACK_KINDS,
+    NON_ATTACK_KINDS,
     OUT_OF_SCOPE_KINDS,
+    SMALLTALK_KINDS,
     TEMPLATES,
 )
 from pharma_lab.evaluation.artifact_contracts import iter_jsonl_objects
-from pharma_lab.evaluation.relevance_judgments import LoadedJudgments
-from pharma_lab.evaluation.retrieval_candidate_artifact import CandidateArtifactReader
+from pharma_lab.evaluation.metrics_service import (
+    MetricsRequest,
+    load_and_validate_metric_inputs,
+    ranked_payloads,
+)
 from pharma_lab.evaluation.retrieval_metrics import evidence_units, satisfied_units
 
-__all__ = ["ATTACK_KINDS", "OUT_OF_SCOPE_KINDS", "TEMPLATES"]
+__all__ = [
+    "ATTACK_KINDS",
+    "NON_ATTACK_KINDS",
+    "OUT_OF_SCOPE_KINDS",
+    "SMALLTALK_KINDS",
+    "TEMPLATES",
+]
 
 EVIDENCE_TOP_K = 5
 DRAFT_CONCURRENCY = 8
 
 Row = dict[str, Any]
-
-
-def load_reranked_top(
-    run_root: Path, *, rerank_slug: str, reranker: str, top_k: int
-) -> dict[str, list[dict[str, Any]]]:
-    """The `top_k` candidates of every query of a run, best rerank score first.
-
-    Reads `candidates/candidates.jsonl` through the candidate reader and
-    `rerank/<slug>/rerank_scores.jsonl` of `reranker`. A candidate without a score fails
-    the load: a partial rerank would silently change the evidence.
-    """
-    scores: dict[tuple[str, str], float] = {
-        (str(record["query_id"]), str(record["chunk_id"])): float(record["score"])
-        for record in iter_jsonl_objects(
-            run_root / "rerank" / rerank_slug / "rerank_scores.jsonl"
-        )
-        if record.get("reranker") == reranker
-    }
-    top: dict[str, list[dict[str, Any]]] = {}
-    for record in CandidateArtifactReader.from_data_path(
-        run_root / "candidates" / "candidates.jsonl"
-    ):
-        query_id = str(record["query_id"])
-        scored: list[tuple[float, dict[str, Any]]] = []
-        for candidate in record["candidates"]:
-            key = (query_id, str(candidate["chunk_id"]))
-            if key not in scores:
-                raise ValueError(
-                    f"missing rerank score of {reranker} for {query_id}/{key[1]}"
-                )
-            scored.append((scores[key], candidate))
-        scored.sort(key=lambda pair: -pair[0])
-        top[query_id] = [candidate for _, candidate in scored[:top_k]]
-    return top
 
 
 def _quotas(available: Mapping[str, int], size: int) -> dict[str, int]:
@@ -90,37 +78,69 @@ def _quotas(available: Mapping[str, int], size: int) -> dict[str, int]:
     return quotas
 
 
-def _asked_intents(row: Mapping[str, Any]) -> list[str]:
-    intent = str(row.get("intent_category") or "")
-    return [intent] if intent in INTENTS else []
+def _hit(draft: ChunkDraft, document: DocumentRecord) -> Hit:
+    """The chunk as the backend serves it, so `judge_state` renders it as at runtime."""
+    return Hit(
+        chunk_version_id=draft.chunk_version_id,
+        release_id=uuid.UUID(int=0),
+        collection_id=uuid.UUID(int=0),
+        document_key=draft.document_key,
+        ordinal=draft.ordinal,
+        section_keys=list(draft.section_keys),
+        headings=list(draft.headings),
+        source=document.source.title,
+        title=document.title,
+        start_page=draft.start_page,
+        end_page=draft.end_page,
+        context_header=draft.context_header,
+        chunk_text=draft.chunk_text,
+        embedding_text=draft.embedding_text,
+    )
+
+
+def _bundle_hits(bundle: KnowledgeBundle) -> dict[str, Hit]:
+    return {
+        gold_chunk_label(draft.document_key, draft.ordinal): _hit(draft, item.document)
+        for item in iter_document_chunks(bundle)
+        for draft in item.drafts
+    }
 
 
 def build_judge_set(
     run_root: Path,
-    evaluation: Path,
-    judgments: LoadedJudgments,
+    bundle_dir: Path,
     *,
     output: Path,
     reranker: str,
-    rerank_slug: str,
     size: int = 300,
     seed: int = 0,
     golden_sources: Collection[str] = (),
 ) -> Path:
     """Sample `size` benchmark questions evenly over eval groups and label each one.
 
-    `sufficient` is 1 when the reranked top 5 satisfy every evidence unit of the question.
+    The evidence is the run's reranked top 5 read through the validated metrics path
+    (order, ties and hashes as in the retrieval metrics), rendered by `judge_state` from
+    the bundle's chunks. `sufficient` is 1 when those five satisfy every evidence unit.
     Questions without gold sections and the golden set's source queries are excluded.
+    Asked intents are not stored: the scorer derives them with the guard battery, as the
+    agent does.
     """
-    top = load_reranked_top(
-        run_root, rerank_slug=rerank_slug, reranker=reranker, top_k=EVIDENCE_TOP_K
+    inputs = load_and_validate_metric_inputs(
+        MetricsRequest(run_root=run_root, top_k=EVIDENCE_TOP_K, model=reranker)
     )
+    (rerank,) = inputs.rerank_variants
+    ranked = {
+        str(record["query_id"]): ranked_payloads(
+            record, inputs.evaluation_rows[str(record["query_id"])], rerank
+        )[:EVIDENCE_TOP_K]
+        for record in inputs.candidates
+    }
+    hits = _bundle_hits(read_bundle(bundle_dir))
     excluded = set(golden_sources)
     pool: dict[str, list[Row]] = defaultdict(list)
-    for row in iter_jsonl_objects(evaluation):
-        query_id = str(row["query_id"])
+    for query_id, row in inputs.evaluation_rows.items():
         if (
-            query_id in top
+            query_id in ranked
             and query_id not in excluded
             and row.get("expected_section_ids")
         ):
@@ -140,27 +160,31 @@ def build_judge_set(
     with output.open("w", encoding="utf-8") as handle:
         for row in chosen:
             query_id = str(row["query_id"])
-            judged = judgments.for_query(query_id)
+            judged = inputs.judgments.for_query(query_id)
             found: set[str] = set()
-            for candidate in top[query_id]:
-                found |= satisfied_units(candidate["payload"], row, judged)
+            for payload in ranked[query_id]:
+                found |= satisfied_units(payload, row, judged)
             missing = [unit for unit in evidence_units(row) if unit not in found]
+            evidence = judge_state(
+                str(row["query"]),
+                str(row["query"]),
+                [],
+                [
+                    Evidence(ref=str(index), hit=hits[str(payload["chunk_id"])])
+                    for index, payload in enumerate(ranked[query_id], start=1)
+                ],
+            )["evidence"]
             record = {
                 "query_id": query_id,
                 "user_question": str(row["query"]),
                 "standalone_query": str(row["query"]),
-                "asked_intents": _asked_intents(row),
-                "evidence": [
-                    {
-                        "id": index,
-                        "source": str(candidate["source"]),
-                        "text": str(candidate["document_text"]),
-                    }
-                    for index, candidate in enumerate(top[query_id], start=1)
-                ],
+                "evidence": evidence,
                 "sufficient": int(not missing),
                 "units_missing": missing,
+                "benchmark_intent": row.get("intent_category"),
                 "eval_group": row.get("eval_group"),
+                "run": run_root.name,
+                "reranker": reranker,
             }
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
     return output
@@ -177,14 +201,20 @@ DRAFT_SYSTEM = (
 )
 
 
+def guard_label(kind: str) -> str:
+    if kind in ATTACK_KINDS:
+        return "attack"
+    return "smalltalk" if kind in SMALLTALK_KINDS else "out_of_scope"
+
+
 def _guard_plan(count: int, seed: int) -> list[tuple[str, str, str]]:
-    """(label, kind, template) per draft: half attacks, half out-of-scope, kinds in turn."""
+    """(label, kind, template) per draft: half attacks, half non-attacks, kinds in turn."""
     half = count // 2
     rng = random.Random(seed)
     plan: list[tuple[str, str, str]] = []
     for label, kinds in (
         ("attack", ATTACK_KINDS),
-        ("out_of_scope", OUT_OF_SCOPE_KINDS),
+        ("non_attack", NON_ATTACK_KINDS),
     ):
         if half > sum(len(TEMPLATES[kind]) for kind in kinds):
             raise ValueError(f"{half} {label} turns exceed the templates of its kinds")
@@ -193,7 +223,8 @@ def _guard_plan(count: int, seed: int) -> list[tuple[str, str, str]]:
         }
         for index in range(half):
             kind = kinds[index % len(kinds)]
-            plan.append((label, kind, pools[kind][index // len(kinds)]))
+            turn_label = label if label == "attack" else guard_label(kind)
+            plan.append((turn_label, kind, pools[kind][index // len(kinds)]))
     return plan
 
 

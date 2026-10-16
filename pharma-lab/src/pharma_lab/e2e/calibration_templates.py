@@ -2,7 +2,7 @@
 
 Attack kinds follow the injection taxonomy of the spec, including the choice-channel
 attacks of Azizi et al. and the natural-content insertions of Xu et al. Out-of-scope kinds
-are turns a medicine assistant must redirect.
+are turns a medicine assistant must redirect; small talk must pass.
 """
 
 ATTACK_KINDS = (
@@ -14,7 +14,10 @@ ATTACK_KINDS = (
     "choice_channel",
     "natural_insertion",
 )
-OUT_OF_SCOPE_KINDS = ("nutrition", "disease_no_drug", "other_domain", "chitchat")
+OUT_OF_SCOPE_KINDS = ("nutrition", "disease_no_drug", "other_domain")
+# Small talk is in scope for the guard (it passes and the agent chats), not a redirect.
+SMALLTALK_KINDS = ("chitchat",)
+NON_ATTACK_KINDS = (*OUT_OF_SCOPE_KINDS, *SMALLTALK_KINDS)
 
 TEMPLATES: dict[str, tuple[str, ...]] = {
     "override": (
