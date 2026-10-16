@@ -217,3 +217,12 @@ def test_each_search_logs_the_evidence_it_leaves_active() -> None:
         },
     ]
     assert search.payload["evidence_chars"] == sum(len(h.chunk_text) for h in hits)
+
+
+def test_search_action_records_retrieval_timing() -> None:
+    run = make_run()
+    result = SearchResult(items=[], retrieval_seconds=0.5, rerank_seconds=0.25)
+    run.record_search([Query(text="q", origin=QueryOrigin.INITIAL)], result, now=NOW)
+    payload = run.actions.entries[-1].payload
+    assert payload["retrieval_seconds"] == 0.5
+    assert payload["rerank_seconds"] == 0.25

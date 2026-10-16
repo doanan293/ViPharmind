@@ -273,6 +273,8 @@ class AgentRun(BaseModel):
                 "rerank_failed": result.rerank_failed,
                 "rerank_scored": result.rerank_scored,
                 "rerank_reused": result.rerank_reused,
+                "retrieval_seconds": result.retrieval_seconds,
+                "rerank_seconds": result.rerank_seconds,
             },
         )
 
