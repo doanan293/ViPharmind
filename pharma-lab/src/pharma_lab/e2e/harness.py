@@ -159,6 +159,7 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
                     release_id=release_id,
                 ),
                 commit=git_commit(Path(__file__).resolve().parent),
+                extra={"concurrency": request.concurrency},
             )
             executor: TurnExecutor = (
                 BackendTurnExecutor(

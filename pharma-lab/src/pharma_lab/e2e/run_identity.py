@@ -16,7 +16,8 @@ from pharma_agent.infrastructure.settings import Settings
 from pharma_lab.evaluation.artifact_contracts import write_json
 
 RUN_FILE = "run.json"
-INFORMATIONAL = ("git_commit", "created_at")
+# Recorded on first use; a resume may differ in them.
+INFORMATIONAL = ("git_commit", "created_at", "concurrency")
 
 
 @dataclass(frozen=True)
@@ -89,7 +90,13 @@ def git_commit(directory: Path) -> str | None:
     return result.stdout.strip() or None
 
 
-def open_run(directory: Path, identity: RunIdentity, *, commit: str | None) -> None:
+def open_run(
+    directory: Path,
+    identity: RunIdentity,
+    *,
+    commit: str | None,
+    extra: Mapping[str, object] | None = None,
+) -> None:
     """Write run.json on first use; refuse to resume under a different identity."""
     path = Path(directory) / RUN_FILE
     current = asdict(identity)
@@ -112,6 +119,7 @@ def open_run(directory: Path, identity: RunIdentity, *, commit: str | None) -> N
         path,
         {
             **current,
+            **(extra or {}),
             "git_commit": commit,
             "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
         },

@@ -522,6 +522,13 @@ def report(
     evaluation: Annotated[
         Path, typer.Option("--evaluation", dir_okay=False)
     ] = GOLD_PATH,
+    latency_run: Annotated[
+        str | None,
+        typer.Option(
+            "--latency-run",
+            help="Run whose concurrency-1 answers supply every latency number",
+        ),
+    ] = None,
 ) -> None:
     """Write CSV and LaTeX tables for every judged configuration of a run."""
     # `evaluation` is the gold file whose relevance judgments extend citation scoring.
@@ -531,7 +538,12 @@ def report(
         relevance = load_judgments(
             judgments_path(evaluation), evaluation_sha256=sha256_file(evaluation)
         )
-        written = write_report(e2e_run_dir(run_name), items, relevance)
+        written = write_report(
+            e2e_run_dir(run_name),
+            items,
+            relevance,
+            latency_root=None if latency_run is None else e2e_run_dir(latency_run),
+        )
         return CommandResult(
             "e2e report",
             CommandStatus.COMPLETE,
