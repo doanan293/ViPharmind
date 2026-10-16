@@ -28,6 +28,14 @@ def metrics(
     top_k: Annotated[int, typer.Option("--top-k")] = DEFAULT_TOP_K,
     model: Annotated[str | None, typer.Option("--model")] = None,
     force: Annotated[bool, typer.Option("--force")] = False,
+    gold_only: Annotated[
+        bool,
+        typer.Option(
+            "--gold-only",
+            help="Score by gold sections only, without relevance judgments "
+            "(reports top<k>-gold); required for a rechunked run",
+        ),
+    ] = False,
 ) -> None:
     """Write metrics reports for a run; `compare` tests two rerankers."""
     if ctx.invoked_subcommand is not None:
@@ -36,7 +44,7 @@ def metrics(
         raise typer.BadParameter(
             "required unless a subcommand is given", param_hint="'--run'"
         )
-    request = MetricsRequest(run_dir(run), top_k, model, force)
+    request = MetricsRequest(run_dir(run), top_k, model, force, gold_only)
     run_handler(state_from_context(ctx), lambda: _run(request))
 
 

@@ -6,6 +6,7 @@ import pytest
 from pharma_agent.domain.corpus.bundle import (
     BUNDLE_SCHEMA_VERSION,
     BlockKind,
+    BundleChunking,
     BundleCollection,
     ColloquialMappingRecord,
     DocumentKind,
@@ -87,6 +88,10 @@ def test_export_groups_documents_and_keeps_section_keys(tmp_path: Path) -> None:
         key=COLLECTION_KEY, title=COLLECTION_TITLE
     )
     assert (result.manifest.document_count, result.manifest.section_count) == (4, 5)
+    # The chunking is written out, so the bundle says how the backend will chunk it.
+    assert result.manifest.chunking == BundleChunking()
+    written = json.loads((tmp_path / "bundle" / "manifest.json").read_text("utf-8"))
+    assert written["chunking"] == BundleChunking().model_dump(mode="json")
     assert result.manifest.generator.name == "pharma-lab"
     assert result.manifest.generator.build_id == "fixture-build-0001"
     assert result.manifest.source_digests == {

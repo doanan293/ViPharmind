@@ -15,13 +15,14 @@ pharma-lab build [--leaflets-dir DIR]
 pharma-lab validate
 pharma-lab bundle export --output DIR
 pharma-lab bundle embed --bundle DIR --backend local|kaggle --model MODEL
+pharma-lab bundle rechunk --bundle DIR --out DIR --collection KEY --title TITLE --target-chars N
 pharma-lab evaluation build [--bundle DIR]
 pharma-lab evaluation judgments [--evaluation FILE] [--bundle DIR]
 pharma-lab embed queries --backend local|kaggle
 pharma-lab retrieve --run NAME [--limit N | --sample N [--sample-seed S]]
 pharma-lab rerank --run NAME --backend local|kaggle --model MODEL [--kaggle-account accN|auto] [--max-runs N] [--recover-kernel OWNER/SLUG]
 pharma-lab rerank --run NAME --backend local --benchmark --model MODEL
-pharma-lab metrics --run NAME
+pharma-lab metrics --run NAME [--gold-only]
 pharma-lab metrics compare --run NAME --baseline MODEL --candidate MODEL
 pharma-lab e2e golden sample|resample|hard-candidates|trim|check|build
 pharma-lab e2e run --run NAME --config CONFIG [--limit N] [--deadline-seconds S] [--retry-errors]
@@ -47,6 +48,7 @@ Global `--json` in envelope máy đọc được, `--debug` bật traceback. `uv
 | --- | --- |
 | `pharma-lab bundle export --output DIR [--rag-final-dir DIR] [--glossary FILE] [--mappings FILE] [--force]` | Đọc `rag-final/{sections,blocks,manifest}` và resources, xuất `knowledge-bundle/v1`, validate bằng `read_bundle` trước khi thay `DIR` |
 | `pharma-lab bundle embed --bundle DIR --backend local\|kaggle --model MODEL [--cache FILE] [--work-dir DIR] [--kaggle-account accN] [--dry-run] [--force]` | Gom cặp `(embedding_text_sha256, embedding_text)` duy nhất, embed phần thiếu, ghi `embeddings/<model_slug>.jsonl` và manifest; exit 3 nếu Kaggle chưa xong (chạy lại để resume) |
+| `pharma-lab bundle rechunk --bundle DIR --out DIR --collection KEY --title TITLE --target-chars N [--max-chars M]` | Chép nội dung bundle sang collection `KEY` với cách chia chunk mới ghi trong manifest (`chunking`), không kèm vector; `--target-chars 1` cho mỗi mục một chunk (ablation D7, `evaluation.md` §4) |
 
 `--model` của `bundle embed` phải trùng `PHARMA_RETRIEVAL__EMBEDDING__MODEL` của backend, ví dụ `qwen3-embedding:4b-q8_0`. Cache nằm ở `data/cache/text_embeddings/<model-slug>.jsonl`; Kaggle dùng dataset input riêng tư `pipeline-input-<hash>` của tài khoản chạy kernel, như mọi stage khác; stage `corpus-embed` contract version 3.
 
@@ -107,7 +109,7 @@ uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --top-k 30
 uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --model qwen3-reranker:4b-q8_0 --top-k 30
 ```
 
-Report nằm ở `reports/baseline/top<K>-window<N>/` và `reports/rerank/<model>/top<K>-window<N>/`; chạy lại cùng cutoff với input khác thì lệnh dừng, `--force` thay report. Metrics gồm Hit@3/5/10/30, MRR, và với `answer_mode=multi_required`: Multi-section Recall@K, Multi-all-hit@K. `--top-k` không được lớn hơn `candidate-k`.
+Report nằm ở `reports/baseline/top<K>-window<N>/` và `reports/rerank/<model>/top<K>-window<N>/`; chạy lại cùng cutoff với input khác thì lệnh dừng, `--force` thay report. Metrics gồm Hit@3/5/10/30, MRR, và với `answer_mode=multi_required`: Multi-section Recall@K, Multi-all-hit@K. `--top-k` không được lớn hơn `candidate-k`. `--gold-only` chấm chỉ theo mục gold, không dùng relevance judgments, và ghi vào `top<K>-gold/`; run trên bundle chia chunk khác mặc định (`bundle rechunk`) phải dùng cờ này.
 
 `pharma-lab metrics compare` so sánh hai reranker đã có report cùng cutoff trên cùng run. Lệnh ghép từng câu hỏi trong `metrics.jsonl` của hai report, bootstrap theo cặp (lấy mẫu lại có hoàn lại các câu hỏi `--resamples` lần bằng `--seed`) cho hiệu trung bình `candidate − baseline` của `--metric` (mặc định `mrr`, tức MRR@K), rồi in trung bình của từng model, hiệu, khoảng tin cậy 95% (`ci95_low`, `ci95_high`, phân vị 2,5% và 97,5%) và `decision`. `decision` là `--candidate` khi `ci95_low > 0`, ngược lại là `--baseline`. Lệnh dừng nếu hai report khác evaluation, candidates hoặc tập câu hỏi.
 
