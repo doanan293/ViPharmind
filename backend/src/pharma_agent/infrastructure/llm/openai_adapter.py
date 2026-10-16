@@ -159,17 +159,22 @@ class OpenAiLlmAdapter:
         except OpenAIError as exc:
             raise LlmError(f"{role.value}: {exc}") from exc
         choice = completion.choices[0]
-        calls = tuple(
-            ToolCall(
-                id=str(call.id),
-                name=str(call.function.name),
-                arguments=str(call.function.arguments or ""),
+        calls: list[ToolCall] = []
+        for index, call in enumerate(choice.message.tool_calls or []):
+            call_id = str(call.id or "")
+            # Each tool message answers one id, so an empty or repeated id is replaced.
+            if not call_id or any(c.id == call_id for c in calls):
+                call_id = f"call_{index}"
+            calls.append(
+                ToolCall(
+                    id=call_id,
+                    name=str(call.function.name),
+                    arguments=str(call.function.arguments or ""),
+                )
             )
-            for call in (choice.message.tool_calls or [])
-        )
         turn = ToolTurn(
             text=choice.message.content or "",
-            tool_calls=calls,
+            tool_calls=tuple(calls),
             finish_reason=str(choice.finish_reason or ""),
         )
         return turn, _usage(completion.usage)

@@ -59,18 +59,20 @@ _FALLBACK_KINDS = (ActionKind.REPHRASE, ActionKind.JUDGE, ActionKind.REFINE)
 
 
 def degraded_steps(entries: Sequence[Action]) -> list[str]:
-    """Steps whose LLM call failed and fell back.
+    """Steps whose LLM call or search failed and fell back.
 
     Production keeps the turn going after such a failure. In an evaluation the item
     then silently runs another configuration, so the harness treats it as an error.
     """
     steps: list[str] = []
     for action in entries:
-        fell_back = (
-            action.payload.get("llm_failed") is True
-            if action.kind is ActionKind.GUARD
-            else action.kind in _FALLBACK_KINDS and action.outcome == "failed"
-        )
+        if action.kind is ActionKind.GUARD:
+            fell_back = action.payload.get("llm_failed") is True
+        elif action.kind is ActionKind.SEARCH:
+            # A retrieval outage would otherwise score as an abstention.
+            fell_back = action.outcome == "error"
+        else:
+            fell_back = action.kind in _FALLBACK_KINDS and action.outcome == "failed"
         if fell_back and action.kind.value not in steps:
             steps.append(action.kind.value)
     return steps

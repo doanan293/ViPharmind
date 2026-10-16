@@ -490,3 +490,18 @@ async def test_tool_choice_none_keeps_the_tools_and_forbids_calls() -> None:
     assert kwargs["tool_choice"] == "none"
     assert [t["function"]["name"] for t in kwargs["tools"]] == ["search_corpus"]
     assert "parallel_tool_calls" not in kwargs
+
+
+async def test_tool_call_ids_that_are_empty_or_repeated_are_renumbered() -> None:
+    adapter, created = make_adapter()
+    await adapter.structured(LlmRole.GUARDRAIL, [user("warm")], Verdict)
+    client = created[(None, "sk-cloud")]
+    calls = [
+        SimpleNamespace(
+            id=cid, function=SimpleNamespace(name="search_corpus", arguments="{}")
+        )
+        for cid in ("", "dup", "dup", "ok")
+    ]
+    client.completions.tool_response = tool_response(None, calls, "tool_calls")
+    turn, _ = await adapter.tool_call(LlmRole.AGENT, [user("hỏi")], [SEARCH])
+    assert [c.id for c in turn.tool_calls] == ["call_0", "dup", "call_2", "ok"]

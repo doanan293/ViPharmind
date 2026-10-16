@@ -1,9 +1,11 @@
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from pharma_agent.application.chat.graph import ChatGraph, build_chat_graph
 from pharma_agent.application.chat.react_graph import build_react_graph
+from pharma_agent.domain.agent.actions import Action, ActionKind
 from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.agent.decisions import GuardThresholds
 from pharma_agent.domain.agent.schemas import (
@@ -27,7 +29,11 @@ from tests.e2e.factories import (
 )
 
 from pharma_lab.e2e.configs import E2EConfig, pipeline_for
-from pharma_lab.e2e.executor import BackendTurnExecutor, conversation_for
+from pharma_lab.e2e.executor import (
+    BackendTurnExecutor,
+    conversation_for,
+    degraded_steps,
+)
 from pharma_lab.e2e.golden import GoldenItem
 from pharma_lab.e2e.harness import (
     DecisionVersionGuard,
@@ -489,3 +495,12 @@ async def test_react_executor_records_the_react_statistics() -> None:
     assert record.rounds[-1].sections == [SECTION]
     assert record.search_queries == [["x"]]
     assert record.error is None
+
+
+def test_a_failed_search_is_a_degraded_step() -> None:
+    at = datetime(2026, 10, 16, tzinfo=UTC)
+    entries = [
+        Action(kind=ActionKind.SEARCH, at=at, outcome="ok"),
+        Action(kind=ActionKind.SEARCH, at=at, outcome="error", reason="qdrant down"),
+    ]
+    assert degraded_steps(entries) == ["search"]

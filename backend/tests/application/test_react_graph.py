@@ -20,7 +20,7 @@ from pharma_agent.domain.guardrail.models import LlmGuardVerdict
 from pharma_agent.domain.llm.models import ChatRole, LlmRole, ToolCall, ToolTurn
 from pharma_agent.domain.llm.port import LlmError
 from tests.domain.factories import chunk_uuid, make_hit
-from tests.fakes import FakeLlm, FakeRetriever, build_deps
+from tests.fakes import FakeLlm, FakeRetriever, RetrievalError, build_deps
 
 QUESTION = "Paracetamol người lớn uống tối đa bao nhiêu?"
 
@@ -277,3 +277,43 @@ async def test_empty_final_answer_fails_the_turn() -> None:
     assert outcome.run.error_code is ErrorCode.ANSWER_FAILED
     agent = [a for a in outcome.run.actions.entries if a.kind is ActionKind.AGENT]
     assert agent[-1].payload["finish_reason"] == "length"
+
+
+async def test_parallel_calls_log_one_search_round() -> None:
+    llm = llm_with_guard()
+    llm.script_tool_turns(
+        searching(call("c1", "liều"), call("c2", "chống chỉ định")),
+        answering("Đáp [1] [2]."),
+    )
+    retriever = FakeRetriever([make_hit("a", fusion=0.9)], [make_hit("b", fusion=0.8)])
+    _, outcome = await run_react(llm, retriever)
+    searches = [a for a in outcome.run.actions.entries if a.kind is ActionKind.SEARCH]
+    assert len(searches) == 1
+    assert searches[0].payload["queries"] == ["liều", "chống chỉ định"]
+    assert len(searches[0].payload["evidence"]) == 2
+    assert searches[0].payload["rerank_scored"] == 2
+    assert outcome.run.usage.search_rounds == 1
+
+
+async def test_failed_search_repeated_in_one_round_searches_once() -> None:
+    llm = llm_with_guard()
+    llm.script_tool_turns(
+        searching(call("c1", "liều"), call("c2", "Liều")), answering("Không rõ.")
+    )
+    retriever = FakeRetriever(RetrievalError("qdrant down"))
+    _, outcome = await run_react(llm, retriever)
+    assert len(retriever.calls) == 1
+    assert stats(outcome).duplicate_calls == 1
+    assert all(m.content.startswith("Error:") for m in tool_messages(llm, 1))
+    (search,) = [a for a in outcome.run.actions.entries if a.kind is ActionKind.SEARCH]
+    assert search.outcome == "error"
+
+
+async def test_a_turn_with_only_malformed_calls_tried_to_search() -> None:
+    llm = llm_with_guard()
+    llm.script_tool_turns(
+        searching(ToolCall(id="c1", name="search_corpus", arguments="{}")),
+        answering("Không rõ."),
+    )
+    _, outcome = await run_react(llm, FakeRetriever())
+    assert not stats(outcome).answered_without_search
