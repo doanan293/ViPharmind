@@ -228,3 +228,17 @@ async def test_search_actions_keep_the_pipeline_payload() -> None:
         ActionKind.GUARD,
         ActionKind.AGENT,
     ]
+
+
+async def test_search_evidence_accumulates_across_rounds() -> None:
+    llm = llm_with_guard()
+    llm.script_tool_turns(
+        searching(call("c1", "liều")),
+        searching(call("c2", "chống chỉ định")),
+        answering("Đáp [1] [2]."),
+    )
+    retriever = FakeRetriever([make_hit("a", fusion=0.9)], [make_hit("b", fusion=0.8)])
+    _, outcome = await run_react(llm, retriever)
+    searches = [a for a in outcome.run.actions.entries if a.kind is ActionKind.SEARCH]
+    assert [len(a.payload["evidence"]) for a in searches] == [1, 2]
+    assert [a.payload["new_evidence"] for a in searches] == [1, 1]

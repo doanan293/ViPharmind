@@ -77,6 +77,20 @@ class StepRecord(BaseModel):
     seconds: float
 
 
+class ReactRecord(BaseModel):
+    """What a ReAct turn did with its search tool (the backend's ReactStats)."""
+
+    model_config = _RECORD
+
+    rounds: int = 0
+    tool_calls: int = 0
+    malformed_calls: int = 0
+    duplicate_calls: int = 0
+    round_cap_hit: bool = False
+    budget_hits: int = 0
+    answered_without_search: bool = False
+
+
 class ItemRecord(BaseModel):
     """A record about one golden item within one configuration."""
 
@@ -111,6 +125,8 @@ class AnswerRecord(ItemRecord):
     rerank_seconds: float = 0.0
     # Candidates the reranker scored over the turn (the priced rerank work).
     rerank_scored: int = 0
+    # Set only for the react configuration.
+    react: ReactRecord | None = None
     error: str | None = None
     retryable: bool = False
 

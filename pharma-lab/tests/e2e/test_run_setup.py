@@ -15,6 +15,7 @@ from tests.e2e.factories import ScriptedLlm
 from pharma_lab.e2e.configs import (
     E2EConfig,
     config_label,
+    graph_for,
     parse_pipeline_options,
     pipeline_for,
     settings_for,
@@ -265,3 +266,14 @@ def test_run_stops_when_the_decision_model_version_changes(tmp_path: Path) -> No
         DecisionVersionGuard(tmp_path).observe([_decision("jev-1.14.0")])
     # The recorded version is informational, so the identity still resumes.
     open_run(tmp_path, identity, commit="c")
+
+
+def test_react_config_selects_the_react_graph() -> None:
+    assert pipeline_for(E2EConfig.REACT) == PipelineOptions()
+    assert graph_for(E2EConfig.REACT).get_graph().nodes.keys() >= {
+        "guard",
+        "agent",
+        "tools",
+        "finalize",
+    }
+    assert "rephrase" in graph_for(E2EConfig.FULL).get_graph().nodes

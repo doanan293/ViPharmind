@@ -10,13 +10,13 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Protocol
 
-from pharma_agent.application.chat.graph import build_chat_graph
 from pharma_agent.infrastructure.composition import build_application
 from pharma_agent.infrastructure.settings import Settings
 
 from pharma_lab.e2e.configs import (
     E2EConfig,
     config_label,
+    graph_for,
     parse_pipeline_options,
     pipeline_for,
     settings_for,
@@ -214,7 +214,7 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
             )
             executor: TurnExecutor = (
                 BackendTurnExecutor(
-                    graph=build_chat_graph(),
+                    graph=graph_for(request.config),
                     llm=app.deps.llm,
                     retrieval=app.retrieval.service,
                     limits=settings.budget,

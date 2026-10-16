@@ -27,6 +27,7 @@ from pharma_lab.e2e.records import (
     AnswerRecord,
     CitedSection,
     DecisionRecord,
+    ReactRecord,
     RetrievedChunk,
     RoundRecord,
     StepRecord,
@@ -222,6 +223,9 @@ def answer_record(
         retrieval_seconds=round(_search_total(entries, "retrieval_seconds"), 3),
         rerank_seconds=round(_search_total(entries, "rerank_seconds"), 3),
         rerank_scored=int(_search_total(entries, "rerank_scored")),
+        react=None
+        if run.react is None
+        else ReactRecord.model_validate(run.react.model_dump()),
         error=(
             f"{run.error_code.value}: {run.error_detail}".strip()
             if run.error_code is not None

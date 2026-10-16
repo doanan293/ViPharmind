@@ -325,7 +325,6 @@ class AgentRun(BaseModel):
         self.usage = self.usage.with_search()
         if query.normalized not in self.used_queries:
             self.used_queries.append(query.normalized)
-        shown = {hit.chunk_version_id for hit in shown_hits}
         self._log(
             ActionKind.SEARCH,
             now,
@@ -335,7 +334,8 @@ class AgentRun(BaseModel):
                 "queries": [query.text],
                 "hits": len(result.items),
                 "active_evidence": len(self.evidence.active()),
-                # The chunks this call showed the model for the first time.
+                # Every chunk shown so far, as `record_search` logs what the evidence
+                # holds after the round; a ReAct turn's evidence only grows.
                 "evidence": [
                     {
                         "document": e.hit.document_key,
@@ -343,8 +343,8 @@ class AgentRun(BaseModel):
                         "sections": list(e.hit.section_keys),
                     }
                     for e in self.evidence.items
-                    if e.hit.chunk_version_id in shown
                 ],
+                "new_evidence": len(shown_hits),
                 "evidence_chars": sum(e.char_count() for e in self.evidence.items),
                 "rerank_failed": result.rerank_failed,
                 "rerank_scored": result.rerank_scored,
