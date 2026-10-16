@@ -52,7 +52,8 @@ Trả về JSON:
 - standalone_query: câu hỏi đầy đủ, tự chứa, đã thay đại từ ("thuốc đó", "nó") bằng tên thuốc/chủ đề trong ngữ cảnh. Giữ nguyên ngôn ngữ của người dùng. Nếu câu hỏi đã rõ, giữ nguyên.
 - audience: "professional" nếu cách hỏi mang tính chuyên môn (liều mg/kg, dược động học, tương tác theo cơ chế, thuật ngữ y khoa); "general_public" nếu hỏi kiểu đời thường; "unknown" nếu không rõ.
 - language: "vi", "en" hoặc "other".
-- intent: "pharma_question" nếu cần tra cứu thông tin thuốc/sức khỏe; "smalltalk" nếu chỉ chào hỏi, cảm ơn, tán gẫu; "meta" nếu hỏi về chính trợ lý (bạn là ai, làm được gì)."""
+- intent: "pharma_question" nếu cần tra cứu thông tin thuốc/sức khỏe; "smalltalk" nếu chỉ chào hỏi, cảm ơn, tán gẫu; "meta" nếu hỏi về chính trợ lý (bạn là ai, làm được gì).
+- subjects: danh sách tên thuốc hoặc hoạt chất mà lượt này hỏi (rút từ standalone_query; rỗng nếu không có)."""
 
 
 def rephrase_messages(

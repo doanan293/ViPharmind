@@ -41,6 +41,7 @@ def fake_application() -> SimpleNamespace:
             audience=Audience.GENERAL_PUBLIC,
             language=Language.VI,
             intent=Intent.PHARMA_QUESTION,
+            subjects=[],
         ),
     )
     llm.script(

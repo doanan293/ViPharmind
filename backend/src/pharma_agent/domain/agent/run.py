@@ -99,6 +99,7 @@ class AgentRun(BaseModel):
     audience: Audience = Audience.UNKNOWN
     language: Language = Language.VI
     intent: Intent = Intent.PHARMA_QUESTION
+    subjects: list[str] = Field(default_factory=list)
     limits: BudgetLimits
     usage: BudgetUsage = Field(default_factory=BudgetUsage)
     evidence: EvidenceSet = Field(default_factory=EvidenceSet)
@@ -239,6 +240,9 @@ class AgentRun(BaseModel):
             self.audience = result.audience
             self.language = result.language
             self.intent = result.intent
+            self.subjects = [s.strip() for s in result.subjects if s.strip()] or [
+                self.standalone_query
+            ]
             outcome = "ok"
         else:
             outcome = "skipped" if skipped else "failed"
@@ -250,6 +254,7 @@ class AgentRun(BaseModel):
                 "standalone_query": self.standalone_query,
                 "intent": self.intent.value,
                 "audience": self.audience.value,
+                "subjects": list(self.subjects),
             },
         )
 
@@ -327,7 +332,12 @@ class AgentRun(BaseModel):
         self._log(ActionKind.JUDGE, now, outcome="skipped")
 
     def record_refine(
-        self, queries: Sequence[str], *, now: datetime, failed: bool = False
+        self,
+        queries: Sequence[str],
+        *,
+        now: datetime,
+        failed: bool = False,
+        mode: str = "llm",
     ) -> list[Query]:
         fresh: list[Query] = []
         seen = set(self.used_queries)
@@ -343,7 +353,11 @@ class AgentRun(BaseModel):
             ActionKind.REFINE,
             now,
             outcome=outcome,
-            payload={"proposed": list(queries), "accepted": [q.text for q in fresh]},
+            payload={
+                "proposed": list(queries),
+                "accepted": [q.text for q in fresh],
+                "mode": mode,
+            },
         )
         return fresh
 

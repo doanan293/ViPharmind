@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from typing import Literal
 
 from pharma_agent.domain.conversation.models import ConversationContext
 from pharma_agent.domain.guardrail.service import GuardrailService
@@ -34,7 +35,11 @@ class PipelineOptions:
     # otherwise search more only while the judge's confidence is below the threshold.
     refine_threshold: float | None = None
     # "llm" (a refine call) or "template" ("<subject> <intent phrase>", no LLM; spec v2 §2.2).
-    refine_mode: str = "llm"
+    refine_mode: Literal["llm", "template"] = "llm"
+
+    def __post_init__(self) -> None:
+        if self.refine_mode not in ("llm", "template"):
+            raise ValueError(f"unknown refine_mode {self.refine_mode!r}")
 
 
 @dataclass(frozen=True)

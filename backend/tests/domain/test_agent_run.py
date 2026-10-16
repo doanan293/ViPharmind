@@ -34,12 +34,15 @@ OFF_TOPIC = Verdict(
 Q1 = [Query(text="paracetamol liều người lớn", origin=QueryOrigin.INITIAL)]
 
 
-def rephrased(intent: Intent = Intent.PHARMA_QUESTION) -> RephraseResult:
+def rephrased(
+    intent: Intent = Intent.PHARMA_QUESTION, subjects: list[str] | None = None
+) -> RephraseResult:
     return RephraseResult(
         standalone_query="Liều paracetamol cho người lớn",
         audience=Audience.GENERAL_PUBLIC,
         language=Language.VI,
         intent=intent,
+        subjects=subjects or [],
     )
 
 
@@ -262,3 +265,12 @@ def test_record_guard_carries_asked_intents_and_the_raw_decision() -> None:
         "seconds": 0.2,
         "raw": {"answers": {"asks_dosage": 0.9}},
     }
+
+
+def test_record_rephrase_keeps_subjects_and_falls_back_to_the_query() -> None:
+    run = make_run()
+    run.record_rephrase(rephrased(subjects=[" paracetamol ", ""]), now=NOW)
+    assert run.subjects == ["paracetamol"]
+    other = make_run()
+    other.record_rephrase(rephrased(), now=NOW)
+    assert other.subjects == [other.standalone_query]

@@ -90,6 +90,7 @@ def script_until_answer(llm: FakeLlm) -> None:
             audience=Audience.GENERAL_PUBLIC,
             language=Language.VI,
             intent=Intent.PHARMA_QUESTION,
+            subjects=[],
         ),
     )
     llm.script(

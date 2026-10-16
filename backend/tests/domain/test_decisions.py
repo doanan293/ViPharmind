@@ -9,6 +9,7 @@ from pharma_agent.domain.agent.decisions import (
     judge_decision,
     judge_questions,
     judge_state,
+    template_queries,
 )
 from pharma_agent.domain.agent.schemas import JudgeOutcome
 from pharma_agent.domain.guardrail.models import VerdictSource
@@ -114,3 +115,16 @@ def test_threshold_boundary_is_inclusive() -> None:
 def test_intent_phrases_exist_for_every_intent() -> None:
     assert set(INTENT_PHRASES) == set(INTENTS)
     assert INTENT_PHRASES["dosage"] == "liều dùng và cách dùng"
+
+
+def test_template_queries_combine_subject_and_phrase() -> None:
+    assert template_queries(["paracetamol"], ["storage", "dosage"]) == [
+        "paracetamol bảo quản",
+        "paracetamol liều dùng và cách dùng",
+    ]
+
+
+def test_template_refine_uses_free_text_gaps_verbatim() -> None:
+    assert template_queries(["paracetamol"], ["liều paracetamol cho trẻ 2 tuổi"]) == [
+        "liều paracetamol cho trẻ 2 tuổi"
+    ]
