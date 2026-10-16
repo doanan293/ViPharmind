@@ -14,7 +14,7 @@ from pharma_agent.domain.agent.schemas import (
     RephraseResult,
 )
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict
-from pharma_agent.domain.llm.models import LlmRole, LlmUsage
+from pharma_agent.domain.llm.models import LlmRole, LlmUsage, ToolTurn
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.infrastructure.settings import Settings
 from tests.e2e.factories import (
@@ -443,3 +443,12 @@ def test_old_answer_record_loads() -> None:
     assert record.steps == []
     assert record.retrieval_seconds == 0.0
     assert record.rerank_scored == 0
+
+
+def test_recording_llm_records_tool_calls() -> None:
+    llm = ScriptedLlm()
+    llm.script_tool_turns(ToolTurn(text="xong", tool_calls=(), finish_reason="stop"))
+    recorder = RecordingLlm(llm)
+    turn, _ = asyncio.run(recorder.tool_call(LlmRole.AGENT, [], []))
+    assert turn.text == "xong"
+    assert recorder.usage_by_role()["agent"].calls == 1

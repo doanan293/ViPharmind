@@ -6,7 +6,14 @@ from pydantic import BaseModel
 from pharma_agent.domain.guardrail.groups import regex_screen
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict, VerdictSource
 from pharma_agent.domain.guardrail.service import GuardrailService
-from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
+from pharma_agent.domain.llm.models import (
+    ChatMessage,
+    LlmRole,
+    LlmUsage,
+    StreamDelta,
+    ToolSpec,
+    ToolTurn,
+)
 from pharma_agent.domain.llm.port import LlmError
 from tests.fakes import FakeDecision
 
@@ -30,6 +37,11 @@ class ScriptedLlm:
     def stream(
         self, role: LlmRole, messages: Sequence[ChatMessage]
     ) -> AsyncIterator[StreamDelta]:
+        raise NotImplementedError
+
+    async def tool_call(
+        self, role: LlmRole, messages: Sequence[ChatMessage], tools: Sequence[ToolSpec]
+    ) -> tuple[ToolTurn, LlmUsage]:
         raise NotImplementedError
 
 
