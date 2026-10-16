@@ -361,6 +361,7 @@ def write_bundle(bundle: KnowledgeBundle, directory: Path) -> BundleManifest:
             name: BundleFile(sha256=hashlib.sha256(data).hexdigest(), bytes=len(data))
             for name, data in payloads.items()
         },
+        chunking=bundle.manifest.chunking,
     )
     directory.mkdir(parents=True, exist_ok=True)
     for name, data in payloads.items():
