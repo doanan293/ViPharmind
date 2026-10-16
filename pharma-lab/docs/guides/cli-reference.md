@@ -28,6 +28,7 @@ pharma-lab e2e golden sample|resample|hard-candidates|trim|check|build
 pharma-lab e2e run --run NAME --config CONFIG [--pipeline-option KEY=VALUE ...] [--limit N] [--deadline-seconds S] [--retry-errors]
 pharma-lab e2e judge --run NAME --config CONFIG_DIR [--judge-model MODEL] [--judge-reasoning none|low|medium] [--force]
 pharma-lab e2e calibration export|refresh|score --run NAME
+pharma-lab e2e decision-probe [--chars N] [--bundle DIR]
 pharma-lab e2e decision-set build|guard-draft|score
 pharma-lab e2e report --run NAME [--latency-run NAME]
 pharma-lab e2e compare --run-a NAME --run-b NAME [--config CONFIG_DIR]
@@ -166,6 +167,7 @@ Chi tiết trong [e2e-evaluation.md](e2e-evaluation.md).
 | `pharma-lab e2e calibration export --run NAME [--seed S] [--config C ...]` | Xuất 50 câu mù mỗi cấu hình (mặc định `full`, `one-step`) để chấm hiệu chỉnh |
 | `pharma-lab e2e calibration refresh --run NAME` | Sau khi sửa golden hoặc chạy lại câu trả lời: cập nhật các câu mù đã thay đổi trong mẫu (giữ nguyên mẫu), chuyển điểm cũ của chúng sang `grades.superseded.jsonl` và in danh sách cần chấm lại |
 | `pharma-lab e2e calibration score --run NAME` | Tính κ và ρ giữa judge và `calibration/grades.jsonl` (dừng nếu mẫu còn câu đã đổi mà chưa refresh) |
+| `pharma-lab e2e decision-probe [--chars 60000] [--bundle DIR] [--backend-env-file FILE]` | Gửi decision model (vai judge, provider `systemone`) một state judge chứa `--chars` ký tự bằng chứng lấy từ các chunk dài nhất của bundle; in số token vào, ký tự mỗi token, giây, phiên bản model và `recommended_max_evidence_chars` (số ký tự đã đo quy về 24.000 token, làm tròn xuống nghìn, không vượt 60.000) |
 | `pharma-lab e2e decision-set build --run RUN --model RERANKER [--size 300] [--seed S] [--bundle DIR]` | Chọn 300 câu benchmark (chia đều theo nhóm, bỏ nguồn của golden), lấy top 5 sau rerank của run làm bằng chứng (dựng từ chunk của bundle như `judge_state`), gán nhãn `sufficient` theo độ phủ gold, ghi `data/evaluation/calibration/judge_set.jsonl` |
 | `pharma-lab e2e decision-set guard-draft [--count 100] [--seed S]` | LLM viết 100 lượt tấn công, ngoài phạm vi và trò chuyện phiếm từ mẫu cố định, ghi `guard_set.todo.jsonl` để tác giả duyệt rồi đổi tên thành `guard_set.jsonl` |
 | `pharma-lab e2e decision-set score [--repeats 3]` | Chấm decision model trên tập giữ riêng, ghi từng lệnh gọi vào `decisions.jsonl` (chạy lại thì tiếp tục) và `jev.json` với AUROC, ECE, Brier, `tau`, `block`, `review` |
