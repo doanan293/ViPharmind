@@ -45,3 +45,12 @@ def test_run_probe_reports_chars_per_token() -> None:
         recommended_evidence_chars(ProbeResult(30_000, 60_000, 2.0, 1.0, "jev-1.13.0"))
         == 48_000
     )
+
+
+def test_recommendation_scales_the_probed_characters_not_the_default() -> None:
+    # 30k characters probed at --chars 30000 took 30k tokens: 24k tokens hold 24k chars.
+    probed = ProbeResult(30_000, 30_000, 1.0, 1.0, "jev-1.13.0")
+    assert recommended_evidence_chars(probed) == 24_000
+    # Under the ceiling the budget is never raised above the current one.
+    light = ProbeResult(10_000, 30_000, 3.0, 1.0, "jev-1.13.0")
+    assert recommended_evidence_chars(light) == 60_000
