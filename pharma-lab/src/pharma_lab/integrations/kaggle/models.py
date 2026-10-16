@@ -124,6 +124,8 @@ class StageName(StrEnum):
     RERANK_SERVE = "rerank-serve"
     # A chat model served the same way, for E2E runs with an open-weight LLM.
     LLM_SERVE = "llm-serve"
+    # The query embedding model of the agent, served the same way (spec v2 §2.1b).
+    EMBED_SERVE = "embed-serve"
 
 
 class KernelPresence(StrEnum):
