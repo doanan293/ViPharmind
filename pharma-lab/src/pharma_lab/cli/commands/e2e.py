@@ -569,6 +569,13 @@ def compare(
     run_a: Annotated[str, typer.Option("--run-a", help="Baseline run")],
     run_b: Annotated[str, typer.Option("--run-b", help="Run compared with it")],
     config: Annotated[str, typer.Option("--config")] = "full",
+    config_b: Annotated[
+        str | None,
+        typer.Option(
+            "--config-b",
+            help="Run B's configuration directory when named differently (default: --config)",
+        ),
+    ] = None,
     golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
     evaluation: Annotated[
         Path, typer.Option("--evaluation", dir_okay=False)
@@ -582,7 +589,12 @@ def compare(
             judgments_path(evaluation), evaluation_sha256=sha256_file(evaluation)
         )
         rows = compare_runs(
-            e2e_run_dir(run_a), e2e_run_dir(run_b), config, items, relevance
+            e2e_run_dir(run_a),
+            e2e_run_dir(run_b),
+            config,
+            items,
+            relevance,
+            config_b=config_b,
         )
         return CommandResult(
             "e2e compare",

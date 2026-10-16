@@ -42,6 +42,22 @@ def test_compare_pairs_shared_items_and_marks_judges(tmp_path: Path) -> None:
     assert (b / "reports" / "compare-a-full.tex").is_file()
 
 
+def test_compare_names_two_different_configurations(tmp_path: Path) -> None:
+    a = judged(tmp_path / "a", [1.0, 1.0, 0.0, 1.0])
+    b = tmp_path / "b"
+    write_config(b, "full+refine_threshold=0.5", [0.0, 1.0, 0.0, 0.0])
+
+    result = compare_runs(
+        a, b, "full", ITEMS, None, config_b="full+refine_threshold=0.5"
+    )
+
+    recall = next(r for r in result if r.metric == "nugget_recall")
+    assert recall.delta == pytest.approx(-0.5)
+    stem = "compare-a-full-vs-full+refine_threshold=0.5"
+    assert (b / "reports" / f"{stem}.csv").is_file()
+    assert (b / "reports" / f"{stem}.tex").is_file()
+
+
 def test_compare_flags_different_judges(tmp_path: Path) -> None:
     a = judged(tmp_path / "a", [1.0, 1.0, 0.0, 1.0])
     b = judged(tmp_path / "b", [1.0, 1.0, 0.0, 1.0], judge="gpt-5-mini")
