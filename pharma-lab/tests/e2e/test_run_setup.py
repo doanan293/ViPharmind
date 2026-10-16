@@ -5,7 +5,11 @@ import pytest
 from pharma_agent.application.chat.context import PipelineOptions
 from pharma_agent.domain.agent.schemas import JudgeDecision, JudgeOutcome
 from pharma_agent.domain.llm.models import LlmRole
-from pharma_agent.infrastructure.settings import Settings
+from pharma_agent.infrastructure.settings import (
+    LlmEndpoint,
+    LlmSettings,
+    Settings,
+)
 from tests.e2e.factories import ScriptedLlm
 
 from pharma_lab.e2e.configs import (
@@ -15,8 +19,9 @@ from pharma_lab.e2e.configs import (
     pipeline_for,
     settings_for,
 )
+from pharma_lab.e2e.harness import DecisionVersionGuard
 from pharma_lab.e2e.recording_llm import RecordingLlm
-from pharma_lab.e2e.records import AnswerRecord, JsonlStore, TokenUsage
+from pharma_lab.e2e.records import AnswerRecord, DecisionRecord, JsonlStore, TokenUsage
 from pharma_lab.e2e.run_identity import (
     RunIdentity,
     identity_from_settings,
@@ -123,6 +128,7 @@ def test_identity_records_models_without_secrets() -> None:
     assert current.role_models["answer"] == {
         "model": "Qwen/Qwen3.5-9B",
         "reasoning_effort": None,
+        "provider": "openai",
     }
     assert current.rerank["protocol"] == "native_rerank"
     assert "sk-test" not in json.dumps(current.__dict__)
@@ -146,6 +152,7 @@ def test_identity_records_extra_body_only_when_set() -> None:
     assert current.role_models["answer"] == {
         "model": "Qwen/Qwen3.5-9B",
         "reasoning_effort": None,
+        "provider": "openai",
         "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
     }
     assert "extra_body" not in current.role_models["judge"]
@@ -210,3 +217,51 @@ def test_concurrency_is_recorded_but_may_change_on_resume(tmp_path: Path) -> Non
     open_run(tmp_path, identity, commit="c", extra={"concurrency": 1})
     stored = json.loads((tmp_path / "run.json").read_text("utf-8"))
     assert stored["concurrency"] == 4
+
+
+def test_identity_records_the_provider_per_role() -> None:
+    settings = base_settings().model_copy(
+        update={
+            "llm": LlmSettings(
+                default=LlmEndpoint(api_key="k", model="m"),
+                roles={
+                    LlmRole.GUARDRAIL: LlmEndpoint(
+                        provider="systemone",
+                        base_url="https://openrouter.ai/api",
+                        api_key="or",
+                        model="~typesafe/jev-latest",
+                    )
+                },
+            )
+        }
+    )
+    current = identity_from_settings(
+        settings, golden_sha256="g", config="full", pipeline={}, release_id="r"
+    )
+    assert current.role_models["guardrail"]["provider"] == "systemone"
+    assert current.role_models["answer"]["provider"] == "openai"
+
+
+def _decision(model: str) -> DecisionRecord:
+    return DecisionRecord(
+        role="judge", model=model, input_tokens=1, seconds=0.1, answers={}
+    )
+
+
+def test_run_stops_when_the_decision_model_version_changes(tmp_path: Path) -> None:
+    identity = identity_from_settings(
+        base_settings(), golden_sha256="g", config="full", pipeline={}, release_id="r"
+    )
+    open_run(tmp_path, identity, commit="c")
+    guard = DecisionVersionGuard(tmp_path)
+    guard.observe([_decision("jev-1.13.0")])
+    guard.observe([_decision("jev-1.13.0")])
+    with pytest.raises(ValueError, match=r"jev-1\.13\.0 to jev-1\.14\.0"):
+        guard.observe([_decision("jev-1.14.0")])
+    stored = json.loads((tmp_path / "run.json").read_text("utf-8"))
+    assert stored["decision_model_version"] == "jev-1.13.0"
+    # A fresh guard on the same directory (a resume) still knows the version.
+    with pytest.raises(ValueError, match=r"jev-1\.13\.0 to jev-1\.14\.0"):
+        DecisionVersionGuard(tmp_path).observe([_decision("jev-1.14.0")])
+    # The recorded version is informational, so the identity still resumes.
+    open_run(tmp_path, identity, commit="c")

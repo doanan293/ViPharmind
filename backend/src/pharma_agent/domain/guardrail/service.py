@@ -41,6 +41,10 @@ class GuardrailService:
         self._decision = decision
         self._thresholds = thresholds
 
+    @property
+    def thresholds(self) -> GuardThresholds:
+        return self._thresholds
+
     async def check(
         self, query: str, context: ConversationContext | None = None
     ) -> GuardrailOutcome:

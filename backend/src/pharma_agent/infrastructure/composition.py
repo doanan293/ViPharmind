@@ -11,8 +11,11 @@ from pharma_agent.application.chat.context import TurnDeps
 from pharma_agent.application.chat.graph import build_chat_graph
 from pharma_agent.application.chat.runner import ChatTurnRunner
 from pharma_agent.application.tracing import TurnTracer
+from pharma_agent.domain.agent.decisions import GuardThresholds
 from pharma_agent.domain.corpus.ports import Embedder
 from pharma_agent.domain.guardrail.service import GuardrailService
+from pharma_agent.domain.llm.decision import DecisionPort
+from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.llm.port import LlmPort
 from pharma_agent.domain.retrieval.ports import CorpusReader, Reranker
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
@@ -22,6 +25,7 @@ from pharma_agent.infrastructure.llm.openai_adapter import (
     default_client_factory,
     langfuse_client_factory,
 )
+from pharma_agent.infrastructure.llm.systemone_adapter import SystemOneAdapter
 from pharma_agent.infrastructure.observability.langfuse_retrieval import (
     LangfuseTracedReranker,
 )
@@ -35,7 +39,11 @@ from pharma_agent.infrastructure.retrieval.qdrant_adapter import (
     QdrantHybridRetriever,
 )
 from pharma_agent.infrastructure.retrieval.rerankers import build_reranker
-from pharma_agent.infrastructure.settings import RetrievalSettings, Settings
+from pharma_agent.infrastructure.settings import (
+    LlmSettings,
+    RetrievalSettings,
+    Settings,
+)
 
 
 @dataclass
@@ -171,6 +179,22 @@ def build_retrieval_service(
     )
 
 
+def guard_thresholds(llm: LlmSettings) -> GuardThresholds:
+    """The guard role's extra_body["thresholds"] (block, review, scope, asks) when the
+    decision model serves that role; missing keys keep the defaults."""
+    if LlmRole.GUARDRAIL not in llm.decision_roles():
+        return GuardThresholds()
+    configured = (llm.resolve(LlmRole.GUARDRAIL).extra_body or {}).get(
+        "thresholds"
+    ) or {}
+    known = {
+        key: float(configured[key])
+        for key in ("block", "review", "scope", "asks")
+        if key in configured
+    }
+    return GuardThresholds(**known)
+
+
 def build_application(
     settings: Settings,
     *,
@@ -178,8 +202,10 @@ def build_application(
     database: Database | None = None,
     llm: LlmPort | None = None,
     embedder: Embedder | None = None,
+    decision: DecisionPort | None = None,
 ) -> Application:
-    """`llm` and `embedder` replace the OpenAI-compatible adapters built from settings."""
+    """`llm` and `embedder` replace the OpenAI-compatible adapters built from settings;
+    `decision` replaces the SystemOneAdapter that serves the systemone roles."""
     _export_langfuse_environment(settings)
     client_factory = (
         langfuse_client_factory if settings.langfuse.enabled else default_client_factory
@@ -190,11 +216,22 @@ def build_application(
         else OpenAiLlmAdapter(settings.llm, client_factory=client_factory)
     )
     retrieval = build_retrieval_service(settings, database=database, embedder=embedder)
+    decisions: dict[LlmRole, DecisionPort] = {}
+    # An injected llm may run without credentials, so no role can be resolved then.
+    roles = settings.llm.decision_roles() if settings.llm.configured else frozenset()
+    if roles:
+        port = decision if decision is not None else SystemOneAdapter(settings.llm)
+        decisions = dict.fromkeys(roles, port)
     deps = TurnDeps(
         llm=llm_port,
-        guardrail=GuardrailService(llm_port),
+        guardrail=GuardrailService(
+            llm_port,
+            decision=decisions.get(LlmRole.GUARDRAIL),
+            thresholds=guard_thresholds(settings.llm) if roles else GuardThresholds(),
+        ),
         retrieval=retrieval.service,
         clock=SystemClock(),
+        decisions=decisions,
     )
     runner = ChatTurnRunner(
         build_chat_graph(),

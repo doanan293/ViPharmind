@@ -22,6 +22,18 @@ class TokenUsage(BaseModel):
     seconds: float = 0.0
 
 
+class DecisionRecord(BaseModel):
+    """One decision-model call, kept raw: its model version, tokens, seconds, answers."""
+
+    model_config = _RECORD
+
+    role: str
+    model: str
+    input_tokens: int
+    seconds: float
+    answers: dict[str, float]
+
+
 class RetrievedChunk(BaseModel):
     """A chunk the agent read, by its gold label and the sections it holds."""
 
@@ -85,6 +97,8 @@ class AnswerRecord(ItemRecord):
     judge_outcomes: list[str] = Field(default_factory=list)
     llm_calls: int = 0
     usage_by_role: dict[str, TokenUsage] = Field(default_factory=dict)
+    # Every decision-model call of the turn (guard and judge) with its answers.
+    decisions: list[DecisionRecord] = Field(default_factory=list)
     latency_seconds: float = 0.0
     # Wall time outside LLM calls: retrieval, reranking and graph overhead.
     non_llm_seconds: float = 0.0

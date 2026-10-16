@@ -17,6 +17,7 @@ from pharma_agent.domain.llm.models import LlmRole, LlmUsage
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.infrastructure.settings import Settings
 from tests.e2e.factories import (
+    FakeDecision,
     FakeRetriever,
     ScriptedLlm,
     make_hit,
@@ -26,9 +27,20 @@ from tests.e2e.factories import (
 from pharma_lab.e2e.configs import E2EConfig, pipeline_for
 from pharma_lab.e2e.executor import BackendTurnExecutor, conversation_for
 from pharma_lab.e2e.golden import GoldenItem
-from pharma_lab.e2e.harness import run_items, spread, with_deadline
+from pharma_lab.e2e.harness import (
+    DecisionVersionGuard,
+    run_items,
+    spread,
+    with_deadline,
+)
 from pharma_lab.e2e.recording_llm import RecordingLlm
-from pharma_lab.e2e.records import AnswerRecord, JsonlStore, RetrievedChunk, RoundRecord
+from pharma_lab.e2e.records import (
+    AnswerRecord,
+    DecisionRecord,
+    JsonlStore,
+    RetrievedChunk,
+    RoundRecord,
+)
 
 SECTION = "drug:paracetamol:lieu-dung"
 
@@ -139,6 +151,34 @@ async def test_full_agent_record_maps_citations_to_gold_labels() -> None:
     assert "Người lớn uống tối đa" in fake.calls[1][1][-1].content
 
 
+async def test_answer_record_keeps_every_raw_decision() -> None:
+    fake = llm(judge=False, rephrase=True)
+    fake.scripts[LlmRole.GUARDRAIL] = []
+    decision = FakeDecision(
+        {"is_attack": 0.0, "is_about_medicines": 0.9, "sufficient_overall": 0.9}
+    )
+    retriever = FakeRetriever([make_hit("a", SECTION, score=0.9)])
+    full = BackendTurnExecutor(
+        graph=build_chat_graph(),
+        llm=fake,
+        retrieval=retrieval_service(retriever),
+        limits=BudgetLimits(),
+        pipeline=pipeline_for(E2EConfig.FULL),
+        config="full",
+        decisions={LlmRole.GUARDRAIL: decision, LlmRole.JUDGE: decision},
+    )
+
+    record = await full.execute(item())
+
+    assert [d.role for d in record.decisions] == ["guardrail", "judge"]
+    assert record.decisions[0].model == "jev-1.13.0"
+    assert record.decisions[1].answers["sufficient_overall"] == 0.9
+    assert record.usage_by_role["judge"].prompt_tokens == 300
+    assert record.usage_by_role["guardrail"].calls == 1
+    assert record.llm_calls == 4
+    assert not record.retryable
+
+
 async def test_one_step_searches_the_raw_question_without_a_judge() -> None:
     fake = llm(judge=False, rephrase=False)
     retriever = FakeRetriever([make_hit("a", SECTION, score=0.9)])
@@ -227,6 +267,46 @@ async def test_run_items_resumes_and_retries_only_on_request(tmp_path: Path) -> 
     assert again.seen == ["e2e-mt-0002"]
     assert summary.errors == 0
     assert store.latest()["e2e-mt-0002"].status == "completed"
+
+
+class VersionedExecutor:
+    """Answers with a decision model whose version follows the given list."""
+
+    def __init__(self, versions: list[str]) -> None:
+        self.versions = versions
+
+    async def execute(self, item: GoldenItem) -> AnswerRecord:
+        model = self.versions.pop(0)
+        return AnswerRecord(
+            item_id=item.item_id,
+            config="full",
+            status="completed",
+            decisions=[
+                DecisionRecord(
+                    role="judge", model=model, input_tokens=1, seconds=0.1, answers={}
+                )
+            ],
+        )
+
+
+async def test_run_items_stops_when_the_decision_model_version_changes(
+    tmp_path: Path,
+) -> None:
+    items = [item(f"e2e-mt-{n:04d}") for n in range(1, 4)]
+    store = JsonlStore(tmp_path / "answers.jsonl", AnswerRecord)
+
+    with pytest.raises(ValueError, match=r"jev-1\.13\.0 to jev-1\.14\.0"):
+        await run_items(
+            items,
+            VersionedExecutor(["jev-1.13.0", "jev-1.14.0", "jev-1.14.0"]),
+            store,
+            config="full",
+            concurrency=1,
+            retry_errors=False,
+            decision_guard=DecisionVersionGuard(tmp_path),
+        )
+
+    assert sorted(store.latest()) == ["e2e-mt-0001"]
 
 
 def test_spread_takes_items_across_the_set() -> None:
