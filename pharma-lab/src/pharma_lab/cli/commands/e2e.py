@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from openai.types import ReasoningEffort
 from pharma_agent.domain.corpus.bundle import read_bundle
+from pydantic import TypeAdapter
 
 from pharma_lab.cli.runtime import (
     CommandResult,
@@ -43,7 +45,7 @@ from pharma_lab.e2e.golden import (
 )
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
 from pharma_lab.e2e.judging.service import JudgeRequest, run_judge
-from pharma_lab.e2e.judging.structured import JUDGE_MODEL
+from pharma_lab.e2e.judging.structured import DEFAULT_JUDGE_REASONING, JUDGE_MODEL
 from pharma_lab.e2e.model_server import attach_model, env_path, serve_model
 from pharma_lab.e2e.one_round import load_one_round, trim_covered
 from pharma_lab.e2e.report import write_report
@@ -394,6 +396,12 @@ def judge(
         str,
         typer.Option("--judge-model", help="Model name on the backend LLM endpoint"),
     ] = JUDGE_MODEL,
+    judge_reasoning: Annotated[
+        str,
+        typer.Option(
+            "--judge-reasoning", help="Reasoning effort of the judge: none, low, medium"
+        ),
+    ] = DEFAULT_JUDGE_REASONING or "medium",
     items: Annotated[
         str,
         typer.Option("--items", help="Comma-separated item ids to judge again"),
@@ -411,6 +419,7 @@ def judge(
         concurrency=concurrency,
         force=force,
         judge_model=judge_model,
+        judge_reasoning=TypeAdapter(ReasoningEffort).validate_python(judge_reasoning),
         only=frozenset(key.strip() for key in items.split(",") if key.strip()),
     )
 
