@@ -213,3 +213,22 @@ uv run pharma-lab e2e decision-set score --repeats 3
 `score` chạy bộ câu hỏi guard trên mọi câu judge và mọi lượt guard trước; các intent guard hỏi tới (chỉ ngưỡng `asks`) là `asked_intents` của câu judge, đúng như agent. Sau đó mỗi câu judge được gọi `--repeats` lần và thêm một lần với danh sách bằng chứng đảo ngược. Mỗi lệnh gọi ghi một dòng vào `decisions.jsonl` (cạnh `jev.json`); chạy lại thì bỏ qua lệnh đã có (khóa: câu, vai, lần lặp, đảo, kèm sha256 của state và của nội dung câu hỏi gửi đi, nên đổi lời câu hỏi thì lệnh được gọi lại), nên đứt giữa chừng có thể chạy tiếp. Mọi số trong `jev.json` tính từ file này, và `jev.json` ghi cả sha256 của `judge_set.jsonl`, `guard_set.jsonl`, tên run và reranker, phiên bản model và ngày.
 
 Số của judge lấy từ một lệnh gọi (lần lặp 0) của `sufficient_overall`: AUROC, ECE, Brier, độ chính xác tại 0,5 và tại τ (các số trung bình qua các lần lặp có tiền tố `mean_`), AUROC `covers_<intent>`. Tại τ còn có độ chính xác của quyết định thật của agent (`judge_decision`, tính cả khoảng trống intent) so với nhãn `sufficient`, tỉ lệ đổi quyết định giữa các lần lặp và khi đảo thứ tự (so lệnh đảo với lần lặp 0). Số của guard gồm recall tấn công và tỉ lệ chặn nhầm lượt thuốc theo ngưỡng, AUROC của `is_attack`, `is_about_medicines` (thuốc đối với mọi lượt không tấn công còn lại) và `is_smalltalk_or_meta`, độ chính xác chuyển hướng chỉ trên các lượt `out_of_scope`, và tỉ lệ cho qua của `smalltalk` báo riêng. τ là ngưỡng tối đa độ chính xác cân bằng; `block` là mức thấp nhất trong 0,50 / 0,60 / 0,70 / 0,80 mà chặn nhầm không quá 1 % lượt thuốc (không mức nào đạt thì 0,80); `review` bằng một nửa `block`, làm tròn 0,05. Lệnh dừng nếu phiên bản model đổi giữa chừng.
+
+**Áp dụng giá trị đã chỉnh.** `jev.json` ghi `tau` và `thresholds` (`block`, `review`). Decision model phục vụ vai nào thì đặt provider của vai đó là `systemone` (SDK của TypeSafe gọi qua OpenRouter); ngưỡng guard đi trong `EXTRA_BODY` của vai guard, còn τ và kiểu refine là tuỳ chọn pipeline của run:
+
+```bash
+set -a; . ./.env; set +a
+for ROLE in GUARDRAIL JUDGE; do
+  export PHARMA_LLM__ROLES__${ROLE}__PROVIDER=systemone
+  export PHARMA_LLM__ROLES__${ROLE}__BASE_URL=https://openrouter.ai/api
+  export PHARMA_LLM__ROLES__${ROLE}__API_KEY=$OPENROUTER_API_KEY
+  export PHARMA_LLM__ROLES__${ROLE}__MODEL='~typesafe/jev-latest'
+done
+export PHARMA_LLM__ROLES__GUARDRAIL__EXTRA_BODY='{"thresholds": {"block": <block>, "review": <review>}}'
+uv run pharma-lab e2e run --run <RUN> --config full \
+  --pipeline-option refine_mode=template --pipeline-option refine_threshold=<tau>
+```
+
+Khoá hợp lệ trong `thresholds` là `block`, `review`, `scope` và `asks`; khoá khác làm agent dừng khi khởi động, nên viết sai tên không âm thầm rơi về mặc định. `extra_body` của vai `systemone` chỉ được đọc để lấy ngưỡng, không gửi đi. Nếu `e2e decision-probe` đo hơn 24.000 token cho 60.000 ký tự, đặt thêm `PHARMA_BUDGET__MAX_EVIDENCE_CHARS=<recommended_max_evidence_chars>`.
+
+Khi judge chạy trên decision model mà kết luận guard không đến từ decision model (cấu hình `no-guard`, guard thất bại và cho qua, regex, hoặc guard là LLM), judge tự hỏi các câu `asks_<intent>` một lần ở vòng judge đầu tiên của lượt, với state của guard và ngưỡng `asks`, rồi mới hỏi `covers_<intent>` cho các intent được chọn. Lệnh gọi này được tính vào ngân sách; nếu nó lỗi thì judge chạy với danh sách intent rỗng, lượt vẫn tiếp tục. Trong `answers.jsonl` nó là một dòng `decisions` với vai `guardrail` (vì nó hỏi câu của guard), đứng trước dòng `judge` của cùng vòng. Refine kiểu `template` khi judge không để lại khoảng trống nào (`sufficient_overall` dưới τ nhưng mọi `covers_` đạt) tìm theo các intent đã hỏi, intent phủ kém nhất trước; không có intent nào thì tìm "<chủ thể> thông tin chung".
