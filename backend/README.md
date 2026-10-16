@@ -204,6 +204,7 @@ uv run python -m tests.e2e.server --port 8001
 ```bash
 uv run ruff check src tests && uv run ruff format --check src tests
 uv run pyrefly check
+uv run lint-imports            # ranh giới tầng, contract trong pyproject.toml
 uv run pytest -q                 # unit
 uv run pytest -q -m integration  # cần Docker (Qdrant thật)
 ```
@@ -220,7 +221,7 @@ uv run pytest -q -m integration  # cần Docker (Qdrant thật)
 - `src/pharma_agent/infrastructure`: OpenAI, Qdrant, llama.cpp, Postgres, settings, composition root.
 - `src/pharma_agent/api`: router FastAPI, chỉ gọi xuống `application`.
 
-Quy tắc phụ thuộc được kiểm tra bởi `tests/architecture/test_layering.py`:
+Quy tắc phụ thuộc được ép bằng import-linter, contract trong `[tool.importlinter]` của `pyproject.toml`, chạy `uv run lint-imports`:
 
 - `domain` không import tầng nào khác và không dùng framework.
 - `application` không import `infrastructure` hay `api`. Ngoài LangGraph, nó chỉ chạm tới DB,
