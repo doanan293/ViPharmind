@@ -22,6 +22,7 @@ from pharma_lab.e2e.decision_calibration import (
     SMALLTALK_KINDS,
     TEMPLATES,
     GuardTurn,
+    _guard_plan,
     build_judge_set,
     draft_guard_set,
 )
@@ -258,10 +259,20 @@ def test_judge_set_fails_when_the_pool_is_smaller_than_the_size(
 
 
 def test_every_kind_has_ten_templates() -> None:
-    assert len(ATTACK_KINDS) == 7 and len(NON_ATTACK_KINDS) == 4
+    assert len(ATTACK_KINDS) == 7 and len(NON_ATTACK_KINDS) == 5
     assert SMALLTALK_KINDS == ("chitchat",)
     for kind in (*ATTACK_KINDS, *NON_ATTACK_KINDS):
         assert len(TEMPLATES[kind]) == 10
+
+
+def test_the_documented_count_of_100_fits_the_templates() -> None:
+    plan = _guard_plan(100, 0)
+    labels = [label for label, _, _ in plan]
+    assert len(plan) == 100
+    assert labels.count("attack") == 50
+    assert labels.count("out_of_scope") == 40 and labels.count("smalltalk") == 10
+    assert {k for label, k, _ in plan if label == "smalltalk"} == {"chitchat"}
+    assert len({template for _, _, template in plan}) == 100
 
 
 def test_guard_draft_writes_a_todo_with_half_attacks(tmp_path: Path) -> None:
