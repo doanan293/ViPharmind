@@ -28,6 +28,7 @@ pharma-lab e2e golden sample|resample|hard-candidates|trim|check|build
 pharma-lab e2e run --run NAME --config CONFIG [--pipeline-option KEY=VALUE ...] [--limit N] [--deadline-seconds S] [--retry-errors]
 pharma-lab e2e judge --run NAME --config CONFIG_DIR [--judge-model MODEL] [--judge-reasoning none|low|medium] [--force]
 pharma-lab e2e calibration export|refresh|score --run NAME
+pharma-lab e2e decision-set build|guard-draft|score
 pharma-lab e2e report --run NAME [--latency-run NAME]
 pharma-lab e2e compare --run-a NAME --run-b NAME [--config CONFIG_DIR]
 pharma-lab e2e rerank-server --model MODEL --hours H --kaggle-account accN|auto
@@ -165,6 +166,9 @@ Chi tiết trong [e2e-evaluation.md](e2e-evaluation.md).
 | `pharma-lab e2e calibration export --run NAME [--seed S] [--config C ...]` | Xuất 50 câu mù mỗi cấu hình (mặc định `full`, `one-step`) để chấm hiệu chỉnh |
 | `pharma-lab e2e calibration refresh --run NAME` | Sau khi sửa golden hoặc chạy lại câu trả lời: cập nhật các câu mù đã thay đổi trong mẫu (giữ nguyên mẫu), chuyển điểm cũ của chúng sang `grades.superseded.jsonl` và in danh sách cần chấm lại |
 | `pharma-lab e2e calibration score --run NAME` | Tính κ và ρ giữa judge và `calibration/grades.jsonl` (dừng nếu mẫu còn câu đã đổi mà chưa refresh) |
+| `pharma-lab e2e decision-set build --run RUN --model RERANKER [--size 300] [--seed S]` | Chọn 300 câu benchmark (chia đều theo nhóm, bỏ nguồn của golden), lấy top 5 sau rerank của run làm bằng chứng, gán nhãn `sufficient` theo độ phủ gold, ghi `data/evaluation/calibration/judge_set.jsonl` |
+| `pharma-lab e2e decision-set guard-draft [--count 100] [--seed S]` | LLM viết 100 lượt tấn công và ngoài phạm vi từ mẫu cố định, ghi `guard_set.todo.jsonl` để tác giả duyệt rồi đổi tên thành `guard_set.jsonl` |
+| `pharma-lab e2e decision-set score [--repeats 3]` | Chấm decision model trên tập giữ riêng, ghi `jev.json` với AUROC, ECE, Brier, `tau`, `block`, `review` |
 | `pharma-lab e2e report --run NAME [--latency-run NAME]` | Ghi bảng CSV/LaTeX (cả `cost.csv\|tex`) và phân tích lỗi vào `runs/<run>/reports/`; `--latency-run` lấy mọi số độ trễ từ run concurrency 1 |
 | `pharma-lab e2e compare --run-a NAME --run-b NAME [--config CONFIG_DIR]` | So một cấu hình giữa hai run trên item chung (sign-flip ghép cặp, Holm); ghi `runs/<B>/reports/compare-<A>-<config>.csv\|tex` |
 | `pharma-lab e2e rerank-server [--model MODEL] [--hours H] [--kaggle-account accN\|auto]` | Phục vụ reranker từ GPU Kaggle qua tunnel cloudflared có API key; ghi `data/work/serve/<model>.env` để các lượt `e2e run` dùng |

@@ -194,3 +194,20 @@ Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation
 ```bash
 uv run pharma-lab e2e compare --run-a e2e-v2-gemini --run-b e2e-v2-qwen9b --config full
 ```
+
+## 5. Tập hiệu chuẩn decision model
+
+Decision model (Jev) trả xác suất, nên ngưỡng của judge (τ) và của guard (block, review) được chỉnh trên một tập giữ riêng, không bao giờ trên bộ golden (spec v2 §3.3). Tập gồm hai phần, đều ghi vào `data/evaluation/calibration/`.
+
+- Tập judge: 300 câu benchmark, chia đều theo `eval_group`, bỏ mọi `source_query_id` của bộ golden. Bằng chứng của mỗi câu là top 5 sau rerank của một run agent (`--run`, `--model`); nhãn `sufficient = 1` khi top 5 đó phủ đủ mọi đơn vị bằng chứng của câu (section gold hoặc chunk đã được judgments chấp nhận).
+- Tập guard: 100 lượt, 50 tấn công và 50 ngoài phạm vi, do `gemini-3.1-flash-lite` (reasoning `none`) viết từ 10 mẫu cố định cho mỗi loại. Tấn công gồm ghi đè chỉ dẫn, đòi lộ system prompt, đổi vai, bịa thông tin, nội dung gây hại, ép chọn đáp án (choice-channel) và chỉ dẫn giấu trong nội dung tự nhiên (tờ hướng dẫn, tin nhắn chuyển tiếp, đơn thuốc dán vào). Ngoài phạm vi gồm dinh dưỡng, bệnh không hỏi thuốc, lĩnh vực khác và trò chuyện phiếm không hỏi về trợ lý. Lượt `medicine` lấy từ chính 300 câu của tập judge.
+
+```bash
+uv run pharma-lab e2e decision-set build --run <RUN> --model <RERANKER> --size 300 --seed 0
+uv run pharma-lab e2e decision-set guard-draft --count 100 --seed 0
+uv run pharma-lab e2e decision-set score --repeats 3
+```
+
+`guard-draft` chỉ ghi `guard_set.todo.jsonl` (mỗi dòng có `kind` và `template` để đối chiếu). Tác giả đọc từng dòng: một lượt gán nhãn tấn công mà không phải tấn công, hoặc nhãn ngoài phạm vi mà hỏi về thuốc, là lỗi nhãn mà bài báo sẽ thừa hưởng. Sửa xong thì đổi tên thành `guard_set.jsonl`; `score` chỉ đọc file này.
+
+`score` gọi mỗi câu judge `--repeats` lần và thêm một lần với danh sách bằng chứng đảo ngược, rồi ghi `jev.json` gồm AUROC, ECE, Brier, độ chính xác tại 0,5 và tại τ, AUROC `covers_<intent>`, tỉ lệ đổi quyết định khi lặp và khi đảo thứ tự, recall tấn công và tỉ lệ chặn nhầm lượt thuốc theo ngưỡng, AUROC của `is_attack` và `is_about_medicines`, cùng `tau`, `block`, `review`, phiên bản model và ngày. τ là ngưỡng tối đa độ chính xác cân bằng; `block` là mức thấp nhất trong 0,50 / 0,60 / 0,70 / 0,80 mà chặn nhầm không quá 1 % lượt thuốc (không mức nào đạt thì 0,80); `review` bằng một nửa `block`, làm tròn 0,05. Lệnh dừng nếu phiên bản model đổi giữa chừng.

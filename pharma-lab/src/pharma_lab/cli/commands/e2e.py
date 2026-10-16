@@ -22,6 +22,7 @@ from pharma_lab.cli.runtime import (
 from pharma_lab.config.paths import (
     BACKEND_ENV_FILE,
     BUNDLE_DIR,
+    DECISION_CALIBRATION_DIR,
     E2E_AUTHORING_DIR,
     GOLD_DIR,
     GOLDEN_E2E_PATH,
@@ -37,12 +38,18 @@ from pharma_lab.e2e.calibration import (
 from pharma_lab.e2e.compare import SIGNIFICANCE, compare_runs
 from pharma_lab.e2e.configs import E2EConfig, config_label
 from pharma_lab.e2e.corpus_text import chunk_texts, corpus_text, load_corpus_text
+from pharma_lab.e2e.decision_calibration import (
+    build_judge_set,
+    draft_guard_set,
+    load_rows,
+)
 from pharma_lab.e2e.decision_probe import (
     longest_chunk_texts,
     probe_state,
     recommended_evidence_chars,
     run_probe,
 )
+from pharma_lab.e2e.decision_scoring import score_decision_set, write_scores
 from pharma_lab.e2e.golden import (
     ANSWERABLE_PER_GROUP,
     QUOTAS,
@@ -55,7 +62,11 @@ from pharma_lab.e2e.golden import (
 )
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
 from pharma_lab.e2e.judging.service import JudgeRequest, run_judge
-from pharma_lab.e2e.judging.structured import DEFAULT_JUDGE_REASONING, JUDGE_MODEL
+from pharma_lab.e2e.judging.structured import (
+    DEFAULT_JUDGE_REASONING,
+    JUDGE_MODEL,
+    judge_llm,
+)
 from pharma_lab.e2e.model_server import attach_model, env_path, serve_model
 from pharma_lab.e2e.one_round import load_one_round, trim_covered
 from pharma_lab.e2e.report import write_report
@@ -69,6 +80,7 @@ from pharma_lab.e2e.sampling import (
 from pharma_lab.evaluation.artifact_contracts import sha256_file
 from pharma_lab.evaluation.backend_retrieval import load_query_rows
 from pharma_lab.evaluation.relevance_judgments import judgments_path, load_judgments
+from pharma_lab.runtime.catalog import require_model
 
 GOLD_PATH = GOLD_DIR / "section_retrieval_eval.jsonl"
 
@@ -85,6 +97,14 @@ calibration_app = typer.Typer(
     add_completion=False, no_args_is_help=True, help="Blind judge calibration."
 )
 e2e_app.add_typer(calibration_app, name="calibration")
+decision_set_app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    help="Held-out calibration set of the decision model.",
+)
+e2e_app.add_typer(decision_set_app, name="decision-set")
+
+GUARD_DRAFT_MODEL = "gemini-3.1-flash-lite"
 
 
 @golden_app.command("sample")
@@ -638,6 +658,123 @@ def decision_probe(
                 "seconds": round(result.seconds, 3),
                 "model": result.model,
                 "recommended_max_evidence_chars": recommended_evidence_chars(result),
+            },
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@decision_set_app.command("build")
+def decision_set_build(
+    ctx: typer.Context,
+    run_name: Annotated[str, typer.Option("--run", help="Retrieval run of the agent")],
+    model: Annotated[str, typer.Option("--model", help="Reranker of that run")],
+    size: Annotated[int, typer.Option("--size", min=1)] = 300,
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+    evaluation: Annotated[
+        Path, typer.Option("--evaluation", dir_okay=False)
+    ] = GOLD_PATH,
+    golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
+    output: Annotated[Path, typer.Option("--output", dir_okay=False)] = (
+        DECISION_CALIBRATION_DIR / "judge_set.jsonl"
+    ),
+) -> None:
+    """Sample judge questions with the run's reranked top-5 evidence, labelled by gold coverage."""
+
+    def handler() -> CommandResult:
+        path = build_judge_set(
+            run_dir(run_name),
+            evaluation,
+            load_judgments(
+                judgments_path(evaluation), evaluation_sha256=sha256_file(evaluation)
+            ),
+            output=output,
+            reranker=model,
+            rerank_slug=require_model(model).slug,
+            size=size,
+            seed=seed,
+            golden_sources={
+                item.source_query_id
+                for item in load_golden(golden)
+                if item.source_query_id
+            },
+        )
+        rows = load_rows(path)
+        return CommandResult(
+            "e2e decision-set build",
+            CommandStatus.COMPLETE,
+            path,
+            {
+                "questions": len(rows),
+                "sufficient": sum(int(row["sufficient"]) for row in rows),
+            },
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@decision_set_app.command("guard-draft")
+def decision_set_guard_draft(
+    ctx: typer.Context,
+    count: Annotated[int, typer.Option("--count", min=2)] = 100,
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+    output: Annotated[Path, typer.Option("--output", dir_okay=False)] = (
+        DECISION_CALIBRATION_DIR / "guard_set.todo.jsonl"
+    ),
+    backend_env_file: Annotated[
+        Path, typer.Option("--backend-env-file", dir_okay=False)
+    ] = BACKEND_ENV_FILE,
+) -> None:
+    """Draft attack and out-of-scope turns for the author to review, then rename to guard_set.jsonl."""
+
+    def handler() -> CommandResult:
+        llm = judge_llm(Settings(_env_file=backend_env_file), GUARD_DRAFT_MODEL, "none")
+        path = asyncio.run(draft_guard_set(llm, output, count=count, seed=seed))
+        kinds = Counter(str(row["kind"]) for row in load_rows(path))
+        return CommandResult(
+            "e2e decision-set guard-draft", CommandStatus.COMPLETE, path, dict(kinds)
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@decision_set_app.command("score")
+def decision_set_score(
+    ctx: typer.Context,
+    repeats: Annotated[int, typer.Option("--repeats", min=1)] = 3,
+    judge_set: Annotated[Path, typer.Option("--judge-set", dir_okay=False)] = (
+        DECISION_CALIBRATION_DIR / "judge_set.jsonl"
+    ),
+    guard_set: Annotated[Path, typer.Option("--guard-set", dir_okay=False)] = (
+        DECISION_CALIBRATION_DIR / "guard_set.jsonl"
+    ),
+    output: Annotated[Path, typer.Option("--output", dir_okay=False)] = (
+        DECISION_CALIBRATION_DIR / "jev.json"
+    ),
+    backend_env_file: Annotated[
+        Path, typer.Option("--backend-env-file", dir_okay=False)
+    ] = BACKEND_ENV_FILE,
+) -> None:
+    """Score the decision model on the held-out set and write jev.json with tau, block and review."""
+
+    def handler() -> CommandResult:
+        decision = SystemOneAdapter(Settings(_env_file=backend_env_file).llm)
+        scores = asyncio.run(
+            score_decision_set(
+                decision, load_rows(judge_set), load_rows(guard_set), repeats=repeats
+            )
+        )
+        path = write_scores(scores, output)
+        return CommandResult(
+            "e2e decision-set score",
+            CommandStatus.COMPLETE,
+            path,
+            {
+                "model": scores.model,
+                "tau": scores.tau,
+                "block": scores.block,
+                "review": scores.review,
+                "judge_auroc": round(scores.judge["auroc"], 3),
             },
         )
 
