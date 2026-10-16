@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import time
 from collections.abc import Callable
@@ -19,11 +20,14 @@ class LlamaCppRequestError(LlamaCppError):
         status_code: int | None = None,
         retryable: bool = False,
         failed_input_index: int | None = None,
+        context_size: int | None = None,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.retryable = retryable
         self.failed_input_index = failed_input_index
+        # Set when the server refused an input longer than its context per slot.
+        self.context_size = context_size
 
 
 class LlamaCppResponseError(LlamaCppError):
@@ -34,6 +38,22 @@ class LlamaCppResponseError(LlamaCppError):
 # input fails again on a fresh server, so such a response must never be retried: on
 # Kaggle a retry costs a server lifetime and, after the restarts, a whole GPU session.
 INPUT_TOO_LARGE = "is too large to process"
+# llama.cpp answers HTTP 400 with this error type when an input is longer than the context
+# per slot, which it caps at the model's training context (EmbeddingGemma: 2,048 tokens).
+EXCEED_CONTEXT_SIZE = "exceed_context_size_error"
+
+EmbeddingInput = str | list[int]
+
+
+def _context_size(body: str) -> int | None:
+    try:
+        error = json.loads(body).get("error")
+    except (ValueError, AttributeError):
+        return None
+    if not isinstance(error, dict) or error.get("type") != EXCEED_CONTEXT_SIZE:
+        return None
+    n_ctx = error.get("n_ctx")
+    return n_ctx if isinstance(n_ctx, int) and n_ctx > 0 else None
 
 
 class LlamaCppClient:
@@ -75,6 +95,11 @@ class LlamaCppClient:
             try:
                 return self._embed_once(texts, model, expected_dimension)
             except LlamaCppRequestError as exc:
+                if exc.context_size is not None:
+                    inputs = [
+                        self._fit_context(text, exc.context_size) for text in texts
+                    ]
+                    return self._embed_once(inputs, model, expected_dimension)
                 last_error = exc
                 if not exc.retryable or attempt >= self.max_attempts:
                     break
@@ -100,8 +125,49 @@ class LlamaCppClient:
             last_error.failed_input_index = 0
         raise last_error
 
+    def _tokenize(self, text: str, *, add_special: bool) -> list[int]:
+        tokens = self._request(
+            "/tokenize", {"content": text, "add_special": add_special}
+        ).get("tokens")
+        if not isinstance(tokens, list) or not all(
+            isinstance(token, int) for token in tokens
+        ):
+            raise LlamaCppResponseError("Tokenize response has no token list")
+        return tokens
+
+    def _fit_context(self, text: str, context_size: int) -> EmbeddingInput:
+        """Keep the head of a text longer than the server context, as sentence-transformers
+        truncates at max_seq_length; the model's special tokens stay at both ends."""
+        tokens = self._tokenize(text, add_special=True)
+        if len(tokens) <= context_size:
+            return text
+        content = self._tokenize(text, add_special=False)
+        prefix = next(
+            (
+                start
+                for start in range(len(tokens) - len(content) + 1)
+                if tokens[start : start + len(content)] == content
+            ),
+            None,
+        )
+        if prefix is None:
+            raise LlamaCppResponseError(
+                "Tokenize with special tokens does not contain the plain tokens"
+            )
+        head = tokens[:prefix]
+        tail = tokens[prefix + len(content) :]
+        room = context_size - len(head) - len(tail)
+        if room < 1:
+            raise LlamaCppResponseError(
+                f"Context of {context_size} tokens has no room for content"
+            )
+        return [*head, *content[:room], *tail]
+
     def _embed_once(
-        self, texts: list[str], model: str, expected_dimension: int
+        self,
+        texts: list[str] | list[EmbeddingInput],
+        model: str,
+        expected_dimension: int,
     ) -> list[list[float]]:
         payload = self._request(
             "/v1/embeddings", {"model": model, "input": list(texts)}
@@ -199,6 +265,9 @@ class LlamaCppClient:
                         f"llama.cpp request failed for {path}: HTTP {status_code}{detail}",
                         status_code=status_code,
                         retryable=retryable,
+                        context_size=_context_size(body)
+                        if status_code == 400
+                        else None,
                     )
                 else:
                     try:
