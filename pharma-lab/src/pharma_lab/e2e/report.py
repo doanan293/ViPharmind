@@ -248,6 +248,30 @@ METRICS: tuple[Metric, ...] = (
     Metric("tokens_per_turn", lambda v: float(v.answer.total_tokens), False, True),
     Metric("llm_calls_per_turn", lambda v: float(v.answer.llm_calls), False, True),
     Metric("latency_seconds", lambda v: v.answer.latency_seconds, False, False),
+    Metric(
+        "llm_seconds_per_turn",
+        lambda v: sum(u.seconds for u in v.answer.usage_by_role.values()),
+        False,
+        False,
+    ),
+    Metric(
+        "retrieval_seconds_per_turn",
+        lambda v: v.answer.retrieval_seconds + v.answer.rerank_seconds,
+        False,
+        False,
+    ),
+    Metric("rerank_seconds_per_turn", lambda v: v.answer.rerank_seconds, False, False),
+    # Guard and judge are the decision steps; phase 1 moves them to the decision model.
+    Metric(
+        "decision_seconds_per_turn",
+        lambda v: sum(
+            v.answer.usage_by_role[role].seconds
+            for role in ("guardrail", "judge")
+            if role in v.answer.usage_by_role
+        ),
+        False,
+        False,
+    ),
 )
 LATENCY = "latency_seconds"
 
