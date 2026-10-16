@@ -128,3 +128,24 @@ def test_template_refine_uses_free_text_gaps_verbatim() -> None:
     assert template_queries(["paracetamol"], ["liều paracetamol cho trẻ 2 tuổi"]) == [
         "liều paracetamol cho trẻ 2 tuổi"
     ]
+
+
+def test_template_queries_cover_every_subject() -> None:
+    assert template_queries(["paracetamol", "ibuprofen"], ["dosage"]) == [
+        "paracetamol liều dùng và cách dùng",
+        "ibuprofen liều dùng và cách dùng",
+    ]
+
+
+def test_template_queries_are_subject_major_and_capped_at_three() -> None:
+    assert template_queries(["paracetamol", "ibuprofen"], ["dosage", "storage"]) == [
+        "paracetamol liều dùng và cách dùng",
+        "paracetamol bảo quản",
+        "ibuprofen liều dùng và cách dùng",
+    ]
+
+
+def test_template_free_text_gap_appears_once_with_two_subjects() -> None:
+    assert template_queries(["paracetamol", "ibuprofen"], ["tương tác hai thuốc"]) == [
+        "tương tác hai thuốc"
+    ]
