@@ -41,6 +41,13 @@ repos:
         files: ^backend/.*\.(py|pyi|toml)$
         pass_filenames: false
         require_serial: true
+      - id: lint-imports-backend
+        name: lint-imports (backend)
+        entry: uv run --directory backend lint-imports
+        language: system
+        files: ^backend/.*\.(py|toml)$
+        pass_filenames: false
+        require_serial: true
 
   - repo: local
     hooks:
