@@ -335,7 +335,12 @@ def test_report_writes_react_failures(tmp_path: Path) -> None:
         store.append(
             record.model_copy(
                 update={
-                    "react": ReactRecord(rounds=2, tool_calls=3, round_cap_hit=n == 0),
+                    "react": ReactRecord(
+                        rounds=2,
+                        tool_calls=3,
+                        round_cap_hit=n == 0,
+                        budget_forced=n in (1, 2),
+                    ),
                     "citations": [] if n == 1 else record.citations,
                 }
             )
@@ -348,6 +353,7 @@ def test_report_writes_react_failures(tmp_path: Path) -> None:
     assert row["n"] == "4"
     assert float(row["react_round_cap_rate"]) == pytest.approx(0.25)
     assert float(row["react_round_cap_rate_ci_low"]) < 0.25
+    assert float(row["react_budget_forced_rate"]) == pytest.approx(0.5)
     assert float(row["react_uncited_rate"]) == pytest.approx(0.25)
     assert float(row["react_rounds"]) == pytest.approx(2.0)
     main = rows(tmp_path / "reports" / "main.csv")

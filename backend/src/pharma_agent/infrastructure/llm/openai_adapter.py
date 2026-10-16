@@ -13,6 +13,7 @@ from pharma_agent.domain.llm.models import (
     LlmUsage,
     StreamDelta,
     ToolCall,
+    ToolChoice,
     ToolSpec,
     ToolTurn,
 )
@@ -123,7 +124,12 @@ class OpenAiLlmAdapter:
             raise LlmError(f"{role.value}: {exc}") from exc
 
     async def tool_call(
-        self, role: LlmRole, messages: Sequence[ChatMessage], tools: Sequence[ToolSpec]
+        self,
+        role: LlmRole,
+        messages: Sequence[ChatMessage],
+        tools: Sequence[ToolSpec],
+        *,
+        tool_choice: ToolChoice = "auto",
     ) -> tuple[ToolTurn, LlmUsage]:
         """Native tool calling; with no tools the model can only answer."""
         client, endpoint = self._client(role)
@@ -144,7 +150,10 @@ class OpenAiLlmAdapter:
                 }
                 for tool in tools
             ]
-            request["parallel_tool_calls"] = True
+            if tool_choice == "none":
+                request["tool_choice"] = "none"
+            else:
+                request["parallel_tool_calls"] = True
         try:
             completion = await client.chat.completions.create(**request)
         except OpenAIError as exc:

@@ -11,6 +11,7 @@ from pharma_agent.domain.llm.models import (
     LlmRole,
     LlmUsage,
     StreamDelta,
+    ToolChoice,
     ToolSpec,
     ToolTurn,
 )
@@ -40,7 +41,12 @@ class ScriptedLlm:
         raise NotImplementedError
 
     async def tool_call(
-        self, role: LlmRole, messages: Sequence[ChatMessage], tools: Sequence[ToolSpec]
+        self,
+        role: LlmRole,
+        messages: Sequence[ChatMessage],
+        tools: Sequence[ToolSpec],
+        *,
+        tool_choice: ToolChoice = "auto",
     ) -> tuple[ToolTurn, LlmUsage]:
         raise NotImplementedError
 

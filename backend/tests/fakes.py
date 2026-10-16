@@ -15,6 +15,7 @@ from pharma_agent.domain.llm.models import (
     LlmRole,
     LlmUsage,
     StreamDelta,
+    ToolChoice,
     ToolSpec,
     ToolTurn,
 )
@@ -48,6 +49,7 @@ class FakeLlm:
         self.tool_calls_seen: list[
             tuple[LlmRole, list[ChatMessage], list[ToolSpec]]
         ] = []
+        self.tool_choices: list[ToolChoice] = []
 
     def script(self, role: LlmRole, *responses: BaseModel | Exception) -> None:
         self.structured_responses.setdefault(role, []).extend(responses)
@@ -56,9 +58,15 @@ class FakeLlm:
         self.tool_turns.extend(turns)
 
     async def tool_call(
-        self, role: LlmRole, messages: Sequence[ChatMessage], tools: Sequence[ToolSpec]
+        self,
+        role: LlmRole,
+        messages: Sequence[ChatMessage],
+        tools: Sequence[ToolSpec],
+        *,
+        tool_choice: ToolChoice = "auto",
     ) -> tuple[ToolTurn, LlmUsage]:
         self.tool_calls_seen.append((role, list(messages), list(tools)))
+        self.tool_choices.append(tool_choice)
         if not self.tool_turns:
             raise AssertionError("no scripted tool turn")
         turn = self.tool_turns.pop(0)

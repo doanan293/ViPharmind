@@ -12,6 +12,7 @@ from pharma_agent.domain.llm.models import (
     LlmRole,
     LlmUsage,
     StreamDelta,
+    ToolChoice,
     ToolSpec,
     ToolTurn,
 )
@@ -42,7 +43,12 @@ class ScriptedLlm:
         self.tool_turns.extend(turns)
 
     async def tool_call(
-        self, role: LlmRole, messages: Sequence[ChatMessage], tools: Sequence[ToolSpec]
+        self,
+        role: LlmRole,
+        messages: Sequence[ChatMessage],
+        tools: Sequence[ToolSpec],
+        *,
+        tool_choice: ToolChoice = "auto",
     ) -> tuple[ToolTurn, LlmUsage]:
         self.calls.append((role, list(messages)))
         turn = self.tool_turns.pop(0)
