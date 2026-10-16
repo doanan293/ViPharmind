@@ -31,6 +31,7 @@ from pharma_lab.e2e.calibration import (
     refresh_calibration,
     score_calibration,
 )
+from pharma_lab.e2e.compare import SIGNIFICANCE, compare_runs
 from pharma_lab.e2e.configs import E2EConfig, config_label
 from pharma_lab.e2e.corpus_text import chunk_texts, corpus_text, load_corpus_text
 from pharma_lab.e2e.golden import (
@@ -536,6 +537,41 @@ def report(
             CommandStatus.COMPLETE,
             e2e_run_dir(run_name) / "reports",
             {"files": ",".join(path.name for path in written)},
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@e2e_app.command("compare")
+def compare(
+    ctx: typer.Context,
+    run_a: Annotated[str, typer.Option("--run-a", help="Baseline run")],
+    run_b: Annotated[str, typer.Option("--run-b", help="Run compared with it")],
+    config: Annotated[str, typer.Option("--config")] = "full",
+    golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
+    evaluation: Annotated[
+        Path, typer.Option("--evaluation", dir_okay=False)
+    ] = GOLD_PATH,
+) -> None:
+    """Paired sign-flip test of one configuration between two runs (B minus A)."""
+
+    def handler() -> CommandResult:
+        items = {item.item_id: item for item in load_golden(golden)}
+        relevance = load_judgments(
+            judgments_path(evaluation), evaluation_sha256=sha256_file(evaluation)
+        )
+        rows = compare_runs(
+            e2e_run_dir(run_a), e2e_run_dir(run_b), config, items, relevance
+        )
+        return CommandResult(
+            "e2e compare",
+            CommandStatus.COMPLETE,
+            e2e_run_dir(run_b) / "reports",
+            {
+                row.metric: f"{row.delta:+.3f} p_holm={row.p_holm:.3f}"
+                for row in rows
+                if row.p_holm < SIGNIFICANCE
+            },
         )
 
     run_handler(state_from_context(ctx), handler)
