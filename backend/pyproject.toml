@@ -70,6 +70,7 @@ type = "forbidden"
 source_modules = ["pharma_agent.domain"]
 forbidden_modules = [
     "langgraph",
+    "langchain",
     "langchain_core",
     "openai",
     "qdrant_client",
@@ -77,6 +78,7 @@ forbidden_modules = [
     "fastapi",
     "langfuse",
     "httpx",
+    "fastembed",
 ]
 
 [[tool.importlinter.contracts]]
@@ -95,6 +97,7 @@ forbidden_modules = [
     "langfuse",
     "httpx",
     "typer",
+    "uvicorn",
 ]
 
 [[tool.importlinter.contracts]]
