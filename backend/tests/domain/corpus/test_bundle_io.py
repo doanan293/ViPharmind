@@ -8,6 +8,7 @@ from pharma_agent.domain.corpus.bundle import (
     BUNDLE_SCHEMA_VERSION,
     BlockKind,
     BlockRecord,
+    BundleChunking,
     BundleCollection,
     BundleEmbeddingFile,
     BundleFile,
@@ -617,3 +618,14 @@ def test_manifest_embedding_entries_must_name_their_file(tmp_path: Path) -> None
         "manifest.json: embeddings[0].file: expected "
         f"'{EMBEDDINGS_FILE}', got 'embeddings/other.jsonl'",
     ]
+
+
+def test_write_bundle_keeps_the_manifest_chunking(tmp_path: Path) -> None:
+    bundle = make_bundle()
+    chunking = BundleChunking(target_chars=1)
+    rechunked = bundle.model_copy(
+        update={"manifest": bundle.manifest.model_copy(update={"chunking": chunking})}
+    )
+
+    assert write_bundle(rechunked, tmp_path).chunking == chunking
+    assert read_bundle(tmp_path).manifest.chunking == chunking
