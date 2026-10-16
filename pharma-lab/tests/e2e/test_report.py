@@ -87,7 +87,23 @@ def judgement(n: int, config: str, recall: float) -> Judgement:
     )
 
 
+IDENTITY = {
+    "role_models": {
+        role: {"model": "gemini-3.8-flash-high"}
+        for role in ("guardrail", "rephrase", "judge", "refine", "answer", "summarizer")
+    },
+    "retrieval": {"embedding_model": "qwen3-embedding:4b-q8_0"},
+    "rerank": {"model": "qwen3-reranker:4b-q8_0"},
+}
+
+
+def write_identity(root: Path, config: str) -> None:
+    (root / config).mkdir(parents=True, exist_ok=True)
+    (root / config / "run.json").write_text(json.dumps(IDENTITY), encoding="utf-8")
+
+
 def write_config(root: Path, config: str, recalls: list[float]) -> None:
+    write_identity(root, config)
     answers = JsonlStore(root / config / "answers.jsonl", AnswerRecord)
     judgments = JsonlStore(root / config / "judgments.jsonl", Judgement)
     for n, recall in enumerate(recalls):
@@ -164,6 +180,8 @@ def test_write_report_builds_every_table(tmp_path: Path) -> None:
         "by_group.csv",
         "calibration.csv",
         "calibration.tex",
+        "cost.csv",
+        "cost.tex",
         "errors.md",
         "main.csv",
         "main.tex",
@@ -241,6 +259,7 @@ def test_report_uses_relevance_judgments_and_answerable_groups(tmp_path: Path) -
         judgement(1, "full", 1.0)
     )
     relevance = LoadedJudgments("r" * 64, {"q-1": {SECTION: frozenset({leaflet})}})
+    write_identity(tmp_path, "full")
 
     write_report(tmp_path, {item.item_id: item}, relevance)
     main = {r["metric"]: r for r in rows(tmp_path / "reports" / "main.csv")}
@@ -317,3 +336,23 @@ def test_seconds_per_turn_metrics_read_steps_and_roles() -> None:
     assert by_name["retrieval_seconds_per_turn"].read(view) == pytest.approx(1.0)
     assert by_name["rerank_seconds_per_turn"].read(view) == pytest.approx(0.6)
     assert by_name["decision_seconds_per_turn"].read(view) == pytest.approx(0.5)
+
+
+def test_cost_table_has_usd_per_turn_and_cost_of_pass(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    write_config(tmp_path, "full", [1.0, 1.0, 0.5, 1.0])
+
+    write_report(tmp_path, items)
+
+    table = {r["metric"]: r for r in rows(tmp_path / "reports" / "cost.csv")}
+    assert {"usd_per_turn", "usd_per_1000_turns", "cost_of_pass", "latency_p50"} <= set(
+        table
+    )
+    # answer: 100 prompt + 10 completion tokens on gemini-3.8-flash-high per turn.
+    llm = (100 * 0.75 + 10 * 3.75) / 1e6
+    assert float(table["llm_usd_per_turn"]["mean"]) == pytest.approx(llm)
+    assert float(table["usd_per_1000_turns"]["mean"]) == pytest.approx(
+        1000 * float(table["usd_per_turn"]["mean"])
+    )
+    tex = (tmp_path / "reports" / "cost.tex").read_text("utf-8")
+    assert r"\label{tab:e2e-cost}" in tex
