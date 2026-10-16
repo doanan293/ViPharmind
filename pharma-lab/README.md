@@ -62,13 +62,32 @@ Chính sách bàn giao và artifact: [Downstream](docs/guides/downstream.md).
 
 ## Cấu trúc project
 
-- `src/pharma_lab/orchestration/`: build và atomic publish `rag-final`.
-- `src/pharma_lab/corpus/`: trích xuất PDF, crawl tờ hướng dẫn, canonical blocks (ghép các bảng đã curate sẵn trong `data/sources/curation/docling_tables.jsonl`), validation.
-- `src/pharma_lab/bundle/`: export, embed và evaluation chunks dựa trên `pharma_agent.domain.corpus`.
-- `src/pharma_lab/embeddings/`: cache embedding theo hash và backend local/Kaggle.
-- `src/pharma_lab/integrations/kaggle/`: reconciliation, checkpoint và worker trên Kaggle (worker không import backend).
-- `src/pharma_lab/evaluation/`: dataset, retrieval qua backend, rerank, metrics.
-- `src/pharma_lab/cli/`: entrypoint `uv run pharma-lab`.
+`src/pharma_lab/` xếp thành 11 tầng. Tầng trên được import tầng dưới; package cùng tầng không
+import nhau.
+
+| Tầng | Package | Vai trò |
+| --- | --- | --- |
+| 1 | `cli/` | Entrypoint `uv run pharma-lab`, chỉ gọi xuống |
+| 2 | `e2e/`, `data_archive/` | Harness chạy agent end-to-end; lưu trữ dữ liệu lên Kaggle |
+| 3 | `evaluation/`, `orchestration/` | Dataset, retrieval qua backend, rerank, metrics; build và atomic publish `rag-final` |
+| 4 | `bundle/` | Export, embed và evaluation chunks dựa trên `pharma_agent.domain.corpus` |
+| 5 | `embeddings/` | Service embed local (llama.cpp) hoặc trên Kaggle |
+| 6 | `integrations/kaggle/` | Reconciliation, checkpoint, session và worker chạy trên Kaggle |
+| 7 | `corpus/` | Trích xuất PDF, crawl tờ hướng dẫn, canonical blocks, validation |
+| 8 | `artifacts/` | Contract rag-final, manifest artifact đánh giá, publisher |
+| 9 | `cache/` | Cache JSONL và embedding theo hash, đường dẫn cache theo model, khóa file |
+| 10 | `runtime/` | Catalog model, llama.cpp client, compose, helper asyncio |
+| 11 | `config/`, `hashing.py` | Đường dẫn, env; hàm hash thuần |
+
+Quy tắc phụ thuộc được ép bằng import-linter (`[tool.importlinter]` trong `pyproject.toml`,
+chạy `uv run lint-imports`):
+
+- Thứ tự tầng ở bảng trên.
+- `integrations/kaggle/workers/` không import backend (`pharma_agent`); mã worker được tải lên
+  kernel Kaggle.
+- `pharma_lab` chỉ dùng mặt công khai của backend: không `pharma_agent.api`, không
+  `pharma_agent.infrastructure.persistence`. Danh sách module backend được dùng nằm trong
+  `tests/test_backend_public_api.py`.
 
 ## CLI
 
@@ -79,5 +98,6 @@ Entrypoint duy nhất là `uv run pharma-lab`. Xem [CLI reference](docs/guides/c
 ```bash
 uv run ruff check src tests && uv run ruff format --check src tests
 uv run pyrefly check --min-severity warn
+uv run lint-imports
 uv run pytest -q
 ```
