@@ -68,7 +68,7 @@ Biến môi trường được ưu tiên hơn `backend/.env`, nên các run khá
 
 ```bash
 set -a; . ./.env; set +a
-for ROLE in GUARDRAIL REPHRASE JUDGE REFINE ANSWER SUMMARIZER; do
+for ROLE in GUARDRAIL REPHRASE JUDGE REFINE ANSWER SUMMARIZER AGENT; do
   export PHARMA_LLM__ROLES__${ROLE}__BASE_URL=https://openrouter.ai/api/v1
   export PHARMA_LLM__ROLES__${ROLE}__API_KEY=$OPENROUTER_API_KEY
   export PHARMA_LLM__ROLES__${ROLE}__MODEL=qwen/qwen3.5-9b
@@ -88,6 +88,7 @@ done
 | `no-guard` | bật | bật | bật, không guard |
 | `bm25`, `dense`, `hybrid-k60` | bật | bật | bật; retriever BM25, dense, hoặc hybrid RRF k=60 |
 | `closed-book` | – | – | – |
+| `react` | – | – | bật; agent ReAct thay pipeline (mục "Agent ReAct") |
 
 **`--pipeline-option key=value`** (lặp được) ghi đè một trường của `PipelineOptions` cho cấu hình đó, ví dụ `--config full --pipeline-option guard=false`. Giá trị được kiểm theo kiểu của trường (`true`/`false`, số, `none`); khoá lạ bị từ chối trước khi chạy câu nào. Thư mục cấu hình thành `full+guard=false`, `run.json` ghi các giá trị, và `e2e report` đưa các thư mục này vào `ablation.csv` so với `full`. `e2e judge --config` nhận đúng tên thư mục đó.
 
@@ -193,6 +194,31 @@ Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation
 
 ```bash
 uv run pharma-lab e2e compare --run-a e2e-v2-gemini --run-b e2e-v2-qwen9b --config full
+```
+
+### Agent ReAct
+
+`--config react` chạy graph ReAct (`pharma_agent.application.chat.react_graph`, spec v2 §2.4) thay cho pipeline: guard → agent ⇄ tools → finalize. Không có rephrase, judge hay refine; một model ở vai trò `agent` tự quyết khi nào tìm và khi nào trả lời, lịch sử hội thoại nằm trong messages. Guard chặn hoặc chuyển hướng thì bước answer của pipeline trả lời như ở `full`. Agent không bao giờ chạy trên decision model.
+
+- **Công cụ.** Một công cụ chỉ đọc `search_corpus(query)`, gọi song song được. Mỗi lần gọi là một lượt search của pipeline (retriever, rerank với chính câu truy vấn đó) và trả tối đa `rerank_top_n` đoạn, đánh số `[n]` theo thứ tự xuất hiện lần đầu trong lượt. Đoạn đã hiện ở trên chỉ hiện lại số của nó. Câu trả lời trích `[n]` theo cùng luật với pipeline nên `CitationSanitizer` và mọi metric trích dẫn dùng chung.
+- **Giới hạn vòng.** Tối đa 6 phản hồi có gọi công cụ. Tới giới hạn đó, hoặc khi chỉ còn một lượt gọi LLM trong ngân sách, graph thêm câu "Đã hết lượt tra cứu, trả lời từ những gì đã có." và gọi model lần cuối không kèm công cụ (`round_cap_hit`, câu trả lời thành `partial`).
+- **Ngân sách evidence.** Tổng ký tự đoạn đã hiện không vượt `max_evidence_chars`; đoạn vượt bị bỏ và kết quả kết thúc bằng "Hết ngân sách bằng chứng, trả lời từ những gì đã có." (`budget_hits`, câu trả lời `partial`).
+- **Truy vấn trùng.** Truy vấn trùng sau khi chuẩn hoá (chữ thường, gộp khoảng trắng) không tìm lại; công cụ trả kết quả cũ kèm ghi chú (`duplicate_calls`).
+- **Lỗi công cụ.** Tham số hỏng (JSON sai, thiếu `query`, tên công cụ lạ) và lỗi tìm kiếm trả về dạng `Error: ...` để model tự sửa (`malformed_calls`). Lỗi của chính LLM agent làm run lỗi và đi fallback.
+- **Chế độ trả lời.** Không tìm lần nào là `no_retrieval` (`answered_without_search`); có tìm nhưng không hiện đoạn nào là `abstain`; còn lại là `grounded`.
+
+Mỗi câu ghi `react` trong `answers.jsonl` (`rounds`, `tool_calls`, `malformed_calls`, `duplicate_calls`, `round_cap_hit`, `budget_hits`, `answered_without_search`); mỗi lần gọi công cụ là một round trong `rounds` và một bước `search` trong `steps`, mỗi phản hồi của model là một bước `agent`. `e2e report` thêm các metric `react_*` vào `main.csv` và ghi `reports/react_failures.csv`: mỗi cấu hình có bản ghi ReAct một dòng, với số vòng và số lần gọi trung bình cùng tỉ lệ chạm giới hạn vòng, tham số hỏng, truy vấn trùng, chạm ngân sách evidence, không tìm, và câu `grounded` không trích dẫn (khoảng Wilson).
+
+Chỉ so ReAct với `full` của cùng model, trên cùng run. Ví dụ ma trận C (spec v2 §4.C), sau khi đặt biến môi trường của model như ở mục 1 (vai trò `AGENT` nằm trong vòng lặp; Qwen trên llama.cpp cần `--jinja`, worker `llm-serve` đã bật):
+
+```bash
+for M in qwen9b gemini opus; do
+  uv run pharma-lab e2e run --run e2e-v2-$M --config react --concurrency 4
+  uv run pharma-lab e2e run --run e2e-v2-$M-c1 --config react --concurrency 1
+  uv run pharma-lab e2e judge --run e2e-v2-$M --config react --judge-model gemini-3.1-flash-lite
+  uv run pharma-lab e2e report --run e2e-v2-$M --latency-run e2e-v2-$M-c1
+  uv run pharma-lab e2e compare --run-a e2e-v2-$M --run-b e2e-v2-$M --config full --config-b react
+done
 ```
 
 ## 5. Tập hiệu chuẩn decision model
