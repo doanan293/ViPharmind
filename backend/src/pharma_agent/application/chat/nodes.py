@@ -1,7 +1,7 @@
 """Graph nodes: thin wrappers that call the domain and emit public progress events."""
 
 import functools
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from contextlib import suppress
 from typing import Any, Protocol
 
@@ -42,10 +42,12 @@ from pharma_agent.domain.agent.schemas import (
     RefineResult,
     RephraseResult,
 )
+from pharma_agent.domain.conversation.models import Citation
 from pharma_agent.domain.guardrail.models import Verdict, VerdictSource
 from pharma_agent.domain.llm.decision import Decision
 from pharma_agent.domain.llm.models import LlmRole, LlmUsage
 from pharma_agent.domain.llm.port import LlmError
+from pharma_agent.domain.retrieval.evidence import Evidence
 from pharma_agent.domain.retrieval.models import Query, QueryOrigin
 from pharma_agent.domain.shared.text import make_snippet
 
@@ -58,7 +60,7 @@ class Node(Protocol):
     ) -> Awaitable[NodeUpdate]: ...
 
 
-def _emit(event: ProgressEvent) -> None:
+def emit(event: ProgressEvent) -> None:
     get_stream_writer()(event.model_dump(mode="json"))
 
 
@@ -82,12 +84,45 @@ def guarded(code: ErrorCode) -> Callable[[Node], Node]:
     return decorator
 
 
+def emit_evidence(numbered: Sequence[tuple[int, Evidence]]) -> None:
+    if not numbered:
+        return
+    emit(
+        ProgressEvent(
+            type=EventType.EVIDENCE,
+            data={
+                "items": [
+                    {
+                        "index": index,
+                        "source": e.hit.source,
+                        "title": e.hit.title,
+                        "section": e.hit.section,
+                        "start_page": e.hit.start_page,
+                        "end_page": e.hit.end_page,
+                        "snippet": make_snippet(e.hit.chunk_text, SNIPPET_CHARS),
+                    }
+                    for index, e in numbered
+                ]
+            },
+        )
+    )
+
+
+def emit_citations(citations: Sequence[Citation]) -> None:
+    emit(
+        ProgressEvent(
+            type=EventType.CITATIONS,
+            data={"items": [c.model_dump(mode="json") for c in citations]},
+        )
+    )
+
+
 @guarded(ErrorCode.INTERNAL)
 async def guard_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
     run, deps = state.run, runtime.context.deps
-    _emit(ProgressEvent.phase(Phase.GUARDING))
+    emit(ProgressEvent.phase(Phase.GUARDING))
     if not runtime.context.pipeline.guard:
         run.record_guard(
             Verdict(
@@ -120,7 +155,7 @@ async def rephrase_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
     run, deps = state.run, runtime.context.deps
-    _emit(ProgressEvent.phase(Phase.UNDERSTANDING))
+    emit(ProgressEvent.phase(Phase.UNDERSTANDING))
     now = deps.clock.now()
     if not runtime.context.pipeline.rephrase or not run.can_afford_rephrase():
         run.record_rephrase(None, now=now, skipped=True)
@@ -147,7 +182,7 @@ async def search_node(
     queries = state.pending_queries or [
         Query(text=run.standalone_query, origin=QueryOrigin.INITIAL)
     ]
-    _emit(ProgressEvent.phase(Phase.SEARCHING, round=run.usage.search_rounds + 1))
+    emit(ProgressEvent.phase(Phase.SEARCHING, round=run.usage.search_rounds + 1))
     result = await deps.retrieval.search(
         queries,
         rerank_query=run.standalone_query,
@@ -156,7 +191,7 @@ async def search_node(
     )
     run.record_search(queries, result, now=deps.clock.now())
     if result.items:
-        _emit(ProgressEvent.phase(Phase.READING))
+        emit(ProgressEvent.phase(Phase.READING))
     return {"run": run, "pending_queries": []}
 
 
@@ -292,7 +327,7 @@ async def answer_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
     run, deps = state.run, runtime.context.deps
-    _emit(ProgressEvent.phase(Phase.ANSWERING))
+    emit(ProgressEvent.phase(Phase.ANSWERING))
     plan = run.decide_answer()
     run.submit_plan(plan, now=deps.clock.now())
 
@@ -302,26 +337,7 @@ async def answer_node(
         else []
     )
     context_text, numbered = run.evidence.context_view(packed)
-    if numbered:
-        _emit(
-            ProgressEvent(
-                type=EventType.EVIDENCE,
-                data={
-                    "items": [
-                        {
-                            "index": index,
-                            "source": e.hit.source,
-                            "title": e.hit.title,
-                            "section": e.hit.section,
-                            "start_page": e.hit.start_page,
-                            "end_page": e.hit.end_page,
-                            "snippet": make_snippet(e.hit.chunk_text, SNIPPET_CHARS),
-                        }
-                        for index, e in numbered
-                    ]
-                },
-            )
-        )
+    emit_evidence(numbered)
 
     sanitizer = CitationSanitizer(index for index, _ in numbered)
     parts: list[str] = []
@@ -333,23 +349,18 @@ async def answer_node(
             clean = sanitizer.feed(delta.text)
             if clean:
                 parts.append(clean)
-                _emit(ProgressEvent.token(clean))
+                emit(ProgressEvent.token(clean))
         if delta.usage is not None:
             usage = delta.usage
     tail = sanitizer.flush()
     if tail:
         parts.append(tail)
-        _emit(ProgressEvent.token(tail))
+        emit(ProgressEvent.token(tail))
     with suppress(BudgetExhausted):
         run.charge(usage)
 
     citations = citations_from(numbered, sanitizer.used)
-    _emit(
-        ProgressEvent(
-            type=EventType.CITATIONS,
-            data={"items": [c.model_dump(mode="json") for c in citations]},
-        )
-    )
+    emit_citations(citations)
     run.complete()
     return {
         "run": run,
@@ -366,5 +377,5 @@ async def fallback_node(
     if not run.is_finished:
         run.fail(ErrorCode.INTERNAL, detail="fallback reached without a recorded error")
     text = fallback_text(run.status)
-    _emit(ProgressEvent.token(text))
+    emit(ProgressEvent.token(text))
     return {"run": run, "answer_text": text, "citations": []}
