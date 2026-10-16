@@ -354,7 +354,7 @@ def _accepted(
     return relevance.for_query(item.source_query_id)
 
 
-def _values(
+def values_of(
     items: Mapping[str, GoldenItem],
     answers: dict[str, AnswerRecord],
     judgments: dict[str, Judgement],
@@ -384,7 +384,7 @@ def _values(
     return table
 
 
-def _load(run_root: Path) -> dict[str, LoadedConfig]:
+def load_run(run_root: Path) -> dict[str, LoadedConfig]:
     loaded = {}
     # Every judged directory: the fixed configurations in their order, then the
     # --pipeline-option variants (e.g. full+refine_threshold=0.5) by name.
@@ -421,7 +421,7 @@ def _number(value: float) -> str:
     return "$-$" + text[1:] if text.startswith("-") else text
 
 
-def _cell(summary: Summary) -> str:
+def cell(summary: Summary) -> str:
     if summary.n == 0:
         return "--"
     return (
@@ -430,7 +430,7 @@ def _cell(summary: Summary) -> str:
     )
 
 
-def _write_csv(
+def write_csv(
     path: Path, header: Sequence[str], rows: Sequence[Sequence[object]]
 ) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -443,7 +443,7 @@ def _latex(value: str) -> str:
     return value.replace("_", r"\_").replace("%", r"\%")
 
 
-def _write_tex(
+def write_tex(
     path: Path,
     caption: str,
     label: str,
@@ -516,7 +516,7 @@ def _main_tables(
                 ]
             )
             if config in paper_configs:
-                tex_row.append(_cell(summary))
+                tex_row.append(cell(summary))
         if metric.primary:
             tex_rows.append(tex_row)
     for q in (50, 95):
@@ -535,13 +535,13 @@ def _main_tables(
                 ]
             )
     main_csv = directory / "main.csv"
-    _write_csv(
+    write_csv(
         main_csv,
         ["config", "metric", "interval", "primary", "n", "mean", "ci_low", "ci_high"],
         rows,
     )
     main_tex = directory / "main.tex"
-    _write_tex(
+    write_tex(
         main_tex,
         "End-to-end results of the full agent and one-step RAG: mean [95\\% CI] "
         "(Wilson for rates, percentile bootstrap otherwise).",
@@ -611,9 +611,9 @@ def _cost_table(
             ]
         )
     cost_csv = directory / "cost.csv"
-    _write_csv(cost_csv, ["config", "metric", "n", "mean", "ci_low", "ci_high"], rows)
+    write_csv(cost_csv, ["config", "metric", "n", "mean", "ci_low", "ci_high"], rows)
     cost_tex = directory / "cost.tex"
-    _write_tex(
+    write_tex(
         cost_tex,
         "Cost and latency per turn: USD at list prices, seconds by step and "
         "end-to-end latency, per configuration.",
@@ -673,13 +673,13 @@ def _ablation_tables(
         if metric.primary:
             tex_rows.append(tex_row)
     ablation_csv = directory / "ablation.csv"
-    _write_csv(
+    write_csv(
         ablation_csv,
         ["config", "metric", "n", "delta", "ci_low", "ci_high", "p_value", "p_holm"],
         rows,
     )
     ablation_tex = directory / "ablation.tex"
-    _write_tex(
+    write_tex(
         ablation_tex,
         "Paired change of each configuration against the full agent. "
         "$^{*}$: Holm-adjusted randomization $p<0.05$; confidence intervals are "
@@ -736,7 +736,7 @@ def _group_table(
                             ]
                         )
     path = directory / "by_group.csv"
-    _write_csv(
+    write_csv(
         path,
         ["config", "group_type", "group", "metric", "n", "mean", "ci_low", "ci_high"],
         rows,
@@ -759,9 +759,9 @@ def _calibration_tables(directory: Path, run_root: Path) -> list[Path]:
             "reliable",
         ]
         written.append(directory / "calibration.csv")
-        _write_csv(written[-1], header, [[row.get(h) for h in header] for row in rows])
+        write_csv(written[-1], header, [[row.get(h) for h in header] for row in rows])
         written.append(directory / "calibration.tex")
-        _write_tex(
+        write_tex(
             written[-1],
             "Agreement between the LLM judge and the blind calibration grader.",
             "tab:e2e-calibration",
@@ -792,7 +792,7 @@ def _calibration_tables(directory: Path, run_root: Path) -> list[Path]:
             "ci_high",
         ]
         written.append(directory / "ppi.csv")
-        _write_csv(written[-1], header, [[row.get(h) for h in header] for row in rows])
+        write_csv(written[-1], header, [[row.get(h) for h in header] for row in rows])
     return written
 
 
@@ -885,11 +885,11 @@ def write_report(
     relevance: LoadedJudgments | None = None,
 ) -> list[Path]:
     """Write every table; `relevance` extends relevant chunks as in retrieval metrics."""
-    loaded = _load(run_root)
+    loaded = load_run(run_root)
     directory = Path(run_root) / REPORTS_DIR
     directory.mkdir(parents=True, exist_ok=True)
     values = {
-        config: _values(items, answers, judgments, relevance, identity)
+        config: values_of(items, answers, judgments, relevance, identity)
         for config, (answers, judgments, identity) in loaded.items()
     }
     configs = list(loaded)
