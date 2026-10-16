@@ -98,7 +98,7 @@ khác, không kèm vector; `bundle embed` chỉ embed text chunk chưa có trong
 ```bash
 cd pharma-lab
 uv run pharma-lab bundle rechunk --bundle data/corpus/formulary --out data/corpus/formulary-sections --collection formulary_sections --title "Dược thư và tờ hướng dẫn, một chunk mỗi mục" --target-chars 1
-uv run pharma-lab bundle embed --bundle data/corpus/formulary-sections --backend kaggle --model qwen3-embedding:4b-q8_0 --kaggle-account auto
+uv run pharma-lab bundle embed --bundle data/corpus/formulary-sections --backend kaggle --model qwen3-embedding:4b-q8_0 --kaggle-account acc3
 
 cd ../backend
 export PHARMA_POSTGRES__DSN=postgresql+psycopg://vipharmind:vipharmind@localhost:5434/vipharmind

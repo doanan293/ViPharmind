@@ -9,12 +9,14 @@ most one model's vectors however many models a bundle ships.
 
 import base64
 import binascii
+import fcntl
 import hashlib
 import json
 import os
 import re
 import struct
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Generator, Iterable, Sequence
+from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
 from typing import Final, Literal
@@ -380,49 +382,64 @@ def write_bundle_embeddings(
     when every pair is valid; the manifest is replaced last. Other models' files are not
     read, so memory does not grow with the number or size of the models.
     """
-    manifest = _read_manifest(directory)
-    where = f"embeddings[{model!r}]"
-    if not model_slug(model):
-        raise BundleValidationError(
-            [f"{where}: model name must contain letters or digits"]
-        )
-    name = _embedding_file_name(model)
-    for entry in manifest.embeddings:
-        if entry.model != model and _embedding_file_name(entry.model) == name:
+    # Runs that embed different models into one bundle may finish together; each must
+    # read the manifest the other has just written, or one entry is lost.
+    with _manifest_lock(directory):
+        manifest = _read_manifest(directory)
+        where = f"embeddings[{model!r}]"
+        if not model_slug(model):
             raise BundleValidationError(
-                [f"{where}: model slug collides with {entry.model!r}"]
+                [f"{where}: model name must contain letters or digits"]
             )
-    temporary = directory / f".{model_slug(model)}.jsonl.tmp"
-    try:
-        listed, dims = _write_embedding_lines(temporary, where, vectors)
-        (directory / EMBEDDINGS_DIR).mkdir(exist_ok=True)
-        os.replace(temporary, directory / name)
-    finally:
-        temporary.unlink(missing_ok=True)
+        name = _embedding_file_name(model)
+        for entry in manifest.embeddings:
+            if entry.model != model and _embedding_file_name(entry.model) == name:
+                raise BundleValidationError(
+                    [f"{where}: model slug collides with {entry.model!r}"]
+                )
+        temporary = directory / f".{model_slug(model)}.jsonl.tmp"
+        try:
+            listed, dims = _write_embedding_lines(temporary, where, vectors)
+            (directory / EMBEDDINGS_DIR).mkdir(exist_ok=True)
+            os.replace(temporary, directory / name)
+        finally:
+            temporary.unlink(missing_ok=True)
 
-    embeddings = sorted(
-        [
-            *(entry for entry in manifest.embeddings if entry.model != model),
-            BundleEmbeddingFile(model=model, dims=dims, file=name),
-        ],
-        key=lambda entry: entry.model,
-    )
-    files = {
-        file: entry
-        for file, entry in manifest.files.items()
-        if not file.startswith(f"{EMBEDDINGS_DIR}/")
-    }
-    for entry in embeddings:
-        current = listed if entry.model == model else manifest.files.get(entry.file)
-        if current is not None:
-            files[entry.file] = current
-    updated = manifest.model_copy(update={"files": files, "embeddings": embeddings})
-    _write_manifest(directory, updated)
-    return updated
+        embeddings = sorted(
+            [
+                *(entry for entry in manifest.embeddings if entry.model != model),
+                BundleEmbeddingFile(model=model, dims=dims, file=name),
+            ],
+            key=lambda entry: entry.model,
+        )
+        files = {
+            file: entry
+            for file, entry in manifest.files.items()
+            if not file.startswith(f"{EMBEDDINGS_DIR}/")
+        }
+        for entry in embeddings:
+            current = listed if entry.model == model else manifest.files.get(entry.file)
+            if current is not None:
+                files[entry.file] = current
+        updated = manifest.model_copy(update={"files": files, "embeddings": embeddings})
+        _write_manifest(directory, updated)
+        return updated
 
 
 def _embedding_file_name(model: str) -> str:
     return f"{EMBEDDINGS_DIR}/{model_slug(model)}.jsonl"
+
+
+@contextmanager
+def _manifest_lock(directory: Path) -> Generator[None]:
+    """Serialise read-modify-write of a bundle's manifest across processes."""
+    # The lock is held on the directory itself, so the bundle gains no extra file.
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(descriptor)
 
 
 def _read_manifest(directory: Path) -> BundleManifest:
