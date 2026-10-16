@@ -5,20 +5,20 @@ from types import SimpleNamespace
 import pytest
 
 from pharma_lab.artifacts.manifest import Completion
-from pharma_lab.embeddings import service as embedding_service
-from pharma_lab.embeddings.service import (
-    KaggleTextEmbeddingBackend,
-    LocalTextEmbeddingBackend,
-    TextEmbeddingRequest,
-    open_text_cache,
-)
-from pharma_lab.embeddings.text_cache import (
+from pharma_lab.cache.text_embeddings import (
     EmbeddingInput,
     TextEmbeddingError,
     embed_missing,
     read_embedding_inputs,
     text_sha256,
     write_embedding_inputs,
+)
+from pharma_lab.embeddings import service as embedding_service
+from pharma_lab.embeddings.service import (
+    KaggleTextEmbeddingBackend,
+    LocalTextEmbeddingBackend,
+    TextEmbeddingRequest,
+    open_text_cache,
 )
 from pharma_lab.integrations.kaggle import auto_profile
 from pharma_lab.integrations.kaggle import service as kaggle_service
