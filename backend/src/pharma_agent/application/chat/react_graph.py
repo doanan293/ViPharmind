@@ -47,7 +47,7 @@ from pharma_agent.domain.llm.models import (
     user,
 )
 from pharma_agent.domain.llm.port import LlmError
-from pharma_agent.domain.retrieval.models import Query, QueryOrigin
+from pharma_agent.domain.retrieval.models import Hit, Query, QueryOrigin
 from pharma_agent.domain.retrieval.service import SearchResult
 
 
@@ -165,13 +165,15 @@ async def tools_node(
     searched = dict(zip(fresh, results, strict=True))
 
     # Rendered in call order, so chunk numbers follow the order the model asked in.
-    any_shown = False
+    answered: dict[str, str] = {}
+    new_hits: list[Hit] = []
     for call, item in zip(calls, parsed, strict=True):
         if isinstance(item, ValueError):
             text = f"Error: {item}"
             stats.malformed_calls += 1
-        elif (key := normalize_query(item)) in shown.results:
-            text = f"{shown.results[key]}\n{DUPLICATE_NOTE}"
+        elif (key := normalize_query(item)) in shown.results or key in answered:
+            earlier = shown.results.get(key) or answered[key]
+            text = f"{earlier}\n{DUPLICATE_NOTE}"
             stats.duplicate_calls += 1
         else:
             result = searched[key]
@@ -181,16 +183,21 @@ async def tools_node(
                 )
                 shown.results[key] = text
                 stats.budget_hits += budget_hit
-                any_shown = any_shown or bool(new)
+                new_hits += new
             else:
-                text, new = f"Error: tìm kiếm thất bại ({result.error})", []
-            run.record_tool_search(fresh[key], result, new, now=deps.clock.now())
+                # Not kept in shown.results: a later round may search it again.
+                text = f"Error: tìm kiếm thất bại ({result.error})"
+            answered[key] = text
         loop.messages.append(
             ChatMessage(role=ChatRole.TOOL, content=text, tool_call_id=call.id)
         )
+    if fresh:
+        run.record_tool_searches(
+            list(fresh.values()), results, new_hits, now=deps.clock.now()
+        )
     stats.tool_calls += len(calls)
     loop.pending_calls = []
-    if any_shown:
+    if new_hits:
         emit(ProgressEvent.phase(Phase.READING))
     return {"run": run, "react": loop}
 
@@ -208,8 +215,8 @@ async def finalize_node(
     context_text, numbered = run.evidence.context_view(
         [by_chunk[chunk_id] for chunk_id, _ in shown]
     )
+    stats.answered_without_search = stats.tool_calls == 0
     if run.actions.last_of(ActionKind.SEARCH) is None:
-        stats.answered_without_search = True
         plan = AnswerPlan(mode=AnswerMode.NO_RETRIEVAL)
     elif not numbered:
         plan = AnswerPlan(mode=AnswerMode.ABSTAIN)

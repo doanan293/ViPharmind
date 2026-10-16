@@ -313,28 +313,33 @@ class AgentRun(BaseModel):
             },
         )
 
-    def record_tool_search(
+    def record_tool_searches(
         self,
-        query: Query,
-        result: SearchResult,
+        queries: Sequence[Query],
+        results: Sequence[SearchResult],
         shown_hits: Sequence[Hit],
         *,
         now: datetime,
     ) -> None:
-        """One search_corpus call of a ReAct turn. Unlike `record_search`, evidence
-        accumulates: every chunk shown to the model stays citable."""
+        """The searches of one ReAct round, run at the same time, as one search round.
+
+        Unlike `record_search`, evidence accumulates: every chunk shown to the model
+        stays citable. The round's seconds are the slowest search's, since they overlap.
+        """
         self.evidence.merge(list(shown_hits))
         self.usage = self.usage.with_search()
-        if query.normalized not in self.used_queries:
-            self.used_queries.append(query.normalized)
+        for query in queries:
+            if query.normalized not in self.used_queries:
+                self.used_queries.append(query.normalized)
+        errors = [r.error for r in results if r.error is not None]
         self._log(
             ActionKind.SEARCH,
             now,
-            outcome="ok" if result.succeeded else "error",
-            reason=result.error or "",
+            outcome="error" if errors else "ok",
+            reason="; ".join(errors),
             payload={
-                "queries": [query.text],
-                "hits": len(result.items),
+                "queries": [q.text for q in queries],
+                "hits": sum(len(r.items) for r in results),
                 "active_evidence": len(self.evidence.active()),
                 # Every chunk shown so far, as `record_search` logs what the evidence
                 # holds after the round; a ReAct turn's evidence only grows.
@@ -348,11 +353,13 @@ class AgentRun(BaseModel):
                 ],
                 "new_evidence": len(shown_hits),
                 "evidence_chars": sum(e.char_count() for e in self.evidence.items),
-                "rerank_failed": result.rerank_failed,
-                "rerank_scored": result.rerank_scored,
-                "rerank_reused": result.rerank_reused,
-                "retrieval_seconds": result.retrieval_seconds,
-                "rerank_seconds": result.rerank_seconds,
+                "rerank_failed": any(r.rerank_failed for r in results),
+                "rerank_scored": sum(r.rerank_scored for r in results),
+                "rerank_reused": sum(r.rerank_reused for r in results),
+                "retrieval_seconds": max(
+                    (r.retrieval_seconds for r in results), default=0.0
+                ),
+                "rerank_seconds": max((r.rerank_seconds for r in results), default=0.0),
             },
         )
 
