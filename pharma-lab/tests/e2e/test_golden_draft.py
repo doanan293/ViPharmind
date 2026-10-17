@@ -8,8 +8,10 @@ from pharma_lab.e2e.golden_draft import (
     DraftFact,
     DraftFailure,
     DraftReference,
-    allocate,
+    authored_state,
     draft_multi_hop,
+    load_candidates,
+    needed_counts,
     select_candidates,
     to_item,
     used_query_ids,
@@ -61,20 +63,20 @@ def only_first_section() -> DraftReference:
     return DraftReference(answer="Tối đa 4 g mỗi ngày.", key_facts=good().key_facts[:1])
 
 
-def test_allocate_spreads_the_total_and_caps_each_kind() -> None:
-    assert allocate({"a": 100, "b": 100, "c": 100, "d": 100}, 150, 45) == {
-        "a": 38,
-        "b": 38,
-        "c": 37,
-        "d": 37,
+def test_needed_counts_top_the_quotas_up() -> None:
+    assert needed_counts({}) == {
+        "retrieval_miss": 32,
+        "noisy_retry": 36,
+        "three_intent": 16,
+        "two_drug": 36,
+        "brand_to_ingredient": 30,
     }
-    # A short kind gives its share to the others, up to the cap.
-    assert allocate({"a": 10, "b": 100, "c": 100, "d": 100}, 150, 45) == {
-        "a": 10,
-        "b": 45,
-        "c": 45,
-        "d": 45,
-    }
+    topped = needed_counts({"noisy_retry": 36, "three_intent": 20, "two_drug": 1})
+    assert (topped["noisy_retry"], topped["three_intent"], topped["two_drug"]) == (
+        0,
+        0,
+        35,
+    )
 
 
 def test_select_drops_used_queries_and_is_seeded() -> None:
@@ -149,10 +151,11 @@ async def test_ids_run_across_kinds_in_kind_order() -> None:
         {"two_drug": [candidate("q2", "two_drug")], "three_intent": [candidate("q1")]},
         {"three_intent": 1, "two_drug": 1},
         CORPUS,
+        first_number=53,
     )
     assert [(i.item_id, i.tags) for i in items] == [
-        ("e2e-mhop-0001", ["three_intent"]),
-        ("e2e-mhop-0002", ["two_drug"]),
+        ("e2e-mhop-0053", ["three_intent"]),
+        ("e2e-mhop-0054", ["two_drug"]),
     ]
 
 
@@ -165,21 +168,85 @@ def test_used_queries_and_draft_batches(tmp_path) -> None:
     (tmp_path / "answerable-01.todo.jsonl").write_text(
         '{"slot_id": "x", "source_query_id": "q8"}\n', encoding="utf-8"
     )
-    assert used_query_ids(tmp_path) == {"q7"}
+    # A drafted candidate is used too, whether or not the review kept it.
+    (tmp_path / "multi-hop-01.draft.jsonl").write_text(
+        '{"item_id": "e2e-mhop-0002", "source_query_id": "q9", "tags": ["two_drug"]}\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "multi-hop-01.authored.jsonl").write_text(
+        '{"item_id": "e2e-mhop-0001", "source_query_id": "q6", "tags": ["two_drug"]}\n',
+        encoding="utf-8",
+    )
+    assert used_query_ids(tmp_path) == {"q6", "q7", "q9"}
+    assert authored_state(tmp_path) == ({"two_drug": 1}, 2)
 
-    item = to_item(candidate("q1"), good(), "e2e-mhop-0001")
+    item = to_item(candidate("q1"), good(), "e2e-mhop-0003")
     paths = write_drafts(
         tmp_path,
         [item] * 3,
         [DraftFailure(query_id="q2", kind="two_drug", problems=["x"])],
         batch_size=2,
     )
+    # New batches are numbered after the existing draft.
     assert [p.name for p in paths] == [
-        "multi-hop-01.draft.jsonl",
         "multi-hop-02.draft.jsonl",
+        "multi-hop-03.draft.jsonl",
         "multi-hop.failed.jsonl",
     ]
     assert len(paths[0].read_text("utf-8").splitlines()) == 2
+
+
+def test_load_candidates_reads_both_candidate_files(tmp_path) -> None:
+    assert load_candidates(tmp_path) == []
+    (tmp_path / "multi-hop.todo.jsonl").write_text(
+        '{"query_id": "q1"}\n\n', encoding="utf-8"
+    )
+    (tmp_path / "multi-hop.generated.jsonl").write_text(
+        '{"query_id": "gen-1"}\n', encoding="utf-8"
+    )
+    assert [r["query_id"] for r in load_candidates(tmp_path)] == ["q1", "gen-1"]
+
+
+def generated(query_id: str = "gen-two-drug-0001") -> dict[str, object]:
+    return dict(
+        candidate(query_id, "two_drug"),
+        query="Tôi đang dùng Paracetamol, thêm Ibuprofen được không?",
+        generated=True,
+        subjects=["Paracetamol", "Ibuprofen"],
+    )
+
+
+async def test_a_generated_candidate_gets_its_question_rewritten() -> None:
+    dropped_a_name = DraftReference(
+        answer=good().answer,
+        key_facts=good().key_facts,
+        question="Uống thêm Ibuprofen được không?",
+    )
+    rewritten = DraftReference(
+        answer=good().answer,
+        key_facts=good().key_facts,
+        question="Đang uống Paracetamol thì thêm Ibuprofen được không?",
+    )
+    llm = ScriptedLlm()
+    llm.script(LlmRole.ANSWER, dropped_a_name, rewritten)
+    items, failures = await draft_multi_hop(
+        llm, {"two_drug": [generated()]}, {"two_drug": 1}, CORPUS
+    )
+    assert failures == []
+    assert items[0].question == rewritten.question
+    first = llm.calls[0][1][-1].content
+    assert "viết lại" in first and "Paracetamol, Ibuprofen" in first
+    assert "no longer names Paracetamol" in llm.calls[1][1][-1].content
+
+
+async def test_a_benchmark_candidate_keeps_its_question() -> None:
+    llm = ScriptedLlm()
+    llm.script(LlmRole.ANSWER, good().model_copy(update={"question": "Khác?"}))
+    items, _ = await draft_multi_hop(
+        llm, {"three_intent": [candidate("q1")]}, {"three_intent": 1}, CORPUS
+    )
+    assert items[0].question == candidate("q1")["query"]
+    assert "viết lại" not in llm.calls[0][1][-1].content
 
 
 def test_select_keeps_one_candidate_per_gold_section_set() -> None:

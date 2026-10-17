@@ -46,31 +46,22 @@ def coverage(
     )
 
 
-def _document(section_id: str) -> str:
-    parts = section_id.split(":")
-    return ":".join(parts[:3] if parts[0] == "leaflet" else parts[:2])
-
-
 def multi_hop_kind(
-    query_row: Mapping[str, object],
-    result: OneRoundCoverage,
-    judged: Mapping[str, frozenset[str]],
+    query_row: Mapping[str, object], result: OneRoundCoverage
 ) -> str | None:
-    """The multi-hop kind of a question one round misses, or None."""
+    """The multi-hop kind of a benchmark question one round misses, or None.
+
+    The two-drug and brand-to-ingredient kinds are generated from the corpus
+    (`golden_generate`): the benchmark has no question whose evidence sits in two
+    different drugs' documents, only the same product at another strength.
+    """
     if not result.missing:
         return None
-    sections = expected_section_ids(dict(query_row))
-    if len({_document(section) for section in sections}) > 1:
-        return "two_drug"
     if query_row.get("answer_mode") == "multi_required":
         return "three_intent"
     if query_row.get("eval_group") == "noisy":
         return "noisy_retry"
-    leaflet = str(query_row.get("expected_section_id") or "").startswith("leaflet:")
-    accepted = frozenset().union(*judged.values()) if judged else frozenset()
-    if leaflet and any(chunk.startswith("drug:") for chunk in accepted):
-        return "brand_to_ingredient"
-    return None
+    return "retrieval_miss"
 
 
 def trim_covered(
@@ -118,7 +109,7 @@ class OneRoundRun:
         out: list[dict[str, object]] = []
         for query_id, result in sorted(self.coverage.items()):
             row = self.rows[query_id]
-            kind = multi_hop_kind(row, result, self.judged[query_id])
+            kind = multi_hop_kind(row, result)
             if kind is None:
                 continue
             out.append(

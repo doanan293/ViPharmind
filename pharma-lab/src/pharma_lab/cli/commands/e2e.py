@@ -35,6 +35,7 @@ from pharma_lab.e2e.configs import E2EConfig
 from pharma_lab.e2e.corpus_text import chunk_texts, corpus_text, load_corpus_text
 from pharma_lab.e2e.golden import (
     ANSWERABLE_PER_GROUP,
+    MULTI_HOP_QUOTAS,
     QUOTAS,
     Category,
     build_golden,
@@ -45,13 +46,15 @@ from pharma_lab.e2e.golden import (
 )
 from pharma_lab.e2e.golden_draft import (
     DRAFT_MODEL,
-    PER_KIND_MAX,
-    allocate,
+    authored_state,
     draft_multi_hop,
+    load_candidates,
+    needed_counts,
     select_candidates,
     used_query_ids,
     write_drafts,
 )
+from pharma_lab.e2e.golden_generate import generate
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
 from pharma_lab.e2e.judging.service import JudgeRequest, run_judge
 from pharma_lab.e2e.judging.structured import JUDGE_MODEL, judge_llm
@@ -261,6 +264,41 @@ def golden_hard_candidates(
     run_handler(state_from_context(ctx), handler)
 
 
+@golden_app.command("generate")
+def golden_generate(
+    ctx: typer.Context,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    authoring_dir: Annotated[
+        Path, typer.Option("--authoring-dir", file_okay=False)
+    ] = E2E_AUTHORING_DIR,
+    two_drug: Annotated[int, typer.Option("--two-drug", min=0)] = 2
+    * MULTI_HOP_QUOTAS["two_drug"],
+    brand: Annotated[int, typer.Option("--brand", min=0)] = 2
+    * MULTI_HOP_QUOTAS["brand_to_ingredient"],
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+) -> None:
+    """Build two-drug and brand-to-ingredient candidates from the corpus
+    (multi-hop.generated.jsonl); twice the quota by default, to cover rejected drafts."""
+
+    def handler() -> CommandResult:
+        rows = generate(
+            load_corpus_text(bundle),
+            {"two_drug": two_drug, "brand_to_ingredient": brand},
+            seed=seed,
+        )
+        output = authoring_dir / "multi-hop.generated.jsonl"
+        output.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+        kinds = Counter(str(row["kind"]) for row in rows)
+        return CommandResult(
+            "e2e golden generate", CommandStatus.COMPLETE, output, dict(kinds)
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
 @golden_app.command("draft")
 def golden_draft(
     ctx: typer.Context,
@@ -268,38 +306,25 @@ def golden_draft(
     authoring_dir: Annotated[
         Path, typer.Option("--authoring-dir", file_okay=False)
     ] = E2E_AUTHORING_DIR,
-    total: Annotated[int, typer.Option("--total", min=1)] = QUOTAS[Category.MULTI_HOP],
     seed: Annotated[int, typer.Option("--seed")] = 0,
     model: Annotated[
         str, typer.Option("--model", help="Model name on the backend LLM endpoint")
     ] = DRAFT_MODEL,
     concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 8,
-    force: Annotated[bool, typer.Option("--force")] = False,
     backend_env_file: Annotated[
         Path, typer.Option("--backend-env-file", dir_okay=False)
     ] = BACKEND_ENV_FILE,
 ) -> None:
-    """Draft the multi-hop items from multi-hop.todo.jsonl for review (*.draft.jsonl)."""
+    """Draft the multi-hop items still missing from the per-kind quotas, from
+    multi-hop.todo.jsonl and multi-hop.generated.jsonl, into new *.draft.jsonl batches."""
 
     def handler() -> CommandResult:
-        if any(authoring_dir.glob("multi-hop-*.draft.jsonl")) and not force:
-            raise ValueError(
-                f"{authoring_dir} already has multi-hop drafts; pass --force to redraft"
-            )
-        rows = [
-            json.loads(line)
-            for line in (authoring_dir / "multi-hop.todo.jsonl")
-            .read_text(encoding="utf-8")
-            .splitlines()
-            if line.strip()
-        ]
+        authored, highest = authored_state(authoring_dir)
+        counts = needed_counts(authored)
         candidates = select_candidates(
-            rows, exclude=used_query_ids(authoring_dir), seed=seed
-        )
-        counts = allocate(
-            {kind: len(found) for kind, found in candidates.items()},
-            total,
-            PER_KIND_MAX,
+            load_candidates(authoring_dir),
+            exclude=used_query_ids(authoring_dir),
+            seed=seed,
         )
         llm = judge_llm(Settings(_env_file=backend_env_file), model)
         items, failures = asyncio.run(
@@ -309,15 +334,18 @@ def golden_draft(
                 counts,
                 load_corpus_text(bundle),
                 concurrency=concurrency,
+                first_number=highest + 1,
             )
         )
         paths = write_drafts(authoring_dir, items, failures)
         kinds = Counter(item.tags[0] for item in items)
+        total = sum(counts.values())
         return CommandResult(
             "e2e golden draft",
             CommandStatus.COMPLETE if len(items) == total else CommandStatus.INCOMPLETE,
             authoring_dir,
             {
+                "needed": total,
                 "drafted": len(items),
                 "failed": len(failures),
                 "files": len(paths),
