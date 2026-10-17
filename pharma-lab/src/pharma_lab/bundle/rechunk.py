@@ -1,10 +1,12 @@
-"""Copy a knowledge bundle under another collection with another chunking (D7)."""
+"""Copy a knowledge bundle under another collection with another chunking: one chunk
+per section (D7) or no chunk enrichment (D2)."""
 
 from dataclasses import dataclass
 from pathlib import Path
 
 from pharma_agent.domain.corpus.bundle import (
     MAX_CHUNK_CHARS,
+    TARGET_CHUNK_CHARS,
     BundleChunking,
     BundleCollection,
     BundleManifest,
@@ -20,8 +22,9 @@ class RechunkRequest:
     output_dir: Path
     collection_key: str
     collection_title: str
-    target_chars: int
+    target_chars: int = TARGET_CHUNK_CHARS
     max_chars: int = MAX_CHUNK_CHARS
+    enrichment: bool = True
 
 
 def rechunk_bundle(request: RechunkRequest) -> BundleManifest:
@@ -39,7 +42,9 @@ def rechunk_bundle(request: RechunkRequest) -> BundleManifest:
                 key=request.collection_key, title=request.collection_title
             ),
             "chunking": BundleChunking(
-                target_chars=request.target_chars, max_chars=request.max_chars
+                target_chars=request.target_chars,
+                max_chars=request.max_chars,
+                enrichment=request.enrichment,
             ),
             "files": {},
             "embeddings": [],

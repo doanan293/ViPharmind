@@ -232,8 +232,13 @@ def chunk_document(
     *,
     target_chars: int = TARGET_CHUNK_CHARS,
     max_chars: int = MAX_CHUNK_CHARS,
+    enrichment: bool = True,
 ) -> list[ChunkDraft]:
-    """Pack a document's sections, in order, into chunks of about target_chars."""
+    """Pack a document's sections, in order, into chunks of about target_chars.
+
+    With `enrichment` off the indexed text is the chunk text alone, without the
+    context header, colloquial names or term expansions (the enrichment ablation,
+    spec v2 §2.6); the context header still labels the evidence."""
     groups: list[tuple[list[SectionRecord], str]] = []
     current: list[SectionRecord] = []
     current_text = ""
@@ -276,12 +281,15 @@ def chunk_document(
             f"{context_header}\n\n{chunk_text}" if context_header else chunk_text
         )
         terms = detect_terms(searchable, glossary)
-        embedding_text = compose_embedding_text(
-            context_header=context_header,
-            chunk_text=chunk_text,
-            colloquial=colloquial,
-            terms=terms,
-        )
+        if enrichment:
+            embedding_text = compose_embedding_text(
+                context_header=context_header,
+                chunk_text=chunk_text,
+                colloquial=colloquial,
+                terms=terms,
+            )
+        else:
+            colloquial, terms, embedding_text = None, [], chunk_text
         start_page, end_page = _pages(members)
         drafts.append(
             ChunkDraft(
