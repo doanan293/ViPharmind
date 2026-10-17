@@ -306,8 +306,8 @@ công bằng:
   dân dã vắng trong tờ hướng dẫn hỏi theo năm mục thường gặp, và mọi cụm lời thường của thuật ngữ mà
   chuyên luận chỉ ghi viết tắt), chạy như một run retrieval riêng, không đổi benchmark 10.000 câu.
 - Phân bổ golden: answerable 270 gồm 180 câu tự nhiên (30 × 6 nhóm) và 90 probe một mục, mỗi loại
-  chọn bằng dữ liệu hoặc sinh từ corpus: `rerank_probe` 20 (hybrid không rerank trượt top 5, có
-  rerank thì trúng), `lexical_probe` 20 (dense trượt cả 20 ứng viên), `semantic_probe` 20 (BM25
+  chọn bằng dữ liệu hoặc sinh từ corpus: `rerank_probe` 21 (hybrid không rerank trượt top 5, có
+  rerank thì trúng), `lexical_probe` 19 (dense trượt cả 20 ứng viên), `semantic_probe` 20 (BM25
   trượt cả 20 ứng viên), `colloquial` 20 (gọi sản phẩm chỉ bằng alias dân dã vắng trong văn bản),
   `glossary` 10 (dùng cụm lời thường cho thuật ngữ mà mục chỉ ghi viết tắt). Category `multi_hop` 150,
   multi-turn 50, unanswerable, out-of-scope, injection 10 mỗi loại. Mục §3.2 nâng nhóm an toàn lên

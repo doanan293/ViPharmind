@@ -50,8 +50,8 @@ class ExpectedBehavior(StrEnum):
 # dense search misses and the dense half finds what BM25 misses; colloquial product names
 # and plain-language terms reach a section only through the chunk enrichment.
 PROBE_QUOTAS: dict[str, int] = {
-    "rerank_probe": 20,
-    "lexical_probe": 20,
+    "rerank_probe": 21,
+    "lexical_probe": 19,
     "semantic_probe": 20,
     "colloquial": 20,
     "glossary": 10,
