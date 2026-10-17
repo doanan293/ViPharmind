@@ -164,7 +164,8 @@ def test_judge_uses_gpt5_mini_on_the_backend_endpoint() -> None:
         llm={"default": {"api_key": "sk-x", "base_url": "http://proxy/v1"}},
     )
     endpoint = judge_llm_settings(settings).resolve(LlmRole.JUDGE)
-    assert (endpoint.model, endpoint.reasoning_effort) == ("gpt-5-mini", "medium")
+    # v2 judges run at reasoning none; the pharmacist calibration measures that choice.
+    assert (endpoint.model, endpoint.reasoning_effort) == ("gpt-5-mini", "none")
     assert (endpoint.base_url, endpoint.api_key) == ("http://proxy/v1", "sk-x")
 
 

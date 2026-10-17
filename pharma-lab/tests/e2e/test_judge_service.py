@@ -294,7 +294,7 @@ def test_judge_settings_carry_the_chosen_reasoning() -> None:
     settings = Settings(_env_file=None, llm={"default": {"api_key": "k", "model": "m"}})
     judge = judge_llm_settings(settings, "gemini-3.1-flash-lite", "none")
     assert judge.default.reasoning_effort == "none"
-    assert judge_llm_settings(settings).default.reasoning_effort == "medium"
+    assert judge_llm_settings(settings).default.reasoning_effort == "none"
 
 
 def unanswerable() -> GoldenItem:

@@ -1484,6 +1484,8 @@ git commit -m "docs(e2e): model paths, pipeline options, cost and latency protoc
 
 ### Task 10: Judge reasoning `none` against the v1 pharmacist grades
 
+> Dropped on 2026-10-16 by the user: the v2 pharmacist calibration (spec §3.3) measures the judge on the v2 runs directly. v2 judges at `none` (`DEFAULT_JUDGE_REASONING`); re-judge at `medium` if that calibration shows poor agreement. The steps below are kept for the record only.
+
 **Files:**
 - Create: `docs/research/paper-v2/09-phase-0-results.md` (section "Judge reasoning")
 - Modify (possibly): `pharma-lab/src/pharma_lab/e2e/judging/structured.py` (`DEFAULT_JUDGE_REASONING`)

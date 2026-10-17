@@ -135,7 +135,7 @@ uv run pharma-lab e2e report --run e2e-gemini
 
 **`--deadline-seconds S`** thay deadline của một lượt (mặc định lấy từ budget của backend, 90 giây). Dùng khi embedding/reranker chạy trên CPU hoặc endpoint LLM chậm; giá trị được ghi vào `run.json`, và latency báo cáo vẫn là thời gian thật.
 
-**`e2e judge`** ghi `judgments.jsonl` và `judge.json` (model, `reasoning_effort` và endpoint của judge). `--judge-reasoning none|low|medium` đặt reasoning của judge (mặc định `medium`, như v1). Chấm lại một cấu hình bằng judge khác hoặc mức reasoning khác cần `--force`.
+**`e2e judge`** ghi `judgments.jsonl` và `judge.json` (model, `reasoning_effort` và endpoint của judge). `--judge-reasoning none|low|medium` đặt reasoning của judge (mặc định `none`; v1 chấm ở `medium`). Độ khớp của judge với người chấm được đo bằng hiệu chuẩn dược sĩ trên chính các run v2. Chấm lại một cấu hình bằng judge khác hoặc mức reasoning khác cần `--force`.
 
 **Chỉ số.** Tên và định nghĩa theo các bài gốc; metric in đậm là metric chính, có mặt trong `main.tex` và `ablation.tex`.
 
