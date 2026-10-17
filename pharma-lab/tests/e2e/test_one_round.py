@@ -64,45 +64,36 @@ def test_judged_chunks_outside_gold_count_as_found() -> None:
 
 
 @pytest.mark.parametrize(
-    ("changes", "judged", "kind"),
+    ("changes", "kind"),
     [
-        (
-            {
-                "answer_mode": "multi_required",
-                "expected_section_ids": ["drug:a:tuong-tac", "drug:b:tuong-tac"],
-            },
-            {},
-            "two_drug",
-        ),
         (
             {
                 "answer_mode": "multi_required",
                 "expected_section_ids": ["drug:a:chi-dinh", "drug:a:lieu-dung"],
             },
-            {},
             "three_intent",
         ),
-        ({"eval_group": "noisy"}, {}, "noisy_retry"),
+        ({"eval_group": "noisy"}, "noisy_retry"),
+        ({}, "retrieval_miss"),
+        # The benchmark's two-document questions are one product at two strengths:
+        # they are not two-drug items, which are generated from the corpus instead.
         (
             {
-                "eval_group": "leaflet",
-                "expected_section_id": "leaflet:t:brand:05-luu-y",
-                "expected_section_ids": ["leaflet:t:brand:05-luu-y"],
+                "answer_mode": "any_acceptable",
+                "expected_section_ids": ["drug:a:tuong-tac", "drug:b:tuong-tac"],
             },
-            {"leaflet:t:brand:05-luu-y": frozenset({"drug:a:than-trong:chunk-001"})},
-            "brand_to_ingredient",
+            "retrieval_miss",
         ),
-        ({}, {}, None),
     ],
 )
 def test_missed_rows_get_a_multi_hop_kind(
-    changes: dict[str, Any], judged: dict[str, frozenset[str]], kind: str | None
+    changes: dict[str, Any], kind: str | None
 ) -> None:
     query = row(**changes)
     missed = OneRoundCoverage("q1", ("answer",), ("answer",))
-    assert multi_hop_kind(query, missed, judged) == kind
+    assert multi_hop_kind(query, missed) == kind
     covered = OneRoundCoverage("q1", ("answer",), ())
-    assert multi_hop_kind(query, covered, judged) is None
+    assert multi_hop_kind(query, covered) is None
 
 
 def item(item_id: str, group: str, source: str) -> GoldenItem:
