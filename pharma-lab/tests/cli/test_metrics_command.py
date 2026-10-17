@@ -156,3 +156,17 @@ def test_metrics_without_run_or_subcommand_is_a_usage_error() -> None:
     result = runner.invoke(app, ["metrics"])
 
     assert result.exit_code == 2
+
+
+def test_metrics_gold_only_flag_reaches_the_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, MetricsRequest] = {}
+    capture_request(monkeypatch, captured)
+
+    result = runner.invoke(
+        app, ["--json", "metrics", "--run", "experiment", "--gold-only"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["request"].gold_only is True

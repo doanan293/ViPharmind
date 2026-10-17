@@ -1,8 +1,14 @@
 import uuid
 
 import pytest
+from pydantic import ValidationError
 
-from pharma_agent.domain.corpus.chunking import CHUNKER_VERSION
+from pharma_agent.domain.corpus.bundle import BundleChunking, KnowledgeBundle
+from pharma_agent.domain.corpus.chunking import (
+    CHUNKER_VERSION,
+    MAX_CHUNK_CHARS,
+    TARGET_CHUNK_CHARS,
+)
 from pharma_agent.domain.corpus.identity import CORPUS_NAMESPACE
 from pharma_agent.domain.corpus.models import (
     CorpusImportError,
@@ -217,3 +223,39 @@ def test_identical_text_in_two_sections_keeps_both_chunks() -> None:
     assert holders[0].chunk_text == holders[1].chunk_text
     assert len({c.id for c in holders}) == 2
     assert len(snapshot.chunks) == len(snapshot.release_chunks)
+
+
+def _with_chunking(bundle: KnowledgeBundle, target_chars: int) -> KnowledgeBundle:
+    manifest = bundle.manifest.model_copy(
+        update={"chunking": BundleChunking(target_chars=target_chars)}
+    )
+    return bundle.model_copy(update={"manifest": manifest})
+
+
+def test_snapshot_chunks_as_the_manifest_says() -> None:
+    """A bundle whose manifest asks for target_chars=1 gives every section its own
+    chunk (the D7 reading-unit ablation); a section past max_chars still splits."""
+    bundle = small_bundle()
+    packed = build_snapshot(bundle)
+    per_section = build_snapshot(_with_chunking(bundle, 1))
+
+    assert len(per_section.chunks) > len(packed.chunks)
+    assert all(len(chunk.section_keys) == 1 for chunk in per_section.chunks)
+    placed = {key for chunk in per_section.chunks for key in chunk.section_keys}
+    assert placed == {section.key for section in per_section.sections}
+
+
+def test_bundle_digest_tracks_the_chunking() -> None:
+    bundle = small_bundle()
+
+    assert bundle_digest(_with_chunking(bundle, 1)) != bundle_digest(bundle)
+
+
+def test_bundle_chunking_defaults_to_the_packed_reading_unit() -> None:
+    assert small_bundle().manifest.chunking == BundleChunking(
+        target_chars=TARGET_CHUNK_CHARS, max_chars=MAX_CHUNK_CHARS
+    )
+    with pytest.raises(ValidationError):
+        BundleChunking.model_validate({"target_chars": 0})
+    with pytest.raises(ValidationError):
+        BundleChunking(target_chars=MAX_CHUNK_CHARS + 1)

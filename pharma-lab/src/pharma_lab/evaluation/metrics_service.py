@@ -149,12 +149,19 @@ def markdown_breakdown_tables(breakdowns: dict, top_k: int = 30) -> str:
     return "\n\n".join(sections)
 
 
+# Recorded as the judgments of a gold-only report: no chunk outside the gold sections
+# counts. A rechunked run (D7) must be scored this way, since the judgments name chunks
+# of the default chunking.
+GOLD_ONLY_JUDGMENTS = "gold-sections-only"
+
+
 @dataclass(frozen=True)
 class MetricsRequest:
     run_root: Path
     top_k: int = DEFAULT_TOP_K
     model: str | None = None
     force: bool = False
+    gold_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -212,9 +219,13 @@ def load_and_validate_metric_inputs(request: MetricsRequest) -> MetricInputs:
             "Run evaluation input changed after retrieval; create a new --run"
         )
     # Judgments change only what counts as a hit, so the run's candidates stay valid.
-    judgments = load_judgments(
-        judgments_path(evaluation),
-        evaluation_sha256=record.identity.evaluation_sha256,
+    judgments = (
+        LoadedJudgments(GOLD_ONLY_JUDGMENTS, {})
+        if request.gold_only
+        else load_judgments(
+            judgments_path(evaluation),
+            evaluation_sha256=record.identity.evaluation_sha256,
+        )
     )
     rows = {str(row["query_id"]): row for row in iter_jsonl_objects(evaluation)}
     rerank_inputs: list[RerankMetricInput] = []
@@ -329,6 +340,7 @@ def run_metrics(request: MetricsRequest) -> MetricsResult:
         baseline_breakdowns,
         baseline_rows,
         top_k=request.top_k,
+        gold_only=request.gold_only,
         force=request.force,
     )
     reranked_artifacts: list[MetricsArtifactResult] = []
@@ -351,6 +363,7 @@ def run_metrics(request: MetricsRequest) -> MetricsResult:
                 top_k=request.top_k,
                 model=rerank_input.model,
                 variant_sha256=rerank_input.variant_sha256,
+                gold_only=request.gold_only,
                 force=request.force,
             )
         )

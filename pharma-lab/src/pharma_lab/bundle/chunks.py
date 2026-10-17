@@ -26,6 +26,7 @@ def gold_chunk_label(document_key: str, ordinal: int) -> str:
 
 
 def iter_document_chunks(bundle: KnowledgeBundle) -> Iterator[DocumentChunks]:
+    """Chunks of every document, packed as the bundle's manifest says, like the backend."""
     by_document: dict[str, list[SectionRecord]] = defaultdict(list)
     for section in bundle.sections:
         by_document[section.document_key].append(section)
@@ -42,5 +43,7 @@ def iter_document_chunks(bundle: KnowledgeBundle) -> Iterator[DocumentChunks]:
                 sections,
                 bundle.glossary,
                 bundle.colloquial_mappings,
+                target_chars=bundle.manifest.chunking.target_chars,
+                max_chars=bundle.manifest.chunking.max_chars,
             ),
         )
