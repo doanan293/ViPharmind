@@ -296,11 +296,24 @@ công bằng:
 
 - Mục đích: làm rõ giá trị của vòng judge-refine, vốn bị che vì retrieval một lượt đã đủ bằng
   chứng cho hầu hết câu (v1 chỉ đo được chênh 0,028 truthfulness khi bỏ vòng lặp).
-- Phân bổ golden mới: answerable thường 270 (45 × 6 nhóm), category mới `multi_hop` 150,
+- Nguyên tắc: mỗi tầng của harness và mỗi ablation có một nhóm câu được chọn đúng chỗ tầng đó quyết
+  định, báo riêng từng nhóm, để bảng ablation cho thấy vì sao tầng đó cần. Bảng ánh xạ: rerank,
+  nửa lexical và nửa dense của hybrid, colloquial, glossary ứng với năm loại probe answerable;
+  judge và vòng refine ứng với `retrieval_miss`, `noisy_retry`, `three_intent`; graph so với ReAct
+  ứng với `two_drug`, `brand_to_ingredient`; rephrase ứng với multi-turn; guard ứng với ba nhóm an
+  toàn; closed-book và gating τ đọc trên toàn bộ, tách answerable với multi-hop. Ở mức retrieval,
+  enrichment (D2) có thêm benchmark thăm dò riêng ở `data/evaluation/gold-enrichment/` (mọi alias
+  dân dã vắng trong tờ hướng dẫn hỏi theo năm mục thường gặp, và mọi cụm lời thường của thuật ngữ mà
+  chuyên luận chỉ ghi viết tắt), chạy như một run retrieval riêng, không đổi benchmark 10.000 câu.
+- Phân bổ golden: answerable 270 gồm 180 câu tự nhiên (30 × 6 nhóm) và 90 probe một mục, mỗi loại
+  chọn bằng dữ liệu hoặc sinh từ corpus: `rerank_probe` 20 (hybrid không rerank trượt top 5, có
+  rerank thì trúng), `lexical_probe` 20 (dense trượt cả 20 ứng viên), `semantic_probe` 20 (BM25
+  trượt cả 20 ứng viên), `colloquial` 20 (gọi sản phẩm chỉ bằng alias dân dã vắng trong văn bản),
+  `glossary` 10 (dùng cụm lời thường cho thuật ngữ mà mục chỉ ghi viết tắt). Category `multi_hop` 150,
   multi-turn 50, unanswerable, out-of-scope, injection 10 mỗi loại. Mục §3.2 nâng nhóm an toàn lên
   50 không còn áp dụng; limitations nêu khoảng tin cậy rộng của 10 câu mỗi loại.
-- 150 câu answerable bị bỏ là những câu mà retrieval một lượt (hybrid + rerank, top 5) đã phủ đủ
-  section gold, bỏ đều theo nhóm.
+- Câu answerable tự nhiên bị bỏ là những câu mà retrieval một lượt (hybrid + rerank, top 5) đã phủ
+  đủ section gold, bỏ đều theo nhóm; probe không bị bỏ.
 - Câu `multi_hop` gồm năm loại, mỗi loại nhắm vào một phần của harness, để bảng kết quả
   báo riêng từng loại cho thấy tầng nào đóng góp gì. Ba loại chọn bằng dữ liệu từ benchmark,
   ứng viên là câu mà retrieval một lượt (hybrid + rerank, top 5) thiếu ít nhất một section gold:
@@ -486,7 +499,8 @@ nào cho chất lượng cao nhất trên mỗi USD và mỗi giây, và kết l
 
 - D1 dense Qwen3-Emb-4B + Qwen3-Reranker-4B, so với hybrid + reranker (trả lời "sao phải hybrid").
 - D2 ablation enrichment: một biến thể duy nhất không enrichment (không header, glossary, colloquial)
-  trên hybrid + rerank; phân theo nhóm, nhất là noisy và leaflet.
+  trên hybrid + rerank; phân theo nhóm, nhất là noisy và leaflet, và chạy cả trên benchmark thăm dò
+  enrichment (855 câu: 636 colloquial, 219 glossary) để thấy phần enrichment gánh.
 - D3 bảng retrieval theo nhóm câu hỏi và theo intent cho các cấu hình chính; độ khó không còn là
   trường của benchmark, trục thay thế là "một lượt top 5 đã phủ đủ gold hay chưa" tính từ cấu hình
   hybrid + rerank.

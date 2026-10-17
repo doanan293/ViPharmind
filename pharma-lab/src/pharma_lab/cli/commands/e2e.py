@@ -63,6 +63,7 @@ from pharma_lab.e2e.decision_scoring import (
 from pharma_lab.e2e.golden import (
     ANSWERABLE_PER_GROUP,
     MULTI_HOP_QUOTAS,
+    PROBE_QUOTAS,
     QUOTAS,
     Category,
     build_golden,
@@ -73,6 +74,8 @@ from pharma_lab.e2e.golden import (
 )
 from pharma_lab.e2e.golden_draft import (
     DRAFT_MODEL,
+    FAMILIES,
+    MULTI_HOP,
     authored_documents,
     authored_sections,
     authored_state,
@@ -83,7 +86,8 @@ from pharma_lab.e2e.golden_draft import (
     used_query_ids,
     write_drafts,
 )
-from pharma_lab.e2e.golden_generate import generate
+from pharma_lab.e2e.golden_generate import generate, generate_probes
+from pharma_lab.e2e.golden_probe import load_probe_runs, probe_candidates
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
 from pharma_lab.e2e.judging.service import JudgeRequest, run_judge
 from pharma_lab.e2e.judging.structured import (
@@ -350,6 +354,86 @@ def golden_generate(
     run_handler(state_from_context(ctx), handler)
 
 
+@golden_app.command("probe-candidates")
+def golden_probe_candidates(
+    ctx: typer.Context,
+    run_name: Annotated[str, typer.Option("--run")],
+    bm25_run: Annotated[str, typer.Option("--bm25-run")] = "bm25-v2-k20",
+    dense_run: Annotated[str, typer.Option("--dense-run")] = "dense-qwen4b-v2-k20",
+    model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
+    depth: Annotated[int, typer.Option("--depth", min=1)] = 20,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    authoring_dir: Annotated[
+        Path, typer.Option("--authoring-dir", file_okay=False)
+    ] = E2E_AUTHORING_DIR,
+) -> None:
+    """List benchmark questions whose one-round coverage reranking, the lexical or the
+    dense half of hybrid search decides (probe.todo.jsonl)."""
+
+    def handler() -> CommandResult:
+        runs = load_probe_runs(
+            run_dir(run_name),
+            run_dir(bm25_run),
+            run_dir(dense_run),
+            model=model,
+            depth=depth,
+        )
+        rows = probe_candidates(runs, load_corpus_text(bundle))
+        output = authoring_dir / "probe.todo.jsonl"
+        output.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+        kinds = Counter(str(row["kind"]) for row in rows)
+        return CommandResult(
+            "e2e golden probe-candidates", CommandStatus.COMPLETE, output, dict(kinds)
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@golden_app.command("generate-probes")
+def golden_generate_probes(
+    ctx: typer.Context,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    authoring_dir: Annotated[
+        Path, typer.Option("--authoring-dir", file_okay=False)
+    ] = E2E_AUTHORING_DIR,
+    colloquial: Annotated[int, typer.Option("--colloquial", min=0)] = 2
+    * PROBE_QUOTAS["colloquial"],
+    glossary: Annotated[int, typer.Option("--glossary", min=0)] = 2
+    * PROBE_QUOTAS["glossary"],
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+) -> None:
+    """Build colloquial-name and plain-language-term probes from the corpus
+    (probe.generated.jsonl); twice the quota by default, to cover rejected drafts."""
+
+    def handler() -> CommandResult:
+        knowledge = read_bundle(bundle)
+        aliases = [
+            (alias, mapping.section_keys)
+            for mapping in knowledge.colloquial_mappings
+            for alias in mapping.aliases
+        ]
+        rows = generate_probes(
+            corpus_text(knowledge),
+            aliases,
+            {"colloquial": colloquial, "glossary": glossary},
+            seed=seed,
+        )
+        output = authoring_dir / "probe.generated.jsonl"
+        output.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+        kinds = Counter(str(row["kind"]) for row in rows)
+        return CommandResult(
+            "e2e golden generate-probes", CommandStatus.COMPLETE, output, dict(kinds)
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
 @golden_app.command("draft")
 def golden_draft(
     ctx: typer.Context,
@@ -362,21 +446,27 @@ def golden_draft(
         str, typer.Option("--model", help="Model name on the backend LLM endpoint")
     ] = DRAFT_MODEL,
     concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 8,
+    family_name: Annotated[
+        str, typer.Option("--family", help="multi-hop or probe")
+    ] = MULTI_HOP.batch,
     backend_env_file: Annotated[
         Path, typer.Option("--backend-env-file", dir_okay=False)
     ] = BACKEND_ENV_FILE,
 ) -> None:
-    """Draft the multi-hop items still missing from the per-kind quotas, from
-    multi-hop.todo.jsonl and multi-hop.generated.jsonl, into new *.draft.jsonl batches."""
+    """Draft the items of a family (multi-hop items or answerable probes) still missing
+    from its per-kind quotas, from <family>.todo.jsonl and <family>.generated.jsonl,
+    into new <family>-NN.draft.jsonl batches."""
 
     def handler() -> CommandResult:
-        authored, highest = authored_state(authoring_dir)
-        counts = needed_counts(authored)
+        family = FAMILIES[family_name]
+        authored, highest = authored_state(authoring_dir, family)
+        counts = needed_counts(authored, family)
         candidates = select_candidates(
-            load_candidates(authoring_dir),
+            load_candidates(authoring_dir, family),
             exclude=used_query_ids(authoring_dir),
             seed=seed,
-            exclude_sections=authored_sections(authoring_dir),
+            exclude_sections=authored_sections(authoring_dir, family),
+            family=family,
         )
         llm = judge_llm(Settings(_env_file=backend_env_file), model)
         items, failures = asyncio.run(
@@ -387,9 +477,10 @@ def golden_draft(
                 load_corpus_text(bundle),
                 concurrency=concurrency,
                 first_number=highest + 1,
+                family=family,
             )
         )
-        paths = write_drafts(authoring_dir, items, failures)
+        paths = write_drafts(authoring_dir, items, failures, family=family)
         kinds = Counter(item.tags[0] for item in items)
         total = sum(counts.values())
         return CommandResult(

@@ -16,6 +16,7 @@ from pharma_lab.e2e.golden import (
     EVAL_GROUPS,
     MULTI_HOP_KINDS,
     MULTI_HOP_QUOTAS,
+    PROBE_QUOTAS,
     QUOTAS,
     SCHEMA,
     Category,
@@ -87,6 +88,23 @@ def test_golden_schema_is_v3_without_chunk_ids() -> None:
         GoldenItem.model_validate(
             {**answerable().model_dump(mode="json"), "gold_chunk_ids": ["x"]}
         )
+
+
+def test_answerable_probes_need_one_probe_tag_and_no_group() -> None:
+    assert (
+        validate_items(
+            [answerable("e2e-ans-p0001", eval_group=None, tags=["colloquial"])],
+            CORPUS,
+            complete=False,
+        )
+        == []
+    )
+    both = answerable("e2e-ans-p0002", eval_group="leaflet", tags=["colloquial"])
+    neither = answerable("e2e-ans-p0003", eval_group=None)
+    assert validate_items([both, neither], CORPUS, complete=False) == [
+        "e2e-ans-p0002: an answerable probe has one probe tag and no eval_group",
+        "e2e-ans-p0003: answerable items need an eval_group or a probe tag",
+    ]
 
 
 def test_golden_keeps_500_items_with_a_multi_hop_split() -> None:
@@ -212,6 +230,11 @@ def complete_set() -> list[GoldenItem]:
         for group in EVAL_GROUPS
         for index in range(ANSWERABLE_PER_GROUP)
     ]
+    items += [
+        answerable(f"e2e-ans-p{kind}-{index:02d}", eval_group=None, tags=[kind])
+        for kind, quota in PROBE_QUOTAS.items()
+        for index in range(quota)
+    ]
     dialogue = [
         {"role": "user", "text": "Paracetamol dùng làm gì?"},
         {"role": "assistant", "text": "Giảm đau."},
@@ -249,7 +272,7 @@ def test_complete_sets_must_match_the_quotas() -> None:
     assert validate_items(short, CORPUS, complete=True) == [
         "answerable: 269 items, expected 270",
         "multi_hop: 149 items, expected 150",
-        "answerable leaflet: 44 items, expected 45",
+        "answerable leaflet: 29 items, expected 30",
         "multi_hop two_drug: 41 items, expected 42",
     ]
 
@@ -293,7 +316,8 @@ def test_build_freezes_sorted_items_and_a_manifest(tmp_path: Path) -> None:
         "out_of_scope": 10,
         "unanswerable": 10,
     }
-    assert manifest["answerable_per_group"]["leaflet"] == 45
+    assert manifest["answerable_per_group"]["leaflet"] == 30
+    assert manifest["answerable_per_group"]["colloquial"] == 20
     assert len(manifest["sha256"]) == 64
 
 

@@ -102,7 +102,9 @@ def trim_covered(
     """
     by_group: dict[str, list[GoldenItem]] = defaultdict(list)
     for item in items:
-        by_group[str(item.eval_group)].append(item)
+        # Probes have no group and are never trimmed.
+        if item.eval_group is not None:
+            by_group[item.eval_group].append(item)
     dropped: list[str] = []
     problems: list[str] = []
     for group, members in sorted(by_group.items()):

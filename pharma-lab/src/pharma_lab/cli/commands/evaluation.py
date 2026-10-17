@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Annotated
 
@@ -16,9 +17,16 @@ from pharma_lab.cli.runtime import (
 )
 from pharma_lab.config.paths import (
     BUNDLE_DIR,
+    ENRICHMENT_GOLD_DIR,
     EVALUATION_CHUNKS_PATH,
     GOLD_DIR,
     RAG_FINAL_SECTIONS_PATH,
+)
+from pharma_lab.e2e.corpus_text import corpus_text
+from pharma_lab.e2e.golden_generate import (
+    benchmark_row,
+    colloquial_benchmark,
+    glossary_benchmark,
 )
 from pharma_lab.evaluation.build_dataset import (
     EvaluationBuildRequest,
@@ -123,3 +131,53 @@ def evaluation_judgments(
         state_from_context(ctx),
         lambda: evaluation_judgments_command(evaluation=evaluation, bundle=bundle),
     )
+
+
+@evaluation_app.command("enrichment-probe")
+def evaluation_enrichment_probe(
+    ctx: typer.Context,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    output_dir: Annotated[
+        Path, typer.Option("--output-dir", file_okay=False)
+    ] = ENRICHMENT_GOLD_DIR,
+) -> None:
+    """Build the enrichment probe benchmark: every colloquial alias absent from its
+    leaflet asked for each common leaflet section, and every plain-language phrase for a
+    term a monograph section writes only as its abbreviation (spec §4.D2)."""
+
+    def handler() -> CommandResult:
+        try:
+            knowledge = read_bundle(bundle)
+        except BundleValidationError as exc:
+            raise invalid_bundle(exc) from exc
+        corpus = corpus_text(knowledge)
+        aliases = [
+            (alias, mapping.section_keys)
+            for mapping in knowledge.colloquial_mappings
+            for alias in mapping.aliases
+        ]
+        candidates = [
+            *colloquial_benchmark(corpus, aliases),
+            *glossary_benchmark(corpus),
+        ]
+        output_dir.mkdir(parents=True, exist_ok=True)
+        evaluation = output_dir / "section_retrieval_eval.jsonl"
+        evaluation.write_text(
+            "".join(
+                json.dumps(benchmark_row(c), ensure_ascii=False) + "\n"
+                for c in candidates
+            ),
+            encoding="utf-8",
+        )
+        judgments = build_evaluation_judgments(evaluation, bundle)
+        groups: dict[str, int] = {}
+        for candidate in candidates:
+            groups[candidate.kind] = groups.get(candidate.kind, 0) + 1
+        return CommandResult(
+            "evaluation enrichment-probe",
+            CommandStatus.COMPLETE,
+            evaluation,
+            {"rows": len(candidates), "judgments": str(judgments), **groups},
+        )
+
+    run_handler(state_from_context(ctx), handler)

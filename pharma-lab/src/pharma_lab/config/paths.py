@@ -50,6 +50,8 @@ BUNDLE_DIR = CORPUS_DIR / "formulary"
 
 EVALUATION_DIR = DATA_DIR / "evaluation"
 GOLD_DIR = EVALUATION_DIR / "gold"
+# The enrichment probe benchmark: questions only the chunk enrichment can match.
+ENRICHMENT_GOLD_DIR = EVALUATION_DIR / "gold-enrichment"
 RUNS_DIR = EVALUATION_DIR / "runs"
 E2E_DIR = EVALUATION_DIR / "e2e"
 GOLDEN_E2E_PATH = E2E_DIR / "golden_e2e.jsonl"
