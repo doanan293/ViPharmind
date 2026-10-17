@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,6 +21,20 @@ class TokenUsage(BaseModel):
     completion_tokens: int = 0
     reasoning_tokens: int = 0
     seconds: float = 0.0
+
+
+class DecisionRecord(BaseModel):
+    """One decision-model call, kept raw: its model version, tokens, seconds, answers."""
+
+    model_config = _RECORD
+
+    role: str
+    model: str
+    input_tokens: int
+    seconds: float
+    answers: dict[str, float]
+    # The undecoded response body, as the backend stored it.
+    raw: dict[str, Any] = Field(default_factory=dict)
 
 
 class RetrievedChunk(BaseModel):
@@ -62,6 +77,22 @@ class StepRecord(BaseModel):
     seconds: float
 
 
+class ReactRecord(BaseModel):
+    """What a ReAct turn did with its search tool (the backend's ReactStats)."""
+
+    model_config = _RECORD
+
+    rounds: int = 0
+    tool_calls: int = 0
+    malformed_calls: int = 0
+    duplicate_calls: int = 0
+    round_cap_hit: bool = False
+    # Answered without tools before the round cap because the LLM-call or token budget ran out.
+    budget_forced: bool = False
+    budget_hits: int = 0
+    answered_without_search: bool = False
+
+
 class ItemRecord(BaseModel):
     """A record about one golden item within one configuration."""
 
@@ -85,6 +116,8 @@ class AnswerRecord(ItemRecord):
     judge_outcomes: list[str] = Field(default_factory=list)
     llm_calls: int = 0
     usage_by_role: dict[str, TokenUsage] = Field(default_factory=dict)
+    # Every decision-model call of the turn (guard and judge) with its answers.
+    decisions: list[DecisionRecord] = Field(default_factory=list)
     latency_seconds: float = 0.0
     # Wall time outside LLM calls: retrieval, reranking and graph overhead.
     non_llm_seconds: float = 0.0
@@ -94,6 +127,8 @@ class AnswerRecord(ItemRecord):
     rerank_seconds: float = 0.0
     # Candidates the reranker scored over the turn (the priced rerank work).
     rerank_scored: int = 0
+    # Set only for the react configuration.
+    react: ReactRecord | None = None
     error: str | None = None
     retryable: bool = False
 

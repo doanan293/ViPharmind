@@ -13,8 +13,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from pharma_lab.artifacts.manifest import sha256_file, write_json
 from pharma_lab.e2e.corpus_text import CorpusText, normalize_space
-from pharma_lab.evaluation.artifact_contracts import sha256_file, write_json
 
 SCHEMA = "e2e-golden-v3"
 ANSWERABLE_PER_GROUP = 45
@@ -69,10 +69,20 @@ BEHAVIOR: dict[Category, ExpectedBehavior] = {
     Category.INJECTION: ExpectedBehavior.BLOCKED,
 }
 
-# Questions a single retrieval round answers only in part: three intents in one question,
-# two drugs, a brand whose leaflet lacks the answer that the formulary entry for its
-# ingredient has, and a noisy or misspelled question whose first round misses.
-MULTI_HOP_KINDS = ("three_intent", "two_drug", "brand_to_ingredient", "noisy_retry")
+# Questions one retrieval round answers only in part, each kind aimed at one part of the
+# harness (spec §3.0b). From the benchmark: a clean question whose gold section the first
+# round misses, a noisy or misspelled one that misses, and a three-intent question whose
+# sections fall in two chunks. Generated from the corpus: two drugs whose evidence sits in
+# two monographs, and a brand whose leaflet lacks the section its ingredient's monograph
+# has.
+MULTI_HOP_QUOTAS: dict[str, int] = {
+    "retrieval_miss": 32,
+    "noisy_retry": 36,
+    "three_intent": 16,
+    "two_drug": 36,
+    "brand_to_ingredient": 30,
+}
+MULTI_HOP_KINDS = tuple(MULTI_HOP_QUOTAS)
 
 _STRICT = ConfigDict(extra="forbid", frozen=True)
 
@@ -252,6 +262,16 @@ def _count_problems(items: Sequence[GoldenItem]) -> list[str]:
                 f"answerable {group}: {groups[group]} items, "
                 f"expected {ANSWERABLE_PER_GROUP}"
             )
+    kinds = Counter(
+        tag
+        for item in items
+        if item.category is Category.MULTI_HOP
+        for tag in item.tags
+        if tag in MULTI_HOP_KINDS
+    )
+    for kind, quota in MULTI_HOP_QUOTAS.items():
+        if kinds[kind] != quota:
+            problems.append(f"multi_hop {kind}: {kinds[kind]} items, expected {quota}")
     return problems
 
 

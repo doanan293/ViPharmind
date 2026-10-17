@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import math
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Protocol
 
-from pharma_agent.application.chat.graph import build_chat_graph
 from pharma_agent.infrastructure.composition import build_application
 from pharma_agent.infrastructure.settings import Settings
 
+from pharma_lab.artifacts.manifest import sha256_file, write_json
 from pharma_lab.e2e.configs import (
     E2EConfig,
     config_label,
+    graph_for,
     parse_pipeline_options,
     pipeline_for,
     settings_for,
@@ -24,9 +26,18 @@ from pharma_lab.e2e.configs import (
 from pharma_lab.e2e.executor import BackendTurnExecutor, ClosedBookExecutor
 from pharma_lab.e2e.golden import Category, GoldenItem, load_golden
 from pharma_lab.e2e.golden_changes import SUPERSEDED, reconcile_golden
-from pharma_lab.e2e.records import ANSWERS_FILE, AnswerRecord, JsonlStore
-from pharma_lab.e2e.run_identity import git_commit, identity_from_settings, open_run
-from pharma_lab.evaluation.artifact_contracts import sha256_file
+from pharma_lab.e2e.records import (
+    ANSWERS_FILE,
+    AnswerRecord,
+    DecisionRecord,
+    JsonlStore,
+)
+from pharma_lab.e2e.run_identity import (
+    RUN_FILE,
+    git_commit,
+    identity_from_settings,
+    open_run,
+)
 from pharma_lab.evaluation.backend_retrieval import current_release_id
 
 NO_RELEASE = "none"
@@ -43,6 +54,34 @@ class RunSummary:
     errors: int
 
 
+class DecisionVersionGuard:
+    """Keeps the decision model's version in run.json and refuses a different one.
+
+    The hosted model alias moves; answers from two versions must not share a run."""
+
+    def __init__(self, directory: Path) -> None:
+        self._path = Path(directory) / RUN_FILE
+
+    def _stored(self) -> dict[str, object]:
+        if not self._path.is_file():
+            return {}
+        return json.loads(self._path.read_text(encoding="utf-8"))
+
+    def observe(self, decisions: Sequence[DecisionRecord]) -> None:
+        for decision in decisions:
+            stored = self._stored()
+            known = stored.get("decision_model_version")
+            if known is None:
+                write_json(
+                    self._path, {**stored, "decision_model_version": decision.model}
+                )
+            elif known != decision.model:
+                raise ValueError(
+                    f"decision model version changed from {known} to {decision.model}; "
+                    "start a new --run"
+                )
+
+
 async def run_items(
     items: Sequence[GoldenItem],
     executor: TurnExecutor,
@@ -51,6 +90,7 @@ async def run_items(
     config: str,
     concurrency: int,
     retry_errors: bool,
+    decision_guard: DecisionVersionGuard | None = None,
 ) -> RunSummary:
     """Answer every item without a final record; errors rerun only on request.
 
@@ -68,17 +108,28 @@ async def run_items(
     ]
     semaphore = asyncio.Semaphore(concurrency)
     lock = asyncio.Lock()
+    stopped: list[ValueError] = []
 
     async def answer(item: GoldenItem) -> None:
         async with semaphore:
+            if stopped:
+                return
             try:
                 record = await executor.execute(item)
             except Exception as error:  # a failed item must not stop the run
                 record = AnswerRecord.failed(item.item_id, config, error)
         async with lock:
+            if decision_guard is not None:
+                try:
+                    decision_guard.observe(record.decisions)
+                except ValueError as error:
+                    stopped.append(error)
+                    return
             store.append(record)
 
     await asyncio.gather(*(answer(item) for item in pending))
+    if stopped:
+        raise stopped[0]
     final = store.latest()
     errors = sum(
         1 for item in items if item.item_id in final and final[item.item_id].retryable
@@ -163,12 +214,14 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
             )
             executor: TurnExecutor = (
                 BackendTurnExecutor(
-                    graph=build_chat_graph(),
+                    graph=graph_for(request.config),
                     llm=app.deps.llm,
                     retrieval=app.retrieval.service,
                     limits=settings.budget,
                     pipeline=pipeline,
                     config=label,
+                    decisions=app.deps.decisions,
+                    guard_thresholds=app.deps.guardrail.thresholds,
                 )
                 if uses_retrieval(request.config)
                 else ClosedBookExecutor(llm=app.deps.llm, config=label)
@@ -181,6 +234,7 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
                     config=label,
                     concurrency=request.concurrency,
                     retry_errors=request.retry_errors,
+                    decision_guard=DecisionVersionGuard(directory),
                 )
             )
         finally:

@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from pharma_lab.artifacts.manifest import (
+    ArtifactContractError,
+    require_finite_number,
+)
 from pharma_lab.cache.jsonl_records import (
     CacheRecordError,
     ValidatedSubset,
@@ -16,16 +20,11 @@ from pharma_lab.cache.jsonl_records import (
 from pharma_lab.cache.jsonl_records import (
     subset_sha256 as record_subset_sha256,
 )
-from pharma_lab.evaluation.artifact_contracts import (
-    ArtifactContractError,
-    require_finite_number,
-)
-from pharma_lab.evaluation.query_hash import query_hash
-from pharma_lab.evaluation.rerank_contract import document_hash
 from pharma_lab.evaluation.retrieval_candidate_artifact import (
     CandidateArtifactReader,
 )
 from pharma_lab.evaluation.retrieval_types import RetrievalCandidate
+from pharma_lab.hashing import document_hash, query_hash
 from pharma_lab.runtime.catalog import require_model
 
 

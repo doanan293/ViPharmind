@@ -18,8 +18,10 @@ from pharma_lab.integrations.kaggle.quota import AccountQuota
 from pharma_lab.integrations.kaggle.service import KaggleExecutionContext
 from pharma_lab.integrations.kaggle.sessions import (
     ACCOUNT_WAIT_SECONDS,
+    QuotaExhausted,
     ReservedAccount,
     StopReason,
+    reserve_session_account_waiting,
     run_account_sessions,
 )
 
@@ -427,4 +429,44 @@ def test_sessions_still_stop_when_the_free_accounts_lack_quota(tmp_path):
     )
 
     assert outcome.stop_reason is StopReason.QUOTA_EXHAUSTED
+    assert waits == []
+
+
+def test_a_one_off_reservation_waits_for_an_account_another_job_holds():
+    """The profile benchmark reserves an account once, outside the session loop; a
+    busy account with quota is waited for there too, not reported as exhausted."""
+    book = QuotaBook(acc3=15.28)
+    waits: list[float] = []
+    log: list[str] = []
+
+    with reserve_session_account_waiting(
+        _contexts("acc3"),
+        requested_budget_seconds=21_600,
+        log=log.append,
+        read_quota=book,
+        account_lock=BusyThenFree(busy=1),
+        wait=waits.append,
+    ) as reserved:
+        assert reserved.profile == "acc3"
+
+    assert waits == [ACCOUNT_WAIT_SECONDS]
+    assert any("waiting for an account another local job holds" in line for line in log)
+
+
+def test_a_one_off_reservation_still_stops_without_quota():
+    book = QuotaBook(acc3=0.4)
+    waits: list[float] = []
+
+    with (
+        pytest.raises(QuotaExhausted),
+        reserve_session_account_waiting(
+            _contexts("acc3"),
+            requested_budget_seconds=21_600,
+            log=_quiet,
+            read_quota=book,
+            wait=waits.append,
+        ),
+    ):
+        pass
+
     assert waits == []

@@ -1,9 +1,13 @@
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from pharma_agent.application.chat.graph import build_chat_graph
+from pharma_agent.application.chat.graph import ChatGraph, build_chat_graph
+from pharma_agent.application.chat.react_graph import build_react_graph
+from pharma_agent.domain.agent.actions import Action, ActionKind
 from pharma_agent.domain.agent.budget import BudgetLimits
+from pharma_agent.domain.agent.decisions import GuardThresholds
 from pharma_agent.domain.agent.schemas import (
     Audience,
     Intent,
@@ -13,10 +17,11 @@ from pharma_agent.domain.agent.schemas import (
     RephraseResult,
 )
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict
-from pharma_agent.domain.llm.models import LlmRole, LlmUsage
+from pharma_agent.domain.llm.models import LlmRole, LlmUsage, ToolCall, ToolTurn
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.infrastructure.settings import Settings
 from tests.e2e.factories import (
+    FakeDecision,
     FakeRetriever,
     ScriptedLlm,
     make_hit,
@@ -24,11 +29,26 @@ from tests.e2e.factories import (
 )
 
 from pharma_lab.e2e.configs import E2EConfig, pipeline_for
-from pharma_lab.e2e.executor import BackendTurnExecutor, conversation_for
+from pharma_lab.e2e.executor import (
+    BackendTurnExecutor,
+    conversation_for,
+    degraded_steps,
+)
 from pharma_lab.e2e.golden import GoldenItem
-from pharma_lab.e2e.harness import run_items, spread, with_deadline
+from pharma_lab.e2e.harness import (
+    DecisionVersionGuard,
+    run_items,
+    spread,
+    with_deadline,
+)
 from pharma_lab.e2e.recording_llm import RecordingLlm
-from pharma_lab.e2e.records import AnswerRecord, JsonlStore, RetrievedChunk, RoundRecord
+from pharma_lab.e2e.records import (
+    AnswerRecord,
+    DecisionRecord,
+    JsonlStore,
+    RetrievedChunk,
+    RoundRecord,
+)
 
 SECTION = "drug:paracetamol:lieu-dung"
 
@@ -68,19 +88,28 @@ def llm(*, judge: bool, rephrase: bool) -> ScriptedLlm:
                 audience=Audience.GENERAL_PUBLIC,
                 language=Language.VI,
                 intent=Intent.PHARMA_QUESTION,
+                subjects=[],
             ),
         )
     if judge:
         fake.script(
             LlmRole.JUDGE,
-            JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ"),
+            JudgeDecision(
+                decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+            ),
         )
     return fake
 
 
-def executor(fake: ScriptedLlm, retriever: FakeRetriever, config: E2EConfig):
+def executor(
+    fake: ScriptedLlm,
+    retriever: FakeRetriever,
+    config: E2EConfig,
+    *,
+    graph: ChatGraph | None = None,
+):
     return BackendTurnExecutor(
-        graph=build_chat_graph(),
+        graph=graph if graph is not None else build_chat_graph(),
         llm=fake,
         retrieval=retrieval_service(retriever),
         limits=BudgetLimits(),
@@ -134,6 +163,103 @@ async def test_full_agent_record_maps_citations_to_gold_labels() -> None:
     assert llm_seconds <= record.latency_seconds + 0.01
     assert not record.retryable
     assert "Người lớn uống tối đa" in fake.calls[1][1][-1].content
+
+
+async def test_answer_record_keeps_every_raw_decision() -> None:
+    fake = llm(judge=False, rephrase=True)
+    fake.scripts[LlmRole.GUARDRAIL] = []
+    decision = FakeDecision(
+        {"is_attack": 0.0, "is_about_medicines": 0.9, "sufficient_overall": 0.9}
+    )
+    retriever = FakeRetriever([make_hit("a", SECTION, score=0.9)])
+    full = BackendTurnExecutor(
+        graph=build_chat_graph(),
+        llm=fake,
+        retrieval=retrieval_service(retriever),
+        limits=BudgetLimits(),
+        pipeline=pipeline_for(E2EConfig.FULL),
+        config="full",
+        decisions={LlmRole.GUARDRAIL: decision, LlmRole.JUDGE: decision},
+    )
+
+    record = await full.execute(item())
+
+    assert [d.role for d in record.decisions] == ["guardrail", "judge"]
+    assert record.decisions[0].model == "jev-1.13.0"
+    assert record.decisions[1].answers["sufficient_overall"] == 0.9
+    assert record.decisions[1].raw == {"answers": {}}
+    assert record.usage_by_role["judge"].prompt_tokens == 300
+    assert record.usage_by_role["guardrail"].calls == 1
+    assert record.llm_calls == 4
+    assert not record.retryable
+
+
+async def test_the_judges_own_intent_call_is_recorded_as_a_judge_decision() -> None:
+    fake = llm(judge=False, rephrase=True)
+    decision = FakeDecision({"asks_dosage": 0.9, "sufficient_overall": 0.9})
+    retriever = FakeRetriever([make_hit("a", SECTION, score=0.9)])
+    full = BackendTurnExecutor(
+        graph=build_chat_graph(),
+        llm=fake,
+        retrieval=retrieval_service(retriever),
+        limits=BudgetLimits(),
+        pipeline=pipeline_for(E2EConfig.FULL),
+        config="full",
+        decisions={LlmRole.JUDGE: decision},
+    )
+
+    record = await full.execute(item())
+
+    assert [d.role for d in record.decisions] == ["judge", "judge"]
+    assert record.decisions[0].answers["asks_dosage"] == 0.9
+    assert all(key.startswith("asks_") for key in decision.calls[0][2])
+    assert record.usage_by_role["guardrail"].calls == 1
+    assert record.usage_by_role["judge"].calls == 2
+
+
+async def test_a_decision_judge_leaves_the_llm_guard_usage_alone() -> None:
+    fake = llm(judge=False, rephrase=True)
+    decision = FakeDecision({"asks_dosage": 0.9, "sufficient_overall": 0.9})
+    retriever = FakeRetriever([make_hit("a", SECTION, score=0.9)])
+    full = BackendTurnExecutor(
+        graph=build_chat_graph(),
+        llm=fake,
+        retrieval=retrieval_service(retriever),
+        limits=BudgetLimits(),
+        pipeline=pipeline_for(E2EConfig.FULL),
+        config="full",
+        decisions={LlmRole.JUDGE: decision},
+    )
+
+    record = await full.execute(item())
+
+    guard = record.usage_by_role["guardrail"]
+    assert (guard.calls, guard.prompt_tokens) == (1, 10)
+    judge = record.usage_by_role["judge"]
+    assert (judge.calls, judge.prompt_tokens) == (2, 600)
+
+
+@pytest.mark.parametrize(("block", "status"), [(0.5, "blocked"), (0.7, "completed")])
+async def test_executor_applies_the_configured_guard_thresholds(
+    block: float, status: str
+) -> None:
+    fake = llm(judge=False, rephrase=False)
+    decision = FakeDecision({"is_attack": 0.6, "is_about_medicines": 0.9})
+    retriever = FakeRetriever([make_hit("a", SECTION, score=0.9)])
+    guarded = BackendTurnExecutor(
+        graph=build_chat_graph(),
+        llm=fake,
+        retrieval=retrieval_service(retriever),
+        limits=BudgetLimits(),
+        pipeline=pipeline_for(E2EConfig.ONE_STEP),
+        config="one_step",
+        decisions={LlmRole.GUARDRAIL: decision},
+        guard_thresholds=GuardThresholds(block=block),
+    )
+
+    record = await guarded.execute(item())
+
+    assert record.status == status
 
 
 async def test_one_step_searches_the_raw_question_without_a_judge() -> None:
@@ -226,6 +352,46 @@ async def test_run_items_resumes_and_retries_only_on_request(tmp_path: Path) -> 
     assert store.latest()["e2e-mt-0002"].status == "completed"
 
 
+class VersionedExecutor:
+    """Answers with a decision model whose version follows the given list."""
+
+    def __init__(self, versions: list[str]) -> None:
+        self.versions = versions
+
+    async def execute(self, item: GoldenItem) -> AnswerRecord:
+        model = self.versions.pop(0)
+        return AnswerRecord(
+            item_id=item.item_id,
+            config="full",
+            status="completed",
+            decisions=[
+                DecisionRecord(
+                    role="judge", model=model, input_tokens=1, seconds=0.1, answers={}
+                )
+            ],
+        )
+
+
+async def test_run_items_stops_when_the_decision_model_version_changes(
+    tmp_path: Path,
+) -> None:
+    items = [item(f"e2e-mt-{n:04d}") for n in range(1, 4)]
+    store = JsonlStore(tmp_path / "answers.jsonl", AnswerRecord)
+
+    with pytest.raises(ValueError, match=r"jev-1\.13\.0 to jev-1\.14\.0"):
+        await run_items(
+            items,
+            VersionedExecutor(["jev-1.13.0", "jev-1.14.0", "jev-1.14.0"]),
+            store,
+            config="full",
+            concurrency=1,
+            retry_errors=False,
+            decision_guard=DecisionVersionGuard(tmp_path),
+        )
+
+    assert sorted(store.latest()) == ["e2e-mt-0001"]
+
+
 def test_spread_takes_items_across_the_set() -> None:
     items = [item(f"e2e-mt-{n:04d}") for n in range(1, 11)]
     assert [i.item_id[-2:] for i in spread(items, 3)] == ["01", "05", "09"]
@@ -253,7 +419,9 @@ def test_recording_llm_sums_reasoning_tokens() -> None:
             )
 
     llm = ReasoningLlm()
-    decision = JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="r")
+    decision = JudgeDecision(
+        decision=JudgeOutcome.ANSWER, gaps=[], reason="r", confidence=1.0
+    )
     llm.script(LlmRole.JUDGE, decision, decision)
     recorder = RecordingLlm(llm)
     for _ in range(2):
@@ -288,3 +456,51 @@ def test_old_answer_record_loads() -> None:
     assert record.steps == []
     assert record.retrieval_seconds == 0.0
     assert record.rerank_scored == 0
+
+
+def test_recording_llm_records_tool_calls() -> None:
+    llm = ScriptedLlm()
+    llm.script_tool_turns(ToolTurn(text="xong", tool_calls=(), finish_reason="stop"))
+    recorder = RecordingLlm(llm)
+    turn, _ = asyncio.run(recorder.tool_call(LlmRole.AGENT, [], []))
+    assert turn.text == "xong"
+    assert recorder.usage_by_role()["agent"].calls == 1
+
+
+async def test_react_executor_records_the_react_statistics() -> None:
+    fake = llm(judge=False, rephrase=False)
+    fake.script_tool_turns(
+        ToolTurn(
+            text="",
+            tool_calls=(
+                ToolCall(id="c1", name="search_corpus", arguments='{"query": "x"}'),
+            ),
+            finish_reason="tool_calls",
+        ),
+        ToolTurn(text="Đáp [1].", tool_calls=(), finish_reason="stop"),
+    )
+    record = await executor(
+        fake,
+        FakeRetriever([make_hit("a", SECTION, score=0.9)]),
+        E2EConfig.REACT,
+        graph=build_react_graph(),
+    ).execute(item())
+    assert record.status == "completed"
+    assert record.react is not None
+    assert record.react.rounds == 1
+    assert record.react.tool_calls == 1
+    assert record.usage_by_role["agent"].calls == 2
+    assert [s.kind for s in record.steps][:2] == ["guard", "agent"]
+    assert [(c.index, c.section_ids) for c in record.citations] == [(1, [SECTION])]
+    assert record.rounds[-1].sections == [SECTION]
+    assert record.search_queries == [["x"]]
+    assert record.error is None
+
+
+def test_a_failed_search_is_a_degraded_step() -> None:
+    at = datetime(2026, 10, 16, tzinfo=UTC)
+    entries = [
+        Action(kind=ActionKind.SEARCH, at=at, outcome="ok"),
+        Action(kind=ActionKind.SEARCH, at=at, outcome="error", reason="qdrant down"),
+    ]
+    assert degraded_steps(entries) == ["search"]

@@ -257,6 +257,45 @@ def _run_one_session(
         return result
 
 
+@contextmanager
+def reserve_session_account_waiting(
+    contexts: Sequence[KaggleExecutionContext],
+    *,
+    requested_budget_seconds: int,
+    log: SessionLog,
+    read_quota: QuotaReader | None = None,
+    account_lock: AccountLock | None = None,
+    wait: Callable[[float], None] = time.sleep,
+) -> Generator[ReservedAccount, None, None]:
+    """`reserve_session_account` for a one-off reservation (a profile benchmark, a model
+    server): an account that has quota but is held by another local job is waited for,
+    as `run_account_sessions` does; only a lack of quota raises QuotaExhausted."""
+    while True:
+        stack = ExitStack()
+        try:
+            reserved = stack.enter_context(
+                reserve_session_account(
+                    contexts,
+                    requested_budget_seconds=requested_budget_seconds,
+                    log=log,
+                    read_quota=read_quota,
+                    account_lock=account_lock,
+                )
+            )
+        except QuotaExhausted as exhausted:
+            if not exhausted.held_with_quota(requested_budget_seconds):
+                raise
+            log(
+                "waiting for an account another local job holds: "
+                f"{', '.join(sorted(exhausted.locked))}"
+            )
+            wait(ACCOUNT_WAIT_SECONDS)
+            continue
+        with stack:
+            yield reserved
+        return
+
+
 def run_account_sessions(
     contexts: Sequence[KaggleExecutionContext],
     run_session: Callable[[ReservedAccount, int], PipelineResult],

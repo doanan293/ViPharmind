@@ -9,11 +9,11 @@ from typing import Any
 
 from pharma_lab.artifacts.bundle import ArtifactBundle, load_bundle
 from pharma_lab.cache.jsonl_records import ValidatedSubset, merge_records
+from pharma_lab.cache.paths import rerank_score_cache_path
 from pharma_lab.config.paths import (
     GGUF_ROOT,
     LOCAL_MODELS_COMPOSE_FILES,
     WORK_DIR,
-    rerank_score_cache_path,
 )
 from pharma_lab.evaluation.local_rerank_benchmark import (
     ComposeRerankServer,
@@ -552,7 +552,7 @@ class KaggleRerankBackend:
         from pharma_lab.integrations.kaggle.sessions import (
             QuotaExhausted,
             ReservedAccount,
-            reserve_session_account,
+            reserve_session_account_waiting,
             run_account_sessions,
         )
 
@@ -629,7 +629,7 @@ class KaggleRerankBackend:
         first = contexts[0]
 
         def benchmark_runner(**benchmark_arguments: Any) -> PipelineResult:
-            with reserve_session_account(
+            with reserve_session_account_waiting(
                 contexts, requested_budget_seconds=request.budget_seconds, log=log
             ) as reserved:
                 return run_kaggle_stage(

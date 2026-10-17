@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cached_property
@@ -14,6 +15,12 @@ from pharma_lab.bundle.chunks import gold_chunk_label, iter_document_chunks
 
 def normalize_space(text: str) -> str:
     return " ".join(text.split())
+
+
+def section_slug(section_id: str) -> str:
+    """`drug:x:tuong-tac-thuoc` -> `tuong-tac-thuoc`; leaflets drop the `NN-` prefix."""
+    slug = section_id.rsplit(":", 1)[1]
+    return re.sub(r"^\d+-", "", slug)
 
 
 @dataclass(frozen=True)

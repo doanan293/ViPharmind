@@ -25,6 +25,7 @@ PUBLIC_MODULES = (
     # The E2E harness runs the chat graph in-process.
     "pharma_agent.application.chat.context",
     "pharma_agent.application.chat.graph",
+    "pharma_agent.application.chat.react_graph",
     "pharma_agent.application.chat.runner",
     "pharma_agent.infrastructure.llm.openai_adapter",
     "pharma_agent.infrastructure.settings",
