@@ -179,7 +179,23 @@ def test_cli_trim_rewrites_authored_batches(tmp_path: Path, monkeypatch) -> None
         ),
         encoding="utf-8",
     )
-    covered = {f"a{i}": OneRoundCoverage(f"a{i}", ("answer",), ()) for i in range(3)}
+    # A replacement batch holds answerable items too; its other categories stay.
+    other = tmp_path / "replacement-01.authored.jsonl"
+    other.write_text(
+        json.dumps(item("e2e-ans-a3", "a", "a3").model_dump(mode="json"))
+        + "\n"
+        + json.dumps(
+            {
+                "item_id": "e2e-oos-0001",
+                "category": "out_of_scope",
+                "turns": [{"role": "user", "text": "Thời tiết?"}],
+                "expected_behavior": "redirect",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    covered = {f"a{i}": OneRoundCoverage(f"a{i}", ("answer",), ()) for i in range(4)}
     monkeypatch.setattr(
         e2e_commands, "load_one_round", lambda *a, **k: _fake_run(covered, {})
     )
@@ -201,7 +217,10 @@ def test_cli_trim_rewrites_authored_batches(tmp_path: Path, monkeypatch) -> None
     kept = [
         json.loads(line)["item_id"] for line in batch.read_text("utf-8").splitlines()
     ]
-    assert kept == ["e2e-ans-a1", "e2e-ans-a2"]
+    assert kept == ["e2e-ans-a2"]
+    assert [
+        json.loads(line)["item_id"] for line in other.read_text("utf-8").splitlines()
+    ] == ["e2e-ans-a3", "e2e-oos-0001"]
 
 
 def test_cli_hard_candidates_writes_the_todo(tmp_path: Path, monkeypatch) -> None:

@@ -373,8 +373,14 @@ def golden_trim(
     """Drop answerable items one retrieval round covers, evenly per group."""
 
     def handler() -> CommandResult:
-        paths = sorted(authoring_dir.glob("answerable-*.authored.jsonl"))
-        items = [item for path in paths for item in read_items(path)[0]]
+        # Answerable items also sit in replacement batches.
+        paths = sorted(authoring_dir.glob("*.authored.jsonl"))
+        items = [
+            item
+            for path in paths
+            for item in read_items(path)[0]
+            if item.category is Category.ANSWERABLE
+        ]
         found = load_one_round(run_dir(run_name), model=model, top_k=top_k).coverage
         dropped = set(trim_covered(items, found, keep_per_group=per_group))
         for path in paths:
