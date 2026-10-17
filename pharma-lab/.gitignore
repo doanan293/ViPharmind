@@ -17,6 +17,7 @@ data/corpus/**
 !data/corpus/**/validation_report.json
 data/evaluation/gold/
 data/evaluation/gold-enrichment/
+data/evaluation/gold-conversational/
 data/evaluation/runs/**
 !data/evaluation/runs/**/
 !data/evaluation/runs/**/run.json

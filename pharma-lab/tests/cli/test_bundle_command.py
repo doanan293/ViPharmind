@@ -138,6 +138,7 @@ def test_bundle_rechunk_command_writes_a_bundle_with_the_new_chunking(
         "collection": "formulary_sections",
         "target_chars": 1,
         "max_chars": 5600,
+        "enrichment": True,
         "documents": 4,
         "sections": 5,
     }
