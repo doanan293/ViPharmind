@@ -86,6 +86,41 @@ Lệnh lưu `data/cache/local_profiles/rerank/<model>.json` và in các biến `
 
 Qdrant tìm dense bằng HNSW (gần đúng), nên retrieve lại trên index dựng mới có thể chọn khác vài chunk có điểm sát nhau ở cuối top 30. Lần dựng lại tháng 9/2026 lệch 4.678 trên 300.000 cặp, gần hết ở hạng 21–30. Khi đó `N` lớn hơn 0 và cần chạy reranker (CPU hoặc Kaggle) cho các cặp còn thiếu.
 
+### D7: đơn vị đọc theo từng mục
+
+Ablation D7 (spec v2 §4.D) so chunk gộp mục tới khoảng 1.024 token với chunk theo từng mục, cùng
+Qwen3-Embedding-4B, cùng hybrid rrf2 và Qwen3-Reranker-4B, cùng benchmark. Manifest của bundle khai
+báo cách chia (`chunking.target_chars`, `chunking.max_chars`); `target_chars=1` cho mỗi mục một
+chunk, mục dài hơn `max_chars` vẫn được cắt như thường. `bundle rechunk` chép bundle sang collection
+khác, không kèm vector; `bundle embed` chỉ embed text chunk chưa có trong cache
+`data/cache/text_embeddings/`.
+
+```bash
+cd pharma-lab
+uv run pharma-lab bundle rechunk --bundle data/corpus/formulary --out data/corpus/formulary-sections --collection formulary_sections --title "Dược thư và tờ hướng dẫn, một chunk mỗi mục" --target-chars 1
+uv run pharma-lab bundle embed --bundle data/corpus/formulary-sections --backend kaggle --model qwen3-embedding:4b-q8_0 --kaggle-account acc3
+
+cd ../backend
+export PHARMA_POSTGRES__DSN=postgresql+psycopg://vipharmind:vipharmind@localhost:5434/vipharmind
+export PHARMA_QDRANT__URL=http://localhost:6335
+export PHARMA_RETRIEVAL__EMBEDDING__MODEL=qwen3-embedding:4b-q8_0
+export PHARMA_RETRIEVAL__EMBEDDING__DIMENSION=2560
+export PHARMA_RETRIEVAL__QDRANT_COLLECTION=eval_qwen3_embedding_4b_q8_0_sections
+uv run pharma-agent corpus import ../pharma-lab/data/corpus/formulary-sections --collection formulary_sections --publish
+
+cd ../pharma-lab
+uv run pharma-lab retrieve --run hybrid-qwen4b-v2-sections-p50-k20-rrf2 --collection formulary_sections --retriever hybrid --prefetch-k 50 --candidate-k 20 --rrf-k 2
+uv run pharma-lab rerank --run hybrid-qwen4b-v2-sections-p50-k20-rrf2 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account auto
+for r in hybrid-qwen4b-v2-sections-p50-k20-rrf2 hybrid-qwen4b-v2-p50-k20-rrf2; do
+  uv run pharma-lab metrics --run "$r" --model qwen3-reranker:4b-q8_0 --top-k 20 --gold-only
+done
+```
+
+Hai bên D7 chấm bằng `--gold-only`: chỉ chunk chứa mục gold mới tính, không dùng relevance
+judgments, vì nhãn chunk được chấp nhận trong judgments thuộc cách chia mặc định. Report nằm ở
+`reports/rerank/<model>/top20-gold/` (và `reports/baseline/top20-gold/` khi bỏ `--model`), cạnh report
+có judgments.
+
 ## 5. File GGUF
 
 Mọi model tự host là bản Q8_0 đã công bố, tải theo commit và kiểm sha256, không tự quantize. Q8_0 giữ chất lượng gần như F16 với nửa dung lượng, và sinh token trên T4 bị giới hạn bởi băng thông bộ nhớ, nên mỗi model vừa một T4 và chạy một bản trên mỗi GPU.

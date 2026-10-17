@@ -15,6 +15,7 @@ from pharma_lab.evaluation.metrics_artifacts import (
     report_dir,
 )
 from pharma_lab.evaluation.metrics_service import (
+    GOLD_ONLY_JUDGMENTS,
     MetricsRequest,
     run_metrics,
     select_rerank_variants,
@@ -208,3 +209,63 @@ def test_metrics_refuse_a_run_without_relevance_judgments(complete_run: Path) ->
 
     with pytest.raises(ArtifactContractError, match="pharma-lab evaluation judgments"):
         run_metrics(MetricsRequest(complete_run, top_k=1))
+
+
+def test_gold_only_metrics_ignore_judgments_and_report_apart(
+    complete_run: Path,
+    candidate_bundle: ArtifactBundle,
+    complete_rerank_cache: RerankScoreCache,
+) -> None:
+    """A rechunked run (D7) has other chunk labels than the judgments, so it is scored
+    by gold sections alone, in its own report next to the judged one."""
+    register_variant(complete_run, candidate_bundle, complete_rerank_cache)
+    evaluation = _evaluation_of(complete_run)
+    write_judgments(
+        [
+            {
+                "query_id": "query-1",
+                "intents": [
+                    {
+                        "section_id": "section-1",
+                        "intent": "dosage",
+                        "accepted_chunk_ids": ["chunk-1"],
+                    }
+                ],
+            }
+        ],
+        evaluation_path=evaluation,
+        output_path=judgments_path(evaluation),
+    )
+
+    judged = run_metrics(MetricsRequest(complete_run, top_k=1, force=True))
+    gold = run_metrics(MetricsRequest(complete_run, top_k=1, gold_only=True))
+
+    assert gold.baseline.artifact_dir == report_dir(
+        complete_run, top_k=1, gold_only=True
+    )
+    assert gold.baseline.artifact_dir.name == "top1-gold"
+    assert [item.artifact_dir for item in gold.reranked] == [
+        report_dir(complete_run, top_k=1, model=MODEL, gold_only=True)
+    ]
+    assert gold.baseline.artifact_dir != judged.baseline.artifact_dir
+    # The judged report is left as it was.
+    assert judged.baseline.results_path.is_file()
+
+    def mrr(result) -> list[float]:
+        rows = result.baseline.results_path.read_text(encoding="utf-8").splitlines()
+        return [json.loads(row)["mrr"] for row in rows]
+
+    assert mrr(judged) == [1.0]
+    assert mrr(gold) == [0.0]
+    identity = json.loads(
+        (gold.baseline.artifact_dir / "manifest.json").read_text(encoding="utf-8")
+    )["identity"]
+    assert identity["judgments_sha256"] == GOLD_ONLY_JUDGMENTS
+
+
+def test_gold_only_metrics_need_no_judgments_file(complete_run: Path) -> None:
+    judgments_path(_evaluation_of(complete_run)).unlink()
+
+    result = run_metrics(MetricsRequest(complete_run, top_k=1, gold_only=True))
+
+    assert result.baseline.results_path.is_file()

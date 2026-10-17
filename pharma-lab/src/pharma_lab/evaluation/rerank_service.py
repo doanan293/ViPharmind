@@ -552,7 +552,7 @@ class KaggleRerankBackend:
         from pharma_lab.integrations.kaggle.sessions import (
             QuotaExhausted,
             ReservedAccount,
-            reserve_session_account,
+            reserve_session_account_waiting,
             run_account_sessions,
         )
 
@@ -629,7 +629,7 @@ class KaggleRerankBackend:
         first = contexts[0]
 
         def benchmark_runner(**benchmark_arguments: Any) -> PipelineResult:
-            with reserve_session_account(
+            with reserve_session_account_waiting(
                 contexts, requested_budget_seconds=request.budget_seconds, log=log
             ) as reserved:
                 return run_kaggle_stage(

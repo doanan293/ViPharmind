@@ -1,5 +1,8 @@
 import hashlib
 import json
+import threading
+import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -8,6 +11,7 @@ from pharma_agent.domain.corpus.bundle import (
     BUNDLE_SCHEMA_VERSION,
     BlockKind,
     BlockRecord,
+    BundleChunking,
     BundleCollection,
     BundleEmbeddingFile,
     BundleFile,
@@ -616,4 +620,44 @@ def test_manifest_embedding_entries_must_name_their_file(tmp_path: Path) -> None
         "manifest.json: embeddings[0].dims: must be >= 1, got 0",
         "manifest.json: embeddings[0].file: expected "
         f"'{EMBEDDINGS_FILE}', got 'embeddings/other.jsonl'",
+    ]
+
+
+def test_write_bundle_keeps_the_manifest_chunking(tmp_path: Path) -> None:
+    bundle = make_bundle()
+    chunking = BundleChunking(target_chars=1)
+    rechunked = bundle.model_copy(
+        update={"manifest": bundle.manifest.model_copy(update={"chunking": chunking})}
+    )
+
+    assert write_bundle(rechunked, tmp_path).chunking == chunking
+    assert read_bundle(tmp_path).manifest.chunking == chunking
+
+
+def test_concurrent_embedding_writes_keep_every_model(tmp_path: Path) -> None:
+    """Two `bundle embed` runs that finish together must not drop each other's entry.
+
+    The first writer reads the manifest, then streams its vectors; a second writer that
+    finished in the meantime would be overwritten by the first one's stale manifest.
+    """
+    write_bundle(make_bundle(), tmp_path)
+    streaming = threading.Event()
+
+    def slow_vectors() -> Iterator[tuple[str, list[float]]]:
+        streaming.set()
+        time.sleep(0.3)
+        yield from sorted(VECTORS.items())
+
+    first = threading.Thread(
+        target=write_bundle_embeddings, args=(tmp_path, MODEL, slow_vectors())
+    )
+    first.start()
+    streaming.wait(timeout=5)
+    write_bundle_embeddings(tmp_path, "other-2d", [(SHA_DOSE, [0.25, 0.75])])
+    first.join(timeout=10)
+
+    manifest = read_bundle(tmp_path).manifest
+    assert sorted(entry.model for entry in manifest.embeddings) == [
+        MODEL,
+        "other-2d",
     ]

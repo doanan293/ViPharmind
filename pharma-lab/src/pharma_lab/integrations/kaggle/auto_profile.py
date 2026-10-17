@@ -109,7 +109,6 @@ def ensure_runtime_profile(
     runtime_sha256: str | None = None,
     benchmark_runner: Callable[..., Any] | None = None,
 ) -> ProfileResolution:
-    del force
     spec = require_model(model)
     if dry_run and runtime_sha256 is None:
         return ProfileResolution(
@@ -145,7 +144,7 @@ def ensure_runtime_profile(
         from pharma_lab.integrations.kaggle.service import run_kaggle_stage
 
         def benchmark_runner(
-            *, input_path: Path, gguf_root: Path, benchmark_items: int
+            *, input_path: Path, gguf_root: Path, benchmark_items: int, force: bool
         ):
             return run_kaggle_stage(
                 stage=StageName(benchmark_stage),
@@ -153,17 +152,20 @@ def ensure_runtime_profile(
                 input_path=Path(input_path),
                 output_dir=benchmark_output_dir,
                 gguf_root=Path(gguf_root),
-                force=False,
+                force=force,
                 check_only=False,
                 budget_seconds=budget_seconds,
                 benchmark_items=benchmark_items,
                 kaggle_account=kaggle_account,
             )
 
+    # A finished benchmark kernel of the same job is otherwise reused, even one whose
+    # every level failed under code that has since been fixed; --force runs it again.
     result = benchmark_runner(
         input_path=input_path,
         gguf_root=gguf_root,
         benchmark_items=512,
+        force=force,
     )
     if result.artifact_path is None or not result.completion.is_complete:
         raise RuntimeError("runtime benchmark did not produce a complete artifact")

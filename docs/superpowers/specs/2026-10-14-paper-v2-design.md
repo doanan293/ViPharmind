@@ -55,8 +55,8 @@ retrieval đã tốt, giữ chất lượng đó với độ trễ và chi phí 
 3. **Graph routing so với agent ReAct trên model rẻ.** Cùng corpus, retriever, tool, ngân sách và
    định dạng trả lời; chỉ khác ai điều khiển. Với mỗi model, kiến trúc nào cho chất lượng cao nhất
    trên mỗi USD và mỗi giây, và model nặng có đổi kết luận không.
-4. **Benchmark và đánh giá.** Benchmark retrieval 10.000 câu thêm lớp hội thoại; bộ e2e 500 item mở
-   rộng an toàn lên 50 item mỗi loại; mọi cấu hình báo chất lượng, giây và USD.
+4. **Benchmark và đánh giá.** Benchmark retrieval 10.000 câu thêm lớp hội thoại; bộ e2e 500 item có
+   tập 150 câu cần tra nhiều lượt (§3.0b); mọi cấu hình báo chất lượng, giây và USD.
 
 Bài cố ý chỉ dùng ba LLM: cặp của v1 gồm một model mở rẻ (Qwen3.5-9B) và một model thương mại rẻ
 (Gemini 3.8 Flash), cộng một model nặng (Claude Opus 5.5) làm trần tham chiếu. Đóng góp của bài nằm ở
@@ -159,10 +159,12 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   proxy thuê bao, kể cả Opus 5.5, và kể cả Qwen3.5-9B tự host: Qwen tính theo giá niêm yết trên
   OpenRouter (DeepInfra bf16), tức đúng giá production sẽ trả, không theo giờ GPU Kaggle. Bài nói
   rõ điều đó. Tiền thật phải trả chỉ phát sinh ở Jev qua OpenRouter.
-- Embedding query: `qwen3-embedding:4b-q8_0`, trên Kaggle khi chạy benchmark retrieval và qua
-  `compose.local-models.yaml` khi chạy e2e local, cùng file với index đã dựng.
-- Reranker: `qwen3-reranker:4b-q8_0` tự host trên Kaggle bằng `pharma-lab e2e rerank-server` ở
-  kernel riêng, replicated 2×1.
+- Embedding query và reranker của tầng agent: chọn từ bảng retrieval v2 (§4.D) sau khi pha D
+  xong, theo quy tắc ghi trong plan pha 0 (nDCG@5 sau rerank cao nhất; chênh dưới một điểm thì
+  lấy model nhỏ hơn), không cố định trước (quyết định ngày 2026-10-16). Cả hai tự host trên
+  Kaggle ở kernel riêng, replicated 2×1, bằng `pharma-lab e2e embed-server` và `pharma-lab e2e
+  rerank-server`; mỗi model một tài khoản (LLM acc1, reranker acc2, embedding acc3). Embedding
+  phải cùng file với index đã dựng; CPU qua `compose.local-models.yaml` chỉ để demo.
 - Jev: qua OpenRouter, cả ở lab lẫn production, bằng SDK chính thức của TypeSafe với `base_url`
   `https://openrouter.ai/api` và id `~typesafe/jev-latest` (danh sách model OpenRouter ngày
   2026-10-14 hiện id `typesafe/jev-router`, giá ghi -1, tức OpenRouter không công bố giá cố định).
@@ -301,16 +303,29 @@ công bằng:
   50 không còn áp dụng; limitations nêu khoảng tin cậy rộng của 10 câu mỗi loại.
 - 150 câu answerable bị bỏ là những câu mà retrieval một lượt (hybrid + rerank, top 5) đã phủ đủ
   section gold, bỏ đều theo nhóm.
-- Câu `multi_hop` chọn bằng dữ liệu: ứng viên là câu mà retrieval một lượt thiếu ít nhất một
-  section gold. Bốn loại, mỗi loại 30 đến 45 câu: đa intent ba mục; hai thuốc (tương tác hoặc so
-  sánh, bằng chứng từ hai chuyên luận); biệt dược sang hoạt chất (tờ hướng dẫn thiếu mục, Dược thư
-  có); câu nhiễu hoặc gõ sai mà vòng đầu trượt. Vì chunk gộp các mục liền kề (§3.0c), ba mục của
-  cùng một tờ hướng dẫn thường nằm chung một chunk và vòng 1 đã phủ đủ, nên loại "đa intent ba mục"
-  chỉ còn những câu mà các mục gold rơi vào hai chunk khác nhau. Loại nào dưới 30 ứng viên thì quota
-  chuyển đều sang ba loại còn lại. Tỷ lệ câu đa intent trong benchmark mà một chunk đã phủ đủ mọi
-  mục gold là một số báo trong bài, cạnh D7, để chỉ ra phần việc của vòng refine mà cách gộp mục đã
-  làm thay. Key fact, quote và `golden check` như hiện nay; bản nháp key fact do LLM qua proxy trích
-  từ section gold, tác giả và dược sĩ duyệt.
+- Câu `multi_hop` gồm năm loại, mỗi loại nhắm vào một phần của harness, để bảng kết quả
+  báo riêng từng loại cho thấy tầng nào đóng góp gì. Ba loại chọn bằng dữ liệu từ benchmark,
+  ứng viên là câu mà retrieval một lượt (hybrid + rerank, top 5) thiếu ít nhất một section gold:
+  `retrieval_miss` 32 câu (câu sạch một mục mà vòng đầu trượt, soi judge nhận ra thiếu bằng chứng
+  và refine cứu được; chỉ giữ câu có dấu hỏi và mục gold đủ thông tin, vì phần lớn câu trượt của
+  benchmark rơi vào mục tên thương mại, thông tin quy chế hay tương kỵ quá ngắn để trả lời), `noisy_retry` 36 câu (câu nhiễu hoặc gõ sai mà vòng đầu trượt, soi refine
+  viết lại query), `three_intent` 16 câu (đa intent mà các mục gold rơi vào hai chunk, soi judge
+  đếm intent còn thiếu). Hai loại sinh theo luật từ corpus vì benchmark không có câu nào mà bằng
+  chứng nằm ở hai thuốc khác nhau (các cặp hai tài liệu của benchmark đều là một sản phẩm ở hai
+  hàm lượng): `two_drug` 36 câu, mục tương tác của chuyên luận A nêu tên thuốc B, câu hỏi hỏi dùng
+  chung và thêm một ý về B (liều, chống chỉ định hoặc ADR), gold là mục tương tác của A và mục đó
+  của B, soi khả năng lập kế hoạch nhiều lượt qua hai tài liệu của graph và ReAct;
+  `brand_to_ingredient` 30 câu, tờ hướng dẫn của biệt dược có đúng một hoạt chất trong Dược thư
+  và thiếu mục được hỏi (tương tác, thận trọng, thai kỳ hoặc quá liều) mà chuyên luận có, gold là
+  mục thành phần của tờ và mục đó của chuyên luận, soi rephrase ánh xạ biệt dược sang hoạt chất
+  và bước nhảy sang Dược thư. Câu sinh theo luật được LLM viết lại cho tự nhiên, giữ tên thuốc;
+  việc vòng đầu có trượt hay không do run baseline đo và báo, không lọc trước. Vì chunk gộp các
+  mục liền kề (§3.0c), ba mục của cùng một tờ hướng dẫn thường nằm chung một chunk và vòng 1 đã
+  phủ đủ, nên `three_intent` chỉ còn 16 ứng viên hợp lệ sau duyệt. Tỷ lệ câu đa intent trong
+  benchmark mà một chunk đã phủ đủ mọi mục gold là một số báo trong bài, cạnh D7, để chỉ ra phần
+  việc của vòng refine mà cách gộp mục đã làm thay. Key fact, quote và `golden check` như hiện
+  nay; bản nháp do LLM qua proxy trích từ section gold, người duyệt là Claude Fable 5.1 trong vai
+  dược sĩ, bài báo nói rõ điều này.
 - Metric mới cho vòng lặp, báo riêng trên `multi_hop` và trên phần còn lại: độ phủ section gold
   sau vòng 1 và sau vòng cuối, số vòng thực dùng, tỷ lệ câu được cứu (thiếu sau vòng 1, đủ sau vòng
   cuối). `AnswerRecord` lưu evidence của từng vòng.
@@ -399,9 +414,9 @@ chạy trước Task 7 của plan pha D.
 
 ### 3.2 Bộ e2e
 
-- Nâng `QUOTAS` unanswerable, out_of_scope, injection lên 50 mỗi loại; viết thêm 120 item theo hướng
-  dẫn authoring hiện có, với tập injection phủ thêm kiểu tấn công kênh lựa chọn (Azizi et al.) và chèn
-  nội dung tự nhiên vào câu hỏi (Xu et al.). Run cũ chỉ chạy bổ sung item mới.
+- Nhóm an toàn của golden giữ 10 câu mỗi loại (§3.0b); không nâng lên 50. Kiểu tấn công kênh lựa
+  chọn (Azizi et al.) và chèn nội dung tự nhiên vào câu hỏi (Xu et al.) được đo trên tập giữ lại của
+  guard (§3.3, 100 câu tấn công và ngoài phạm vi), không thêm vào golden.
 
 ### 3.3 Tập giữ lại cho ngưỡng và hiệu chuẩn
 
@@ -463,7 +478,7 @@ nào cho chất lượng cao nhất trên mỗi USD và mỗi giây, và kết l
   ReAct (Patel et al. 2026 chỉ ra giao diện là một nhiễu).
 - Báo: hình mặt phẳng chất lượng so với USD và so với giây, mỗi model hai điểm nối bằng một đoạn
   (graph routing và ReAct); bảng thất bại của ReAct theo loại (chạm trần vòng, tool call sai định
-  dạng, gọi trùng, trả lời không trích dẫn); cùng kết quả trên 50 item nhiều lượt và 50 item injection
+  dạng, gọi trùng, trả lời không trích dẫn); cùng kết quả trên 50 item nhiều lượt và 10 item injection
   vì ReAct không có rephrase và guard chỉ ở ngoài.
 - Qwen3.5-9B tự host trên Kaggle, Gemini 3.8 Flash và Claude Opus 5.5 qua cli-proxy-api (§2.1b);
   bài ghi rõ phần cứng, precision và mức thinking.

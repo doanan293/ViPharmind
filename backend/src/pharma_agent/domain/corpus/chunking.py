@@ -14,6 +14,8 @@ from collections.abc import Sequence
 from pydantic import BaseModel, ConfigDict
 
 from pharma_agent.domain.corpus.bundle import (
+    MAX_CHUNK_CHARS,
+    TARGET_CHUNK_CHARS,
     BlockKind,
     ColloquialMappingRecord,
     DocumentRecord,
@@ -29,13 +31,8 @@ from pharma_agent.domain.corpus.identity import chunk_version_id, sha256_hex
 from pharma_agent.domain.retrieval.models import ColloquialMapping, TermAnnotation
 
 CHUNKER_VERSION = "chunker-v2"
-# A chunk grows by whole sections until the next one would pass this; packed chunks
-# average about 1,000 Qwen3 tokens on the corpus (measured, spec v2 §3.0c).
-TARGET_CHUNK_CHARS = 4200
-# A single section longer than this is split on its own. Tables and lists take more
-# tokens per character than prose, so the longest chunk reaches about 3,200 tokens,
-# inside the 4,096-token embedding slot and rerank ubatch.
-MAX_CHUNK_CHARS = 5600
+# The default chunking, TARGET_CHUNK_CHARS and MAX_CHUNK_CHARS, lives with the bundle
+# manifest that may override it.
 
 _PARAGRAPH_BREAK_RE = re.compile(r"\n\s*\n")
 _SENTENCE_END_RE = re.compile(r"[.!?;:…]\s+")

@@ -104,3 +104,42 @@ def test_bundle_embed_command_uses_the_selected_backend(
     assert expected >= 2
     assert (details["inputs"], details["vectors"]) == (expected, expected)
     assert created[0].requests[0].kaggle_account == "acc2"
+
+
+def test_bundle_rechunk_command_writes_a_bundle_with_the_new_chunking(
+    tmp_path: Path,
+) -> None:
+    _export(tmp_path / "bundle")
+    output = tmp_path / "sections"
+
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "bundle",
+            "rechunk",
+            "--bundle",
+            str(tmp_path / "bundle"),
+            "--out",
+            str(output),
+            "--collection",
+            "formulary_sections",
+            "--title",
+            "Một chunk mỗi mục",
+            "--target-chars",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["status"] == "complete"
+    assert payload["details"] == {
+        "collection": "formulary_sections",
+        "target_chars": 1,
+        "max_chars": 5600,
+        "documents": 4,
+        "sections": 5,
+    }
+    manifest = json.loads((output / "manifest.json").read_text("utf-8"))
+    assert manifest["chunking"] == {"target_chars": 1, "max_chars": 5600}
