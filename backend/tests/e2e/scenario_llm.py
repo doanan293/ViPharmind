@@ -58,7 +58,9 @@ def _scripted(role: LlmRole, question: str) -> BaseModel:
     if role is LlmRole.GUARDRAIL:
         blocked = BLOCKED_MARKER in question
         return LlmGuardVerdict(
-            is_attack=blocked, in_scope=not blocked, reason="e2e scenario"
+            is_attack=blocked,
+            in_scope=not blocked,
+            reason="e2e scenario",
         )
     if role is LlmRole.REPHRASE:
         return RephraseResult(
@@ -66,10 +68,14 @@ def _scripted(role: LlmRole, question: str) -> BaseModel:
             audience=Audience.GENERAL_PUBLIC,
             language=Language.VI,
             intent=Intent.PHARMA_QUESTION,
+            subjects=[],
         )
     if role is LlmRole.JUDGE:
         return JudgeDecision(
-            decision=JudgeOutcome.ANSWER, gaps=[], reason="e2e scenario"
+            decision=JudgeOutcome.ANSWER,
+            gaps=[],
+            reason="e2e scenario",
+            confidence=1.0,
         )
     if role is LlmRole.SUMMARIZER:
         return ConversationSummary(summary="Người dùng hỏi về liều paracetamol.")

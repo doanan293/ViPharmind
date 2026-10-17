@@ -9,7 +9,16 @@ Harness gọi backend trong cùng tiến trình, như `pharma-lab retrieve`, v�
 **Cần sẵn sàng:**
 - Postgres và Qdrant đã import và publish release. Alias `chunks_current` trỏ vào collection của `qwen3-embedding:4b-q8_0`.
 - Endpoint LLM trong `PHARMA_LLM__*`. Model của từng role lấy từ `.env` và được ghi vào `run.json`.
-- llama.cpp embedding (`PHARMA_RETRIEVAL__EMBEDDING__*`) và reranker (`PHARMA_RETRIEVAL__RERANK__*`), chạy qua `docker compose -f compose.yaml -f compose.local-models.yaml up -d` ở thư mục gốc repo.
+- Embedding (`PHARMA_RETRIEVAL__EMBEDDING__*`) và reranker (`PHARMA_RETRIEVAL__RERANK__*`) của tầng agent, mỗi model một kernel Kaggle trên một tài khoản riêng (`e2e embed-server`, `e2e rerank-server`). Cặp model được chọn từ bảng retrieval v2 sau khi pha D xong (quy tắc ở plan pha 0, Task 11 bước 0), không cố định trước. Bản CPU qua `compose.local-models.yaml` chỉ dùng để demo.
+
+**Đường gọi model của bài (spec v2 §2.1b).** Reasoning tắt hoặc ở mức thấp nhất; giá dùng để tính chi phí là giá niêm yết trong `pharma_lab/e2e/pricing.py`.
+
+| Model | Cách gọi | Thinking | Giá (USD / 1M vào / ra) |
+| --- | --- | --- | --- |
+| Qwen3.5-9B | `e2e llm-server --model qwen3.5:9b-q8_0` (2 T4, acc1) | `enable_thinking: false` | 0,10 / 0,15 (OpenRouter) |
+| Gemini 3.8 Flash | proxy, `gemini-3.8-flash-high` | `thinkingLevel: low` trong `config.yaml` | 0,75 / 3,75 |
+| Claude Opus 5.5 | proxy, `claude-opus-5-5`, `PHARMA_LLM__ROLES__<ROLE>__REASONING_EFFORT=minimal` | adaptive, minimal; report ghi số token reasoning đo được | 4 / 20 |
+| gemini-3.1-flash-lite (judge) | proxy | `--judge-reasoning` | 0,25 / 1,50 |
 
 **Endpoint LLM** là service `cli-proxy-api` của compose (`docker compose -f ../compose.yaml -f ../compose.llm-proxy.yaml up -d cli-proxy-api` từ `pharma-lab/`, đăng nhập lưu trong volume `vipharmind_cli_proxy_auth`).
 
@@ -59,7 +68,7 @@ Biến môi trường được ưu tiên hơn `backend/.env`, nên các run khá
 
 ```bash
 set -a; . ./.env; set +a
-for ROLE in GUARDRAIL REPHRASE JUDGE REFINE ANSWER SUMMARIZER; do
+for ROLE in GUARDRAIL REPHRASE JUDGE REFINE ANSWER SUMMARIZER AGENT; do
   export PHARMA_LLM__ROLES__${ROLE}__BASE_URL=https://openrouter.ai/api/v1
   export PHARMA_LLM__ROLES__${ROLE}__API_KEY=$OPENROUTER_API_KEY
   export PHARMA_LLM__ROLES__${ROLE}__MODEL=qwen/qwen3.5-9b
@@ -76,7 +85,12 @@ done
 | `no-judge-refine` | bật | tắt | bật |
 | `no-rephrase` | tắt | bật | bật |
 | `no-rerank` | bật | bật | tắt |
+| `no-guard` | bật | bật | bật, không guard |
+| `bm25`, `dense`, `hybrid-k60` | bật | bật | bật; retriever BM25, dense, hoặc hybrid RRF k=60 |
 | `closed-book` | – | – | – |
+| `react` | – | – | bật; agent ReAct thay pipeline (mục "Agent ReAct") |
+
+**`--pipeline-option key=value`** (lặp được) ghi đè một trường của `PipelineOptions` cho cấu hình đó, ví dụ `--config full --pipeline-option guard=false`. Giá trị được kiểm theo kiểu của trường (`true`/`false`, số, `none`); khoá lạ bị từ chối trước khi chạy câu nào. Thư mục cấu hình thành `full+guard=false`, `run.json` ghi các giá trị, và `e2e report` đưa các thư mục này vào `ablation.csv` so với `full`. `e2e judge --config` nhận đúng tên thư mục đó.
 
 `one-step` là guard → search (câu hỏi gốc) → answer, dùng cùng retriever, prompt trả lời và ngân sách evidence như `full`.
 
@@ -121,7 +135,7 @@ uv run pharma-lab e2e report --run e2e-gemini
 
 **`--deadline-seconds S`** thay deadline của một lượt (mặc định lấy từ budget của backend, 90 giây). Dùng khi embedding/reranker chạy trên CPU hoặc endpoint LLM chậm; giá trị được ghi vào `run.json`, và latency báo cáo vẫn là thời gian thật.
 
-**`e2e judge`** ghi `judgments.jsonl` và `judge.json` (model judge). Chấm lại một cấu hình bằng judge khác cần `--force`.
+**`e2e judge`** ghi `judgments.jsonl` và `judge.json` (model, `reasoning_effort` và endpoint của judge). `--judge-reasoning none|low|medium` đặt reasoning của judge (mặc định `medium`, như v1). Chấm lại một cấu hình bằng judge khác hoặc mức reasoning khác cần `--force`.
 
 **Chỉ số.** Tên và định nghĩa theo các bài gốc; metric in đậm là metric chính, có mặt trong `main.tex` và `ablation.tex`.
 
@@ -141,7 +155,9 @@ uv run pharma-lab e2e report --run e2e-gemini
 | **redirect accuracy** | Câu ngoài phạm vi được chuyển hướng | – | out-of-scope |
 | **injection defence rate**, attack success rate | Bị chặn hoặc trả lời an toàn / làm theo lệnh chèn | AgentDojo (NeurIPS 2024) | injection |
 | answer relevancy, factual correctness F1 | Metric phụ của RAGAS | RAGAS | câu có trả lời |
-| **tokens / LLM calls per turn**, latency p50/p95 | Chi phí; latency chỉ để tham khảo vì môi trường không phải production | – | tất cả |
+| **tokens / LLM calls per turn** | Chi phí theo token và số lời gọi | – | tất cả |
+| **USD / turn**, USD / 1000 turns, cost of pass | Giá niêm yết × token của mọi bước LLM, cộng retrieval (số ứng viên rerank × 1.001 token, ký tự truy vấn ÷ 3,1); cost of pass = USD mỗi lượt chia tỉ lệ perfect | Erol et al. 2025 | tất cả |
+| latency p50/p95, LLM / retrieval / decision seconds per turn | Giây mỗi lượt và theo bước (`steps` trong `answers.jsonl`); lấy từ run concurrency 1 (`--latency-run`) | – | tất cả |
 
 **Thống kê:**
 - **Khoảng tin cậy:** Wilson cho tỉ lệ (vẫn đúng với các nhóm 10 câu), bootstrap percentile 10.000 lần cho giá trị trung bình.
@@ -163,6 +179,82 @@ uv run pharma-lab e2e report --run e2e-gemini
 - `ablation.csv|tex` (Δ so với `full`, paired bootstrap): CSV có CI và p-value; bảng LaTeX chỉ ghi Δ, dấu * khi p Holm < 0,05;
 - `by_group.csv`;
 - `calibration.csv|tex`;
+- `cost.csv|tex`: USD mỗi lượt và mỗi 1.000 lượt (CI bootstrap), cost of pass, giây theo bước, latency p50/p95;
 
-Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation`, `tab:e2e-calibration`) và tên metric/cấu hình dễ đọc, để copy thẳng vào `report/tables/` (xem `report/README.md`).
+Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation`, `tab:e2e-calibration`, `tab:e2e-cost`) và tên metric/cấu hình dễ đọc, để copy thẳng vào `report/tables/` (xem `report/README.md`).
 - `errors.md` (20 câu tệ nhất của `full`, gắn nhãn lỗi retrieval / citation / answer).
+
+## 4. Độ trễ, chi phí và so sánh hai run
+
+**Giao thức đo độ trễ (spec v2 §2.5).** Run lấy chất lượng có thể chạy `--concurrency 4` hoặc 8, nhưng mọi số giây trong bài lấy từ một run riêng chạy `--concurrency 1` trên cùng máy và cùng endpoint, đặt tên `<run>-c1`. `e2e report --run <run> --latency-run <run>-c1` thay mọi cột độ trễ bằng số của run concurrency 1; cấu hình nào thiếu trong run đó thì lệnh dừng. `provenance.json` ghi `latency_run`, `run.json` ghi `concurrency` của lần chạy đầu. Chỉ so độ trễ giữa các kiến trúc trên cùng một model, không xếp hạng độ trễ giữa các model (Qwen chạy trên Kaggle qua tunnel, Gemini và Opus qua proxy).
+
+**Bảng giá.** `pharma_lab/e2e/pricing.py` ghi giá niêm yết mỗi triệu token kèm nguồn và ngày đọc. Model không có giá thì `e2e report` dừng với `UnpricedModel` chứ không tính bằng 0. OpenRouter chưa công bố giá embedding và reranker trong danh sách model (kiểm ngày 2026-10-16); các mục đó đang mang giá đầu vào của Qwen3.5-9B làm cận trên, và giá thật của cặp model agent dùng phải được điền trước khi báo cáo.
+
+**So sánh hai run.** `e2e compare` so một cấu hình giữa hai run trên các item chung: hiệu trung bình (B trừ A) với CI bootstrap, kiểm định sign-flip ghép cặp, Holm trên các metric. Lệnh ghi `runs/<B>/reports/compare-<A>-<config>.csv|tex`; cột `same_judge` cho biết hai run có cùng `judge.json` không.
+
+```bash
+uv run pharma-lab e2e compare --run-a e2e-v2-gemini --run-b e2e-v2-qwen9b --config full
+```
+
+### Agent ReAct
+
+`--config react` chạy graph ReAct (`pharma_agent.application.chat.react_graph`, spec v2 §2.4) thay cho pipeline: guard → agent ⇄ tools → finalize. Không có rephrase, judge hay refine; một model ở vai trò `agent` tự quyết khi nào tìm và khi nào trả lời, lịch sử hội thoại nằm trong messages. Guard chặn hoặc chuyển hướng thì bước answer của pipeline trả lời như ở `full`. Agent không bao giờ chạy trên decision model.
+
+- **Công cụ.** Một công cụ chỉ đọc `search_corpus(query)`, gọi song song được. Mỗi lần gọi là một lượt search của pipeline (retriever, rerank với chính câu truy vấn đó) và trả tối đa `rerank_top_n` đoạn, đánh số `[n]` theo thứ tự xuất hiện lần đầu trong lượt. Đoạn đã hiện ở trên chỉ hiện lại số của nó. Câu trả lời trích `[n]` theo cùng luật với pipeline nên `CitationSanitizer` và mọi metric trích dẫn dùng chung.
+- **Giới hạn vòng.** Tối đa 6 phản hồi có gọi công cụ. Tới giới hạn đó (`round_cap_hit`), hoặc sớm hơn khi ngân sách gọi LLM chỉ còn một lượt hay ngân sách token đã hết (`budget_forced`), graph thêm câu "Đã hết lượt tra cứu, trả lời từ những gì đã có." và gọi model lần cuối với `tool_choice="none"`. Công cụ vẫn được khai báo vì lịch sử đã có tool call (Anthropic và một số server từ chối lịch sử như vậy khi không có `tools`). Câu trả lời thành `partial`; câu trả lời rỗng làm run lỗi (`ANSWER_FAILED`), `finish_reason` ghi trong bước `agent`.
+- **Ngân sách evidence.** Tổng ký tự đoạn đã hiện không vượt `max_evidence_chars`; đoạn vượt bị bỏ và kết quả kết thúc bằng "Hết ngân sách bằng chứng, trả lời từ những gì đã có." (`budget_hits`, câu trả lời `partial`).
+- **Truy vấn trùng.** Truy vấn trùng sau khi chuẩn hoá (chữ thường, gộp khoảng trắng) không tìm lại; công cụ trả kết quả cũ kèm ghi chú (`duplicate_calls`).
+- **Lỗi công cụ.** Tham số hỏng (JSON sai, thiếu `query`, tên công cụ lạ) và lỗi tìm kiếm trả về dạng `Error: ...` để model tự sửa; chỉ tham số hỏng được đếm vào `malformed_calls`. Lỗi của chính LLM agent làm run lỗi và đi fallback.
+- **Chế độ trả lời.** Không tìm lần nào là `no_retrieval` (`answered_without_search`); có tìm nhưng không hiện đoạn nào là `abstain`; còn lại là `grounded`.
+
+Mỗi câu ghi `react` trong `answers.jsonl` (`rounds`, `tool_calls`, `malformed_calls`, `duplicate_calls`, `round_cap_hit`, `budget_forced`, `budget_hits`, `answered_without_search`); các lần gọi công cụ của cùng một phản hồi chạy song song và gộp thành một round trong `rounds` và một bước `search` trong `steps` (giây của round là giây của lần tìm chậm nhất, số cặp rerank là tổng), mỗi phản hồi của model là một bước `agent`. Nhờ vậy `gold_coverage_round1`, `rescued_rate` và thời gian retrieval mang cùng nghĩa với pipeline. Lượt gọi công cụ nhưng mọi tham số đều hỏng không tính là "không tìm". Một lần tìm lỗi (retrieval sập) làm câu đó thành `degraded: search`, chạy lại được bằng `--retry-errors`, ở cả pipeline lẫn ReAct. `e2e report` thêm các metric `react_*` vào `main.csv` và ghi `reports/react_failures.csv`: mỗi cấu hình có bản ghi ReAct một dòng, với số vòng và số lần gọi trung bình cùng tỉ lệ chạm giới hạn vòng, bị ngân sách buộc trả lời sớm, tham số hỏng, truy vấn trùng, chạm ngân sách evidence, không tìm, và câu `grounded` không trích dẫn (khoảng Wilson).
+
+Chỉ so ReAct với `full` của cùng model, trên cùng run. Ví dụ ma trận C (spec v2 §4.C), sau khi đặt biến môi trường của model như ở mục 1 (vai trò `AGENT` nằm trong vòng lặp; Qwen trên llama.cpp cần `--jinja`, worker `llm-serve` đã bật):
+
+```bash
+for M in qwen9b gemini opus; do
+  uv run pharma-lab e2e run --run e2e-v2-$M --config react --concurrency 4
+  uv run pharma-lab e2e run --run e2e-v2-$M-c1 --config react --concurrency 1
+  uv run pharma-lab e2e judge --run e2e-v2-$M --config react --judge-model gemini-3.1-flash-lite
+  uv run pharma-lab e2e report --run e2e-v2-$M --latency-run e2e-v2-$M-c1
+  uv run pharma-lab e2e compare --run-a e2e-v2-$M --run-b e2e-v2-$M --config full --config-b react
+done
+```
+
+## 5. Tập hiệu chuẩn decision model
+
+Decision model (Jev) trả xác suất, nên ngưỡng của judge (τ) và của guard (block, review) được chỉnh trên một tập giữ riêng, không bao giờ trên bộ golden (spec v2 §3.3). Tập gồm hai phần, đều ghi vào `data/evaluation/calibration/`.
+
+- Tập judge: 300 câu benchmark, chia đều theo `eval_group`, bỏ mọi `source_query_id` của bộ golden. Bằng chứng của mỗi câu là top 5 sau rerank của một run agent (`--run`, `--model`), đọc qua đường kiểm của `metrics` rồi dựng từ chunk trong `--bundle` bằng chính `judge_state` của agent (nguồn là `context_header` hoặc tiêu đề, văn bản là `chunk_text`). Nhãn `sufficient = 1` khi top 5 đó phủ đủ mọi đơn vị bằng chứng của câu (section gold hoặc chunk đã được judgments chấp nhận). Mỗi dòng ghi `run` và `reranker`; không ghi `asked_intents`.
+- Tập guard: 100 lượt, 50 tấn công và 50 không phải tấn công, do `gemini-3.1-flash-lite` (reasoning `none`) viết từ 10 mẫu cố định cho mỗi loại. Tấn công gồm ghi đè chỉ dẫn, đòi lộ system prompt, đổi vai, bịa thông tin, nội dung gây hại, ép chọn đáp án (choice-channel) và chỉ dẫn giấu trong nội dung tự nhiên (tờ hướng dẫn, tin nhắn chuyển tiếp, đơn thuốc dán vào). Ngoài phạm vi (`out_of_scope`) gồm dinh dưỡng, bệnh không hỏi thuốc, lĩnh vực khác và sức khỏe chung không liên quan thuốc (triệu chứng, vận động, giấc ngủ, khi nào đi khám); trò chuyện phiếm (`smalltalk`) là nhãn riêng vì guard cho qua. Lượt `medicine` lấy từ chính 300 câu của tập judge.
+
+```bash
+uv run pharma-lab e2e decision-set build --run <RUN> --model <RERANKER> --size 300 --seed 0
+uv run pharma-lab e2e decision-set guard-draft --count 100 --seed 0
+uv run pharma-lab e2e decision-set score --repeats 3
+```
+
+`guard-draft` chỉ ghi `guard_set.todo.jsonl` (mỗi dòng có `kind` và `template` để đối chiếu). Tác giả đọc từng dòng: một lượt gán nhãn tấn công mà không phải tấn công, hoặc nhãn ngoài phạm vi mà hỏi về thuốc, là lỗi nhãn mà bài báo sẽ thừa hưởng. Sửa xong thì đổi tên thành `guard_set.jsonl`; `score` chỉ đọc file này.
+
+`score` chạy bộ câu hỏi guard trên mọi câu judge và mọi lượt guard trước; các intent guard hỏi tới (chỉ ngưỡng `asks`) là `asked_intents` của câu judge, đúng như agent. Sau đó mỗi câu judge được gọi `--repeats` lần và thêm một lần với danh sách bằng chứng đảo ngược. Mỗi lệnh gọi ghi một dòng vào `decisions.jsonl` (cạnh `jev.json`); chạy lại thì bỏ qua lệnh đã có (khóa: câu, vai, lần lặp, đảo, kèm sha256 của state và của nội dung câu hỏi gửi đi, nên đổi lời câu hỏi thì lệnh được gọi lại), nên đứt giữa chừng có thể chạy tiếp. Mọi số trong `jev.json` tính từ file này, và `jev.json` ghi cả sha256 của `judge_set.jsonl`, `guard_set.jsonl`, tên run và reranker, phiên bản model và ngày.
+
+Số của judge lấy từ một lệnh gọi (lần lặp 0) của `sufficient_overall`: AUROC, ECE, Brier, độ chính xác tại 0,5 và tại τ (các số trung bình qua các lần lặp có tiền tố `mean_`), AUROC `covers_<intent>`. Tại τ còn có độ chính xác của quyết định thật của agent (`judge_decision`, tính cả khoảng trống intent) so với nhãn `sufficient`, tỉ lệ đổi quyết định giữa các lần lặp và khi đảo thứ tự (so lệnh đảo với lần lặp 0). Số của guard gồm recall tấn công và tỉ lệ chặn nhầm lượt thuốc theo ngưỡng, AUROC của `is_attack`, `is_about_medicines` (thuốc đối với mọi lượt không tấn công còn lại) và `is_smalltalk_or_meta`, độ chính xác chuyển hướng chỉ trên các lượt `out_of_scope`, và tỉ lệ cho qua của `smalltalk` báo riêng. τ là ngưỡng tối đa độ chính xác cân bằng; `block` là mức thấp nhất trong 0,50 / 0,60 / 0,70 / 0,80 mà chặn nhầm không quá 1 % lượt thuốc (không mức nào đạt thì 0,80); `review` bằng một nửa `block`, làm tròn 0,05. Lệnh dừng nếu phiên bản model đổi giữa chừng.
+
+**Áp dụng giá trị đã chỉnh.** `jev.json` ghi `tau` và `thresholds` (`block`, `review`). Decision model phục vụ vai nào thì đặt provider của vai đó là `systemone` (SDK của TypeSafe gọi qua OpenRouter); ngưỡng guard đi trong `EXTRA_BODY` của vai guard, còn τ và kiểu refine là tuỳ chọn pipeline của run:
+
+```bash
+set -a; . ./.env; set +a
+for ROLE in GUARDRAIL JUDGE; do
+  export PHARMA_LLM__ROLES__${ROLE}__PROVIDER=systemone
+  export PHARMA_LLM__ROLES__${ROLE}__BASE_URL=https://openrouter.ai/api
+  export PHARMA_LLM__ROLES__${ROLE}__API_KEY=$OPENROUTER_API_KEY
+  export PHARMA_LLM__ROLES__${ROLE}__MODEL='~typesafe/jev-latest'
+done
+export PHARMA_LLM__ROLES__GUARDRAIL__EXTRA_BODY='{"thresholds": {"block": <block>, "review": <review>}}'
+uv run pharma-lab e2e run --run <RUN> --config full \
+  --pipeline-option refine_mode=template --pipeline-option refine_threshold=<tau>
+```
+
+Khoá hợp lệ trong `thresholds` là `block`, `review`, `scope` và `asks`; khoá khác làm agent dừng khi khởi động, nên viết sai tên không âm thầm rơi về mặc định. `extra_body` của vai `systemone` chỉ được đọc để lấy ngưỡng, không gửi đi. Nếu `e2e decision-probe` đo hơn 24.000 token cho 60.000 ký tự, đặt thêm `PHARMA_BUDGET__MAX_EVIDENCE_CHARS=<recommended_max_evidence_chars>`.
+
+Khi judge chạy trên decision model mà kết luận guard không đến từ decision model (cấu hình `no-guard`, guard thất bại và cho qua, regex, hoặc guard là LLM), judge tự hỏi các câu `asks_<intent>` một lần ở vòng judge đầu tiên của lượt, với state của guard và ngưỡng `asks`, rồi mới hỏi `covers_<intent>` cho các intent được chọn. Lệnh gọi này được tính vào ngân sách; nếu nó lỗi thì judge chạy với danh sách intent rỗng, lượt vẫn tiếp tục. Trong `answers.jsonl` nó là một dòng `decisions` với vai `judge` (nó chạy trên cổng của vai judge nên cũng tính chi phí theo model của judge, không lẫn vào dòng `guardrail`), đứng trước dòng `judge` của cùng vòng. Refine kiểu `template` khi judge không để lại khoảng trống nào (`sufficient_overall` dưới τ nhưng mọi `covers_` đạt) tìm theo các intent đã hỏi, intent phủ kém nhất trước; không có intent nào thì tìm "<chủ thể> thông tin chung".

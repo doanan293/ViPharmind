@@ -8,17 +8,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from openai.types import ReasoningEffort
 from pharma_agent.infrastructure.settings import Settings
 
-from pharma_lab.e2e.configs import E2EConfig
+from pharma_lab.artifacts.manifest import write_json
 from pharma_lab.e2e.golden import Category, ExpectedBehavior, GoldenItem, load_golden
 from pharma_lab.e2e.golden_changes import reconcile_golden
 from pharma_lab.e2e.harness import config_dir
 from pharma_lab.e2e.judging.code_metrics import context_blocks
 from pharma_lab.e2e.judging.ragas_scorer import RagasScores, build_ragas_scorer
 from pharma_lab.e2e.judging.structured import (
+    DEFAULT_JUDGE_REASONING,
     JUDGE_MODEL,
-    JUDGE_REASONING,
     StructuredJudge,
     judge_llm,
 )
@@ -29,7 +30,6 @@ from pharma_lab.e2e.records import (
     JsonlStore,
     Judgement,
 )
-from pharma_lab.evaluation.artifact_contracts import write_json
 
 JUDGE_FILE = "judge.json"
 
@@ -118,20 +118,29 @@ def record_needs_harm(judged: Judgement | None) -> bool:
 @dataclass(frozen=True)
 class JudgeRequest:
     run_root: Path
-    config: E2EConfig
+    # Configuration directory name, e.g. full or full+guard=false.
+    config: str
     golden_path: Path
     backend_env_file: Path
     concurrency: int = 4
     force: bool = False
     judge_model: str = JUDGE_MODEL
+    judge_reasoning: ReasoningEffort = DEFAULT_JUDGE_REASONING
     # Items to judge again even when they already have a judgement.
     only: frozenset[str] = frozenset()
 
 
-def pin_judge(directory: Path, *, model: str, force: bool) -> None:
-    """All judgments of one configuration come from one judge model."""
+def pin_judge(
+    directory: Path,
+    *,
+    model: str,
+    reasoning: ReasoningEffort,
+    base_url: str,
+    force: bool,
+) -> None:
+    """All judgments of one configuration come from one judge, at one reasoning effort."""
     path = directory / JUDGE_FILE
-    current = {"model": model, "reasoning_effort": JUDGE_REASONING}
+    current = {"model": model, "reasoning_effort": reasoning, "base_url": base_url}
     if path.is_file() and not force:
         stored = json.loads(path.read_text(encoding="utf-8"))
         if stored != current:
@@ -231,14 +240,22 @@ def run_judge(request: JudgeRequest) -> JudgeSummary:
     golden = load_golden(request.golden_path)
     reconcile_golden(directory, request.golden_path, golden)
     items = {item.item_id: item for item in golden}
-    pin_judge(directory, model=request.judge_model, force=request.force)
+    pin_judge(
+        directory,
+        model=request.judge_model,
+        reasoning=request.judge_reasoning,
+        base_url=settings.llm.default.base_url or "",
+        force=request.force,
+    )
     return asyncio.run(
         judge_records(
             items,
             JsonlStore(answers_path, AnswerRecord),
             JsonlStore(directory / JUDGMENTS_FILE, Judgement),
-            StructuredJudge(judge_llm(settings, request.judge_model)),
-            build_ragas_scorer(settings, request.judge_model),
+            StructuredJudge(
+                judge_llm(settings, request.judge_model, request.judge_reasoning)
+            ),
+            build_ragas_scorer(settings, request.judge_model, request.judge_reasoning),
             concurrency=request.concurrency,
             force=request.force,
             only=request.only,

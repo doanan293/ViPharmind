@@ -1,4 +1,6 @@
 import asyncio
+from collections.abc import Mapping
+from typing import Any
 
 import pytest
 
@@ -6,8 +8,10 @@ from pharma_agent.application.chat.context import PipelineOptions
 from pharma_agent.application.chat.graph import build_chat_graph
 from pharma_agent.application.chat.runner import ChatTurnRunner
 from pharma_agent.application.progress import EventType, Phase, ProgressEvent
+from pharma_agent.domain.agent.actions import Action, ActionKind
 from pharma_agent.domain.agent.budget import BudgetLimits
-from pharma_agent.domain.agent.run import RunStatus
+from pharma_agent.domain.agent.decisions import INTENTS
+from pharma_agent.domain.agent.run import AgentRun, RunStatus
 from pharma_agent.domain.agent.schemas import (
     Audience,
     Intent,
@@ -18,17 +22,26 @@ from pharma_agent.domain.agent.schemas import (
     RephraseResult,
 )
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict
+from pharma_agent.domain.llm.decision import DecisionPort
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.domain.shared.text import make_snippet
 from tests.domain.factories import chunk_uuid, make_hit
-from tests.fakes import FakeLlm, FakeReranker, FakeRetriever, build_deps
+from tests.fakes import (
+    FakeDecision,
+    FakeLlm,
+    FakeReranker,
+    FakeRetriever,
+    build_deps,
+)
 
 QUESTION = "Paracetamol người lớn uống bao nhiêu?"
 
 
-def passing_llm(intent: Intent = Intent.PHARMA_QUESTION) -> FakeLlm:
+def passing_llm(
+    intent: Intent = Intent.PHARMA_QUESTION, subjects: list[str] | None = None
+) -> FakeLlm:
     llm = FakeLlm()
     llm.script(
         LlmRole.GUARDRAIL, LlmGuardVerdict(is_attack=False, in_scope=True, reason="ok")
@@ -40,6 +53,7 @@ def passing_llm(intent: Intent = Intent.PHARMA_QUESTION) -> FakeLlm:
             audience=Audience.GENERAL_PUBLIC,
             language=Language.VI,
             intent=intent,
+            subjects=subjects or [],
         ),
     )
     return llm
@@ -51,11 +65,19 @@ async def run_turn(
     limits: BudgetLimits | None = None,
     reranker: FakeReranker | None = None,
     pipeline: PipelineOptions | None = None,
+    decisions: Mapping[LlmRole, DecisionPort] | None = None,
+    guard_decision: FakeDecision | None = None,
 ):
     graph = build_chat_graph()
     runner = ChatTurnRunner(
         graph,
-        build_deps(llm, retriever, reranker=reranker),
+        build_deps(
+            llm,
+            retriever,
+            reranker=reranker,
+            decisions=decisions,
+            guard_decision=guard_decision,
+        ),
         limits or BudgetLimits(),
         pipeline=pipeline,
     )
@@ -76,7 +98,10 @@ def tokens(events: list[ProgressEvent]) -> str:
 async def test_grounded_answer_in_one_round() -> None:
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     retriever = FakeRetriever([make_hit("c1", fusion=0.9), make_hit("c2", fusion=0.4)])
 
@@ -122,8 +147,11 @@ async def test_search_more_then_refine_runs_second_search() -> None:
             decision=JudgeOutcome.SEARCH_MORE,
             gaps=["liều tối đa mỗi ngày"],
             reason="thiếu",
+            confidence=0.0,
         ),
-        JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ"),
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     llm.script(
         LlmRole.REFINE,
@@ -186,7 +214,9 @@ async def test_retriever_failure_ends_in_abstain() -> None:
     llm = passing_llm()
     llm.script(
         LlmRole.JUDGE,
-        JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="không có gì"),
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="không có gì", confidence=1.0
+        ),
     )
     llm.stream_text = "Không tìm thấy tài liệu phù hợp trong Dược thư."
     events, outcome = await run_turn(llm, FakeRetriever(RetrievalError("qdrant down")))
@@ -199,7 +229,12 @@ async def test_search_round_limit_gives_partial_status() -> None:
     llm = passing_llm()
     llm.script(
         LlmRole.JUDGE,
-        JudgeDecision(decision=JudgeOutcome.SEARCH_MORE, gaps=["x"], reason="thiếu"),
+        JudgeDecision(
+            decision=JudgeOutcome.SEARCH_MORE,
+            gaps=["x"],
+            reason="thiếu",
+            confidence=0.0,
+        ),
     )
     _, outcome = await run_turn(
         llm,
@@ -217,7 +252,10 @@ async def test_optional_steps_are_skipped_when_budget_is_tight() -> None:
         LlmRole.GUARDRAIL, LlmGuardVerdict(is_attack=False, in_scope=True, reason="ok")
     )
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     _, outcome = await run_turn(
         llm, FakeRetriever([make_hit("c1", fusion=0.9)]), BudgetLimits(max_llm_calls=3)
@@ -231,7 +269,10 @@ async def test_optional_steps_are_skipped_when_budget_is_tight() -> None:
 async def test_answer_stream_failure_falls_back() -> None:
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     llm.stream_error = LlmError("provider down")
     events, outcome = await run_turn(llm, FakeRetriever([make_hit("c1", fusion=0.9)]))
@@ -247,7 +288,10 @@ async def test_answer_stream_failure_falls_back() -> None:
 async def test_deadline_produces_timeout_status() -> None:
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     llm.stream_delay = 0.5
     events, outcome = await run_turn(
@@ -281,7 +325,10 @@ async def test_llm_guard_attack_is_blocked(attack: bool) -> None:
 async def test_consumer_leaving_early_cancels_the_graph() -> None:
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     llm.stream_delay = 5.0
     runner = ChatTurnRunner(
@@ -303,7 +350,10 @@ async def test_consumer_leaving_early_cancels_the_graph() -> None:
 async def test_slow_consumer_does_not_break_timeout_handling() -> None:
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     llm.stream_delay = 0.5
     runner = ChatTurnRunner(
@@ -349,7 +399,10 @@ async def test_one_step_pipeline_calls_guard_and_answer_only() -> None:
 async def test_no_rephrase_keeps_the_judge() -> None:
     llm = guard_only_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     retriever = FakeRetriever([make_hit("c1", fusion=0.9)])
 
@@ -373,3 +426,412 @@ async def test_no_judge_refine_keeps_the_rephrase() -> None:
     assert outcome.run.status is RunStatus.COMPLETED
     assert retriever.calls[0][0].text == "Liều paracetamol cho người lớn"
     assert llm.calls_for(LlmRole.JUDGE) == []
+
+
+async def test_no_guard_skips_the_guard_llm_and_records_a_skipped_verdict() -> None:
+    llm = passing_llm()
+    llm.structured_responses.pop(LlmRole.GUARDRAIL)
+    llm.script(
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
+    )
+    retriever = FakeRetriever([make_hit("c1", fusion=0.9)])
+
+    _, outcome = await run_turn(llm, retriever, pipeline=PipelineOptions(guard=False))
+
+    guard = outcome.run.actions.entries[0]
+    assert guard.kind is ActionKind.GUARD
+    assert guard.payload["source"] == "skipped"
+    assert guard.payload["llm_failed"] is False
+    assert llm.calls_for(LlmRole.GUARDRAIL) == []
+    assert outcome.run.status is RunStatus.COMPLETED
+
+
+def last_judge(run: AgentRun) -> Action:
+    action = run.actions.last_of(ActionKind.JUDGE)
+    assert action is not None
+    return action
+
+
+def asking_guard(*intents: str) -> FakeDecision:
+    answers = {
+        "is_attack": 0.0,
+        "is_about_medicines": 1.0,
+        "is_smalltalk_or_meta": 0.0,
+    }
+    answers |= {f"asks_{intent}": 1.0 for intent in intents}
+    return FakeDecision(answers)
+
+
+def two_hits() -> FakeRetriever:
+    return FakeRetriever([make_hit("c1", fusion=0.9), make_hit("c2", fusion=0.4)])
+
+
+async def test_decision_judge_reads_the_packed_evidence_and_answers() -> None:
+    llm = passing_llm()
+    decision = FakeDecision(
+        {
+            "sufficient_overall": 0.9,
+            "covers_dosage": 0.9,
+            "evidence_conflict": 0.0,
+            "wrong_drug": 0.0,
+        }
+    )
+    _, outcome = await run_turn(
+        llm,
+        two_hits(),
+        decisions={LlmRole.JUDGE: decision},
+        guard_decision=asking_guard("dosage"),
+    )
+    assert outcome.run.status is RunStatus.COMPLETED
+    judge = last_judge(outcome.run)
+    assert judge.outcome == "answer" and judge.payload["confidence"] == 0.9
+    assert "decision" in judge.payload
+    state = decision.calls[0][1]
+    packed = outcome.run.evidence.pack(outcome.run.limits.max_evidence_chars)
+    evidence = state["evidence"]
+    assert isinstance(evidence, list)
+    assert [e["text"] for e in evidence] == [e.hit.chunk_text for e in packed]
+    assert LlmRole.JUDGE not in [role for role, _ in llm.calls]
+
+
+async def test_decision_judge_failure_answers_partially() -> None:
+    _, outcome = await run_turn(
+        passing_llm(),
+        two_hits(),
+        decisions={LlmRole.JUDGE: FakeDecision(LlmError("judge: 429"))},
+    )
+    assert outcome.run.partial_reason == "judge_failed"
+    assert outcome.run.status is RunStatus.PARTIAL
+    assert last_judge(outcome.run).payload["confidence"] == 0.0
+
+
+async def test_decision_judge_uncovered_intent_stays_search_more_at_threshold() -> None:
+    llm = passing_llm()
+    llm.script(LlmRole.REFINE, RefineResult(queries=["paracetamol liều dùng"]))
+    decision = FakeDecision(
+        {
+            "sufficient_overall": 0.9,
+            "covers_dosage": 0.2,
+            "evidence_conflict": 0.0,
+            "wrong_drug": 0.0,
+        }
+    )
+    _, outcome = await run_turn(
+        llm,
+        FakeRetriever([make_hit("c1", fusion=0.9)], [make_hit("c2", fusion=0.8)]),
+        pipeline=PipelineOptions(refine_threshold=0.5),
+        decisions={LlmRole.JUDGE: decision},
+        guard_decision=asking_guard("dosage"),
+    )
+    judge = last_judge(outcome.run)
+    assert judge.outcome == "search_more"
+    assert judge.payload["gaps"] == ["dosage"]
+
+
+async def test_refine_threshold_gates_search_more_by_confidence() -> None:
+    llm = passing_llm()
+    llm.script(
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.SEARCH_MORE,
+            gaps=["bảo quản"],
+            reason="thiếu",
+            confidence=0.8,
+        ),
+    )
+    _, outcome = await run_turn(
+        llm, two_hits(), pipeline=PipelineOptions(refine_threshold=0.5)
+    )
+    assert last_judge(outcome.run).outcome == "answer"
+
+    llm = passing_llm()
+    llm.script(
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=0.2
+        ),
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=0.9
+        ),
+    )
+    llm.script(LlmRole.REFINE, RefineResult(queries=["paracetamol bảo quản"]))
+    _, outcome = await run_turn(
+        llm,
+        FakeRetriever([make_hit("c1", fusion=0.9)], [make_hit("c2", fusion=0.8)]),
+        pipeline=PipelineOptions(refine_threshold=0.5),
+    )
+    assert [
+        a.outcome for a in outcome.run.actions.entries if a.kind is ActionKind.JUDGE
+    ] == ["search_more", "answer"]
+
+
+def verdict(
+    outcome: JudgeOutcome, confidence: float, gaps: list[str] | None = None
+) -> JudgeDecision:
+    return JudgeDecision(
+        decision=outcome, gaps=gaps or [], reason="r", confidence=confidence
+    )
+
+
+def judge_outcomes(outcome) -> list[str]:
+    return [
+        a.outcome for a in outcome.run.actions.entries if a.kind is ActionKind.JUDGE
+    ]
+
+
+async def test_threshold_one_refines_even_at_full_llm_confidence() -> None:
+    llm = passing_llm()
+    llm.script(
+        LlmRole.JUDGE,
+        verdict(JudgeOutcome.ANSWER, 1.0),
+        verdict(JudgeOutcome.ANSWER, 1.0),
+    )
+    llm.script(LlmRole.REFINE, RefineResult(queries=["paracetamol bảo quản"]))
+    _, outcome = await run_turn(
+        llm,
+        FakeRetriever([make_hit("c1", fusion=0.9)], [make_hit("c2", fusion=0.8)]),
+        pipeline=PipelineOptions(refine_threshold=1.0),
+    )
+    assert judge_outcomes(outcome)[0] == "search_more"
+    assert llm.calls_for(LlmRole.REFINE)
+
+
+async def test_threshold_one_refines_when_every_decision_answer_is_one() -> None:
+    llm = passing_llm()
+    llm.script(LlmRole.REFINE, RefineResult(queries=["paracetamol liều dùng"]))
+    decision = FakeDecision(
+        {
+            "sufficient_overall": 1.0,
+            "covers_dosage": 1.0,
+            "evidence_conflict": 1.0,
+            "wrong_drug": 1.0,
+        }
+    )
+    _, outcome = await run_turn(
+        llm,
+        FakeRetriever([make_hit("c1", fusion=0.9)], [make_hit("c2", fusion=0.8)]),
+        pipeline=PipelineOptions(refine_threshold=1.0),
+        decisions={LlmRole.JUDGE: decision},
+        guard_decision=asking_guard("dosage"),
+    )
+    assert judge_outcomes(outcome)[0] == "search_more"
+
+
+async def test_threshold_zero_answers_even_at_zero_llm_confidence() -> None:
+    llm = passing_llm()
+    llm.script(LlmRole.JUDGE, verdict(JudgeOutcome.SEARCH_MORE, 0.0, ["x"]))
+    _, outcome = await run_turn(
+        llm, two_hits(), pipeline=PipelineOptions(refine_threshold=0.0)
+    )
+    assert judge_outcomes(outcome) == ["answer"]
+
+
+async def test_threshold_zero_answers_a_decision_judge_with_zero_sufficiency() -> None:
+    decision = FakeDecision(
+        {"sufficient_overall": 0.0, "evidence_conflict": 0.0, "wrong_drug": 0.0}
+    )
+    _, outcome = await run_turn(
+        passing_llm(),
+        two_hits(),
+        pipeline=PipelineOptions(refine_threshold=0.0),
+        decisions={LlmRole.JUDGE: decision},
+        guard_decision=asking_guard(),
+    )
+    assert judge_outcomes(outcome) == ["answer"]
+
+
+async def test_template_refine_makes_no_llm_call() -> None:
+    llm = passing_llm(subjects=["paracetamol"])
+    llm.script(
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.SEARCH_MORE,
+            gaps=["storage"],
+            reason="thiếu",
+            confidence=0.3,
+        ),
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=0.9
+        ),
+    )
+    _, outcome = await run_turn(
+        llm,
+        FakeRetriever([make_hit("c1", fusion=0.9)], [make_hit("c2", fusion=0.8)]),
+        pipeline=PipelineOptions(refine_mode="template"),
+    )
+    refine = outcome.run.actions.last_of(ActionKind.REFINE)
+    assert refine is not None
+    assert refine.payload["accepted"] == ["paracetamol bảo quản"]
+    assert refine.payload["mode"] == "template"
+    assert llm.calls_for(LlmRole.REFINE) == []
+
+
+def test_unknown_refine_mode_is_rejected() -> None:
+    options: dict[str, Any] = {"refine_mode": "magic"}
+    with pytest.raises(ValueError):
+        PipelineOptions(**options)
+
+
+def asks(*intents: str) -> dict[str, float]:
+    answers = {f"asks_{intent}": 0.0 for intent in INTENTS}
+    return answers | {f"asks_{intent}": 0.9 for intent in intents}
+
+
+def judge_answers(sufficient: float, **covers: float) -> dict[str, float]:
+    return {
+        "sufficient_overall": sufficient,
+        "evidence_conflict": 0.0,
+        "wrong_drug": 0.0,
+    } | {f"covers_{intent}": value for intent, value in covers.items()}
+
+
+def judge_llm(subjects: list[str] | None = None, *, guard: bool = True) -> FakeLlm:
+    llm = passing_llm(subjects=subjects)
+    if not guard:
+        llm.structured_responses.pop(LlmRole.GUARDRAIL)
+    return llm
+
+
+@pytest.mark.parametrize("guard", [False, True], ids=["no_guard", "llm_guard"])
+async def test_decision_judge_asks_the_intents_when_the_guard_did_not(
+    guard: bool,
+) -> None:
+    decision = FakeDecision(
+        [asks("dosage"), judge_answers(0.9, dosage=0.9)],
+    )
+    _, outcome = await run_turn(
+        judge_llm(guard=guard),
+        two_hits(),
+        pipeline=PipelineOptions(guard=guard),
+        decisions={LlmRole.JUDGE: decision},
+    )
+    assert len(decision.calls) == 2
+    _, intents_state, intents_questions = decision.calls[0]
+    assert set(intents_questions) == {f"asks_{intent}" for intent in INTENTS}
+    assert intents_state["latest_user_turn"] == QUESTION
+    _, judge_state, judge_questions = decision.calls[1]
+    assert judge_state["asked_intents"] == ["dosage"]
+    assert "covers_dosage" in judge_questions
+    assert not any(
+        key.startswith("covers_") and key != "covers_dosage" for key in judge_questions
+    )
+    run = outcome.run
+    assert run.asked_intents == ["dosage"]
+    judge = last_judge(run)
+    assert judge.outcome == "answer"
+    assert judge.payload["intents_decision"]["answers"]["asks_dosage"] == 0.9
+    assert judge.payload["asked_intents"] == ["dosage"]
+    # The intent call is charged like every model call: rephrase, intents, judge, answer.
+    assert run.usage.llm_calls == (5 if guard else 4)
+
+
+async def test_decision_judge_does_not_ask_intents_after_a_decision_guard() -> None:
+    decision = FakeDecision(judge_answers(0.9, dosage=0.9))
+    _, outcome = await run_turn(
+        passing_llm(),
+        two_hits(),
+        decisions={LlmRole.JUDGE: decision},
+        guard_decision=asking_guard("dosage"),
+    )
+    assert len(decision.calls) == 1
+    assert "intents_decision" not in last_judge(outcome.run).payload
+
+
+async def test_a_failed_intent_call_judges_without_intents() -> None:
+    decision = FakeDecision([LlmError("judge: 429"), judge_answers(0.9)])
+    _, outcome = await run_turn(
+        judge_llm(guard=False),
+        two_hits(),
+        pipeline=PipelineOptions(guard=False),
+        decisions={LlmRole.JUDGE: decision},
+    )
+    assert outcome.run.asked_intents == []
+    assert last_judge(outcome.run).outcome == "answer"
+    assert outcome.run.status is RunStatus.COMPLETED
+
+
+async def test_template_refine_without_gaps_searches_the_asked_intents() -> None:
+    decision = FakeDecision(
+        [
+            asks("dosage", "storage"),
+            judge_answers(0.2, dosage=0.8, storage=0.6),
+            judge_answers(0.9, dosage=0.9, storage=0.9),
+        ]
+    )
+    _, outcome = await run_turn(
+        judge_llm(subjects=["paracetamol"], guard=False),
+        FakeRetriever([make_hit("c1", fusion=0.9)], [make_hit("c2", fusion=0.8)]),
+        pipeline=PipelineOptions(
+            guard=False, refine_mode="template", refine_threshold=0.5
+        ),
+        decisions={LlmRole.JUDGE: decision},
+    )
+    refine = outcome.run.actions.last_of(ActionKind.REFINE)
+    assert refine is not None
+    assert refine.payload["accepted"] == [
+        "paracetamol bảo quản",
+        "paracetamol liều dùng và cách dùng",
+    ]
+    assert len(decision.calls) == 3
+
+
+async def test_template_refine_without_gaps_or_intents_searches_general_info() -> None:
+    decision = FakeDecision([asks(), judge_answers(0.2), judge_answers(0.9)])
+    _, outcome = await run_turn(
+        judge_llm(subjects=["paracetamol"], guard=False),
+        FakeRetriever([make_hit("c1", fusion=0.9)], [make_hit("c2", fusion=0.8)]),
+        pipeline=PipelineOptions(
+            guard=False, refine_mode="template", refine_threshold=0.5
+        ),
+        decisions={LlmRole.JUDGE: decision},
+    )
+    refine = outcome.run.actions.last_of(ActionKind.REFINE)
+    assert refine is not None
+    assert refine.payload["accepted"] == ["paracetamol thông tin chung"]
+
+
+async def test_a_paid_judge_decision_is_recorded_when_the_budget_runs_out() -> None:
+    _, outcome = await run_turn(
+        passing_llm(),
+        two_hits(),
+        limits=BudgetLimits(max_tokens=400),
+        pipeline=PipelineOptions(rephrase=False),
+        decisions={LlmRole.JUDGE: FakeDecision(judge_answers(0.9, dosage=0.9))},
+        guard_decision=asking_guard("dosage"),
+    )
+    judge = last_judge(outcome.run)
+    assert judge.outcome == "failed"
+    assert outcome.run.partial_reason == "judge_failed"
+    assert judge.payload["decision"]["answers"]["sufficient_overall"] == 0.9
+
+
+async def test_decision_judge_reads_only_the_packed_chunks_when_evidence_overflows() -> (
+    None
+):
+    decision = FakeDecision(judge_answers(0.9, dosage=0.9))
+    retriever = FakeRetriever(
+        [
+            make_hit("c1", fusion=0.9, text="a" * 400),
+            make_hit("c2", fusion=0.8, text="b" * 400),
+            make_hit("c3", fusion=0.7, text="c" * 400),
+        ]
+    )
+    _, outcome = await run_turn(
+        passing_llm(),
+        retriever,
+        limits=BudgetLimits(max_evidence_chars=900),
+        decisions={LlmRole.JUDGE: decision},
+        guard_decision=asking_guard("dosage"),
+    )
+    run = outcome.run
+    packed = run.evidence.pack(run.limits.max_evidence_chars)
+    assert 0 < len(packed) < len(run.evidence.active())
+    evidence = decision.calls[0][1]["evidence"]
+    assert isinstance(evidence, list)
+    assert [e["text"] for e in evidence] == [e.hit.chunk_text for e in packed]
+    assert [index for index, _ in run.evidence.context_view(packed)[1]] == [
+        e["id"] for e in evidence
+    ]

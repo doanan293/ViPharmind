@@ -442,7 +442,7 @@ def test_managed_model_servers_reports_all_replicas_on_timeout(monkeypatch, tmp_
     assert "command=" in message
 
 
-def test_managed_model_servers_default_startup_timeout_allows_five_minute_window(
+def test_managed_model_servers_default_startup_timeout_allows_a_cold_mount(
     monkeypatch, tmp_path
 ):
     from pharma_lab.integrations.kaggle.workers import runtime
@@ -484,7 +484,8 @@ def test_managed_model_servers_default_startup_timeout_allows_five_minute_window
         runtime.subprocess, "Popen", lambda *_args, **_kwargs: RunningProcess()
     )
     monkeypatch.setattr(client.LlamaCppClient, "health", health)
-    times = iter((0.0, 299.0))
+    # A cold dataset mount has taken over five minutes to serve a 4 GB model.
+    times = iter((0.0, 899.0))
     monkeypatch.setattr(runtime.time, "monotonic", lambda: next(times))
     monkeypatch.setattr(runtime.time, "sleep", lambda _seconds: None)
     config = {

@@ -90,10 +90,14 @@ def script_until_answer(llm: FakeLlm) -> None:
             audience=Audience.GENERAL_PUBLIC,
             language=Language.VI,
             intent=Intent.PHARMA_QUESTION,
+            subjects=[],
         ),
     )
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
 
 

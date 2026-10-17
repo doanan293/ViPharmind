@@ -25,6 +25,7 @@ from pharma_agent.domain.corpus.bundle import (
     SourceInfo,
 )
 
+from pharma_lab.artifacts.manifest import iter_jsonl_objects
 from pharma_lab.bundle.io import write_validated_bundle
 from pharma_lab.corpus.canonical.build_canonical_rag import (
     APPENDIX_LIST_SECTION_IDS,
@@ -36,7 +37,6 @@ from pharma_lab.corpus.crawling.integrate_leaflets import (
 )
 from pharma_lab.corpus.metadata.payload_layers import compact_colloquial_mapping
 from pharma_lab.corpus.processing.preprocess_rag_corpus import slugify
-from pharma_lab.evaluation.artifact_contracts import iter_jsonl_objects
 
 COLLECTION_KEY = "formulary"
 COLLECTION_TITLE = "Dược thư Quốc gia Việt Nam và tờ hướng dẫn sử dụng thuốc"

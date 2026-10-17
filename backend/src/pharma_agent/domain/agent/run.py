@@ -15,9 +15,10 @@ from pharma_agent.domain.agent.schemas import (
     RephraseResult,
 )
 from pharma_agent.domain.guardrail.models import Verdict
-from pharma_agent.domain.llm.models import LlmUsage
+from pharma_agent.domain.llm.decision import Decision
+from pharma_agent.domain.llm.models import LlmUsage, ToolCall
 from pharma_agent.domain.retrieval.evidence import EvidenceSet
-from pharma_agent.domain.retrieval.models import Query, QueryOrigin
+from pharma_agent.domain.retrieval.models import Hit, Query, QueryOrigin
 from pharma_agent.domain.retrieval.service import SearchResult
 from pharma_agent.domain.shared.errors import DomainError
 from pharma_agent.domain.shared.ids import new_id
@@ -87,6 +88,21 @@ _FINAL_STATUS = {
 }
 
 
+class ReactStats(BaseModel):
+    """What a ReAct turn did with its tool (spec v2 §2.4)."""
+
+    rounds: int = 0  # model responses that requested tools
+    tool_calls: int = 0
+    malformed_calls: int = 0
+    duplicate_calls: int = 0
+    # The model was made to answer without tools: after MAX_TOOL_ROUNDS rounds, or
+    # earlier because the LLM-call or token budget ran out.
+    round_cap_hit: bool = False
+    budget_forced: bool = False
+    budget_hits: int = 0  # results cut by the evidence budget
+    answered_without_search: bool = False
+
+
 class AgentRun(BaseModel):
     """One chat turn. Owns the budget, the evidence, the action log and the loop rules."""
 
@@ -98,6 +114,7 @@ class AgentRun(BaseModel):
     audience: Audience = Audience.UNKNOWN
     language: Language = Language.VI
     intent: Intent = Intent.PHARMA_QUESTION
+    subjects: list[str] = Field(default_factory=list)
     limits: BudgetLimits
     usage: BudgetUsage = Field(default_factory=BudgetUsage)
     evidence: EvidenceSet = Field(default_factory=EvidenceSet)
@@ -107,9 +124,12 @@ class AgentRun(BaseModel):
     error_code: ErrorCode | None = None
     error_detail: str = ""
     guard_verdict: Verdict | None = None
+    asked_intents: list[str] = Field(default_factory=list)
     used_queries: list[str] = Field(default_factory=list)
     last_judge: JudgeOutcome | None = None
     partial_reason: str | None = None
+    # Set only on a ReAct turn.
+    react: ReactStats | None = None
     started_at: datetime
 
     @classmethod
@@ -192,9 +212,24 @@ class AgentRun(BaseModel):
     # ----- recording -----------------------------------------------------
 
     def record_guard(
-        self, verdict: Verdict, *, now: datetime, llm_failed: bool = False
+        self,
+        verdict: Verdict,
+        *,
+        now: datetime,
+        llm_failed: bool = False,
+        asked_intents: Sequence[str] = (),
+        decision: Decision | None = None,
     ) -> None:
         self.guard_verdict = verdict
+        self.asked_intents = list(asked_intents)
+        payload: dict[str, Any] = {
+            "source": verdict.source.value,
+            "label": verdict.label,
+            "llm_failed": llm_failed,
+            "asked_intents": list(asked_intents),
+        }
+        if decision is not None:
+            payload["decision"] = _decision_payload(decision)
         self._log(
             ActionKind.GUARD,
             now,
@@ -202,11 +237,7 @@ class AgentRun(BaseModel):
             if verdict.allows_processing
             else ("blocked" if not verdict.passed else "out_of_scope"),
             reason=verdict.reason,
-            payload={
-                "source": verdict.source.value,
-                "label": verdict.label,
-                "llm_failed": llm_failed,
-            },
+            payload=payload,
         )
 
     def record_rephrase(
@@ -224,6 +255,9 @@ class AgentRun(BaseModel):
             self.audience = result.audience
             self.language = result.language
             self.intent = result.intent
+            self.subjects = [s.strip() for s in result.subjects if s.strip()] or [
+                self.standalone_query
+            ]
             outcome = "ok"
         else:
             outcome = "skipped" if skipped else "failed"
@@ -235,6 +269,7 @@ class AgentRun(BaseModel):
                 "standalone_query": self.standalone_query,
                 "intent": self.intent.value,
                 "audience": self.audience.value,
+                "subjects": list(self.subjects),
             },
         )
 
@@ -273,28 +308,123 @@ class AgentRun(BaseModel):
                 "rerank_failed": result.rerank_failed,
                 "rerank_scored": result.rerank_scored,
                 "rerank_reused": result.rerank_reused,
+                "retrieval_seconds": result.retrieval_seconds,
+                "rerank_seconds": result.rerank_seconds,
+            },
+        )
+
+    def record_tool_searches(
+        self,
+        queries: Sequence[Query],
+        results: Sequence[SearchResult],
+        shown_hits: Sequence[Hit],
+        *,
+        now: datetime,
+    ) -> None:
+        """The searches of one ReAct round, run at the same time, as one search round.
+
+        Unlike `record_search`, evidence accumulates: every chunk shown to the model
+        stays citable. The round's seconds are the slowest search's, since they overlap.
+        """
+        self.evidence.merge(list(shown_hits))
+        self.usage = self.usage.with_search()
+        for query in queries:
+            if query.normalized not in self.used_queries:
+                self.used_queries.append(query.normalized)
+        errors = [r.error for r in results if r.error is not None]
+        self._log(
+            ActionKind.SEARCH,
+            now,
+            outcome="error" if errors else "ok",
+            reason="; ".join(errors),
+            payload={
+                "queries": [q.text for q in queries],
+                "hits": sum(len(r.items) for r in results),
+                "active_evidence": len(self.evidence.active()),
+                # Every chunk shown so far, as `record_search` logs what the evidence
+                # holds after the round; a ReAct turn's evidence only grows.
+                "evidence": [
+                    {
+                        "document": e.hit.document_key,
+                        "ordinal": e.hit.ordinal,
+                        "sections": list(e.hit.section_keys),
+                    }
+                    for e in self.evidence.items
+                ],
+                "new_evidence": len(shown_hits),
+                "evidence_chars": sum(e.char_count() for e in self.evidence.items),
+                "rerank_failed": any(r.rerank_failed for r in results),
+                "rerank_scored": sum(r.rerank_scored for r in results),
+                "rerank_reused": sum(r.rerank_reused for r in results),
+                "retrieval_seconds": max(
+                    (r.retrieval_seconds for r in results), default=0.0
+                ),
+                "rerank_seconds": max((r.rerank_seconds for r in results), default=0.0),
+            },
+        )
+
+    def record_tool_round(
+        self,
+        calls: Sequence[ToolCall],
+        *,
+        now: datetime,
+        malformed: Sequence[bool] = (),
+        finish_reason: str = "",
+    ) -> None:
+        """One response of the ReAct model: the tool calls it asked for, or its answer."""
+        self._log(
+            ActionKind.AGENT,
+            now,
+            outcome="tools" if calls else "answer",
+            payload={
+                "calls": [call.name for call in calls],
+                "arguments": [call.arguments for call in calls],
+                "malformed": list(malformed),
+                "finish_reason": finish_reason,
             },
         )
 
     def record_judge(
         self,
-        decision: JudgeOutcome,
+        outcome: JudgeOutcome,
+        /,
         *,
         gaps: Sequence[str],
         reason: str,
+        confidence: float,
         now: datetime,
         failed: bool = False,
+        decision: Decision | None = None,
+        intents_decision: Decision | None = None,
     ) -> None:
-        self.last_judge = decision
+        """`intents_decision` is the asks_<intent> call a decision-model judge makes
+        when the guard did not ask them; the e2e record keeps it as a guardrail call."""
+        self.last_judge = outcome
         if failed:
             self.partial_reason = "judge_failed"
+        payload: dict[str, Any] = {"gaps": list(gaps), "confidence": confidence}
+        if decision is not None:
+            payload["decision"] = _decision_payload(decision)
+        if intents_decision is not None:
+            payload["intents_decision"] = _decision_payload(intents_decision)
+            payload["asked_intents"] = list(self.asked_intents)
         self._log(
             ActionKind.JUDGE,
             now,
-            outcome="failed" if failed else decision.value,
+            outcome="failed" if failed else outcome.value,
             reason=reason,
-            payload={"gaps": list(gaps)},
+            payload=payload,
         )
+
+    def adopt_asked_intents(self, intents: Sequence[str]) -> None:
+        """Intents a decision-model judge asked itself (the guard did not ask them)."""
+        self.asked_intents = list(intents)
+
+    def last_judge_answers(self) -> dict[str, float] | None:
+        """The last decision-model judge's probabilities, if the last judge was one."""
+        action = self.actions.last_of(ActionKind.JUDGE)
+        decision = action.payload.get("decision") if action is not None else None
+        return dict(decision["answers"]) if decision is not None else None
 
     def skip_judge(self, *, now: datetime) -> None:
         """Answer from the evidence found so far without asking the judge."""
@@ -302,7 +432,12 @@ class AgentRun(BaseModel):
         self._log(ActionKind.JUDGE, now, outcome="skipped")
 
     def record_refine(
-        self, queries: Sequence[str], *, now: datetime, failed: bool = False
+        self,
+        queries: Sequence[str],
+        *,
+        now: datetime,
+        failed: bool = False,
+        mode: str = "llm",
     ) -> list[Query]:
         fresh: list[Query] = []
         seen = set(self.used_queries)
@@ -318,7 +453,11 @@ class AgentRun(BaseModel):
             ActionKind.REFINE,
             now,
             outcome=outcome,
-            payload={"proposed": list(queries), "accepted": [q.text for q in fresh]},
+            payload={
+                "proposed": list(queries),
+                "accepted": [q.text for q in fresh],
+                "mode": mode,
+            },
         )
         return fresh
 
@@ -404,3 +543,7 @@ class AgentRun(BaseModel):
                 kind=kind, at=now, outcome=outcome, reason=reason, payload=payload or {}
             )
         )
+
+
+def _decision_payload(decision: Decision) -> dict[str, Any]:
+    return decision.model_dump(exclude={"raw"}) | {"raw": decision.raw}

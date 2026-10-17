@@ -27,6 +27,7 @@ def _source_bundle(tmp_path: Path) -> Path:
 @pytest.mark.parametrize(
     "worker_module",
     [
+        "pharma_lab.integrations.kaggle.workers.benchmark",
         "pharma_lab.integrations.kaggle.workers.query_embed",
         "pharma_lab.integrations.kaggle.workers.corpus_embed",
         "pharma_lab.integrations.kaggle.workers.rerank",

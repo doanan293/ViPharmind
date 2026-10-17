@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections import Counter
 from pathlib import Path
 from typing import Annotated
 
 import typer
+from openai.types import ReasoningEffort
 from pharma_agent.domain.corpus.bundle import read_bundle
+from pharma_agent.infrastructure.llm.systemone_adapter import SystemOneAdapter
+from pharma_agent.infrastructure.settings import Settings
+from pydantic import TypeAdapter
 
+from pharma_lab.artifacts.manifest import sha256_file
 from pharma_lab.cli.runtime import (
     CommandResult,
     CommandStatus,
@@ -17,6 +23,7 @@ from pharma_lab.cli.runtime import (
 from pharma_lab.config.paths import (
     BACKEND_ENV_FILE,
     BUNDLE_DIR,
+    DECISION_CALIBRATION_DIR,
     E2E_AUTHORING_DIR,
     GOLD_DIR,
     GOLDEN_E2E_PATH,
@@ -29,10 +36,28 @@ from pharma_lab.e2e.calibration import (
     refresh_calibration,
     score_calibration,
 )
-from pharma_lab.e2e.configs import E2EConfig
+from pharma_lab.e2e.compare import SIGNIFICANCE, compare_runs
+from pharma_lab.e2e.configs import E2EConfig, config_label
 from pharma_lab.e2e.corpus_text import chunk_texts, corpus_text, load_corpus_text
+from pharma_lab.e2e.decision_calibration import (
+    build_judge_set,
+    draft_guard_set,
+    load_rows,
+)
+from pharma_lab.e2e.decision_probe import (
+    longest_chunk_texts,
+    probe_state,
+    recommended_evidence_chars,
+    run_probe,
+)
+from pharma_lab.e2e.decision_scoring import (
+    score_decision_set,
+    score_inputs,
+    write_scores,
+)
 from pharma_lab.e2e.golden import (
     ANSWERABLE_PER_GROUP,
+    MULTI_HOP_QUOTAS,
     QUOTAS,
     Category,
     build_golden,
@@ -41,9 +66,24 @@ from pharma_lab.e2e.golden import (
     read_items,
     validate_items,
 )
+from pharma_lab.e2e.golden_draft import (
+    DRAFT_MODEL,
+    authored_state,
+    draft_multi_hop,
+    load_candidates,
+    needed_counts,
+    select_candidates,
+    used_query_ids,
+    write_drafts,
+)
+from pharma_lab.e2e.golden_generate import generate
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
 from pharma_lab.e2e.judging.service import JudgeRequest, run_judge
-from pharma_lab.e2e.judging.structured import JUDGE_MODEL
+from pharma_lab.e2e.judging.structured import (
+    DEFAULT_JUDGE_REASONING,
+    JUDGE_MODEL,
+    judge_llm,
+)
 from pharma_lab.e2e.model_server import attach_model, env_path, serve_model
 from pharma_lab.e2e.one_round import load_one_round, trim_covered
 from pharma_lab.e2e.report import write_report
@@ -54,7 +94,6 @@ from pharma_lab.e2e.sampling import (
     write_authoring_batches,
     write_replacement_batch,
 )
-from pharma_lab.evaluation.artifact_contracts import sha256_file
 from pharma_lab.evaluation.backend_retrieval import load_query_rows
 from pharma_lab.evaluation.relevance_judgments import judgments_path, load_judgments
 
@@ -73,6 +112,14 @@ calibration_app = typer.Typer(
     add_completion=False, no_args_is_help=True, help="Blind judge calibration."
 )
 e2e_app.add_typer(calibration_app, name="calibration")
+decision_set_app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    help="Held-out calibration set of the decision model.",
+)
+e2e_app.add_typer(decision_set_app, name="decision-set")
+
+GUARD_DRAFT_MODEL = "gemini-3.1-flash-lite"
 
 
 @golden_app.command("sample")
@@ -227,6 +274,7 @@ def golden_hard_candidates(
     run_name: Annotated[str, typer.Option("--run")],
     model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
     top_k: Annotated[int, typer.Option("--top-k", min=1)] = 5,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
     authoring_dir: Annotated[
         Path, typer.Option("--authoring-dir", file_okay=False)
     ] = E2E_AUTHORING_DIR,
@@ -236,7 +284,7 @@ def golden_hard_candidates(
     def handler() -> CommandResult:
         candidates = load_one_round(
             run_dir(run_name), model=model, top_k=top_k
-        ).hard_candidates()
+        ).hard_candidates(load_corpus_text(bundle))
         output = authoring_dir / "multi-hop.todo.jsonl"
         output.write_text(
             "".join(json.dumps(c, ensure_ascii=False) + "\n" for c in candidates),
@@ -245,6 +293,98 @@ def golden_hard_candidates(
         kinds = Counter(str(c["kind"]) for c in candidates)
         return CommandResult(
             "e2e golden hard-candidates", CommandStatus.COMPLETE, output, dict(kinds)
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@golden_app.command("generate")
+def golden_generate(
+    ctx: typer.Context,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    authoring_dir: Annotated[
+        Path, typer.Option("--authoring-dir", file_okay=False)
+    ] = E2E_AUTHORING_DIR,
+    two_drug: Annotated[int, typer.Option("--two-drug", min=0)] = 2
+    * MULTI_HOP_QUOTAS["two_drug"],
+    brand: Annotated[int, typer.Option("--brand", min=0)] = 2
+    * MULTI_HOP_QUOTAS["brand_to_ingredient"],
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+) -> None:
+    """Build two-drug and brand-to-ingredient candidates from the corpus
+    (multi-hop.generated.jsonl); twice the quota by default, to cover rejected drafts."""
+
+    def handler() -> CommandResult:
+        rows = generate(
+            load_corpus_text(bundle),
+            {"two_drug": two_drug, "brand_to_ingredient": brand},
+            seed=seed,
+        )
+        output = authoring_dir / "multi-hop.generated.jsonl"
+        output.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+        kinds = Counter(str(row["kind"]) for row in rows)
+        return CommandResult(
+            "e2e golden generate", CommandStatus.COMPLETE, output, dict(kinds)
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@golden_app.command("draft")
+def golden_draft(
+    ctx: typer.Context,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    authoring_dir: Annotated[
+        Path, typer.Option("--authoring-dir", file_okay=False)
+    ] = E2E_AUTHORING_DIR,
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+    model: Annotated[
+        str, typer.Option("--model", help="Model name on the backend LLM endpoint")
+    ] = DRAFT_MODEL,
+    concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 8,
+    backend_env_file: Annotated[
+        Path, typer.Option("--backend-env-file", dir_okay=False)
+    ] = BACKEND_ENV_FILE,
+) -> None:
+    """Draft the multi-hop items still missing from the per-kind quotas, from
+    multi-hop.todo.jsonl and multi-hop.generated.jsonl, into new *.draft.jsonl batches."""
+
+    def handler() -> CommandResult:
+        authored, highest = authored_state(authoring_dir)
+        counts = needed_counts(authored)
+        candidates = select_candidates(
+            load_candidates(authoring_dir),
+            exclude=used_query_ids(authoring_dir),
+            seed=seed,
+        )
+        llm = judge_llm(Settings(_env_file=backend_env_file), model)
+        items, failures = asyncio.run(
+            draft_multi_hop(
+                llm,
+                candidates,
+                counts,
+                load_corpus_text(bundle),
+                concurrency=concurrency,
+                first_number=highest + 1,
+            )
+        )
+        paths = write_drafts(authoring_dir, items, failures)
+        kinds = Counter(item.tags[0] for item in items)
+        total = sum(counts.values())
+        return CommandResult(
+            "e2e golden draft",
+            CommandStatus.COMPLETE if len(items) == total else CommandStatus.INCOMPLETE,
+            authoring_dir,
+            {
+                "needed": total,
+                "drafted": len(items),
+                "failed": len(failures),
+                "files": len(paths),
+                **kinds,
+            },
         )
 
     run_handler(state_from_context(ctx), handler)
@@ -266,8 +406,14 @@ def golden_trim(
     """Drop answerable items one retrieval round covers, evenly per group."""
 
     def handler() -> CommandResult:
-        paths = sorted(authoring_dir.glob("answerable-*.authored.jsonl"))
-        items = [item for path in paths for item in read_items(path)[0]]
+        # Answerable items also sit in replacement batches.
+        paths = sorted(authoring_dir.glob("*.authored.jsonl"))
+        items = [
+            item
+            for path in paths
+            for item in read_items(path)[0]
+            if item.category is Category.ANSWERABLE
+        ]
         found = load_one_round(run_dir(run_name), model=model, top_k=top_k).coverage
         dropped = set(trim_covered(items, found, keep_per_group=per_group))
         for path in paths:
@@ -338,6 +484,13 @@ def run(
             help="Turn deadline for this run instead of the backend budget",
         ),
     ] = None,
+    pipeline_option: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--pipeline-option",
+            help="key=value override of PipelineOptions; repeatable",
+        ),
+    ] = None,
     backend_env_file: Annotated[
         Path, typer.Option("--backend-env-file", dir_okay=False)
     ] = BACKEND_ENV_FILE,
@@ -352,6 +505,7 @@ def run(
         retry_errors=retry_errors,
         limit=limit,
         deadline_seconds=deadline_seconds,
+        pipeline_options=tuple(pipeline_option or ()),
     )
 
     def handler() -> CommandResult:
@@ -359,7 +513,7 @@ def run(
         return CommandResult(
             "e2e run",
             CommandStatus.INCOMPLETE if summary.errors else CommandStatus.COMPLETE,
-            request.run_root / str(config),
+            request.run_root / config_label(config, request.pipeline_options),
             {"items": summary.total, "ran": summary.ran, "errors": summary.errors},
         )
 
@@ -370,7 +524,13 @@ def run(
 def judge(
     ctx: typer.Context,
     run_name: Annotated[str, typer.Option("--run")],
-    config: Annotated[E2EConfig, typer.Option("--config")],
+    config: Annotated[
+        str,
+        typer.Option(
+            "--config",
+            help="Configuration directory, e.g. full or full+refine_threshold=0.5",
+        ),
+    ],
     golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
     concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 8,
     force: Annotated[
@@ -380,6 +540,12 @@ def judge(
         str,
         typer.Option("--judge-model", help="Model name on the backend LLM endpoint"),
     ] = JUDGE_MODEL,
+    judge_reasoning: Annotated[
+        str,
+        typer.Option(
+            "--judge-reasoning", help="Reasoning effort of the judge: none, low, medium"
+        ),
+    ] = DEFAULT_JUDGE_REASONING or "medium",
     items: Annotated[
         str,
         typer.Option("--items", help="Comma-separated item ids to judge again"),
@@ -397,6 +563,7 @@ def judge(
         concurrency=concurrency,
         force=force,
         judge_model=judge_model,
+        judge_reasoning=TypeAdapter(ReasoningEffort).validate_python(judge_reasoning),
         only=frozenset(key.strip() for key in items.split(",") if key.strip()),
     )
 
@@ -405,7 +572,7 @@ def judge(
         return CommandResult(
             "e2e judge",
             CommandStatus.INCOMPLETE if summary.errors else CommandStatus.COMPLETE,
-            request.run_root / str(config),
+            request.run_root / config,
             {
                 "answers": summary.total,
                 "judged": summary.judged,
@@ -498,6 +665,13 @@ def report(
     evaluation: Annotated[
         Path, typer.Option("--evaluation", dir_okay=False)
     ] = GOLD_PATH,
+    latency_run: Annotated[
+        str | None,
+        typer.Option(
+            "--latency-run",
+            help="Run whose concurrency-1 answers supply every latency number",
+        ),
+    ] = None,
 ) -> None:
     """Write CSV and LaTeX tables for every judged configuration of a run."""
     # `evaluation` is the gold file whose relevance judgments extend citation scoring.
@@ -507,12 +681,213 @@ def report(
         relevance = load_judgments(
             judgments_path(evaluation), evaluation_sha256=sha256_file(evaluation)
         )
-        written = write_report(e2e_run_dir(run_name), items, relevance)
+        written = write_report(
+            e2e_run_dir(run_name),
+            items,
+            relevance,
+            latency_root=None if latency_run is None else e2e_run_dir(latency_run),
+        )
         return CommandResult(
             "e2e report",
             CommandStatus.COMPLETE,
             e2e_run_dir(run_name) / "reports",
             {"files": ",".join(path.name for path in written)},
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@e2e_app.command("compare")
+def compare(
+    ctx: typer.Context,
+    run_a: Annotated[str, typer.Option("--run-a", help="Baseline run")],
+    run_b: Annotated[str, typer.Option("--run-b", help="Run compared with it")],
+    config: Annotated[str, typer.Option("--config")] = "full",
+    config_b: Annotated[
+        str | None,
+        typer.Option(
+            "--config-b",
+            help="Run B's configuration directory when named differently (default: --config)",
+        ),
+    ] = None,
+    golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
+    evaluation: Annotated[
+        Path, typer.Option("--evaluation", dir_okay=False)
+    ] = GOLD_PATH,
+) -> None:
+    """Paired sign-flip test of one configuration between two runs (B minus A)."""
+
+    def handler() -> CommandResult:
+        items = {item.item_id: item for item in load_golden(golden)}
+        relevance = load_judgments(
+            judgments_path(evaluation), evaluation_sha256=sha256_file(evaluation)
+        )
+        rows = compare_runs(
+            e2e_run_dir(run_a),
+            e2e_run_dir(run_b),
+            config,
+            items,
+            relevance,
+            config_b=config_b,
+        )
+        return CommandResult(
+            "e2e compare",
+            CommandStatus.COMPLETE,
+            e2e_run_dir(run_b) / "reports",
+            {
+                row.metric: f"{row.delta:+.3f} p_holm={row.p_holm:.3f}"
+                for row in rows
+                if row.p_holm < SIGNIFICANCE
+            },
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@e2e_app.command("decision-probe")
+def decision_probe(
+    ctx: typer.Context,
+    chars: Annotated[
+        int, typer.Option("--chars", min=1, help="Characters of evidence in the state")
+    ] = 60_000,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    backend_env_file: Annotated[
+        Path, typer.Option("--backend-env-file", dir_okay=False)
+    ] = BACKEND_ENV_FILE,
+) -> None:
+    """Measure how many Jev tokens a judge state with CHARS of evidence costs."""
+
+    def handler() -> CommandResult:
+        decision = SystemOneAdapter(Settings(_env_file=backend_env_file).llm)
+        state = probe_state(longest_chunk_texts(read_bundle(bundle)), chars)
+        result = asyncio.run(run_probe(decision, state))
+        return CommandResult(
+            "e2e decision-probe",
+            CommandStatus.COMPLETE,
+            bundle,
+            {
+                "input_tokens": result.input_tokens,
+                "chars": result.chars,
+                "chars_per_token": round(result.chars_per_token, 3),
+                "seconds": round(result.seconds, 3),
+                "model": result.model,
+                "recommended_max_evidence_chars": recommended_evidence_chars(result),
+            },
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@decision_set_app.command("build")
+def decision_set_build(
+    ctx: typer.Context,
+    run_name: Annotated[str, typer.Option("--run", help="Retrieval run of the agent")],
+    model: Annotated[str, typer.Option("--model", help="Reranker of that run")],
+    size: Annotated[int, typer.Option("--size", min=1)] = 300,
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
+    output: Annotated[Path, typer.Option("--output", dir_okay=False)] = (
+        DECISION_CALIBRATION_DIR / "judge_set.jsonl"
+    ),
+) -> None:
+    """Sample judge questions with the run's reranked top-5 evidence, labelled by gold coverage."""
+
+    def handler() -> CommandResult:
+        path = build_judge_set(
+            run_dir(run_name),
+            bundle,
+            output=output,
+            reranker=model,
+            size=size,
+            seed=seed,
+            golden_sources={
+                item.source_query_id
+                for item in load_golden(golden)
+                if item.source_query_id
+            },
+        )
+        rows = load_rows(path)
+        return CommandResult(
+            "e2e decision-set build",
+            CommandStatus.COMPLETE,
+            path,
+            {
+                "questions": len(rows),
+                "sufficient": sum(int(row["sufficient"]) for row in rows),
+            },
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@decision_set_app.command("guard-draft")
+def decision_set_guard_draft(
+    ctx: typer.Context,
+    count: Annotated[int, typer.Option("--count", min=2)] = 100,
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+    output: Annotated[Path, typer.Option("--output", dir_okay=False)] = (
+        DECISION_CALIBRATION_DIR / "guard_set.todo.jsonl"
+    ),
+    backend_env_file: Annotated[
+        Path, typer.Option("--backend-env-file", dir_okay=False)
+    ] = BACKEND_ENV_FILE,
+) -> None:
+    """Draft attack and out-of-scope turns for the author to review, then rename to guard_set.jsonl."""
+
+    def handler() -> CommandResult:
+        llm = judge_llm(Settings(_env_file=backend_env_file), GUARD_DRAFT_MODEL, "none")
+        path = asyncio.run(draft_guard_set(llm, output, count=count, seed=seed))
+        kinds = Counter(str(row["kind"]) for row in load_rows(path))
+        return CommandResult(
+            "e2e decision-set guard-draft", CommandStatus.COMPLETE, path, dict(kinds)
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@decision_set_app.command("score")
+def decision_set_score(
+    ctx: typer.Context,
+    repeats: Annotated[int, typer.Option("--repeats", min=1)] = 3,
+    judge_set: Annotated[Path, typer.Option("--judge-set", dir_okay=False)] = (
+        DECISION_CALIBRATION_DIR / "judge_set.jsonl"
+    ),
+    guard_set: Annotated[Path, typer.Option("--guard-set", dir_okay=False)] = (
+        DECISION_CALIBRATION_DIR / "guard_set.jsonl"
+    ),
+    output: Annotated[Path, typer.Option("--output", dir_okay=False)] = (
+        DECISION_CALIBRATION_DIR / "jev.json"
+    ),
+    backend_env_file: Annotated[
+        Path, typer.Option("--backend-env-file", dir_okay=False)
+    ] = BACKEND_ENV_FILE,
+) -> None:
+    """Score the decision model on the held-out set (resumes from decisions.jsonl) and write jev.json."""
+
+    def handler() -> CommandResult:
+        decision = SystemOneAdapter(Settings(_env_file=backend_env_file).llm)
+        scores = asyncio.run(
+            score_decision_set(
+                decision,
+                load_rows(judge_set),
+                load_rows(guard_set),
+                repeats=repeats,
+                decisions_path=output.with_name("decisions.jsonl"),
+            )
+        )
+        path = write_scores(scores, output, inputs=score_inputs(judge_set, guard_set))
+        return CommandResult(
+            "e2e decision-set score",
+            CommandStatus.COMPLETE,
+            path,
+            {
+                "model": scores.model,
+                "tau": scores.tau,
+                "block": scores.block,
+                "review": scores.review,
+                "judge_auroc": round(scores.judge["auroc"], 3),
+            },
         )
 
     run_handler(state_from_context(ctx), handler)
@@ -575,6 +950,30 @@ def rerank_server(
     _serve(
         ctx,
         "rerank-server",
+        model=model,
+        hours=hours,
+        kaggle_account=kaggle_account,
+        attach=attach,
+    )
+
+
+@e2e_app.command("embed-server")
+def embed_server(
+    ctx: typer.Context,
+    model: Annotated[
+        str,
+        typer.Option(
+            "--model", help="The agent's embedding model, e.g. qwen3-embedding:8b-q8_0"
+        ),
+    ],
+    hours: HoursOption = 8.0,
+    kaggle_account: AccountOption = "auto",
+    attach: Annotated[str | None, _attach_option("embed-serve")] = None,
+) -> None:
+    """Serve the query embedding model from a Kaggle GPU; E2E runs source the env file."""
+    _serve(
+        ctx,
+        "embed-server",
         model=model,
         hours=hours,
         kaggle_account=kaggle_account,

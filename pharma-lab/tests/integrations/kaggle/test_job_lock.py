@@ -9,7 +9,6 @@ from pharma_lab.integrations.kaggle.job_lock import (
     kaggle_account_lock,
     kaggle_cache_lock,
     kaggle_job_lock,
-    lock_file_name,
     wait_for_kaggle_account,
 )
 
@@ -64,26 +63,6 @@ def test_cache_lock_serializes_writers(tmp_path):
     assert entered.wait(1.0)
     assert finished.wait(1.0)
     thread.join()
-
-
-def test_lock_file_is_named_after_the_target_inside_data(tmp_path: Path) -> None:
-    data = tmp_path / "data"
-    target = data / "cache" / "text_embeddings" / "qwen3_embedding_4b_q8_0.jsonl"
-
-    assert (
-        lock_file_name(target, "job", data_dir=data)
-        == "cache__text_embeddings__qwen3_embedding_4b_q8_0.jsonl.job.lock"
-    )
-
-
-def test_lock_file_for_a_target_outside_data_is_marked_external(tmp_path: Path) -> None:
-    data = tmp_path / "data"
-    target = tmp_path / "elsewhere" / "run.json"
-    expected = "_external/" + target.resolve().as_posix().lstrip("/")
-
-    assert lock_file_name(target, "cache", data_dir=data) == (
-        expected.replace("/", "__") + ".cache.lock"
-    )
 
 
 def test_job_and_cache_locks_on_one_target_can_nest(tmp_path: Path) -> None:

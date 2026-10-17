@@ -238,6 +238,10 @@ class BoundedLogCollector:
 
 WORKER_MARGIN_FLOOR_SECONDS = 900.0
 WORKER_MARGIN_FRACTION = 0.05
+# A llama.cpp server reads the whole GGUF from the Kaggle dataset mount before it answers
+# the health check; a cold mount of a 4 to 9 GB file has taken over five minutes, which
+# ended two reranks at startup. The worker waits long enough for the slowest mount seen.
+SERVER_START_TIMEOUT_SECONDS = 900
 
 
 def worker_deadline(config: dict, clock=time.monotonic) -> float:
@@ -492,7 +496,9 @@ def managed_model_servers(
     try:
         from pharma_lab.runtime.client import LlamaCppClient
 
-        deadline = time.monotonic() + float(config.get("server_start_timeout", 300))
+        deadline = time.monotonic() + float(
+            config.get("server_start_timeout", SERVER_START_TIMEOUT_SECONDS)
+        )
         for server in servers:
             client = LlamaCppClient(server.base_url, timeout=5)
             while True:

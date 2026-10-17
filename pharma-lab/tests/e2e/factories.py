@@ -3,10 +3,19 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import TypeVar
 
-from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
+from pharma_agent.domain.llm.decision import Decision, NoulQuestion
+from pharma_agent.domain.llm.models import (
+    ChatMessage,
+    LlmRole,
+    LlmUsage,
+    StreamDelta,
+    ToolChoice,
+    ToolSpec,
+    ToolTurn,
+)
 from pharma_agent.domain.retrieval.models import Hit, Query, ReleaseScope
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
 from pharma_agent.infrastructure.retrieval.llama_cpp_reranker import NoopReranker
@@ -25,9 +34,27 @@ class ScriptedLlm:
         self.stream_error = stream_error
         self.scripts: dict[LlmRole, list[BaseModel | Exception]] = {}
         self.calls: list[tuple[LlmRole, list[ChatMessage]]] = []
+        self.tool_turns: list[ToolTurn | Exception] = []
 
     def script(self, role: LlmRole, *responses: BaseModel | Exception) -> None:
         self.scripts.setdefault(role, []).extend(responses)
+
+    def script_tool_turns(self, *turns: ToolTurn | Exception) -> None:
+        self.tool_turns.extend(turns)
+
+    async def tool_call(
+        self,
+        role: LlmRole,
+        messages: Sequence[ChatMessage],
+        tools: Sequence[ToolSpec],
+        *,
+        tool_choice: ToolChoice = "auto",
+    ) -> tuple[ToolTurn, LlmUsage]:
+        self.calls.append((role, list(messages)))
+        turn = self.tool_turns.pop(0)
+        if isinstance(turn, Exception):
+            raise turn
+        return turn, LlmUsage(prompt_tokens=200, completion_tokens=20)
 
     async def structured(
         self, role: LlmRole, messages: Sequence[ChatMessage], schema: type[T]
@@ -93,3 +120,30 @@ def retrieval_service(retriever: FakeRetriever) -> RetrievalService:
     return RetrievalService(
         retriever, NoopReranker(), RetrievalConfig(candidate_k=5, rerank_top_n=3)
     )
+
+
+class FakeDecision:
+    """Scripted decision model: returns the given answers or raises the given error."""
+
+    def __init__(self, answers: dict[str, float] | Exception) -> None:
+        self.answers = answers
+        self.calls: list[
+            tuple[LlmRole, dict[str, object], dict[str, NoulQuestion]]
+        ] = []
+
+    async def decide(
+        self,
+        role: LlmRole,
+        state: Mapping[str, object],
+        questions: Mapping[str, NoulQuestion],
+    ) -> Decision:
+        self.calls.append((role, dict(state), dict(questions)))
+        if isinstance(self.answers, Exception):
+            raise self.answers
+        return Decision(
+            answers=self.answers,
+            model="jev-1.13.0",
+            input_tokens=300,
+            seconds=0.2,
+            raw={"answers": {}},
+        )

@@ -13,10 +13,8 @@ from pharma_lab.config.paths import (
     WORK_DIR,
 )
 from pharma_lab.evaluation.preload_query_embeddings import preload_embeddings
-from pharma_lab.evaluation.query_embedding_cache import (
-    QueryEmbeddingCache,
-    query_hash,
-)
+from pharma_lab.evaluation.query_embedding_cache import QueryEmbeddingCache
+from pharma_lab.hashing import query_hash
 from pharma_lab.integrations.kaggle.job_lock import (
     hold_pinned_account,
     kaggle_cache_lock,

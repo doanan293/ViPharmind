@@ -8,12 +8,9 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from pharma_lab.artifacts.jsonl import iter_jsonl_objects
+from pharma_lab.artifacts.manifest import iter_jsonl_objects
 from pharma_lab.cache.jsonl_records import seal_record
-from pharma_lab.evaluation.query_hash import query_hash
-from pharma_lab.evaluation.rerank_contract import (
-    document_hash,
-)
+from pharma_lab.hashing import document_hash, query_hash
 from pharma_lab.integrations.kaggle.models import CloudArtifact, JobIdentity
 from pharma_lab.integrations.kaggle.parsers import format_elapsed
 from pharma_lab.integrations.kaggle.workers.checkpointing import (
@@ -30,12 +27,12 @@ from pharma_lab.integrations.kaggle.workers.runtime import (
     resolve_optional_input_file,
     worker_deadline,
 )
-from pharma_lab.integrations.kaggle.workers.scheduling import (
-    stream_map_ordered,
-)
 from pharma_lab.integrations.kaggle.workers.telemetry import RuntimeTelemetry
 from pharma_lab.runtime.catalog import require_model
 from pharma_lab.runtime.model_profiles import NATIVE_RERANK_PROTOCOL
+from pharma_lab.runtime.scheduling import (
+    stream_map_ordered,
+)
 
 Pair = dict[str, str]
 

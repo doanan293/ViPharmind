@@ -52,7 +52,8 @@ Trả về JSON:
 - standalone_query: câu hỏi đầy đủ, tự chứa, đã thay đại từ ("thuốc đó", "nó") bằng tên thuốc/chủ đề trong ngữ cảnh. Giữ nguyên ngôn ngữ của người dùng. Nếu câu hỏi đã rõ, giữ nguyên.
 - audience: "professional" nếu cách hỏi mang tính chuyên môn (liều mg/kg, dược động học, tương tác theo cơ chế, thuật ngữ y khoa); "general_public" nếu hỏi kiểu đời thường; "unknown" nếu không rõ.
 - language: "vi", "en" hoặc "other".
-- intent: "pharma_question" nếu cần tra cứu thông tin thuốc/sức khỏe; "smalltalk" nếu chỉ chào hỏi, cảm ơn, tán gẫu; "meta" nếu hỏi về chính trợ lý (bạn là ai, làm được gì)."""
+- intent: "pharma_question" nếu cần tra cứu thông tin thuốc/sức khỏe; "smalltalk" nếu chỉ chào hỏi, cảm ơn, tán gẫu; "meta" nếu hỏi về chính trợ lý (bạn là ai, làm được gì).
+- subjects: danh sách tên thuốc hoặc hoạt chất mà lượt này hỏi (rút từ standalone_query; rỗng nếu không có)."""
 
 
 def rephrase_messages(
@@ -82,6 +83,7 @@ Trả về JSON:
 - decision: "answer" nếu evidence đã bao phủ mọi ý của câu hỏi (mọi thuốc, mọi đối tượng, mọi khía cạnh được hỏi); "search_more" nếu còn thiếu.
 - gaps: danh sách ngắn (tối đa 3) các ý còn thiếu, mỗi ý là một cụm cụ thể có thể dùng để tìm tiếp (ví dụ "liều paracetamol cho trẻ 2 tuổi", "tương tác warfarin với aspirin"). Rỗng nếu decision là "answer".
 - reason: một câu.
+- confidence: xác suất (0 đến 1) rằng evidence đã đủ để trả lời trọn vẹn.
 
 Lưu ý: evidence chỉ là đoạn tóm tắt; nếu tiêu đề/mục đúng chủ đề thì coi là đủ. Nếu evidence có "gợi ý thuật ngữ" cho thấy người dùng dùng tên biệt dược hay tên dân gian, gaps nên nêu tên hoạt chất tương ứng."""
 
@@ -127,14 +129,14 @@ def refine_messages(
 
 # ----- answer ------------------------------------------------------------
 
-_CITATION_RULES = """Quy tắc trích dẫn:
+CITATION_RULES = """Quy tắc trích dẫn:
 - Mỗi nguồn trong phần "Tài liệu" có số [n]. Đặt [n] ngay sau câu hoặc ý lấy từ nguồn đó.
 - Mọi thông tin về liều, chống chỉ định, tương tác, tác dụng phụ đều phải có [n].
 - Chỉ dùng số [n] có trong Tài liệu. Không bịa thông tin ngoài Tài liệu; nếu Tài liệu không nói, ghi rõ là tài liệu không đề cập."""
 
 _MODE_INSTRUCTIONS = {
     AnswerMode.GROUNDED: "Trả lời câu hỏi dựa trên Tài liệu bên dưới.\n"
-    + _CITATION_RULES,
+    + CITATION_RULES,
     AnswerMode.NO_RETRIEVAL: (
         "Câu hỏi là lời chào, cảm ơn hoặc hỏi về chính trợ lý. Trả lời ngắn gọn, thân thiện, "
         "giới thiệu rằng bạn tra cứu thông tin thuốc từ Dược thư Quốc gia và mời người dùng đặt câu hỏi về thuốc. Không trích dẫn."

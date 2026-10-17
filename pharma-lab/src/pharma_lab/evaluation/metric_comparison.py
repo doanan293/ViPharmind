@@ -10,9 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from pharma_lab.artifacts.bundle import load_bundle
-from pharma_lab.artifacts.jsonl import iter_jsonl_objects
+from pharma_lab.artifacts.manifest import ArtifactContractError, iter_jsonl_objects
 from pharma_lab.config.defaults import DEFAULT_TOP_K
-from pharma_lab.evaluation.artifact_contracts import ArtifactContractError
 from pharma_lab.evaluation.metrics_artifacts import report_dir
 
 # Both reports must score the same evaluation rows over the same candidates with the

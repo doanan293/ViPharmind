@@ -1,3 +1,4 @@
+import time
 from collections.abc import Mapping, Sequence
 from uuid import UUID
 
@@ -21,6 +22,9 @@ class SearchResult(BaseModel):
     rerank_failed: bool = False
     rerank_scored: int = 0
     rerank_reused: int = 0
+    # Wall time of this round's retrieval and of its rerank call (0 when none ran).
+    retrieval_seconds: float = 0.0
+    rerank_seconds: float = 0.0
     error: str | None = None
 
     @property
@@ -51,6 +55,7 @@ class RetrievalService:
         `known_scores` maps chunk_version_id to a rerank score already computed for the same
         `rerank_query` (an earlier round of the same run); those chunks are not scored again.
         """
+        started = time.perf_counter()
         try:
             if scope is not None and not scope:
                 # Nothing the user may search: an empty result, not a failure.
@@ -60,6 +65,7 @@ class RetrievalService:
             )
         except RetrievalError as exc:
             return SearchResult(queries=list(queries), error=str(exc))
+        retrieval_seconds = time.perf_counter() - started
 
         candidates = _candidate_pool(per_query, self._config.rerank_candidates)
         known = known_scores or {}
@@ -70,6 +76,8 @@ class RetrievalService:
         ]
         fresh = [hit for hit in candidates if hit.chunk_version_id not in known]
         rerank_failed = False
+        had_fresh = bool(fresh)
+        rerank_started = time.perf_counter()
         try:
             scored = (
                 await self._reranker.rerank(rerank_query, fresh, len(fresh))
@@ -92,6 +100,8 @@ class RetrievalService:
             rerank_failed=rerank_failed,
             rerank_scored=len(fresh),
             rerank_reused=len(reused),
+            retrieval_seconds=retrieval_seconds,
+            rerank_seconds=time.perf_counter() - rerank_started if had_fresh else 0.0,
         )
 
 

@@ -235,3 +235,33 @@ def test_each_serve_stage_accepts_only_its_model_kind(tmp_path: Path) -> None:
 def test_llama_server_reads_the_api_key_variable() -> None:
     # llama.cpp common/arg.cpp: --api-key ... set_env("LLAMA_API_KEY")
     assert API_KEY_ENV == "LLAMA_API_KEY"
+
+
+EMBEDDING_MODEL = "qwen3-embedding:8b-q8_0"
+
+
+def test_embed_serve_builds_a_serve_job_for_an_embedding_model(tmp_path: Path) -> None:
+    spaces = require_model(EMBEDDING_MODEL).embedding_search_space
+    assert spaces is not None
+    profile = spaces.query.candidates[0]
+    job = get_stage_adapter(StageName.EMBED_SERVE).build_job(
+        stage_request(
+            StageName.EMBED_SERVE,
+            EMBEDDING_MODEL,
+            request_file(tmp_path, "e"),
+            runtime_profile=profile,
+        )
+    )
+
+    assert job.stage is StageName.EMBED_SERVE
+    assert job.worker_module == "pharma_lab.integrations.kaggle.workers.serve"
+    assert job.worker_config["api_key"] == "key-e"
+    with pytest.raises(ValueError, match="embedding model"):
+        get_stage_adapter(StageName.EMBED_SERVE).build_job(
+            stage_request(
+                StageName.EMBED_SERVE,
+                MODEL,
+                request_file(tmp_path, "f"),
+                runtime_profile=rerank_runtime_profile(MODEL),
+            )
+        )

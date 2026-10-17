@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,17 +13,18 @@ from typing import Any
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.infrastructure.settings import Settings
 
-from pharma_lab.evaluation.artifact_contracts import write_json
+from pharma_lab.artifacts.manifest import write_json
 
 RUN_FILE = "run.json"
-INFORMATIONAL = ("git_commit", "created_at")
+# Recorded on first use; a resume may differ in them.
+INFORMATIONAL = ("git_commit", "created_at", "concurrency", "decision_model_version")
 
 
 @dataclass(frozen=True)
 class RunIdentity:
     golden_sha256: str
     config: str
-    pipeline: dict[str, bool]
+    pipeline: dict[str, object]
     release_id: str
     retrieval: dict[str, Any]
     rerank: dict[str, Any]
@@ -35,7 +37,7 @@ def identity_from_settings(
     *,
     golden_sha256: str,
     config: str,
-    pipeline: dict[str, bool],
+    pipeline: Mapping[str, object],
     release_id: str,
 ) -> RunIdentity:
     retrieval = settings.retrieval
@@ -46,6 +48,7 @@ def identity_from_settings(
         roles[role.value] = {
             "model": endpoint.model,
             "reasoning_effort": endpoint.reasoning_effort,
+            "provider": endpoint.provider,
         }
         # Recorded only when set, so identities of earlier runs stay unchanged.
         if endpoint.extra_body:
@@ -55,7 +58,7 @@ def identity_from_settings(
     return RunIdentity(
         golden_sha256=golden_sha256,
         config=config,
-        pipeline=pipeline,
+        pipeline=dict(pipeline),
         release_id=release_id,
         retrieval={
             "mode": retrieval.mode,
@@ -88,7 +91,13 @@ def git_commit(directory: Path) -> str | None:
     return result.stdout.strip() or None
 
 
-def open_run(directory: Path, identity: RunIdentity, *, commit: str | None) -> None:
+def open_run(
+    directory: Path,
+    identity: RunIdentity,
+    *,
+    commit: str | None,
+    extra: Mapping[str, object] | None = None,
+) -> None:
     """Write run.json on first use; refuse to resume under a different identity."""
     path = Path(directory) / RUN_FILE
     current = asdict(identity)
@@ -111,6 +120,7 @@ def open_run(directory: Path, identity: RunIdentity, *, commit: str | None) -> N
         path,
         {
             **current,
+            **(extra or {}),
             "git_commit": commit,
             "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
         },

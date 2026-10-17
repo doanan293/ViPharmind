@@ -6,7 +6,9 @@ Hướng dẫn này là quy trình soạn `data/evaluation/e2e/golden_e2e.jsonl`
 
 ```bash
 uv run pharma-lab e2e golden sample              # ghi authoring/*.todo.jsonl (270 answerable, 50 multi-turn)
-uv run pharma-lab e2e golden hard-candidates --run hybrid-qwen4b-v2-p50-k30-rrf2   # ứng viên multi-hop
+uv run pharma-lab e2e golden hard-candidates --run hybrid-qwen4b-v2-p50-k20-rrf2   # ứng viên multi-hop từ benchmark
+uv run pharma-lab e2e golden generate            # ứng viên hai thuốc và biệt dược sang hoạt chất, sinh từ corpus
+uv run pharma-lab e2e golden draft               # nháp các câu multi-hop còn thiếu quota bằng LLM, ghi multi-hop-NN.draft.jsonl để duyệt
 # soạn mỗi lô X.todo.jsonl thành X.authored.jsonl, cộng thêm multi-hop-NN và special.authored.jsonl
 uv run pharma-lab e2e golden check data/evaluation/e2e/authoring/X.authored.jsonl
 uv run pharma-lab e2e golden build               # kiểm đủ số lượng, ghi golden_e2e.jsonl và manifest
@@ -45,9 +47,11 @@ Mỗi dòng của `*.authored.jsonl` là một `GoldenItem` JSON do tác giả s
   - `expected_behavior` là `grounded`.
   - `answer_mode = any_acceptable`: key fact lấy từ section trả lời trực tiếp nhất.
   - `answer_mode = multi_required`: key fact phải phủ mọi ý được hỏi, lấy từ các section tương ứng.
-- **`multi_hop`** (150 câu, `grounded`, id `e2e-mhop-`): câu mà một lượt tìm kiếm (hybrid + rerank, top 5) thiếu một phần section gold, nên phải có vòng judge-refine mới đủ bằng chứng.
-  - Ứng viên lấy từ `authoring/multi-hop.todo.jsonl` do `golden hard-candidates` ghi: mỗi dòng có câu benchmark, loại và các section gold mà vòng đầu bỏ sót (`missing`).
-  - `tags` có đúng một loại: `three_intent` (một câu hỏi ba mục của cùng thuốc), `two_drug` (tương tác hoặc so sánh, bằng chứng từ hai chuyên luận), `brand_to_ingredient` (tờ hướng dẫn của biệt dược thiếu mục, Dược thư của hoạt chất có), `noisy_retry` (câu nhiễu hoặc gõ sai mà vòng đầu trượt). Mỗi loại 30 đến 45 câu.
+- **`multi_hop`** (150 câu, `grounded`, id `e2e-mhop-`): câu mà một lượt tìm kiếm (hybrid + rerank, top 5) thiếu một phần section gold, nên phải có vòng judge-refine mới đủ bằng chứng. Mỗi loại nhắm vào một phần của harness và được báo riêng.
+  - `tags` có đúng một loại, quota cố định trong `MULTI_HOP_QUOTAS`: `retrieval_miss` 32 (câu sạch một mục mà vòng đầu trượt), `noisy_retry` 36 (câu nhiễu hoặc gõ sai mà vòng đầu trượt), `three_intent` 16 (đa intent, các mục gold rơi vào hai chunk), `two_drug` 36 (mục tương tác của chuyên luận A nêu tên thuốc B, hỏi dùng chung và một ý về B), `brand_to_ingredient` 30 (tờ hướng dẫn của biệt dược thiếu mục được hỏi, Dược thư của hoạt chất có).
+  - Ba loại đầu lấy từ `authoring/multi-hop.todo.jsonl` do `golden hard-candidates` ghi: mỗi dòng có câu benchmark, loại và các section gold mà vòng đầu bỏ sót (`missing`). `retrieval_miss` chỉ nhận câu có dấu hỏi và mọi section gold đủ thông tin (không phải tên thương mại, thông tin quy chế, tương kỵ, nội dung hay thông tin thêm; ít nhất 30 từ), vì phần lớn câu trượt của benchmark rơi vào các mục đó và không trả lời được từ chúng. Hai loại sau lấy từ `authoring/multi-hop.generated.jsonl` do `golden generate` sinh từ corpus (mặc định gấp đôi quota để bù câu bị loại khi duyệt): câu hỏi ghép theo mẫu, kèm `subjects` là tên thuốc mà câu viết lại phải giữ.
+  - `golden draft` đếm số câu đã soạn mỗi loại trong `multi-hop-NN.authored.jsonl`, nháp phần còn thiếu quota, bỏ ứng viên mà batch `*.authored.jsonl` hoặc `*.draft.jsonl` đã dùng (câu bị loại không được nháp lại), thứ tự theo `--seed`, ghi thành batch mới đánh số tiếp theo. Mỗi câu một lời gọi `gemini-3.1-flash-lite` (`--model`) trên endpoint LLM của backend, soạn câu trả lời mẫu và key fact; với câu sinh theo luật, model viết lại câu hỏi cho tự nhiên. Bản nháp được kiểm bằng luật của `golden check` cộng điều kiện mọi section gold có ít nhất một key fact và câu viết lại còn nêu đủ tên thuốc; bản lỗi được gửi lại kèm danh sách lỗi một lần, vẫn lỗi thì lấy ứng viên kế tiếp cùng loại và ghi vào `multi-hop.failed.jsonl`. Duyệt xong các batch nháp rồi mới chạy `draft` lần nữa.
+  - Bản nháp chưa phải bản soạn: người duyệt (Claude Fable 5.1 trong vai dược sĩ, theo rubric) duyệt từng câu trong `multi-hop-NN.draft.jsonl` (câu hỏi có cần đủ mọi section không, key fact có đúng và đủ không), sửa rồi lưu thành `multi-hop-NN.authored.jsonl`. `golden build` chỉ đọc file `*.authored.jsonl` và kiểm số câu mỗi loại đúng quota.
   - `turns` là đúng một lượt `user`; key fact phải có quote từ mọi section gold, kể cả section vòng đầu bỏ sót.
   - `eval_group` để trống.
 - **Bỏ bớt answerable.** Sau khi soạn, `uv run pharma-lab e2e golden trim --run <run>` bỏ 25 câu mỗi nhóm trong số câu mà một lượt đã phủ đủ gold, để còn 45 câu mỗi nhóm.

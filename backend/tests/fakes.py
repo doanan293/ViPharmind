@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import TypeVar
 
@@ -9,7 +9,16 @@ from pydantic import BaseModel
 
 from pharma_agent.application.chat.context import TurnDeps
 from pharma_agent.domain.guardrail.service import GuardrailService
-from pharma_agent.domain.llm.models import ChatMessage, LlmRole, LlmUsage, StreamDelta
+from pharma_agent.domain.llm.decision import Decision, DecisionPort, NoulQuestion
+from pharma_agent.domain.llm.models import (
+    ChatMessage,
+    LlmRole,
+    LlmUsage,
+    StreamDelta,
+    ToolChoice,
+    ToolSpec,
+    ToolTurn,
+)
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.models import (
     Hit,
@@ -36,9 +45,34 @@ class FakeLlm:
         self.stream_error: Exception | None = None
         self.stream_delay: float = 0.0
         self.calls: list[tuple[LlmRole, list[ChatMessage]]] = []
+        self.tool_turns: list[ToolTurn | Exception] = []
+        self.tool_calls_seen: list[
+            tuple[LlmRole, list[ChatMessage], list[ToolSpec]]
+        ] = []
+        self.tool_choices: list[ToolChoice] = []
 
     def script(self, role: LlmRole, *responses: BaseModel | Exception) -> None:
         self.structured_responses.setdefault(role, []).extend(responses)
+
+    def script_tool_turns(self, *turns: ToolTurn | Exception) -> None:
+        self.tool_turns.extend(turns)
+
+    async def tool_call(
+        self,
+        role: LlmRole,
+        messages: Sequence[ChatMessage],
+        tools: Sequence[ToolSpec],
+        *,
+        tool_choice: ToolChoice = "auto",
+    ) -> tuple[ToolTurn, LlmUsage]:
+        self.tool_calls_seen.append((role, list(messages), list(tools)))
+        self.tool_choices.append(tool_choice)
+        if not self.tool_turns:
+            raise AssertionError("no scripted tool turn")
+        turn = self.tool_turns.pop(0)
+        if isinstance(turn, Exception):
+            raise turn
+        return turn, LlmUsage(prompt_tokens=200, completion_tokens=20)
 
     async def structured(
         self, role: LlmRole, messages: Sequence[ChatMessage], schema: type[T]
@@ -147,16 +181,19 @@ def build_deps(
     llm: FakeLlm,
     retriever: FakeRetriever,
     reranker: Reranker | None = None,
+    decisions: Mapping[LlmRole, DecisionPort] | None = None,
+    guard_decision: DecisionPort | None = None,
 ) -> TurnDeps:
     return TurnDeps(
         llm=llm,
-        guardrail=GuardrailService(llm),
+        guardrail=GuardrailService(llm, decision=guard_decision),
         retrieval=RetrievalService(
             retriever,
             reranker if reranker is not None else FakeReranker(),
             RetrievalConfig(candidate_k=5, rerank_top_n=3),
         ),
         clock=FixedClock(NOW),
+        decisions=dict(decisions or {}),
     )
 
 
@@ -172,3 +209,37 @@ __all__ = [
     "build_deps",
     "fake_vector",
 ]
+
+
+class FakeDecision:
+    """Scripted decision model: returns the given answers or raises the given error.
+    A list scripts one response per call; its last entry answers every later call."""
+
+    def __init__(
+        self,
+        answers: dict[str, float] | Exception | list[dict[str, float] | Exception],
+    ) -> None:
+        self.responses = list(answers) if isinstance(answers, list) else [answers]
+        self.calls: list[
+            tuple[LlmRole, dict[str, object], dict[str, NoulQuestion]]
+        ] = []
+
+    async def decide(
+        self,
+        role: LlmRole,
+        state: Mapping[str, object],
+        questions: Mapping[str, NoulQuestion],
+    ) -> Decision:
+        self.calls.append((role, dict(state), dict(questions)))
+        response = (
+            self.responses.pop(0) if len(self.responses) > 1 else self.responses[0]
+        )
+        if isinstance(response, Exception):
+            raise response
+        return Decision(
+            answers=response,
+            model="jev-1.13.0",
+            input_tokens=300,
+            seconds=0.2,
+            raw={"answers": {}},
+        )

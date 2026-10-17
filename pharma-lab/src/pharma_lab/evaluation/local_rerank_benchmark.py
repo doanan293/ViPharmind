@@ -10,8 +10,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from pharma_lab.artifacts.jsonl import iter_jsonl_objects
+from pharma_lab.artifacts.manifest import iter_jsonl_objects
 from pharma_lab.config.paths import LOCAL_MODELS_COMPOSE_FILE, LOCAL_PROFILE_DIR
+from pharma_lab.hashing import canonical_sha256
 from pharma_lab.runtime.benchmarking import (
     LOCAL_RERANK_BENCHMARK_GROUPS,
     BenchmarkMeasurement,
@@ -35,7 +36,6 @@ from pharma_lab.runtime.runtime_profiles import (
     RuntimeProfileIdentity,
     RuntimeProfileStore,
     RuntimeSearchSpace,
-    canonical_sha256,
 )
 from pharma_lab.runtime.server_policy import inference_cache_policy
 
