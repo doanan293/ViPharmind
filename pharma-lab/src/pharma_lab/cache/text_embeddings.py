@@ -19,7 +19,7 @@ from pharma_lab.cache.jsonl_records import (
     append_record,
     iter_records,
 )
-from pharma_lab.integrations.kaggle.workers.scheduling import stream_map_ordered
+from pharma_lab.runtime.scheduling import stream_map_ordered
 
 CACHE_SCHEMA = "text-embedding-v1"
 

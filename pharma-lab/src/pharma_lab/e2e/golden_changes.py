@@ -18,6 +18,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from pharma_lab.artifacts.manifest import sha256_file, write_json
 from pharma_lab.e2e.golden import GoldenItem, archive_path, load_golden
 from pharma_lab.e2e.records import (
     ANSWERS_FILE,
@@ -27,7 +28,6 @@ from pharma_lab.e2e.records import (
     Judgement,
 )
 from pharma_lab.e2e.run_identity import RUN_FILE
-from pharma_lab.evaluation.artifact_contracts import sha256_file, write_json
 
 SUPERSEDED = "superseded"
 SUPERSEDED_ERROR = "golden item changed"

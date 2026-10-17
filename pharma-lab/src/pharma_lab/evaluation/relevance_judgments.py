@@ -21,13 +21,13 @@ from typing import Any
 
 from pharma_agent.domain.corpus.bundle import read_bundle
 
-from pharma_lab.artifacts.jsonl import iter_jsonl_objects
-from pharma_lab.bundle.evaluation_chunks import evaluation_chunk_rows
-from pharma_lab.evaluation.artifact_contracts import (
+from pharma_lab.artifacts.manifest import (
     ArtifactContractError,
+    iter_jsonl_objects,
     sha256_file,
     write_json,
 )
+from pharma_lab.bundle.evaluation_chunks import evaluation_chunk_rows
 from pharma_lab.evaluation.retrieval_metrics import expected_section_ids
 
 RULES_VERSION = 1

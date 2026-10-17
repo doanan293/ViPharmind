@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from pharma_lab.artifacts.bundle import ArtifactBundle
-from pharma_lab.evaluation.artifact_contracts import (
+from pharma_lab.artifacts.manifest import (
     ArtifactContractError,
     sha256_file,
 )

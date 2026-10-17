@@ -6,7 +6,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from pharma_lab.embeddings.text_cache import (
+from pharma_lab.cache.text_embeddings import (
     TextEmbeddingCache,
     embed_missing,
     read_embedding_inputs,

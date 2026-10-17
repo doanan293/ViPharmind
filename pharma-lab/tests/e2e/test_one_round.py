@@ -7,13 +7,26 @@ from typer.testing import CliRunner
 
 from pharma_lab.cli.app import app
 from pharma_lab.cli.commands import e2e as e2e_commands
+from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden import GoldenItem
 from pharma_lab.e2e.one_round import (
     OneRoundCoverage,
     OneRoundRun,
     coverage,
+    informative,
     multi_hop_kind,
     trim_covered,
+)
+
+LONG = " ".join(["liều"] * 30)
+CORPUS = CorpusText(
+    sections={
+        "drug:paracetamol:lieu-dung": LONG,
+        "drug:paracetamol:ten-thuong-mai": LONG,
+        "drug:paracetamol:than-trong": "ngắn",
+    },
+    section_documents={},
+    titles={},
 )
 
 
@@ -64,45 +77,52 @@ def test_judged_chunks_outside_gold_count_as_found() -> None:
 
 
 @pytest.mark.parametrize(
-    ("changes", "judged", "kind"),
+    ("changes", "kind"),
     [
-        (
-            {
-                "answer_mode": "multi_required",
-                "expected_section_ids": ["drug:a:tuong-tac", "drug:b:tuong-tac"],
-            },
-            {},
-            "two_drug",
-        ),
         (
             {
                 "answer_mode": "multi_required",
                 "expected_section_ids": ["drug:a:chi-dinh", "drug:a:lieu-dung"],
             },
-            {},
             "three_intent",
         ),
-        ({"eval_group": "noisy"}, {}, "noisy_retry"),
+        ({"eval_group": "noisy"}, "noisy_retry"),
+        ({}, "retrieval_miss"),
+        # The benchmark's two-document questions are one product at two strengths:
+        # they are not two-drug items, which are generated from the corpus instead.
         (
             {
-                "eval_group": "leaflet",
-                "expected_section_id": "leaflet:t:brand:05-luu-y",
-                "expected_section_ids": ["leaflet:t:brand:05-luu-y"],
+                "answer_mode": "any_acceptable",
+                "expected_section_ids": ["drug:a:tuong-tac", "drug:b:tuong-tac"],
             },
-            {"leaflet:t:brand:05-luu-y": frozenset({"drug:a:than-trong:chunk-001"})},
-            "brand_to_ingredient",
+            "retrieval_miss",
         ),
-        ({}, {}, None),
     ],
 )
 def test_missed_rows_get_a_multi_hop_kind(
-    changes: dict[str, Any], judged: dict[str, frozenset[str]], kind: str | None
+    changes: dict[str, Any], kind: str | None
 ) -> None:
     query = row(**changes)
     missed = OneRoundCoverage("q1", ("answer",), ("answer",))
-    assert multi_hop_kind(query, missed, judged) == kind
+    assert multi_hop_kind(query, missed) == kind
     covered = OneRoundCoverage("q1", ("answer",), ())
-    assert multi_hop_kind(query, covered, judged) is None
+    assert multi_hop_kind(query, covered) is None
+
+
+@pytest.mark.parametrize(
+    ("changes", "expected"),
+    [
+        ({}, True),
+        ({"query": "Liều lượng và cách dùng Uống 1 viên"}, False),
+        ({"expected_section_ids": ["drug:paracetamol:ten-thuong-mai"]}, False),
+        ({"expected_section_ids": ["drug:paracetamol:than-trong"]}, False),
+        ({"expected_section_ids": ["drug:paracetamol:lieu-dung", "drug:x:y"]}, False),
+    ],
+)
+def test_a_retrieval_miss_needs_a_question_and_an_informative_section(
+    changes: dict[str, Any], expected: bool
+) -> None:
+    assert informative(row(**changes), CORPUS) is expected
 
 
 def item(item_id: str, group: str, source: str) -> GoldenItem:
@@ -159,7 +179,23 @@ def test_cli_trim_rewrites_authored_batches(tmp_path: Path, monkeypatch) -> None
         ),
         encoding="utf-8",
     )
-    covered = {f"a{i}": OneRoundCoverage(f"a{i}", ("answer",), ()) for i in range(3)}
+    # A replacement batch holds answerable items too; its other categories stay.
+    other = tmp_path / "replacement-01.authored.jsonl"
+    other.write_text(
+        json.dumps(item("e2e-ans-a3", "a", "a3").model_dump(mode="json"))
+        + "\n"
+        + json.dumps(
+            {
+                "item_id": "e2e-oos-0001",
+                "category": "out_of_scope",
+                "turns": [{"role": "user", "text": "Thời tiết?"}],
+                "expected_behavior": "redirect",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    covered = {f"a{i}": OneRoundCoverage(f"a{i}", ("answer",), ()) for i in range(4)}
     monkeypatch.setattr(
         e2e_commands, "load_one_round", lambda *a, **k: _fake_run(covered, {})
     )
@@ -181,18 +217,29 @@ def test_cli_trim_rewrites_authored_batches(tmp_path: Path, monkeypatch) -> None
     kept = [
         json.loads(line)["item_id"] for line in batch.read_text("utf-8").splitlines()
     ]
-    assert kept == ["e2e-ans-a1", "e2e-ans-a2"]
+    assert kept == ["e2e-ans-a2"]
+    assert [
+        json.loads(line)["item_id"] for line in other.read_text("utf-8").splitlines()
+    ] == ["e2e-ans-a3", "e2e-oos-0001"]
 
 
 def test_cli_hard_candidates_writes_the_todo(tmp_path: Path, monkeypatch) -> None:
-    rows = {"q1": row(eval_group="noisy"), "q2": row(query_id="q2")}
+    rows = {
+        "q1": row(eval_group="noisy"),
+        "q2": row(query_id="q2"),
+        "q3": row(query_id="q3", expected_section_ids=["drug:paracetamol:than-trong"]),
+        "q4": row(query_id="q4"),
+    }
     found = {
         "q1": OneRoundCoverage("q1", ("answer",), ("answer",)),
         "q2": OneRoundCoverage("q2", ("answer",), ()),
+        "q3": OneRoundCoverage("q3", ("answer",), ("answer",)),
+        "q4": OneRoundCoverage("q4", ("answer",), ("answer",)),
     }
     monkeypatch.setattr(
         e2e_commands, "load_one_round", lambda *a, **k: _fake_run(found, rows)
     )
+    monkeypatch.setattr(e2e_commands, "load_corpus_text", lambda bundle: CORPUS)
     result = CliRunner().invoke(
         app,
         [
@@ -210,6 +257,8 @@ def test_cli_hard_candidates_writes_the_todo(tmp_path: Path, monkeypatch) -> Non
         json.loads(line)
         for line in (tmp_path / "multi-hop.todo.jsonl").read_text("utf-8").splitlines()
     ]
+    # q2 is covered; q3 misses a section too short to answer from.
     assert [(t["query_id"], t["kind"], t["missing"]) for t in todo] == [
-        ("q1", "noisy_retry", ["answer"])
+        ("q1", "noisy_retry", ["answer"]),
+        ("q4", "retrieval_miss", ["answer"]),
     ]

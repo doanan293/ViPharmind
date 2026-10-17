@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from tests.e2e.factories import ScriptedLlm
 
 from pharma_lab.artifacts.bundle import load_bundle
+from pharma_lab.artifacts.manifest import sha256_file
 from pharma_lab.bundle.chunks import gold_chunk_label, iter_document_chunks
 from pharma_lab.bundle.export import ExportRequest, export_bundle
 from pharma_lab.e2e.decision_calibration import (
@@ -26,7 +27,6 @@ from pharma_lab.e2e.decision_calibration import (
     build_judge_set,
     draft_guard_set,
 )
-from pharma_lab.evaluation.artifact_contracts import sha256_file
 from pharma_lab.evaluation.relevance_judgments import judgments_path, write_judgments
 from pharma_lab.evaluation.rerank_artifacts import finalize_run_rerank_bundle
 from pharma_lab.evaluation.rerank_score_cache import RerankScoreCache

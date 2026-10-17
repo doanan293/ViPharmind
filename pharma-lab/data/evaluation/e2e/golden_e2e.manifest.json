@@ -1,22 +1,23 @@
 {
   "answerable_per_group": {
-    "chunk_risk": 70,
-    "formulary": 70,
-    "leaflet": 70,
-    "leaflet_short": 70,
-    "multi_intent": 70,
-    "noisy": 70
+    "formulary": 45,
+    "leaflet": 45,
+    "leaflet_short": 45,
+    "multi_intent": 45,
+    "noisy": 45,
+    "structured": 45
   },
-  "bundle_manifest_sha256": "f2b341d9d7a484654e62722295a637f433674b98e3359ec137b13722d732d689",
+  "bundle_manifest_sha256": "b8f7640a746f826b7f41fe9e1f767092a66ed22e154ef172dc3d14e3bf4f980f",
   "counts": {
-    "answerable": 420,
+    "answerable": 270,
     "injection": 10,
+    "multi_hop": 150,
     "multi_turn": 50,
     "out_of_scope": 10,
     "unanswerable": 10
   },
-  "created_at": "2026-10-15T03:01:53+00:00",
-  "gold_sha256": "34300847a3fbe5bd619e4fa70678f9460268abfdaa82e2878b2c90bdcf9a6069",
-  "schema": "e2e-golden-v1",
-  "sha256": "b4a9723d2ed9785311bcc8ccdab269bf15e8adcad6ce8d5aba166b13ff5c29df"
+  "created_at": "2026-10-17T04:47:42+00:00",
+  "gold_sha256": "587b0374d106ab1b139681b5a9b86358d900a1b8a092028f95ff2af3b4f24994",
+  "schema": "e2e-golden-v3",
+  "sha256": "bcd5ac96a6319bb6646c95f2d366aee183ddf48bb20377f2d44357e5ff897218"
 }

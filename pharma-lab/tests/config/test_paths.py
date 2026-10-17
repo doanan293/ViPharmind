@@ -1,7 +1,9 @@
 from pharma_lab.config import paths
 
 
-def test_evaluation_cache_corpus_and_work_folders_follow_the_layout() -> None:
+def test_evaluation_cache_corpus_and_work_folders_follow_the_layout(
+    isolated_lock_dir,
+) -> None:
     assert paths.RAG_FINAL_DIR == paths.DATA_DIR / "corpus" / "rag-final"
     assert paths.RAG_FINAL_SECTIONS_PATH == paths.RAG_FINAL_DIR / "sections.jsonl"
     assert paths.BUNDLE_DIR == paths.DATA_DIR / "corpus" / "formulary"
@@ -16,7 +18,8 @@ def test_evaluation_cache_corpus_and_work_folders_follow_the_layout() -> None:
     assert paths.CACHE_DIR == paths.DATA_DIR / "cache"
     assert paths.WORK_DIR == paths.DATA_DIR / "work"
     assert paths.BUILD_WORK_DIR == paths.WORK_DIR / "build"
-    assert paths.LOCK_DIR == paths.WORK_DIR / "locks"
+    # tests/conftest.py redirects LOCK_DIR for every test; the original is the real value.
+    assert isolated_lock_dir.original == paths.WORK_DIR / "locks"
     assert paths.TEXT_INTERIM_DIR == paths.BUILD_WORK_DIR / "text"
     assert paths.BUNDLE_EMBED_WORK_DIR == paths.WORK_DIR / "bundle-embed"
     assert paths.EVALUATION_CHUNKS_PATH == (
@@ -32,14 +35,6 @@ def test_build_inputs_live_in_sources() -> None:
     assert paths.LEAFLETS_DIR == paths.SOURCES_DIR / "leaflets"
     assert paths.LEAFLETS_MANIFEST_PATH == paths.LEAFLETS_DIR / "manifest.json"
     assert paths.SOURCES_CURATION_DIR == paths.SOURCES_DIR / "curation"
-
-
-def test_rerank_logs_live_under_work(isolated_logs_dir) -> None:
-    # tests/conftest.py redirects LOGS_DIR for every test; the original is the real value.
-    assert isolated_logs_dir.original == paths.WORK_DIR / "logs"
-    assert paths.rerank_log_path("qwen3-reranker:0.6b-q8_0") == (
-        isolated_logs_dir.root / "rerank" / "qwen3_reranker_0_6b_q8_0.log"
-    )
 
 
 def test_source_root_is_the_imported_package_tree() -> None:

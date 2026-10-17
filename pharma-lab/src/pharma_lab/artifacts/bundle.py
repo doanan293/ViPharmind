@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from pharma_lab.artifacts.io import copy_hash_and_count
-from pharma_lab.artifacts.manifest import Completion
-from pharma_lab.evaluation.artifact_contracts import (
+from pharma_lab.artifacts.manifest import (
     ArtifactContractError,
     ArtifactManifest,
+    Completion,
     load_manifest,
     validate_data_file,
     write_json,

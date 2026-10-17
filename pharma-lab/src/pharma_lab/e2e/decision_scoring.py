@@ -29,6 +29,7 @@ from pharma_agent.domain.conversation.models import ConversationContext
 from pharma_agent.domain.llm.decision import DecisionPort
 from pharma_agent.domain.llm.models import LlmRole
 
+from pharma_lab.artifacts.manifest import iter_jsonl_objects, sha256_file
 from pharma_lab.e2e.decision_metrics import (
     accuracy_at,
     auroc,
@@ -36,7 +37,6 @@ from pharma_lab.e2e.decision_metrics import (
     brier,
     ece,
 )
-from pharma_lab.evaluation.artifact_contracts import iter_jsonl_objects, sha256_file
 
 CONCURRENCY = 4
 BLOCK_CANDIDATES = (0.50, 0.60, 0.70, 0.80)

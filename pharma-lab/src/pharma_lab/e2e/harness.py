@@ -13,6 +13,7 @@ from typing import Protocol
 from pharma_agent.infrastructure.composition import build_application
 from pharma_agent.infrastructure.settings import Settings
 
+from pharma_lab.artifacts.manifest import sha256_file, write_json
 from pharma_lab.e2e.configs import (
     E2EConfig,
     config_label,
@@ -37,7 +38,6 @@ from pharma_lab.e2e.run_identity import (
     identity_from_settings,
     open_run,
 )
-from pharma_lab.evaluation.artifact_contracts import sha256_file, write_json
 from pharma_lab.evaluation.backend_retrieval import current_release_id
 
 NO_RELEASE = "none"

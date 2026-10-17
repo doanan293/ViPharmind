@@ -1,7 +1,9 @@
 from pathlib import Path
 
+from tests.conftest import Redirected
+
 from pharma_lab.artifacts.publisher import publish_contract
-from pharma_lab.integrations.kaggle.job_lock import lock_file_name
+from pharma_lab.cache.file_locks import lock_file_name
 
 
 def _candidate(root: Path) -> Path:
@@ -12,7 +14,7 @@ def _candidate(root: Path) -> Path:
 
 
 def test_publish_keeps_its_lock_under_the_lock_directory(
-    tmp_path: Path, isolated_lock_dir: Path
+    tmp_path: Path, isolated_lock_dir: Redirected
 ) -> None:
     final = tmp_path / "corpus" / "rag-final"
 
@@ -20,4 +22,4 @@ def test_publish_keeps_its_lock_under_the_lock_directory(
 
     assert (final / "manifest.json").is_file()
     assert [path.name for path in final.parent.iterdir()] == ["rag-final"]
-    assert (isolated_lock_dir / lock_file_name(final, "publish")).is_file()
+    assert (isolated_lock_dir.root / lock_file_name(final, "publish")).is_file()

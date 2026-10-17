@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-import pharma_lab.integrations.kaggle.job_lock as job_lock
+from pharma_lab.config import paths
 from pharma_lab.embeddings.service import KaggleTextEmbeddingBackend
 from pharma_lab.evaluation.query_embedding_service import (
     KaggleQueryEmbeddingBackend,
@@ -17,7 +17,7 @@ from pharma_lab.integrations.kaggle.job_lock import (
 
 @pytest.fixture(autouse=True)
 def _locks_in_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(job_lock, "LOCK_DIR", tmp_path / "locks")
+    monkeypatch.setattr(paths, "LOCK_DIR", tmp_path / "locks")
 
 
 def _busy(profile: str) -> bool:

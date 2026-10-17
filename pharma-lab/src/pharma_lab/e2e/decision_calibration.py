@@ -31,6 +31,7 @@ from pharma_agent.domain.retrieval.evidence import Evidence
 from pharma_agent.domain.retrieval.models import Hit
 from pydantic import BaseModel
 
+from pharma_lab.artifacts.manifest import iter_jsonl_objects
 from pharma_lab.bundle.chunks import gold_chunk_label, iter_document_chunks
 from pharma_lab.e2e.calibration_templates import (
     ATTACK_KINDS,
@@ -39,7 +40,6 @@ from pharma_lab.e2e.calibration_templates import (
     SMALLTALK_KINDS,
     TEMPLATES,
 )
-from pharma_lab.evaluation.artifact_contracts import iter_jsonl_objects
 from pharma_lab.evaluation.metrics_service import (
     MetricsRequest,
     load_and_validate_metric_inputs,

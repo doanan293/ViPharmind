@@ -8,14 +8,14 @@ from pathlib import Path
 from typing import Protocol
 
 from pharma_lab.cache.jsonl_records import merge_records
-from pharma_lab.config.paths import GGUF_ROOT, LOCAL_MODELS_COMPOSE_FILES, WORK_DIR
-from pharma_lab.embeddings.text_cache import (
+from pharma_lab.cache.text_embeddings import (
     TextEmbeddingCache,
     cache_record_key,
     embed_missing,
     read_embedding_inputs,
     write_embedding_inputs,
 )
+from pharma_lab.config.paths import GGUF_ROOT, LOCAL_MODELS_COMPOSE_FILES, WORK_DIR
 from pharma_lab.integrations.kaggle.job_lock import (
     hold_pinned_account,
     kaggle_cache_lock,

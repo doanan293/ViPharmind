@@ -129,7 +129,7 @@ def test_load_rejects_manifest_reuse_hash_not_derived_from_identity(tmp_path: Pa
     payload = json.loads(artifact.manifest_path.read_text(encoding="utf-8"))
     identity = payload["identity"]
     identity["runtime_parameters"]["request_contract_sha256"] = "d" * 64
-    from pharma_lab.runtime.runtime_profiles import canonical_sha256
+    from pharma_lab.hashing import canonical_sha256
 
     identity_without_job = dict(identity)
     identity_without_job.pop("job_sha256")

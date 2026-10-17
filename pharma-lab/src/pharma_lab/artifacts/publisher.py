@@ -6,7 +6,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 from pharma_lab.artifacts.contract import validate_contract_directory
-from pharma_lab.integrations.kaggle import job_lock
+from pharma_lab.cache.file_locks import lock_file_name
+from pharma_lab.config import paths
 
 
 class PublishError(RuntimeError):
@@ -50,7 +51,7 @@ def publish_contract(
     candidate_dir = Path(candidate_dir)
     final, next_dir, previous = _paths(final_dir)
     final.parent.mkdir(parents=True, exist_ok=True)
-    lock_path = job_lock.LOCK_DIR / job_lock.lock_file_name(final, "publish")
+    lock_path = paths.LOCK_DIR / lock_file_name(final, "publish")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("w", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)

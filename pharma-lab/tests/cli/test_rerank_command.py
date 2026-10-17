@@ -5,8 +5,9 @@ import pytest
 from typer.testing import CliRunner
 
 import pharma_lab.cli.commands.rerank as rerank_command
+from pharma_lab.cache.paths import rerank_log_path
 from pharma_lab.cli.app import app
-from pharma_lab.config.paths import rerank_log_path, run_dir
+from pharma_lab.config.paths import run_dir
 
 runner = CliRunner()
 
