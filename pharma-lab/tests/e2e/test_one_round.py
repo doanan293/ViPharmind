@@ -7,13 +7,26 @@ from typer.testing import CliRunner
 
 from pharma_lab.cli.app import app
 from pharma_lab.cli.commands import e2e as e2e_commands
+from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden import GoldenItem
 from pharma_lab.e2e.one_round import (
     OneRoundCoverage,
     OneRoundRun,
     coverage,
+    informative,
     multi_hop_kind,
     trim_covered,
+)
+
+LONG = " ".join(["liều"] * 30)
+CORPUS = CorpusText(
+    sections={
+        "drug:paracetamol:lieu-dung": LONG,
+        "drug:paracetamol:ten-thuong-mai": LONG,
+        "drug:paracetamol:than-trong": "ngắn",
+    },
+    section_documents={},
+    titles={},
 )
 
 
@@ -96,6 +109,22 @@ def test_missed_rows_get_a_multi_hop_kind(
     assert multi_hop_kind(query, covered) is None
 
 
+@pytest.mark.parametrize(
+    ("changes", "expected"),
+    [
+        ({}, True),
+        ({"query": "Liều lượng và cách dùng Uống 1 viên"}, False),
+        ({"expected_section_ids": ["drug:paracetamol:ten-thuong-mai"]}, False),
+        ({"expected_section_ids": ["drug:paracetamol:than-trong"]}, False),
+        ({"expected_section_ids": ["drug:paracetamol:lieu-dung", "drug:x:y"]}, False),
+    ],
+)
+def test_a_retrieval_miss_needs_a_question_and_an_informative_section(
+    changes: dict[str, Any], expected: bool
+) -> None:
+    assert informative(row(**changes), CORPUS) is expected
+
+
 def item(item_id: str, group: str, source: str) -> GoldenItem:
     return GoldenItem.model_validate(
         {
@@ -176,14 +205,22 @@ def test_cli_trim_rewrites_authored_batches(tmp_path: Path, monkeypatch) -> None
 
 
 def test_cli_hard_candidates_writes_the_todo(tmp_path: Path, monkeypatch) -> None:
-    rows = {"q1": row(eval_group="noisy"), "q2": row(query_id="q2")}
+    rows = {
+        "q1": row(eval_group="noisy"),
+        "q2": row(query_id="q2"),
+        "q3": row(query_id="q3", expected_section_ids=["drug:paracetamol:than-trong"]),
+        "q4": row(query_id="q4"),
+    }
     found = {
         "q1": OneRoundCoverage("q1", ("answer",), ("answer",)),
         "q2": OneRoundCoverage("q2", ("answer",), ()),
+        "q3": OneRoundCoverage("q3", ("answer",), ("answer",)),
+        "q4": OneRoundCoverage("q4", ("answer",), ("answer",)),
     }
     monkeypatch.setattr(
         e2e_commands, "load_one_round", lambda *a, **k: _fake_run(found, rows)
     )
+    monkeypatch.setattr(e2e_commands, "load_corpus_text", lambda bundle: CORPUS)
     result = CliRunner().invoke(
         app,
         [
@@ -201,6 +238,8 @@ def test_cli_hard_candidates_writes_the_todo(tmp_path: Path, monkeypatch) -> Non
         json.loads(line)
         for line in (tmp_path / "multi-hop.todo.jsonl").read_text("utf-8").splitlines()
     ]
+    # q2 is covered; q3 misses a section too short to answer from.
     assert [(t["query_id"], t["kind"], t["missing"]) for t in todo] == [
-        ("q1", "noisy_retry", ["answer"])
+        ("q1", "noisy_retry", ["answer"]),
+        ("q4", "retrieval_miss", ["answer"]),
     ]

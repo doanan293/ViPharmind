@@ -241,6 +241,7 @@ def golden_hard_candidates(
     run_name: Annotated[str, typer.Option("--run")],
     model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
     top_k: Annotated[int, typer.Option("--top-k", min=1)] = 5,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
     authoring_dir: Annotated[
         Path, typer.Option("--authoring-dir", file_okay=False)
     ] = E2E_AUTHORING_DIR,
@@ -250,7 +251,7 @@ def golden_hard_candidates(
     def handler() -> CommandResult:
         candidates = load_one_round(
             run_dir(run_name), model=model, top_k=top_k
-        ).hard_candidates()
+        ).hard_candidates(load_corpus_text(bundle))
         output = authoring_dir / "multi-hop.todo.jsonl"
         output.write_text(
             "".join(json.dumps(c, ensure_ascii=False) + "\n" for c in candidates),

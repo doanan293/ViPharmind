@@ -307,7 +307,8 @@ công bằng:
   báo riêng từng loại cho thấy tầng nào đóng góp gì. Ba loại chọn bằng dữ liệu từ benchmark,
   ứng viên là câu mà retrieval một lượt (hybrid + rerank, top 5) thiếu ít nhất một section gold:
   `retrieval_miss` 32 câu (câu sạch một mục mà vòng đầu trượt, soi judge nhận ra thiếu bằng chứng
-  và refine cứu được), `noisy_retry` 36 câu (câu nhiễu hoặc gõ sai mà vòng đầu trượt, soi refine
+  và refine cứu được; chỉ giữ câu có dấu hỏi và mục gold đủ thông tin, vì phần lớn câu trượt của
+  benchmark rơi vào mục tên thương mại, thông tin quy chế hay tương kỵ quá ngắn để trả lời), `noisy_retry` 36 câu (câu nhiễu hoặc gõ sai mà vòng đầu trượt, soi refine
   viết lại query), `three_intent` 16 câu (đa intent mà các mục gold rơi vào hai chunk, soi judge
   đếm intent còn thiếu). Hai loại sinh theo luật từ corpus vì benchmark không có câu nào mà bằng
   chứng nằm ở hai thuốc khác nhau (các cặp hai tài liệu của benchmark đều là một sản phẩm ở hai
