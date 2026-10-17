@@ -66,6 +66,22 @@ BRAND_INTENTS: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ),
 )
 COMPOSITION = "thanh-phan"
+# Three intents of one monograph whose sections must fall in two or more chunks, so one
+# chunk cannot answer the question (spec §3.0c merges neighbouring sections).
+THREE_INTENT_TRIPLES: tuple[tuple[tuple[str, str, str], str], ...] = (
+    (
+        ("chi-dinh", "lieu-luong-va-cach-dung", "tac-dung-khong-mong-muon-adr"),
+        "{a} chỉ định cho bệnh gì, dùng liều bao nhiêu và có tác dụng phụ nào?",
+    ),
+    (
+        ("lieu-luong-va-cach-dung", "chong-chi-dinh", "tuong-tac-thuoc"),
+        "{a} dùng liều thế nào, ai không được dùng và có tương tác với thuốc gì?",
+    ),
+    (
+        ("chi-dinh", "than-trong", "thoi-ky-mang-thai"),
+        "{a} chữa bệnh gì, cần thận trọng gì và phụ nữ có thai dùng được không?",
+    ),
+)
 # Monograph names that appear in interaction or composition sections without being the
 # drug asked about (excipients, vehicles and alcohol).
 EXCIPIENTS = frozenset(
@@ -270,6 +286,49 @@ def brand_candidates(corpus: CorpusText, *, count: int, seed: int) -> list[Candi
     return out
 
 
+def three_intent_candidates(
+    corpus: CorpusText,
+    chunks: Mapping[str, str],
+    *,
+    count: int,
+    seed: int,
+    exclude_documents: Sequence[str] = (),
+) -> list[Candidate]:
+    """`count` monographs, one each and none of `exclude_documents`, asked three intents
+    whose sections sit in at least two chunks; the triple cycles through
+    THREE_INTENT_TRIPLES."""
+    sections = _sections_by_document(corpus)
+    monographs = sorted(
+        document
+        for document in corpus.titles
+        if document.startswith("drug:") and document not in set(exclude_documents)
+    )
+    random.Random(seed).shuffle(monographs)
+    out: list[Candidate] = []
+    for document in monographs:
+        if len(out) == count:
+            break
+        for slugs, template in _rotate(THREE_INTENT_TRIPLES, len(out)):
+            ids = [sections[document].get(slug) for slug in slugs]
+            if None in ids:
+                continue
+            gold = [section_id for section_id in ids if section_id is not None]
+            if len({chunks.get(section_id) for section_id in gold}) < 2:
+                continue
+            name = drug_name(corpus.titles[document])
+            out.append(
+                Candidate(
+                    f"gen-three-intent-{len(out) + 1:04d}",
+                    template.format(a=name),
+                    "three_intent",
+                    tuple(gold),
+                    (name,),
+                )
+            )
+            break
+    return out
+
+
 def _rotate[T](items: Sequence[T], offset: int) -> list[T]:
     """`items` starting from `offset`, so each candidate tries another intent first."""
     offset %= len(items)
@@ -277,12 +336,28 @@ def _rotate[T](items: Sequence[T], offset: int) -> list[T]:
 
 
 def generate(
-    corpus: CorpusText, counts: Mapping[str, int], *, seed: int
+    corpus: CorpusText,
+    counts: Mapping[str, int],
+    *,
+    seed: int,
+    chunks: Mapping[str, str] | None = None,
+    exclude_documents: Sequence[str] = (),
 ) -> list[dict[str, object]]:
-    """Candidate rows for the generated kinds, in the row format of `hard-candidates`."""
-    makers = {"two_drug": two_drug_candidates, "brand_to_ingredient": brand_candidates}
-    rows: list[dict[str, object]] = []
-    for kind, maker in makers.items():
-        if counts.get(kind, 0) > 0:
-            rows += [c.row() for c in maker(corpus, count=counts[kind], seed=seed)]
-    return rows
+    """Candidate rows for the generated kinds, in the row format of `hard-candidates`.
+    Three-intent rows need `chunks` (section id to chunk label)."""
+    rows: list[Candidate] = []
+    if counts.get("three_intent", 0) > 0:
+        if chunks is None:
+            raise ValueError("three_intent candidates need the section to chunk map")
+        rows += three_intent_candidates(
+            corpus,
+            chunks,
+            count=counts["three_intent"],
+            seed=seed,
+            exclude_documents=exclude_documents,
+        )
+    if counts.get("two_drug", 0) > 0:
+        rows += two_drug_candidates(corpus, count=counts["two_drug"], seed=seed)
+    if counts.get("brand_to_ingredient", 0) > 0:
+        rows += brand_candidates(corpus, count=counts["brand_to_ingredient"], seed=seed)
+    return [candidate.row() for candidate in rows]

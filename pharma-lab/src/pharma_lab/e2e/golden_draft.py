@@ -165,6 +165,24 @@ def authored_state(authoring_dir: Path) -> tuple[Counter[str], int]:
     return counts, highest
 
 
+def authored_documents(authoring_dir: Path, kind: str) -> list[str]:
+    """Documents whose sections the authored items of `kind` already use, so generated
+    candidates of that kind pick other drugs."""
+    documents: set[str] = set()
+    for path in _batches(authoring_dir, "multi-hop-*.authored.jsonl"):
+        for line in _lines(path):
+            tags = line.get("tags")
+            sections = line.get("gold_section_ids")
+            if isinstance(tags, list) and kind in tags and isinstance(sections, list):
+                documents.update(_document(str(section)) for section in sections)
+    return sorted(documents)
+
+
+def _document(section_id: str) -> str:
+    parts = section_id.split(":")
+    return ":".join(parts[:3] if parts[0] == "leaflet" else parts[:2])
+
+
 def write_drafts(
     authoring_dir: Path,
     items: Sequence[GoldenItem],
