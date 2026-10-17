@@ -247,6 +247,30 @@ def test_chunk_document_matches_the_golden_output(case: dict[str, Any]) -> None:
     ] == case["expected"]
 
 
+@pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
+def test_without_enrichment_the_embedding_text_is_the_chunk_text(
+    case: dict[str, Any],
+) -> None:
+    document, sections, target_chars, max_chars = load_case(case["name"])
+    kwargs = {"target_chars": target_chars, "max_chars": max_chars}
+    plain = chunk_document(
+        DOCUMENT_ID, document, sections, GLOSSARY, MAPPINGS, enrichment=False, **kwargs
+    )
+    enriched = chunk_document(
+        DOCUMENT_ID, document, sections, GLOSSARY, MAPPINGS, **kwargs
+    )
+
+    # Same packing; no header, colloquial names or term expansions in what is indexed.
+    assert [d.chunk_text for d in plain] == [d.chunk_text for d in enriched]
+    assert all(d.embedding_text == d.chunk_text for d in plain)
+    assert all(not d.term_annotations and d.colloquial is None for d in plain)
+    # The context header still labels the evidence the answer step reads.
+    assert [d.context_header for d in plain] == [d.context_header for d in enriched]
+    assert {d.chunk_version_id for d in plain}.isdisjoint(
+        {d.chunk_version_id for d in enriched if d.embedding_text != d.chunk_text}
+    )
+
+
 def test_chunk_drafts_carry_their_identities() -> None:
     for case in CASES:
         document, sections, target_chars, max_chars = load_case(case["name"])

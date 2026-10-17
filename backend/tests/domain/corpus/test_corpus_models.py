@@ -251,6 +251,28 @@ def test_bundle_digest_tracks_the_chunking() -> None:
     assert bundle_digest(_with_chunking(bundle, 1)) != bundle_digest(bundle)
 
 
+def test_enrichment_off_is_another_release_and_on_keeps_old_digests() -> None:
+    bundle = small_bundle()
+    plain = bundle.model_copy(
+        update={
+            "manifest": bundle.manifest.model_copy(
+                update={"chunking": BundleChunking(enrichment=False)}
+            )
+        }
+    )
+
+    assert bundle_digest(plain) != bundle_digest(bundle)
+    # The default leaves the field out, so manifests and digests written before the
+    # switch existed stay byte-identical.
+    assert BundleChunking().model_dump() == {
+        "target_chars": TARGET_CHUNK_CHARS,
+        "max_chars": MAX_CHUNK_CHARS,
+    }
+    assert BundleChunking(enrichment=False).model_dump()["enrichment"] is False
+    snapshot = build_snapshot(plain)
+    assert all(not chunk.term_annotations for chunk in snapshot.chunks)
+
+
 def test_bundle_chunking_defaults_to_the_packed_reading_unit() -> None:
     assert small_bundle().manifest.chunking == BundleChunking(
         target_chars=TARGET_CHUNK_CHARS, max_chars=MAX_CHUNK_CHARS

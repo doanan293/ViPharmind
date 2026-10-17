@@ -305,6 +305,7 @@ def build_snapshot(bundle: KnowledgeBundle) -> CorpusSnapshot:
             bundle.colloquial_mappings,
             target_chars=bundle.manifest.chunking.target_chars,
             max_chars=bundle.manifest.chunking.max_chars,
+            enrichment=bundle.manifest.chunking.enrichment,
         )
         for draft in drafts:
             if draft.chunk_version_id in chunks:

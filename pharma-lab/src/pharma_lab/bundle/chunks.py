@@ -45,5 +45,6 @@ def iter_document_chunks(bundle: KnowledgeBundle) -> Iterator[DocumentChunks]:
                 bundle.colloquial_mappings,
                 target_chars=bundle.manifest.chunking.target_chars,
                 max_chars=bundle.manifest.chunking.max_chars,
+                enrichment=bundle.manifest.chunking.enrichment,
             ),
         )

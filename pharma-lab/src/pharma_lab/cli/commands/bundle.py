@@ -4,7 +4,11 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pharma_agent.domain.corpus.bundle import MAX_CHUNK_CHARS, BundleValidationError
+from pharma_agent.domain.corpus.bundle import (
+    MAX_CHUNK_CHARS,
+    TARGET_CHUNK_CHARS,
+    BundleValidationError,
+)
 
 from pharma_lab.bundle.embed import BundleEmbedRequest, embed_bundle
 from pharma_lab.bundle.export import ExportRequest, export_bundle
@@ -192,8 +196,9 @@ def rechunk_command(
     out: Path,
     collection: str,
     title: str,
-    target_chars: int,
+    target_chars: int = TARGET_CHUNK_CHARS,
     max_chars: int = MAX_CHUNK_CHARS,
+    enrichment: bool = True,
 ) -> CommandResult:
     try:
         manifest = rechunk_bundle(
@@ -204,6 +209,7 @@ def rechunk_command(
                 collection_title=title,
                 target_chars=target_chars,
                 max_chars=max_chars,
+                enrichment=enrichment,
             )
         )
     except BundleValidationError as exc:
@@ -216,6 +222,7 @@ def rechunk_command(
             "collection": manifest.collection.key,
             "target_chars": manifest.chunking.target_chars,
             "max_chars": manifest.chunking.max_chars,
+            "enrichment": manifest.chunking.enrichment,
             "documents": manifest.document_count,
             "sections": manifest.section_count,
         },
@@ -231,10 +238,14 @@ def rechunk(
     out: Annotated[Path, typer.Option("--out", file_okay=False, resolve_path=True)],
     collection: Annotated[str, typer.Option("--collection")],
     title: Annotated[str, typer.Option("--title")],
-    target_chars: Annotated[int, typer.Option("--target-chars", min=1)],
+    target_chars: Annotated[
+        int, typer.Option("--target-chars", min=1)
+    ] = TARGET_CHUNK_CHARS,
     max_chars: Annotated[int, typer.Option("--max-chars", min=1)] = MAX_CHUNK_CHARS,
+    enrichment: Annotated[bool, typer.Option("--enrichment/--no-enrichment")] = True,
 ) -> None:
-    """Copy a bundle under another collection and chunking, without vectors (D7)."""
+    """Copy a bundle under another collection and chunking, without vectors: one chunk
+    per section with --target-chars 1 (D7), or no chunk enrichment (D2)."""
     run_handler(
         state_from_context(ctx),
         lambda: rechunk_command(
@@ -244,5 +255,6 @@ def rechunk(
             title=title,
             target_chars=target_chars,
             max_chars=max_chars,
+            enrichment=enrichment,
         ),
     )

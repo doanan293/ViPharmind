@@ -178,12 +178,17 @@ MAX_CHUNK_CHARS = 5600
 
 class BundleChunking(BaseModel):
     """How the chunker packs this bundle's sections. The default is the packed reading
-    unit; target_chars=1 gives every section its own chunk (spec v2 §4.D, D7)."""
+    unit; target_chars=1 gives every section its own chunk (spec v2 §4.D, D7), and
+    enrichment=False indexes the chunk text without header, colloquial names or term
+    expansions (D2)."""
 
     model_config = _STRICT
 
     target_chars: int = Field(default=TARGET_CHUNK_CHARS, gt=0)
     max_chars: int = Field(default=MAX_CHUNK_CHARS, gt=0)
+    # Left out of the manifest and the content digest while on, so bundles written
+    # before the switch existed keep their files and their release identity.
+    enrichment: bool = Field(default=True, exclude_if=lambda enabled: enabled)
 
     @model_validator(mode="after")
     def _target_within_max(self) -> "BundleChunking":

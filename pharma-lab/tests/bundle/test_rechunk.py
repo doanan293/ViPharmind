@@ -89,3 +89,32 @@ def test_rechunk_refuses_to_overwrite_its_source(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="must differ"):
         rechunk_bundle(_request(source, source))
+
+
+def test_rechunk_without_enrichment_indexes_the_bare_chunk_text(tmp_path: Path) -> None:
+    source = _bundle_dir(tmp_path)
+    manifest = rechunk_bundle(
+        RechunkRequest(
+            bundle_dir=source,
+            output_dir=tmp_path / "plain",
+            collection_key="formulary_plain",
+            collection_title="Không enrichment",
+            enrichment=False,
+        )
+    )
+
+    assert manifest.chunking == BundleChunking(enrichment=False)
+    enriched = [
+        draft
+        for document in iter_document_chunks(read_bundle(source))
+        for draft in document.drafts
+    ]
+    plain = [
+        draft
+        for document in iter_document_chunks(read_bundle(tmp_path / "plain"))
+        for draft in document.drafts
+    ]
+    # Same reading units, only the indexed text loses its enrichment.
+    assert [d.chunk_text for d in plain] == [d.chunk_text for d in enriched]
+    assert all(d.embedding_text == d.chunk_text for d in plain)
+    assert any(d.embedding_text != d.chunk_text for d in enriched)
