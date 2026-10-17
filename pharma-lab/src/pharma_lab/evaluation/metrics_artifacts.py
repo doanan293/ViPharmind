@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pharma_lab.artifacts.bundle import ArtifactBundle, load_bundle
-from pharma_lab.evaluation.artifact_contracts import (
+from pharma_lab.artifacts.manifest import (
     ArtifactContractError,
     ArtifactManifest,
     write_json,

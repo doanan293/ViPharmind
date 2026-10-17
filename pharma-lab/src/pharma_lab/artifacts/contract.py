@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import shutil
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+
+from pharma_lab.hashing import sha256_file
 
 CONTRACT_SCHEMA_VERSION = "rag-final-v3"
 CONTRACT_FILES = frozenset(
@@ -16,14 +17,6 @@ TRACKED_FILES = ("sections.jsonl", "blocks.jsonl", "validation_report.json")
 
 class ContractError(RuntimeError):
     """Raised when a source or final contract is invalid."""
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def require_materialized_file(path: Path) -> None:

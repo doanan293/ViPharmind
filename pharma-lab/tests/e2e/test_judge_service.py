@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from pharma_lab.e2e.judging.structured import (
     InjectionJudgement,
     KeyFactJudgement,
     StructuredJudge,
+    judge_llm_settings,
 )
 from pharma_lab.e2e.records import AnswerRecord, CitedSection, JsonlStore, Judgement
 
@@ -247,12 +249,52 @@ async def test_judging_refuses_failed_answers(tmp_path: Path) -> None:
 
 
 def test_one_judge_model_per_configuration(tmp_path: Path) -> None:
-    pin_judge(tmp_path, model="gpt-5-mini", force=False)
-    pin_judge(tmp_path, model="gpt-5-mini", force=False)
+    def pin(model: str, *, force: bool) -> None:
+        pin_judge(
+            tmp_path,
+            model=model,
+            reasoning="medium",
+            base_url="http://proxy/v1",
+            force=force,
+        )
+
+    pin("gpt-5-mini", force=False)
+    pin("gpt-5-mini", force=False)
     with pytest.raises(ValueError, match="pass --force"):
-        pin_judge(tmp_path, model="other-model", force=False)
-    pin_judge(tmp_path, model="other-model", force=True)
+        pin("other-model", force=False)
+    pin("other-model", force=True)
     assert "other-model" in (tmp_path / "judge.json").read_text("utf-8")
+
+
+def test_pin_judge_records_reasoning_and_endpoint(tmp_path: Path) -> None:
+    pin_judge(
+        tmp_path,
+        model="gemini-3.1-flash-lite",
+        reasoning="none",
+        base_url="http://127.0.0.1:8317/v1",
+        force=False,
+    )
+    stored = json.loads((tmp_path / "judge.json").read_text("utf-8"))
+    assert stored == {
+        "model": "gemini-3.1-flash-lite",
+        "reasoning_effort": "none",
+        "base_url": "http://127.0.0.1:8317/v1",
+    }
+    with pytest.raises(ValueError, match="--force"):
+        pin_judge(
+            tmp_path,
+            model="gemini-3.1-flash-lite",
+            reasoning="medium",
+            base_url="http://127.0.0.1:8317/v1",
+            force=False,
+        )
+
+
+def test_judge_settings_carry_the_chosen_reasoning() -> None:
+    settings = Settings(_env_file=None, llm={"default": {"api_key": "k", "model": "m"}})
+    judge = judge_llm_settings(settings, "gemini-3.1-flash-lite", "none")
+    assert judge.default.reasoning_effort == "none"
+    assert judge_llm_settings(settings).default.reasoning_effort == "medium"
 
 
 def unanswerable() -> GoldenItem:

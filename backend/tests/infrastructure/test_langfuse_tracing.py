@@ -75,7 +75,10 @@ async def test_turn_becomes_one_trace_with_graph_spans(
     tracing = LangfuseTracing(client, public_key=server.public_key)
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     runner = ChatTurnRunner(
         build_chat_graph(),
@@ -124,7 +127,10 @@ async def test_rerank_is_a_retriever_observation_inside_the_turn_trace(
     tracing = LangfuseTracing(client, public_key=server.public_key)
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     reranker = LangfuseTracedReranker(
         FakeReranker(), client, protocol="native_rerank", model="qwen3-reranker"

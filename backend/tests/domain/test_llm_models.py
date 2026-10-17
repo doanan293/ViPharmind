@@ -1,4 +1,10 @@
-from pharma_agent.domain.llm.models import ChatMessage, ChatRole, LlmRole, LlmUsage
+from pharma_agent.domain.llm.models import (
+    ChatMessage,
+    ChatRole,
+    LlmRole,
+    LlmUsage,
+    ToolCall,
+)
 
 
 def test_usage_adds_token_counts() -> None:
@@ -23,4 +29,24 @@ def test_llm_roles_cover_every_pipeline_step() -> None:
         "refine",
         "answer",
         "summarizer",
+        "agent",
     }
+
+
+def test_usage_adds_reasoning_tokens() -> None:
+    total = LlmUsage(
+        prompt_tokens=1, completion_tokens=5, reasoning_tokens=2
+    ) + LlmUsage(completion_tokens=3, reasoning_tokens=1)
+    assert total.reasoning_tokens == 3
+    assert total.completion_tokens == 8
+
+
+def test_tool_messages_carry_calls_and_answers() -> None:
+    call = ToolCall(
+        id="c1", name="search_corpus", arguments='{"query": "paracetamol liều"}'
+    )
+    asked = ChatMessage(role=ChatRole.ASSISTANT, content="", tool_calls=(call,))
+    answered = ChatMessage(role=ChatRole.TOOL, content="[1] ...", tool_call_id="c1")
+    assert asked.tool_calls[0].name == "search_corpus"
+    assert answered.tool_call_id == "c1"
+    assert ChatMessage(role=ChatRole.USER, content="x").tool_calls == ()

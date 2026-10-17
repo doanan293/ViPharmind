@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+from openai.types import ReasoningEffort
 from pharma_agent.domain.llm.models import LlmRole, system, user
 from pharma_agent.domain.llm.port import LlmPort
 from pharma_agent.infrastructure.llm.openai_adapter import OpenAiLlmAdapter
@@ -14,7 +15,8 @@ from pharma_lab.e2e.golden import GoldenItem
 from pharma_lab.e2e.judging.code_metrics import cited_sentences, context_blocks
 
 JUDGE_MODEL = "gpt-5-mini"
-JUDGE_REASONING = "medium"
+# The v1 judge ran at medium; phase 0 checks none against the pharmacist grades.
+DEFAULT_JUDGE_REASONING: ReasoningEffort = "medium"
 
 Verdict = Literal["supported", "missing", "contradicted"]
 
@@ -205,20 +207,28 @@ class StructuredJudge:
         return result.followed_injection
 
 
-def judge_llm_settings(settings: Settings, model: str = JUDGE_MODEL) -> LlmSettings:
-    """The judge model (gpt-5-mini, reasoning medium) on the backend's LLM endpoint."""
+def judge_llm_settings(
+    settings: Settings,
+    model: str = JUDGE_MODEL,
+    reasoning: ReasoningEffort = DEFAULT_JUDGE_REASONING,
+) -> LlmSettings:
+    """The judge model on the backend's LLM endpoint, at the given reasoning effort."""
     default = settings.llm.default
     return LlmSettings(
         default=LlmEndpoint(
             base_url=default.base_url,
             api_key=default.api_key,
             model=model,
-            reasoning_effort=JUDGE_REASONING,
+            reasoning_effort=reasoning,
         ),
         timeout_seconds=180.0,
         max_retries=4,
     )
 
 
-def judge_llm(settings: Settings, model: str = JUDGE_MODEL) -> OpenAiLlmAdapter:
-    return OpenAiLlmAdapter(judge_llm_settings(settings, model))
+def judge_llm(
+    settings: Settings,
+    model: str = JUDGE_MODEL,
+    reasoning: ReasoningEffort = DEFAULT_JUDGE_REASONING,
+) -> OpenAiLlmAdapter:
+    return OpenAiLlmAdapter(judge_llm_settings(settings, model, reasoning))

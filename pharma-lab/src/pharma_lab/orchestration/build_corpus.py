@@ -14,7 +14,6 @@ from pharma_lab.artifacts.contract import (
     require_materialized_file,
     require_materialized_pdf,
     require_workspace_capacity,
-    sha256_file,
     validate_contract_directory,
 )
 from pharma_lab.artifacts.paths import ArtifactPaths, retain_failed_workspace
@@ -44,6 +43,7 @@ from pharma_lab.corpus.validation.validate_final_rag import (
     run_deep_audit,
     validate_final_rag,
 )
+from pharma_lab.hashing import sha256_file
 
 # Part of the build id, so a release whose code changes the output rebuilds the corpus.
 PIPELINE_VERSION = version("pharma-lab")

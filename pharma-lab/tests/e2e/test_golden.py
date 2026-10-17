@@ -15,6 +15,7 @@ from pharma_lab.e2e.golden import (
     ANSWERABLE_PER_GROUP,
     EVAL_GROUPS,
     MULTI_HOP_KINDS,
+    MULTI_HOP_QUOTAS,
     QUOTAS,
     SCHEMA,
     Category,
@@ -96,18 +97,20 @@ def test_golden_keeps_500_items_with_a_multi_hop_split() -> None:
 
 def test_a_multi_hop_item_names_exactly_one_kind() -> None:
     assert validate_items([multi_hop()], CORPUS, complete=False) == []
-    assert set(MULTI_HOP_KINDS) == {
+    assert MULTI_HOP_KINDS == (
+        "retrieval_miss",
+        "noisy_retry",
         "three_intent",
         "two_drug",
         "brand_to_ingredient",
-        "noisy_retry",
-    }
+    )
+    assert sum(MULTI_HOP_QUOTAS.values()) == QUOTAS[Category.MULTI_HOP]
     untagged = multi_hop(tags=[])
     both = multi_hop(tags=["two_drug", "three_intent"])
     for item in (untagged, both):
         assert validate_items([item], CORPUS, complete=False) == [
             "e2e-mhop-0001: multi_hop items need exactly one kind tag "
-            "(three_intent, two_drug, brand_to_ingredient, noisy_retry)"
+            "(retrieval_miss, noisy_retry, three_intent, two_drug, brand_to_ingredient)"
         ]
 
 
@@ -218,7 +221,11 @@ def complete_set() -> list[GoldenItem]:
         answerable(f"e2e-mt-{index:04d}", category="multi_turn", turns=dialogue)
         for index in range(QUOTAS[Category.MULTI_TURN])
     ]
-    items += [multi_hop(f"e2e-mhop-{index:04d}") for index in range(150)]
+    items += [
+        multi_hop(f"e2e-mhop-{kind}-{index:04d}", tags=[kind])
+        for kind, quota in MULTI_HOP_QUOTAS.items()
+        for index in range(quota)
+    ]
     for category, prefix, behavior, extra in (
         ("unanswerable", "e2e-una-", "abstain", {"absent_terms": ["Zolgensma"]}),
         ("out_of_scope", "e2e-oos-", "redirect", {}),
@@ -234,10 +241,16 @@ def complete_set() -> list[GoldenItem]:
 def test_complete_sets_must_match_the_quotas() -> None:
     items = complete_set()
     assert validate_items(items, CORPUS, complete=True) == []
-    short = [item for item in items if item.item_id != "e2e-ans-leaflet-00"]
+    short = [
+        item
+        for item in items
+        if item.item_id not in {"e2e-ans-leaflet-00", "e2e-mhop-two_drug-0000"}
+    ]
     assert validate_items(short, CORPUS, complete=True) == [
         "answerable: 269 items, expected 270",
+        "multi_hop: 149 items, expected 150",
         "answerable leaflet: 44 items, expected 45",
+        "multi_hop two_drug: 35 items, expected 36",
     ]
 
 

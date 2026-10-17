@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from openai import AsyncOpenAI
+from openai.types import ReasoningEffort
 from pharma_agent.infrastructure.settings import Settings
 from ragas._analytics import get_userid
 from ragas.embeddings import OpenAIEmbeddings
@@ -15,8 +16,8 @@ from ragas.llms import llm_factory
 from ragas.metrics.collections import AnswerRelevancy, FactualCorrectness, Faithfulness
 
 from pharma_lab.e2e.judging.structured import (
+    DEFAULT_JUDGE_REASONING,
     JUDGE_MODEL,
-    JUDGE_REASONING,
     judge_llm_settings,
 )
 
@@ -109,11 +110,15 @@ def _resolve_ragas_user_id() -> None:
         get_userid()
 
 
-def build_ragas_scorer(settings: Settings, model: str = JUDGE_MODEL) -> RagasScorer:
+def build_ragas_scorer(
+    settings: Settings,
+    model: str = JUDGE_MODEL,
+    reasoning: ReasoningEffort = DEFAULT_JUDGE_REASONING,
+) -> RagasScorer:
     """RAGAS with the judge model on the backend LLM endpoint and the local embedder."""
     os.environ.setdefault("RAGAS_DO_NOT_TRACK", "true")
     _resolve_ragas_user_id()
-    judge = judge_llm_settings(settings, model)
+    judge = judge_llm_settings(settings, model, reasoning)
     llm = llm_factory(
         model,
         client=AsyncOpenAI(
@@ -122,7 +127,7 @@ def build_ragas_scorer(settings: Settings, model: str = JUDGE_MODEL) -> RagasSco
             timeout=judge.timeout_seconds,
             max_retries=judge.max_retries,
         ),
-        reasoning_effort=JUDGE_REASONING,
+        reasoning_effort=reasoning,
         max_tokens=MAX_COMPLETION_TOKENS,
     )
     embedding = settings.retrieval.embedding

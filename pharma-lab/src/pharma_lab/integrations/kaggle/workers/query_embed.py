@@ -5,9 +5,9 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from pharma_lab.artifacts.jsonl import iter_jsonl_objects
+from pharma_lab.artifacts.manifest import iter_jsonl_objects
 from pharma_lab.cache.jsonl_records import seal_record
-from pharma_lab.evaluation.query_hash import query_hash
+from pharma_lab.hashing import query_hash
 from pharma_lab.integrations.kaggle.models import CloudArtifact
 from pharma_lab.integrations.kaggle.parsers import format_elapsed
 from pharma_lab.integrations.kaggle.workers.checkpointing import (
@@ -22,9 +22,9 @@ from pharma_lab.integrations.kaggle.workers.runtime import (
     resolve_optional_input_file,
     worker_deadline,
 )
-from pharma_lab.integrations.kaggle.workers.scheduling import stream_map_ordered
 from pharma_lab.integrations.kaggle.workers.telemetry import RuntimeTelemetry
 from pharma_lab.runtime.client import LlamaCppClient
+from pharma_lab.runtime.scheduling import stream_map_ordered
 
 
 def _emit_progress(message: str) -> None:

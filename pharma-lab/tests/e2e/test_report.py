@@ -1,18 +1,25 @@
-import csv
 import json
 from pathlib import Path
 
 import pytest
+from tests.e2e.report_fixtures import (
+    SECTION,
+    answer,
+    golden,
+    judgement,
+    rows,
+    write_config,
+    write_identity,
+)
 
 from pharma_lab.e2e.calibration import calibration_dir
 from pharma_lab.e2e.configs import E2EConfig
-from pharma_lab.e2e.golden import GoldenItem
 from pharma_lab.e2e.records import (
     AnswerRecord,
     CitedSection,
     JsonlStore,
     Judgement,
-    RetrievedChunk,
+    ReactRecord,
     RoundRecord,
     TokenUsage,
 )
@@ -28,75 +35,6 @@ from pharma_lab.e2e.report import (
     write_report,
 )
 from pharma_lab.evaluation.relevance_judgments import LoadedJudgments
-
-SECTION = "drug:x:lieu-dung"
-
-
-def golden(n: int) -> GoldenItem:
-    return GoldenItem.model_validate(
-        {
-            "item_id": f"e2e-ans-{n:04d}",
-            "category": "answerable",
-            "turns": [{"role": "user", "text": f"Câu {n} | liều?"}],
-            "expected_behavior": "grounded",
-            "gold_section_ids": [SECTION],
-            "reference": {
-                "answer": "r",
-                "key_facts": [
-                    {"fact": "f", "evidence_quote": "q", "section_id": SECTION}
-                ],
-            },
-            "eval_group": "formulary" if n % 2 else "leaflet",
-        }
-    )
-
-
-def answer(n: int, config: str, *, retrieved: str = SECTION) -> AnswerRecord:
-    return AnswerRecord(
-        item_id=f"e2e-ans-{n:04d}",
-        config=config,
-        status="completed",
-        answer_mode="grounded",
-        citations=[
-            CitedSection(
-                index=1, chunk_version_id="c", chunk_id=None, section_ids=[SECTION]
-            )
-        ],
-        retrieved=[
-            RetrievedChunk(chunk_id="drug:x:chunk-001", section_ids=[retrieved])
-        ],
-        llm_calls=4 if config == "full" else 2,
-        usage_by_role={
-            "answer": TokenUsage(calls=1, prompt_tokens=100, completion_tokens=10)
-        },
-        latency_seconds=float(n),
-    )
-
-
-def judgement(n: int, config: str, recall: float) -> Judgement:
-    return Judgement(
-        item_id=f"e2e-ans-{n:04d}",
-        config=config,
-        category="answerable",
-        behaviour_correct=True,
-        key_fact_recall=recall,
-        contradiction=False,
-        faithfulness=recall,
-        citation_precision=1.0,
-        citation_recall=1.0,
-    )
-
-
-def write_config(root: Path, config: str, recalls: list[float]) -> None:
-    answers = JsonlStore(root / config / "answers.jsonl", AnswerRecord)
-    judgments = JsonlStore(root / config / "judgments.jsonl", Judgement)
-    for n, recall in enumerate(recalls):
-        answers.append(answer(n, config, retrieved="other" if n == 0 else SECTION))
-        judgments.append(judgement(n, config, recall))
-
-
-def rows(path: Path) -> list[dict[str, str]]:
-    return list(csv.DictReader(path.read_text("utf-8").splitlines()))
 
 
 def test_bootstrap_mean_and_paired_delta() -> None:
@@ -164,6 +102,8 @@ def test_write_report_builds_every_table(tmp_path: Path) -> None:
         "by_group.csv",
         "calibration.csv",
         "calibration.tex",
+        "cost.csv",
+        "cost.tex",
         "errors.md",
         "main.csv",
         "main.tex",
@@ -241,6 +181,7 @@ def test_report_uses_relevance_judgments_and_answerable_groups(tmp_path: Path) -
         judgement(1, "full", 1.0)
     )
     relevance = LoadedJudgments("r" * 64, {"q-1": {SECTION: frozenset({leaflet})}})
+    write_identity(tmp_path, "full")
 
     write_report(tmp_path, {item.item_id: item}, relevance)
     main = {r["metric"]: r for r in rows(tmp_path / "reports" / "main.csv")}
@@ -297,3 +238,127 @@ def test_loop_metrics_measure_gold_found_per_search_round() -> None:
     closed_book = _loop_view([], gold)
     assert _metric("gold_coverage_round1")(closed_book) is None
     assert _metric("rounds_used")(closed_book) is None
+
+
+def test_seconds_per_turn_metrics_read_steps_and_roles() -> None:
+    record = answer(1, "full").model_copy(
+        update={
+            "retrieval_seconds": 0.4,
+            "rerank_seconds": 0.6,
+            "usage_by_role": {
+                "guardrail": TokenUsage(calls=1, seconds=0.2),
+                "judge": TokenUsage(calls=1, seconds=0.3),
+                "answer": TokenUsage(calls=1, seconds=2.0),
+            },
+        }
+    )
+    view = ItemView(golden(1), record, judgement(1, "full", 1.0), {})
+    by_name = {metric.name: metric for metric in METRICS}
+    assert by_name["llm_seconds_per_turn"].read(view) == pytest.approx(2.5)
+    assert by_name["retrieval_seconds_per_turn"].read(view) == pytest.approx(1.0)
+    assert by_name["rerank_seconds_per_turn"].read(view) == pytest.approx(0.6)
+    assert by_name["decision_seconds_per_turn"].read(view) == pytest.approx(0.5)
+
+
+def test_cost_table_has_usd_per_turn_and_cost_of_pass(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    write_config(tmp_path, "full", [1.0, 1.0, 0.5, 1.0])
+
+    write_report(tmp_path, items)
+
+    table = {r["metric"]: r for r in rows(tmp_path / "reports" / "cost.csv")}
+    assert {"usd_per_turn", "usd_per_1000_turns", "cost_of_pass", "latency_p50"} <= set(
+        table
+    )
+    # answer: 100 prompt + 10 completion tokens on gemini-3.8-flash-high per turn.
+    llm = (100 * 0.75 + 10 * 3.75) / 1e6
+    assert float(table["llm_usd_per_turn"]["mean"]) == pytest.approx(llm)
+    assert float(table["usd_per_1000_turns"]["mean"]) == pytest.approx(
+        1000 * float(table["usd_per_turn"]["mean"])
+    )
+    tex = (tmp_path / "reports" / "cost.tex").read_text("utf-8")
+    assert r"\label{tab:e2e-cost}" in tex
+
+
+def test_report_loads_swept_config_directories(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    write_config(tmp_path, "full", [1.0, 1.0, 0.5, 1.0])
+    write_config(tmp_path, "full+guard=false", [1.0, 0.0, 0.5, 1.0])
+
+    write_report(tmp_path, items)
+
+    ablation = rows(tmp_path / "reports" / "ablation.csv")
+    assert {r["config"] for r in ablation} == {"full+guard=false"}
+
+
+def write_latency_run(root: Path, config: str, seconds: float, count: int) -> None:
+    write_identity(root, config)
+    store = JsonlStore(root / config / "answers.jsonl", AnswerRecord)
+    for n in range(count):
+        store.append(answer(n, config).model_copy(update={"latency_seconds": seconds}))
+
+
+def test_latency_rows_come_from_the_latency_run(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    quality, slow = tmp_path / "q", tmp_path / "c1"
+    write_config(quality, "full", [1.0, 1.0, 0.5, 1.0])
+    write_latency_run(slow, "full", 2.0, 4)
+
+    write_report(quality, items, latency_root=slow)
+
+    table = {r["metric"]: r for r in rows(quality / "reports" / "cost.csv")}
+    assert float(table["latency_p50"]["mean"]) == 2.0
+    main = {r["metric"]: r for r in rows(quality / "reports" / "main.csv")}
+    assert float(main["latency_seconds"]["mean"]) == 2.0
+    provenance = json.loads((quality / "reports" / "provenance.json").read_text())
+    assert provenance["latency_run"] == str(slow)
+
+
+def test_latency_run_requires_the_same_config(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    quality, slow = tmp_path / "q", tmp_path / "c1"
+    write_config(quality, "full", [1.0, 1.0, 0.5, 1.0])
+    write_config(quality, "one-step", [1.0, 1.0, 0.5, 1.0])
+    write_latency_run(slow, "full", 2.0, 4)
+
+    with pytest.raises(ValueError, match="one-step"):
+        write_report(quality, items, latency_root=slow)
+
+
+def test_report_writes_react_failures(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    write_config(tmp_path, "full", [1.0, 1.0, 0.5, 1.0])
+    write_config(tmp_path, "react", [1.0, 1.0, 0.5, 1.0])
+    store = JsonlStore(tmp_path / "react" / "answers.jsonl", AnswerRecord)
+    for n in range(4):
+        record = answer(n, "react", retrieved="other" if n == 0 else SECTION)
+        store.append(
+            record.model_copy(
+                update={
+                    "react": ReactRecord(
+                        rounds=2,
+                        tool_calls=3,
+                        round_cap_hit=n == 0,
+                        budget_forced=n in (1, 2),
+                    ),
+                    "citations": [] if n == 1 else record.citations,
+                }
+            )
+        )
+
+    write_report(tmp_path, items)
+
+    (row,) = rows(tmp_path / "reports" / "react_failures.csv")
+    assert row["config"] == "react"
+    assert row["n"] == "4"
+    assert float(row["react_round_cap_rate"]) == pytest.approx(0.25)
+    assert float(row["react_round_cap_rate_ci_low"]) < 0.25
+    assert float(row["react_budget_forced_rate"]) == pytest.approx(0.5)
+    assert float(row["react_uncited_rate"]) == pytest.approx(0.25)
+    assert float(row["react_rounds"]) == pytest.approx(2.0)
+    main = rows(tmp_path / "reports" / "main.csv")
+    assert {r["config"] for r in main if r["metric"] == "react_tool_calls"} == {
+        "full",
+        "react",
+    }
+    assert CONFIG_LABELS["react"] == "ReAct agent"

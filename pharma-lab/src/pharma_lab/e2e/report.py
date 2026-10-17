@@ -19,6 +19,7 @@ import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, NamedTuple
 
 import numpy as np
 
@@ -36,12 +37,14 @@ from pharma_lab.e2e.judging.code_metrics import (
     over_refusal,
 )
 from pharma_lab.e2e.judging.service import JUDGE_FILE
+from pharma_lab.e2e.pricing import retrieval_cost_usd, turn_cost_usd
 from pharma_lab.e2e.records import (
     ANSWERS_FILE,
     JUDGMENTS_FILE,
     AnswerRecord,
     JsonlStore,
     Judgement,
+    ReactRecord,
 )
 from pharma_lab.e2e.run_identity import RUN_FILE
 from pharma_lab.e2e.statistics import (
@@ -70,6 +73,17 @@ class ItemView:
     judgement: Judgement
     # Gold section id -> extra accepted chunk ids (relevance judgments).
     accepted: Mapping[str, frozenset[str]]
+    # USD of the turn at list prices (pricing.py); None when the run is not priced.
+    llm_usd: float | None = None
+    retrieval_usd: float | None = None
+
+
+class LoadedConfig(NamedTuple):
+    """One judged configuration directory of a run."""
+
+    answers: dict[str, AnswerRecord]
+    judgments: dict[str, Judgement]
+    identity: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -178,6 +192,58 @@ def _rescued(view: ItemView) -> float | None:
     return float(final == 1.0)
 
 
+def _react(read: Callable[[ReactRecord], float]) -> Callable[[ItemView], float | None]:
+    def value(view: ItemView) -> float | None:
+        react = view.answer.react
+        return None if react is None else read(react)
+
+    return value
+
+
+def _uncited(view: ItemView) -> float | None:
+    """A grounded ReAct answer that cites nothing it was shown."""
+    if view.answer.react is None or view.answer.answer_mode != "grounded":
+        return None
+    return float(not view.answer.citations)
+
+
+REACT_METRICS: tuple[Metric, ...] = (
+    Metric("react_rounds", _react(lambda r: float(r.rounds)), False, False),
+    Metric("react_tool_calls", _react(lambda r: float(r.tool_calls)), False, False),
+    Metric(
+        "react_round_cap_rate", _react(lambda r: float(r.round_cap_hit)), True, False
+    ),
+    Metric(
+        "react_budget_forced_rate",
+        _react(lambda r: float(r.budget_forced)),
+        True,
+        False,
+    ),
+    Metric(
+        "react_malformed_rate",
+        _react(lambda r: float(r.malformed_calls > 0)),
+        True,
+        False,
+    ),
+    Metric(
+        "react_duplicate_rate",
+        _react(lambda r: float(r.duplicate_calls > 0)),
+        True,
+        False,
+    ),
+    Metric(
+        "react_budget_hit_rate", _react(lambda r: float(r.budget_hits > 0)), True, False
+    ),
+    Metric(
+        "react_no_search_rate",
+        _react(lambda r: float(r.answered_without_search)),
+        True,
+        False,
+    ),
+    Metric("react_uncited_rate", _uncited, True, False),
+)
+
+
 METRICS: tuple[Metric, ...] = (
     # Truthfulness (CRAG): wrong answers cost more than missing ones.
     Metric("truthfulness", _crag_score, False, True),
@@ -244,10 +310,48 @@ METRICS: tuple[Metric, ...] = (
         False,
         False,
     ),
-    # Cost.
+    # Cost at list prices (spec v2 §2.5).
+    Metric("llm_usd_per_turn", lambda v: v.llm_usd, False, False),
+    Metric("retrieval_usd_per_turn", lambda v: v.retrieval_usd, False, False),
+    Metric(
+        "usd_per_turn",
+        lambda v: (
+            None
+            if v.llm_usd is None or v.retrieval_usd is None
+            else v.llm_usd + v.retrieval_usd
+        ),
+        False,
+        True,
+    ),
     Metric("tokens_per_turn", lambda v: float(v.answer.total_tokens), False, True),
     Metric("llm_calls_per_turn", lambda v: float(v.answer.llm_calls), False, True),
     Metric("latency_seconds", lambda v: v.answer.latency_seconds, False, False),
+    Metric(
+        "llm_seconds_per_turn",
+        lambda v: sum(u.seconds for u in v.answer.usage_by_role.values()),
+        False,
+        False,
+    ),
+    Metric(
+        "retrieval_seconds_per_turn",
+        lambda v: v.answer.retrieval_seconds + v.answer.rerank_seconds,
+        False,
+        False,
+    ),
+    Metric("rerank_seconds_per_turn", lambda v: v.answer.rerank_seconds, False, False),
+    # Guard and judge are the decision steps; phase 1 moves them to the decision model.
+    Metric(
+        "decision_seconds_per_turn",
+        lambda v: sum(
+            v.answer.usage_by_role[role].seconds
+            for role in ("guardrail", "judge")
+            if role in v.answer.usage_by_role
+        ),
+        False,
+        False,
+    ),
+    # How the ReAct agent used its tool (spec v2 §2.4); empty for pipeline configs.
+    *REACT_METRICS,
 )
 LATENCY = "latency_seconds"
 
@@ -266,6 +370,7 @@ METRIC_LABELS: Mapping[str, str] = {
     "negative_rejection_rate": f"Negative rejection {_UP}",
     "redirect_accuracy": f"Redirect accuracy {_UP}",
     "injection_defence_rate": f"Injection defence {_UP}",
+    "usd_per_turn": f"USD / turn {_DOWN}",
     "tokens_per_turn": f"Tokens / turn {_DOWN}",
     "llm_calls_per_turn": f"LLM calls / turn {_DOWN}",
 }
@@ -275,7 +380,12 @@ CONFIG_LABELS: Mapping[str, str] = {
     E2EConfig.NO_JUDGE_REFINE.value: "w/o judge--refine",
     E2EConfig.NO_REPHRASE.value: "w/o rephrase",
     E2EConfig.NO_RERANK.value: "w/o rerank",
+    E2EConfig.NO_GUARD.value: "w/o guard",
+    E2EConfig.BM25.value: "BM25 retriever",
+    E2EConfig.DENSE.value: "Dense retriever",
+    E2EConfig.HYBRID_K60.value: "Hybrid, RRF $k$=60",
     E2EConfig.CLOSED_BOOK.value: "Closed-book LLM",
+    E2EConfig.REACT.value: "ReAct agent",
 }
 # The LNCS text block is 12.2 cm wide: the main table compares the two systems,
 # and the ablation table carries the other configurations as paired deltas.
@@ -300,18 +410,29 @@ def _accepted(
     return relevance.for_query(item.source_query_id)
 
 
-def _values(
+def values_of(
     items: Mapping[str, GoldenItem],
     answers: dict[str, AnswerRecord],
     judgments: dict[str, Judgement],
     relevance: LoadedJudgments | None,
+    identity: Mapping[str, Any],
 ) -> dict[str, Values]:
     table: dict[str, Values] = {metric.name: {} for metric in METRICS}
+    rerank_model = identity["rerank"]["model"]
     for key, judgement in judgments.items():
         record = answers.get(key)
         if record is None or judgement.error is not None:
             continue
-        view = ItemView(items[key], record, judgement, _accepted(items[key], relevance))
+        view = ItemView(
+            items[key],
+            record,
+            judgement,
+            _accepted(items[key], relevance),
+            llm_usd=turn_cost_usd(record, identity["role_models"]),
+            retrieval_usd=retrieval_cost_usd(
+                record, identity["retrieval"]["embedding_model"], rerank_model
+            ),
+        )
         for metric in METRICS:
             value = metric.read(view)
             if value is not None and not math.isnan(value):
@@ -319,16 +440,63 @@ def _values(
     return table
 
 
-def _load(
-    run_root: Path,
-) -> dict[str, tuple[dict[str, AnswerRecord], dict[str, Judgement]]]:
+LATENCY_METRICS = (
+    LATENCY,
+    "llm_seconds_per_turn",
+    "retrieval_seconds_per_turn",
+    "rerank_seconds_per_turn",
+    "decision_seconds_per_turn",
+)
+
+
+def latency_values(
+    latency_root: Path, config: str, items: Mapping[str, GoldenItem]
+) -> dict[str, Values]:
+    """Per-item seconds of one configuration of the latency run; no judgments needed."""
+    path = config_dir(latency_root, config) / ANSWERS_FILE
+    if not path.is_file():
+        raise ValueError(f"latency run {latency_root} has no {config} answers")
+    by_name = {metric.name: metric for metric in METRICS}
+    table: dict[str, Values] = {name: {} for name in LATENCY_METRICS}
+    for key, record in JsonlStore(path, AnswerRecord).latest().items():
+        if record.error is not None or key not in items:
+            continue
+        item = items[key]
+        # The latency metrics read only the answer; the judgement is a placeholder.
+        view = ItemView(
+            item,
+            record,
+            Judgement(item_id=key, config=config, category=item.category.value),
+            {},
+        )
+        for name in LATENCY_METRICS:
+            value = by_name[name].read(view)
+            if value is not None:
+                table[name][key] = value
+    return table
+
+
+def load_run(run_root: Path) -> dict[str, LoadedConfig]:
     loaded = {}
-    for config in E2EConfig:
-        directory = config_dir(run_root, config)
+    # Every judged directory: the fixed configurations in their order, then the
+    # --pipeline-option variants (e.g. full+refine_threshold=0.5) by name.
+    root = Path(run_root)
+    names = (
+        sorted(p.name for p in root.iterdir() if p.is_dir()) if root.is_dir() else []
+    )
+    fixed = [config.value for config in E2EConfig if config.value in names]
+    for directory in (
+        root / name for name in [*fixed, *(n for n in names if n not in fixed)]
+    ):
+        config = directory.name
         if (directory / JUDGMENTS_FILE).is_file():
-            loaded[config.value] = (
+            identity_path = directory / RUN_FILE
+            if not identity_path.is_file():
+                raise ValueError(f"{directory} has judgments but no {RUN_FILE}")
+            loaded[config] = LoadedConfig(
                 JsonlStore(directory / ANSWERS_FILE, AnswerRecord).latest(),
                 JsonlStore(directory / JUDGMENTS_FILE, Judgement).latest(),
+                json.loads(identity_path.read_text(encoding="utf-8")),
             )
     if not loaded:
         raise ValueError(f"no judged configuration under {run_root}")
@@ -345,7 +513,7 @@ def _number(value: float) -> str:
     return "$-$" + text[1:] if text.startswith("-") else text
 
 
-def _cell(summary: Summary) -> str:
+def cell(summary: Summary) -> str:
     if summary.n == 0:
         return "--"
     return (
@@ -354,7 +522,7 @@ def _cell(summary: Summary) -> str:
     )
 
 
-def _write_csv(
+def write_csv(
     path: Path, header: Sequence[str], rows: Sequence[Sequence[object]]
 ) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -367,7 +535,7 @@ def _latex(value: str) -> str:
     return value.replace("_", r"\_").replace("%", r"\%")
 
 
-def _write_tex(
+def write_tex(
     path: Path,
     caption: str,
     label: str,
@@ -440,7 +608,7 @@ def _main_tables(
                 ]
             )
             if config in paper_configs:
-                tex_row.append(_cell(summary))
+                tex_row.append(cell(summary))
         if metric.primary:
             tex_rows.append(tex_row)
     for q in (50, 95):
@@ -459,21 +627,128 @@ def _main_tables(
                 ]
             )
     main_csv = directory / "main.csv"
-    _write_csv(
+    write_csv(
         main_csv,
         ["config", "metric", "interval", "primary", "n", "mean", "ci_low", "ci_high"],
         rows,
     )
     main_tex = directory / "main.tex"
-    _write_tex(
+    write_tex(
         main_tex,
         "End-to-end results of the full agent and one-step RAG: mean [95\\% CI] "
         "(Wilson for rates, percentile bootstrap otherwise).",
         "tab:e2e-main",
-        ["Metric", *(CONFIG_LABELS[config] for config in paper_configs)],
+        ["Metric", *(CONFIG_LABELS.get(config, config) for config in paper_configs)],
         tex_rows,
     )
     return [main_csv, main_tex]
+
+
+COST_SECONDS = (
+    "llm_seconds_per_turn",
+    "retrieval_seconds_per_turn",
+    "decision_seconds_per_turn",
+)
+
+
+def _cost_table(
+    directory: Path, configs: Sequence[str], values: Mapping[str, dict[str, Values]]
+) -> list[Path]:
+    """USD at list prices and seconds by step, per configuration (spec v2 §2.5)."""
+    rows: list[list[object]] = []
+    tex_rows: list[list[str]] = []
+    for config in configs:
+        table = values[config]
+        usd = bootstrap_mean(list(table["usd_per_turn"].values()))
+        perfect = list(table["perfect_rate"].values())
+        perfect_rate = sum(perfect) / len(perfect) if perfect else math.nan
+        summaries = {
+            name: bootstrap_mean(list(table[name].values()))
+            for name in ("llm_usd_per_turn", "retrieval_usd_per_turn", *COST_SECONDS)
+        }
+        per_1000 = Summary(
+            usd.n, 1000 * usd.mean, 1000 * usd.ci_low, 1000 * usd.ci_high
+        )
+        # Cost of pass (Erol et al.): USD per turn over the share of perfect answers.
+        cost_of_pass = usd.mean / perfect_rate if perfect_rate else math.inf
+        latency = table[LATENCY]
+        rows.append([config, "usd_per_turn", usd.n, usd.mean, usd.ci_low, usd.ci_high])
+        rows.append(
+            [
+                config,
+                "usd_per_1000_turns",
+                per_1000.n,
+                per_1000.mean,
+                per_1000.ci_low,
+                per_1000.ci_high,
+            ]
+        )
+        rows.append([config, "cost_of_pass", usd.n, cost_of_pass, "", ""])
+        for name, summary in summaries.items():
+            rows.append(
+                [config, name, summary.n, summary.mean, summary.ci_low, summary.ci_high]
+            )
+        for q in (50, 95):
+            rows.append(
+                [config, f"latency_p{q}", len(latency), _percentile(latency, q), "", ""]
+            )
+        tex_rows.append(
+            [
+                CONFIG_LABELS.get(config, config),
+                _number(per_1000.mean),
+                _number(cost_of_pass) if math.isfinite(cost_of_pass) else "--",
+                *(_number(summaries[name].mean) for name in COST_SECONDS),
+                _number(_percentile(latency, 50)),
+                _number(_percentile(latency, 95)),
+            ]
+        )
+    cost_csv = directory / "cost.csv"
+    write_csv(cost_csv, ["config", "metric", "n", "mean", "ci_low", "ci_high"], rows)
+    cost_tex = directory / "cost.tex"
+    write_tex(
+        cost_tex,
+        "Cost and latency per turn: USD at list prices, seconds by step and "
+        "end-to-end latency, per configuration.",
+        "tab:e2e-cost",
+        [
+            "Config",
+            "USD / 1000 turns",
+            "Cost of pass",
+            "LLM s",
+            "Retrieval s",
+            "Decision s",
+            "p50 s",
+            "p95 s",
+        ],
+        tex_rows,
+    )
+    return [cost_csv, cost_tex]
+
+
+def _react_table(
+    directory: Path, configs: Sequence[str], values: Mapping[str, dict[str, Values]]
+) -> Path | None:
+    """How often the ReAct agent hit each failure mode, per configuration with ReAct
+    records: means for counts, Wilson intervals for rates."""
+    header: list[str] = ["config", "n"]
+    for metric in REACT_METRICS:
+        header += [metric.name, f"{metric.name}_ci_low", f"{metric.name}_ci_high"]
+    rows: list[list[object]] = []
+    for config in configs:
+        table = values[config]
+        n = len(table["react_rounds"])
+        if n == 0:
+            continue
+        row: list[object] = [config, n]
+        for metric in REACT_METRICS:
+            summary = summarise(metric, list(table[metric.name].values()))
+            row += [summary.mean, summary.ci_low, summary.ci_high]
+        rows.append(row)
+    if not rows:
+        return None
+    path = directory / "react_failures.csv"
+    write_csv(path, header, rows)
+    return path
 
 
 def _ablation_tables(
@@ -516,19 +791,19 @@ def _ablation_tables(
         if metric.primary:
             tex_rows.append(tex_row)
     ablation_csv = directory / "ablation.csv"
-    _write_csv(
+    write_csv(
         ablation_csv,
         ["config", "metric", "n", "delta", "ci_low", "ci_high", "p_value", "p_holm"],
         rows,
     )
     ablation_tex = directory / "ablation.tex"
-    _write_tex(
+    write_tex(
         ablation_tex,
         "Paired change of each configuration against the full agent. "
         "$^{*}$: Holm-adjusted randomization $p<0.05$; confidence intervals are "
         "in the released CSV.",
         "tab:e2e-ablation",
-        ["Metric", *(CONFIG_LABELS[config] for config in others)],
+        ["Metric", *(CONFIG_LABELS.get(config, config) for config in others)],
         tex_rows,
     )
     return [ablation_csv, ablation_tex]
@@ -538,7 +813,7 @@ def _group_table(
     directory: Path,
     configs: Sequence[str],
     items: Mapping[str, GoldenItem],
-    loaded: Mapping[str, tuple[dict[str, AnswerRecord], dict[str, Judgement]]],
+    loaded: Mapping[str, LoadedConfig],
     values: Mapping[str, dict[str, Values]],
 ) -> Path:
     rows: list[list[object]] = []
@@ -579,7 +854,7 @@ def _group_table(
                             ]
                         )
     path = directory / "by_group.csv"
-    _write_csv(
+    write_csv(
         path,
         ["config", "group_type", "group", "metric", "n", "mean", "ci_low", "ci_high"],
         rows,
@@ -602,9 +877,9 @@ def _calibration_tables(directory: Path, run_root: Path) -> list[Path]:
             "reliable",
         ]
         written.append(directory / "calibration.csv")
-        _write_csv(written[-1], header, [[row.get(h) for h in header] for row in rows])
+        write_csv(written[-1], header, [[row.get(h) for h in header] for row in rows])
         written.append(directory / "calibration.tex")
-        _write_tex(
+        write_tex(
             written[-1],
             "Agreement between the LLM judge and the blind calibration grader.",
             "tab:e2e-calibration",
@@ -635,7 +910,7 @@ def _calibration_tables(directory: Path, run_root: Path) -> list[Path]:
             "ci_high",
         ]
         written.append(directory / "ppi.csv")
-        _write_csv(written[-1], header, [[row.get(h) for h in header] for row in rows])
+        write_csv(written[-1], header, [[row.get(h) for h in header] for row in rows])
     return written
 
 
@@ -691,6 +966,7 @@ def _provenance(
     run_root: Path,
     configs: Sequence[str],
     relevance: LoadedJudgments | None,
+    latency_root: Path | None = None,
 ) -> Path:
     runs: dict[str, dict[str, object]] = {}
     for config in configs:
@@ -708,6 +984,8 @@ def _provenance(
                 "relevance_judgments_sha256": None
                 if relevance is None
                 else relevance.sha256,
+                # Every latency number comes from this concurrency-1 run, when set.
+                "latency_run": None if latency_root is None else str(latency_root),
                 "bootstrap_resamples": RESAMPLES,
                 "seed": SEED,
                 "intervals": "Wilson for rates, percentile bootstrap for means",
@@ -726,23 +1004,35 @@ def write_report(
     run_root: Path,
     items: dict[str, GoldenItem],
     relevance: LoadedJudgments | None = None,
+    latency_root: Path | None = None,
 ) -> list[Path]:
-    """Write every table; `relevance` extends relevant chunks as in retrieval metrics."""
-    loaded = _load(run_root)
+    """Write every table; `relevance` extends relevant chunks as in retrieval metrics.
+
+    With `latency_root`, every latency number comes from that run's answers of the same
+    configuration (the concurrency-1 run of spec v2 §2.5); quality stays from this run.
+    """
+    loaded = load_run(run_root)
     directory = Path(run_root) / REPORTS_DIR
     directory.mkdir(parents=True, exist_ok=True)
     values = {
-        config: _values(items, answers, judgments, relevance)
-        for config, (answers, judgments) in loaded.items()
+        config: values_of(items, answers, judgments, relevance, identity)
+        for config, (answers, judgments, identity) in loaded.items()
     }
     configs = list(loaded)
+    if latency_root is not None:
+        for config in configs:
+            values[config].update(latency_values(latency_root, config, items))
     written = _main_tables(directory, configs, values)
     if E2EConfig.FULL.value in values:
         written += _ablation_tables(directory, configs, values)
     written.append(_group_table(directory, configs, items, loaded, values))
+    written += _cost_table(directory, configs, values)
+    react = _react_table(directory, configs, values)
+    if react is not None:
+        written.append(react)
     written += _calibration_tables(directory, run_root)
     if E2EConfig.FULL.value in loaded:
-        answers, judgments = loaded[E2EConfig.FULL.value]
+        answers, judgments, _identity = loaded[E2EConfig.FULL.value]
         written.append(_error_analysis(directory, items, answers, judgments, relevance))
-    written.append(_provenance(directory, run_root, configs, relevance))
+    written.append(_provenance(directory, run_root, configs, relevance, latency_root))
     return written

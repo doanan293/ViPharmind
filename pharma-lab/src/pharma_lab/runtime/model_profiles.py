@@ -1,19 +1,8 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import dataclass
 
-
-def _canonical_sha256(payload: object) -> str:
-    encoded = json.dumps(
-        payload,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
+from pharma_lab.hashing import canonical_sha256
 
 NATIVE_RERANK_PROTOCOL = "native_rerank"
 
@@ -45,7 +34,7 @@ class RerankContract:
 
     @property
     def sha256(self) -> str:
-        return _canonical_sha256(self.canonical_payload())
+        return canonical_sha256(self.canonical_payload())
 
 
 @dataclass(frozen=True)

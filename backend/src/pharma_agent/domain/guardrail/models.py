@@ -7,6 +7,7 @@ class VerdictSource(StrEnum):
     REGEX = "regex"
     LLM = "llm"
     SKIPPED = "skipped"
+    DECISION = "decision"
 
 
 class Verdict(BaseModel):

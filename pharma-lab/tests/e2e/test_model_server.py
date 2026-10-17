@@ -65,8 +65,20 @@ def test_env_lines_route_every_llm_role_to_the_served_chat_model() -> None:
 def test_serve_stage_follows_the_model_kind() -> None:
     assert serve_stage("qwen3-reranker:4b-q8_0") is StageName.RERANK_SERVE
     assert serve_stage("qwen3.5:9b-q8_0") is StageName.LLM_SERVE
-    with pytest.raises(ValueError, match="reranker or a chat model"):
-        serve_stage("qwen3-embedding:4b-q8_0")
+    assert serve_stage("qwen3-embedding:8b-q8_0") is StageName.EMBED_SERVE
+
+
+def test_env_lines_point_the_backend_embedder_at_the_tunnel() -> None:
+    text = env_lines(
+        model="qwen3-embedding:8b-q8_0", url="https://x.trycloudflare.com", api_key="k"
+    )
+    assert (
+        "PHARMA_RETRIEVAL__EMBEDDING__BASE_URL=https://x.trycloudflare.com/v1\n" in text
+    )
+    assert "PHARMA_RETRIEVAL__EMBEDDING__MODEL=qwen3-embedding:8b-q8_0\n" in text
+    assert "PHARMA_RETRIEVAL__EMBEDDING__DIMENSION=4096\n" in text
+    assert "PHARMA_RETRIEVAL__EMBEDDING__API_KEY=k\n" in text
+    assert "PHARMA_RETRIEVAL__RERANK__BASE_URL" not in text
 
 
 def test_find_url_takes_the_latest_tunnel() -> None:

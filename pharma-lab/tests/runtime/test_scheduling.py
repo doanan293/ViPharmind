@@ -3,7 +3,7 @@ import math
 
 import pytest
 
-from pharma_lab.integrations.kaggle.workers.scheduling import (
+from pharma_lab.runtime.scheduling import (
     stream_map_ordered,
 )
 

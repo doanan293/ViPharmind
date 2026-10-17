@@ -1,7 +1,8 @@
 """Serve a model on Kaggle GPUs for E2E runs (a laptop CPU is far too slow).
 
-`serve_model` reserves an account, pushes a `rerank-serve` kernel for a reranker or an
-`llm-serve` kernel for a chat model, and blocks until the session ends. A watcher reads
+`serve_model` reserves an account, pushes a `rerank-serve` kernel for a reranker, an
+`embed-serve` kernel for an embedding model or an `llm-serve` kernel for a chat model,
+and blocks until the session ends. A watcher reads
 the kernel log for the tunnel URL and writes an env file that `pharma-lab e2e run`
 sessions source before starting.
 """
@@ -75,7 +76,8 @@ def api_key_path(request_path: Path) -> Path:
 
 def env_lines(*, model: str, url: str, api_key: str) -> str:
     """Backend settings that point the served model's consumers at the tunnel."""
-    if require_model(model).kind is ModelKind.CHAT:
+    spec = require_model(model)
+    if spec.kind is ModelKind.CHAT:
         pairs = [("PHARMA_LLM__TIMEOUT_SECONDS", str(CHAT_TIMEOUT_SECONDS))]
         for role in LlmRole:
             prefix = f"PHARMA_LLM__ROLES__{role.name}__"
@@ -85,6 +87,14 @@ def env_lines(*, model: str, url: str, api_key: str) -> str:
                 (prefix + "MODEL", model),
                 (prefix + "EXTRA_BODY", json.dumps(CHAT_EXTRA_BODY)),
             ]
+    elif spec.kind is ModelKind.EMBEDDING:
+        pairs = [
+            ("PHARMA_RETRIEVAL__EMBEDDING__BASE_URL", f"{url}/v1"),
+            ("PHARMA_RETRIEVAL__EMBEDDING__API_KEY", api_key),
+            ("PHARMA_RETRIEVAL__EMBEDDING__MODEL", model),
+            ("PHARMA_RETRIEVAL__EMBEDDING__DIMENSION", str(spec.vector_dimension)),
+            ("PHARMA_RETRIEVAL__EMBEDDING__TIMEOUT_SECONDS", "120"),
+        ]
     else:
         pairs = [
             ("PHARMA_RETRIEVAL__RERANK__PROTOCOL", "native_rerank"),
@@ -217,7 +227,7 @@ def serve_stage(model: str) -> StageName:
         return StageName.RERANK_SERVE
     if kind is ModelKind.CHAT:
         return StageName.LLM_SERVE
-    raise ValueError(f"--model must select a reranker or a chat model: {model}")
+    return StageName.EMBED_SERVE
 
 
 def attach_model(
@@ -272,7 +282,8 @@ def attach_model(
 def _serve_profile(
     model: str, budget: int, context: KaggleExecutionContext
 ) -> RuntimeCandidate:
-    """The benchmarked profile of a reranker, or the fixed layout of a chat model."""
+    """The benchmarked profile of a reranker or an embedding model (its query-embed
+    profile), or the fixed layout of a chat model."""
     from pharma_lab.integrations.kaggle.auto_profile import ensure_runtime_profile
     from pharma_lab.integrations.kaggle.models import StageName
     from pharma_lab.integrations.kaggle.service import runtime_manifest_sha256
@@ -283,14 +294,19 @@ def _serve_profile(
             raise ValueError(f"{model} has no serve runtime")
         return spec.serve_runtime
 
+    embedding = spec.kind is ModelKind.EMBEDDING
+    first = "pharma-lab embed queries" if embedding else "pharma-lab rerank"
+
     def no_benchmark(**_: object) -> object:
         raise RuntimeError(
-            f"no Kaggle runtime profile for {model}; run `pharma-lab rerank` first"
+            f"no Kaggle runtime profile for {model}; run `{first}` first"
         )
 
     resolution = ensure_runtime_profile(
-        workload="rerank",
-        benchmark_stage=StageName.RERANK_BENCHMARK.value,
+        workload="query-embed" if embedding else "rerank",
+        benchmark_stage=(
+            StageName.QUERY_EMBED_BENCHMARK if embedding else StageName.RERANK_BENCHMARK
+        ).value,
         model=model,
         input_path=Path("unused"),
         gguf_root=GGUF_ROOT,

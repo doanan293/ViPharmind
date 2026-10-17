@@ -34,6 +34,13 @@ repos:
         files: ^pharma-lab/.*\.(py|pyi|toml)$
         pass_filenames: false
         require_serial: true
+      - id: lint-imports-pharma-lab
+        name: lint-imports (pharma-lab)
+        entry: uv run --directory pharma-lab lint-imports
+        language: system
+        files: ^pharma-lab/.*\.(py|toml)$
+        pass_filenames: false
+        require_serial: true
       - id: pyrefly-backend
         name: pyrefly check (backend)
         entry: uv run --directory backend pyrefly check --min-severity warn

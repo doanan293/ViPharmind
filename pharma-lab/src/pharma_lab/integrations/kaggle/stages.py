@@ -361,7 +361,8 @@ class ModelServeStage:
     finished session is never mistaken for a reusable artifact. Input datasets are
     public, so the API key comes from a private `<request>.key` file next to it and
     only enters the private kernel's config. Rerankers use their benchmarked runtime
-    profile; chat models use the fixed layout of their catalog entry.
+    profile, embedding models their query-embed profile; chat models use the fixed layout
+    of their catalog entry.
     """
 
     name: StageName
@@ -422,6 +423,7 @@ _ADAPTERS: dict[StageName, StageAdapter] = {
     StageName.RERANK: RerankStage(),
     StageName.RERANK_SERVE: ModelServeStage(StageName.RERANK_SERVE, ModelKind.RERANKER),
     StageName.LLM_SERVE: ModelServeStage(StageName.LLM_SERVE, ModelKind.CHAT),
+    StageName.EMBED_SERVE: ModelServeStage(StageName.EMBED_SERVE, ModelKind.EMBEDDING),
 }
 _ADAPTERS.update(
     {
