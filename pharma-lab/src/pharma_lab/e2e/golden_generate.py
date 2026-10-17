@@ -20,7 +20,7 @@ from __future__ import annotations
 import random
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from pharma_lab.e2e.corpus_text import CorpusText, section_slug
 
@@ -342,10 +342,291 @@ def three_intent_candidates(
     return out
 
 
+# Leaflet sections a colloquial-name question asks for, with the question template.
+COLLOQUIAL_INTENTS: tuple[tuple[str, str], ...] = (
+    ("cach-dung-lieu-dung", "{alias} dùng thế nào, mỗi lần bao nhiêu?"),
+    ("chong-chi-dinh", "Những ai không được dùng {alias}?"),
+    ("tac-dung-phu", "Dùng {alias} có thể bị tác dụng phụ gì?"),
+    ("cong-dung-chi-dinh", "{alias} dùng để chữa bệnh gì?"),
+    ("thai-ky-va-cho-con-bu", "Bà bầu có dùng {alias} được không?"),
+)
+
+
+def absent_aliases(
+    corpus: CorpusText, aliases: Sequence[tuple[str, Sequence[str]]]
+) -> dict[str, list[str]]:
+    """Leaflet document -> its colloquial aliases that occur in neither its title nor
+    its sections, so retrieval reaches it under such a name only through the colloquial
+    enrichment of its chunks. `aliases` pairs each alias with the sections it maps to."""
+    texts: dict[str, list[str]] = {}
+    for section_id, document in corpus.section_documents.items():
+        texts.setdefault(document, []).append(corpus.sections[section_id])
+    by_document: dict[str, list[str]] = {}
+    for alias, section_ids in aliases:
+        if not section_ids or section_ids[0] not in corpus.section_documents:
+            continue
+        document = corpus.section_documents[section_ids[0]]
+        text = " ".join([corpus.titles.get(document, ""), *texts[document]]).casefold()
+        if alias.casefold() not in text and alias not in by_document.get(document, []):
+            by_document.setdefault(document, []).append(alias)
+    return {document: sorted(names) for document, names in by_document.items()}
+
+
+def colloquial_candidates(
+    corpus: CorpusText,
+    aliases: Sequence[tuple[str, Sequence[str]]],
+    *,
+    count: int,
+    seed: int,
+) -> list[Candidate]:
+    """`count` questions, one per product, that name a leaflet product only by an
+    alias of `absent_aliases`; the asked section cycles through COLLOQUIAL_INTENTS."""
+    by_document = absent_aliases(corpus, aliases)
+    sections = _sections_by_document(corpus)
+    documents = sorted(by_document)
+    random.Random(seed).shuffle(documents)
+    out: list[Candidate] = []
+    for document in documents:
+        if len(out) == count:
+            break
+        alias = by_document[document][0]
+        for slug, template in _rotate(COLLOQUIAL_INTENTS, len(out)):
+            section_id = sections.get(document, {}).get(slug)
+            if section_id is None:
+                continue
+            out.append(
+                Candidate(
+                    f"gen-colloquial-{len(out) + 1:04d}",
+                    template.format(alias=alias),
+                    "colloquial",
+                    (section_id,),
+                    (alias,),
+                )
+            )
+            break
+    return out
+
+
+def colloquial_benchmark(
+    corpus: CorpusText, aliases: Sequence[tuple[str, Sequence[str]]]
+) -> list[Candidate]:
+    """Every absent alias asked for every COLLOQUIAL_INTENTS section its leaflet has:
+    the colloquial group of the enrichment probe benchmark."""
+    sections = _sections_by_document(corpus)
+    out: list[Candidate] = []
+    for document, names in sorted(absent_aliases(corpus, aliases).items()):
+        for alias in names:
+            for slug, template in COLLOQUIAL_INTENTS:
+                section_id = sections.get(document, {}).get(slug)
+                if section_id is not None:
+                    out.append(
+                        Candidate(
+                            f"enrich-colloquial-{len(out) + 1:04d}",
+                            template.format(alias=alias),
+                            "colloquial",
+                            (section_id,),
+                            (alias,),
+                        )
+                    )
+    return out
+
+
+# Plain-language phrases a user says for a term that the formulary writes only as its
+# abbreviation, with the monograph section and the question template.
+GLOSSARY_PHRASES: tuple[tuple[str, str, str, str], ...] = (
+    (
+        "NSAID",
+        "thuốc kháng viêm không steroid",
+        INTERACTIONS,
+        "{drug} uống chung với thuốc kháng viêm không steroid có sao không?",
+    ),
+    (
+        "PPI",
+        "thuốc ức chế bơm proton",
+        INTERACTIONS,
+        "{drug} dùng cùng thuốc ức chế bơm proton có bị tương tác không?",
+    ),
+    (
+        "SSRI",
+        "thuốc ức chế tái hấp thu serotonin chọn lọc",
+        INTERACTIONS,
+        "{drug} có dùng chung được với thuốc ức chế tái hấp thu serotonin chọn lọc không?",
+    ),
+    (
+        "ARV",
+        "thuốc kháng HIV",
+        INTERACTIONS,
+        "Người đang uống thuốc kháng HIV dùng thêm {drug} có bị tương tác không?",
+    ),
+    (
+        "MAO",
+        "thuốc ức chế monoamin oxidase",
+        INTERACTIONS,
+        "{drug} có dùng được cùng thuốc ức chế monoamin oxidase không?",
+    ),
+    (
+        "TKTW",
+        "thần kinh trung ương",
+        "tac-dung-khong-mong-muon-adr",
+        "{drug} có gây tác dụng phụ trên thần kinh trung ương không?",
+    ),
+    (
+        "COPD",
+        "bệnh phổi tắc nghẽn mạn tính",
+        "than-trong",
+        "Người bị bệnh phổi tắc nghẽn mạn tính dùng {drug} cần lưu ý gì?",
+    ),
+    (
+        "ECG",
+        "điện tâm đồ",
+        "than-trong",
+        "Dùng {drug} có cần theo dõi điện tâm đồ không?",
+    ),
+    (
+        "HBV",
+        "virus viêm gan B",
+        "than-trong",
+        "Người nhiễm virus viêm gan B dùng {drug} cần thận trọng gì?",
+    ),
+    (
+        "SJS",
+        "hội chứng Stevens-Johnson",
+        "tac-dung-khong-mong-muon-adr",
+        "{drug} có thể gây hội chứng Stevens-Johnson không?",
+    ),
+    (
+        "GFR",
+        "mức lọc cầu thận",
+        "lieu-luong-va-cach-dung",
+        "Người suy thận có mức lọc cầu thận thấp dùng {drug} liều thế nào?",
+    ),
+    (
+        "HRT",
+        "liệu pháp hormon thay thế",
+        INTERACTIONS,
+        "Phụ nữ đang dùng liệu pháp hormon thay thế có dùng {drug} được không?",
+    ),
+)
+
+
+def glossary_matches(corpus: CorpusText) -> dict[str, list[Candidate]]:
+    """Term -> one question per monograph whose GLOSSARY_PHRASES section writes the term
+    only as its abbreviation, in monograph key order."""
+    sections = _sections_by_document(corpus)
+    monographs = sorted(d for d in corpus.titles if d.startswith("drug:"))
+    by_term: dict[str, list[Candidate]] = {}
+    for term, phrase, slug, template in GLOSSARY_PHRASES:
+        pattern = re.compile(rf"(?<!\w){re.escape(term)}(?!\w)")
+        for document in monographs:
+            section_id = sections.get(document, {}).get(slug)
+            if section_id is None:
+                continue
+            text = corpus.sections[section_id]
+            if not pattern.search(text) or phrase.casefold() in text.casefold():
+                continue
+            name = drug_name(corpus.titles[document])
+            by_term.setdefault(term, []).append(
+                Candidate(
+                    "",
+                    template.format(drug=name),
+                    "glossary",
+                    (section_id,),
+                    (name, phrase),
+                )
+            )
+    return by_term
+
+
+def glossary_candidates(
+    corpus: CorpusText, *, count: int, seed: int
+) -> list[Candidate]:
+    """`count` questions, one per drug, taking the terms in turn, that use the plain
+    Vietnamese phrase for a term the monograph section writes only as its abbreviation,
+    so retrieval matches them only through the glossary expansion of the chunk."""
+    rng = random.Random(seed)
+    by_term = {term: list(found) for term, found in glossary_matches(corpus).items()}
+    for found in by_term.values():
+        rng.shuffle(found)
+    out: list[Candidate] = []
+    used: set[str] = set()
+    while len(out) < count and any(by_term.values()):
+        for term, _phrase, _slug, _template in GLOSSARY_PHRASES:
+            found = by_term.get(term, [])
+            while (
+                found
+                and corpus.section_documents.get(
+                    found[0].expected_section_ids[0], found[0].expected_section_ids[0]
+                )
+                in used
+            ):
+                found.pop(0)
+            if found and len(out) < count:
+                candidate = found.pop(0)
+                used.add(
+                    corpus.section_documents.get(
+                        candidate.expected_section_ids[0],
+                        candidate.expected_section_ids[0],
+                    )
+                )
+                out.append(
+                    replace(candidate, query_id=f"gen-glossary-{len(out) + 1:04d}")
+                )
+    return out
+
+
+def glossary_benchmark(corpus: CorpusText) -> list[Candidate]:
+    """Every term and monograph pair of `glossary_matches`: the glossary group of the
+    enrichment probe benchmark."""
+    out: list[Candidate] = []
+    for found in glossary_matches(corpus).values():
+        for candidate in found:
+            out.append(
+                replace(candidate, query_id=f"enrich-glossary-{len(out) + 1:04d}")
+            )
+    return out
+
+
+def benchmark_row(candidate: Candidate) -> dict[str, object]:
+    """A probe question in the retrieval benchmark's row format (single section)."""
+    section_id = candidate.expected_section_ids[0]
+    return {
+        "query_id": candidate.query_id,
+        "query": candidate.query,
+        "eval_group": candidate.kind,
+        "source_family": "enrichment_probe",
+        "query_form": candidate.kind,
+        "intent_category": section_slug(section_id),
+        "expected_section_id": section_id,
+        "expected_section_ids": [section_id],
+        "query_intent_count": 1,
+        "answer_mode": "single",
+        "eval_tags": ["enrichment_probe", candidate.kind],
+        "notes": f"enrichment probe; subjects: {', '.join(candidate.subjects)}",
+    }
+
+
 def _rotate[T](items: Sequence[T], offset: int) -> list[T]:
     """`items` starting from `offset`, so each candidate tries another intent first."""
     offset %= len(items)
     return [*items[offset:], *items[:offset]]
+
+
+def generate_probes(
+    corpus: CorpusText,
+    aliases: Sequence[tuple[str, Sequence[str]]],
+    counts: Mapping[str, int],
+    *,
+    seed: int,
+) -> list[dict[str, object]]:
+    """Candidate rows of the generated answerable probes (colloquial and glossary)."""
+    rows: list[Candidate] = []
+    if counts.get("colloquial", 0) > 0:
+        rows += colloquial_candidates(
+            corpus, aliases, count=counts["colloquial"], seed=seed
+        )
+    if counts.get("glossary", 0) > 0:
+        rows += glossary_candidates(corpus, count=counts["glossary"], seed=seed)
+    return [candidate.row() for candidate in rows]
 
 
 def generate(

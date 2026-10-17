@@ -1,4 +1,5 @@
-"""LLM drafts of the golden set's multi-hop items (spec §3.0b), for review.
+"""LLM drafts of the golden set's multi-hop items and answerable probes (spec §3.0b),
+for review.
 
 Candidates come from `golden hard-candidates` (benchmark questions one retrieval round
 answers only in part) and `golden generate` (two-drug and brand questions built from the
@@ -18,6 +19,7 @@ import random
 import re
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from pharma_agent.domain.llm.models import ChatMessage, LlmRole, system, user
@@ -27,8 +29,8 @@ from pydantic import BaseModel, Field
 from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden import (
     ID_PREFIX,
-    MULTI_HOP_KINDS,
     MULTI_HOP_QUOTAS,
+    PROBE_QUOTAS,
     Category,
     ExpectedBehavior,
     GoldenItem,
@@ -40,7 +42,30 @@ from pharma_lab.e2e.golden import (
 
 # The model the plan names for drafts (phase D Task 7b), on the backend LLM endpoint.
 DRAFT_MODEL = "gemini-3.1-flash-lite"
-CANDIDATE_FILES = ("multi-hop.todo.jsonl", "multi-hop.generated.jsonl")
+
+
+@dataclass(frozen=True)
+class Family:
+    """A group of drafted items with its own batches, quotas and item ids: the
+    multi-hop items, and the answerable probes of the retrieval-side components."""
+
+    batch: str
+    category: Category
+    quotas: Mapping[str, int]
+    id_prefix: str
+
+    @property
+    def candidate_files(self) -> tuple[str, str]:
+        return (f"{self.batch}.todo.jsonl", f"{self.batch}.generated.jsonl")
+
+
+MULTI_HOP = Family(
+    "multi-hop", Category.MULTI_HOP, MULTI_HOP_QUOTAS, ID_PREFIX[Category.MULTI_HOP]
+)
+PROBE = Family(
+    "probe", Category.ANSWERABLE, PROBE_QUOTAS, f"{ID_PREFIX[Category.ANSWERABLE]}p"
+)
+FAMILIES = {family.batch: family for family in (MULTI_HOP, PROBE)}
 
 DRAFT_SYSTEM = """Bạn soạn đáp án mẫu cho bộ đánh giá hệ thống tra cứu thuốc tiếng Việt.
 Cho một câu hỏi và các mục tài liệu (mỗi mục có id), hãy trả về:
@@ -79,18 +104,23 @@ class DraftReference(BaseModel):
     question: str | None = None
 
 
-def needed_counts(authored: Mapping[str, int]) -> dict[str, int]:
+def needed_counts(
+    authored: Mapping[str, int], family: Family = MULTI_HOP
+) -> dict[str, int]:
     """Items still to draft per kind: the quota less the authored items of that kind."""
     return {
         kind: max(quota - authored.get(kind, 0), 0)
-        for kind, quota in MULTI_HOP_QUOTAS.items()
+        for kind, quota in family.quotas.items()
     }
 
 
-def load_candidates(authoring_dir: Path) -> list[dict[str, object]]:
-    """Rows of every candidate file that exists (`hard-candidates` and `generate`)."""
+def load_candidates(
+    authoring_dir: Path, family: Family = MULTI_HOP
+) -> list[dict[str, object]]:
+    """Rows of every candidate file of `family` that exists (the benchmark candidates
+    and the generated ones)."""
     rows: list[dict[str, object]] = []
-    for name in CANDIDATE_FILES:
+    for name in family.candidate_files:
         path = Path(authoring_dir) / name
         if path.exists():
             rows += [
@@ -107,12 +137,13 @@ def select_candidates(
     exclude: set[str],
     seed: int,
     exclude_sections: Iterable[frozenset[str]] = (),
+    family: Family = MULTI_HOP,
 ) -> dict[str, list[Mapping[str, object]]]:
     """Candidates by kind in a seeded order, without questions the set already uses
     and without the gold section sets of `exclude_sections` (generated candidate ids
     are positional, so an authored item is recognised by its sections)."""
     by_kind: dict[str, list[Mapping[str, object]]] = {
-        kind: [] for kind in MULTI_HOP_KINDS
+        kind: [] for kind in family.quotas
     }
     # The benchmark asks the same section pair in both orders; one item is enough.
     seen_sections: set[frozenset[str]] = set(exclude_sections)
@@ -145,7 +176,7 @@ def used_query_ids(authoring_dir: Path) -> set[str]:
     """Questions the authored batches use, and candidates already drafted (a draft the
     review rejected is not drafted again)."""
     used: set[str] = set()
-    for pattern in ("*.authored.jsonl", "multi-hop-*.draft.jsonl"):
+    for pattern in ("*.authored.jsonl", "*-[0-9][0-9].draft.jsonl"):
         for path in _batches(authoring_dir, pattern):
             for line in _lines(path):
                 if query_id := line.get("source_query_id"):
@@ -153,13 +184,16 @@ def used_query_ids(authoring_dir: Path) -> set[str]:
     return used
 
 
-def authored_state(authoring_dir: Path) -> tuple[Counter[str], int]:
-    """Authored multi-hop items per kind, and the highest multi-hop item number used by
-    any authored or draft batch."""
+def authored_state(
+    authoring_dir: Path, family: Family = MULTI_HOP
+) -> tuple[Counter[str], int]:
+    """Authored items of `family` per kind, and the highest item number of the family
+    used by any authored or draft batch."""
     counts: Counter[str] = Counter()
     highest = 0
-    prefix = ID_PREFIX[Category.MULTI_HOP]
-    for pattern in ("multi-hop-*.authored.jsonl", "multi-hop-*.draft.jsonl"):
+    prefix = family.id_prefix
+    batch = family.batch
+    for pattern in (f"{batch}-*.authored.jsonl", f"{batch}-*.draft.jsonl"):
         for path in _batches(authoring_dir, pattern):
             for line in _lines(path):
                 item_id = str(line.get("item_id", ""))
@@ -167,14 +201,17 @@ def authored_state(authoring_dir: Path) -> tuple[Counter[str], int]:
                     highest = max(highest, int(item_id[len(prefix) :]))
                 tags = line.get("tags")
                 if pattern.endswith("authored.jsonl") and isinstance(tags, list):
-                    counts.update(tag for tag in tags if tag in MULTI_HOP_KINDS)
+                    counts.update(tag for tag in tags if tag in family.quotas)
     return counts, highest
 
 
-def authored_sections(authoring_dir: Path) -> list[frozenset[str]]:
-    """Gold section sets of the authored and drafted multi-hop items."""
+def authored_sections(
+    authoring_dir: Path, family: Family = MULTI_HOP
+) -> list[frozenset[str]]:
+    """Gold section sets of the authored and drafted items of `family`."""
     sets: list[frozenset[str]] = []
-    for pattern in ("multi-hop-*.authored.jsonl", "multi-hop-*.draft.jsonl"):
+    batch = family.batch
+    for pattern in (f"{batch}-*.authored.jsonl", f"{batch}-*.draft.jsonl"):
         for path in _batches(authoring_dir, pattern):
             for line in _lines(path):
                 sections = line.get("gold_section_ids")
@@ -207,19 +244,21 @@ def write_drafts(
     failures: Sequence[DraftFailure],
     *,
     batch_size: int = 25,
+    family: Family = MULTI_HOP,
 ) -> list[Path]:
-    """multi-hop-NN.draft.jsonl batches numbered after the existing ones, and
-    multi-hop.failed.jsonl."""
+    """<batch>-NN.draft.jsonl batches numbered after the existing ones, and
+    <batch>.failed.jsonl."""
     directory = Path(authoring_dir)
+    batch = family.batch
     existing = [
         int(match.group(1))
-        for path in _batches(directory, "multi-hop-*.draft.jsonl")
-        if (match := re.fullmatch(r"multi-hop-(\d+)\.draft\.jsonl", path.name))
+        for path in _batches(directory, f"{batch}-*.draft.jsonl")
+        if (match := re.fullmatch(rf"{batch}-(\d+)\.draft\.jsonl", path.name))
     ]
     first = max(existing, default=0) + 1
     paths: list[Path] = []
     for index, start in enumerate(range(0, len(items), batch_size)):
-        path = directory / f"multi-hop-{first + index:02d}.draft.jsonl"
+        path = directory / f"{batch}-{first + index:02d}.draft.jsonl"
         path.write_text(
             "".join(
                 item.model_dump_json(exclude_none=True) + "\n"
@@ -228,7 +267,7 @@ def write_drafts(
             encoding="utf-8",
         )
         paths.append(path)
-    failed = directory / "multi-hop.failed.jsonl"
+    failed = directory / f"{batch}.failed.jsonl"
     failed.write_text(
         "".join(failure.model_dump_json() + "\n" for failure in failures),
         encoding="utf-8",
@@ -253,12 +292,15 @@ def draft_messages(
 
 
 def to_item(
-    row: Mapping[str, object], draft: DraftReference, item_id: str
+    row: Mapping[str, object],
+    draft: DraftReference,
+    item_id: str,
+    family: Family = MULTI_HOP,
 ) -> GoldenItem:
     question = draft.question if row.get("generated") and draft.question else None
     return GoldenItem(
         item_id=item_id,
-        category=Category.MULTI_HOP,
+        category=family.category,
         source_query_id=str(row["query_id"]),
         turns=[Turn(role="user", text=(question or str(row["query"])).strip())],
         expected_behavior=ExpectedBehavior.GROUNDED,
@@ -308,20 +350,21 @@ async def draft_multi_hop(
     *,
     concurrency: int = 8,
     first_number: int = 1,
+    family: Family = MULTI_HOP,
 ) -> tuple[list[GoldenItem], list[DraftFailure]]:
-    """Drafts `counts[kind]` items per kind; item ids run across kinds in kind order
-    from `first_number`."""
+    """Drafts `counts[kind]` items per kind of `family`; item ids run across kinds in
+    kind order from `first_number`."""
     gate = asyncio.Semaphore(concurrency)
     drafted: list[tuple[Mapping[str, object], DraftReference]] = []
     failures: list[DraftFailure] = []
-    for kind in MULTI_HOP_KINDS:
+    for kind in family.quotas:
         need = counts.get(kind, 0)
         queue = list(candidates.get(kind, ()))
         done: list[tuple[Mapping[str, object], DraftReference]] = []
         while len(done) < need and queue:
             wave, queue = queue[: need - len(done)], queue[need - len(done) :]
             results = await asyncio.gather(
-                *(_draft_one(llm, row, corpus, gate) for row in wave)
+                *(_draft_one(llm, row, corpus, gate, family) for row in wave)
             )
             for row, (draft, problems) in zip(wave, results, strict=True):
                 if draft is None:
@@ -333,9 +376,8 @@ async def draft_multi_hop(
                 else:
                     done.append((row, draft))
         drafted += done
-    prefix = ID_PREFIX[Category.MULTI_HOP]
     items = [
-        to_item(row, draft, f"{prefix}{number:04d}")
+        to_item(row, draft, f"{family.id_prefix}{number:04d}", family)
         for number, (row, draft) in enumerate(drafted, start=first_number)
     ]
     return items, failures
@@ -346,6 +388,7 @@ async def _draft_one(
     row: Mapping[str, object],
     corpus: CorpusText,
     gate: asyncio.Semaphore,
+    family: Family,
 ) -> tuple[DraftReference | None, list[str]]:
     problems: list[str] = []
     for _attempt in range(2):
@@ -359,14 +402,13 @@ async def _draft_one(
         except LlmError as exc:
             return None, [f"{type(exc).__name__}: {exc}"]
         problems = draft_problems(
-            to_item(row, draft, _CHECK_ID), corpus, _subjects(row)
+            to_item(row, draft, f"{family.id_prefix}draft", family),
+            corpus,
+            _subjects(row),
         )
         if not problems:
             return draft, []
     return None, problems
-
-
-_CHECK_ID = f"{ID_PREFIX[Category.MULTI_HOP]}draft"
 
 
 def _gold(row: Mapping[str, object]) -> list[str]:

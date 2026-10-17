@@ -5,6 +5,7 @@ from tests.e2e.factories import ScriptedLlm
 from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden import Category, ExpectedBehavior
 from pharma_lab.e2e.golden_draft import (
+    PROBE,
     DraftFact,
     DraftFailure,
     DraftReference,
@@ -274,3 +275,29 @@ def test_select_keeps_one_candidate_per_gold_section_set() -> None:
         exclude_sections=[frozenset({A, B})],
     )
     assert [str(r["query_id"]) for r in chosen["three_intent"]] == ["q3"]
+
+
+async def test_a_probe_is_drafted_as_an_answerable_item_with_its_own_ids(
+    tmp_path,
+) -> None:
+    llm = ScriptedLlm()
+    llm.script(LlmRole.ANSWER, good())
+    row = dict(candidate("q1", "rerank_probe"), eval_group="formulary")
+    items, _ = await draft_multi_hop(
+        llm, {"rerank_probe": [row]}, {"rerank_probe": 1}, CORPUS, family=PROBE
+    )
+    (item,) = items
+    assert (item.item_id, item.category, item.tags) == (
+        "e2e-ans-p0001",
+        Category.ANSWERABLE,
+        ["rerank_probe"],
+    )
+    assert item.eval_group is None
+    paths = write_drafts(tmp_path, items, [], family=PROBE)
+    assert [p.name for p in paths] == ["probe-01.draft.jsonl", "probe.failed.jsonl"]
+    assert needed_counts({"rerank_probe": 5}, PROBE)["rerank_probe"] == 15
+    (tmp_path / "probe-01.authored.jsonl").write_text(
+        paths[0].read_text("utf-8"), encoding="utf-8"
+    )
+    assert authored_state(tmp_path, PROBE) == ({"rerank_probe": 1}, 1)
+    assert authored_state(tmp_path) == ({}, 0)

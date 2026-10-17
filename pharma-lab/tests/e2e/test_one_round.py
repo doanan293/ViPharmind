@@ -156,6 +156,15 @@ def test_trim_drops_covered_items_evenly_per_group() -> None:
     assert dropped == ["e2e-ans-a1", "e2e-ans-a2", "e2e-ans-b0", "e2e-ans-b1"]
 
 
+def test_trim_leaves_probes_alone() -> None:
+    items = [item(f"e2e-ans-a{i}", "a", f"a{i}") for i in range(2)]
+    probe = item("e2e-ans-p0001", "a", "p1").model_copy(
+        update={"eval_group": None, "tags": ["rerank_probe"]}
+    )
+    covered = {q: OneRoundCoverage(q, ("answer",), ()) for q in ("a0", "a1", "p1")}
+    assert trim_covered([*items, probe], covered, keep_per_group=1) == ["e2e-ans-a0"]
+
+
 def test_trim_fails_when_a_group_has_too_few_covered_items() -> None:
     items = [item(f"e2e-ans-a{i}", "a", f"a{i}") for i in range(3)]
     missed = {

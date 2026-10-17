@@ -9,10 +9,16 @@ from pharma_lab.cli.commands import e2e as e2e_commands
 from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden_generate import (
     MonographNames,
+    benchmark_row,
     brand_candidates,
     brand_name,
+    colloquial_benchmark,
+    colloquial_candidates,
     drug_name,
     generate,
+    generate_probes,
+    glossary_benchmark,
+    glossary_candidates,
     section_slug,
     single_active,
     three_intent_candidates,
@@ -231,3 +237,77 @@ def test_cli_generate_writes_the_candidates(tmp_path: Path, monkeypatch) -> None
         .splitlines()
     ]
     assert [r["kind"] for r in rows] == ["two_drug", "brand_to_ingredient"]
+
+
+def test_colloquial_probe_names_the_product_only_by_an_absent_alias() -> None:
+    aliases = [
+        ("Panadol đỏ", [f"{PANADOL}:01-thanh-phan"]),
+        # Present in the leaflet title, so retrieval needs no enrichment for it.
+        ("Panadol Extra", [f"{EXTRA}:01-thanh-phan"]),
+    ]
+    corpus = CorpusText(
+        sections={
+            **CORPUS.sections,
+            f"{PANADOL}:02-cach-dung-lieu-dung": "Uống 1 viên.",
+        },
+        section_documents={
+            **CORPUS.section_documents,
+            f"{PANADOL}:02-cach-dung-lieu-dung": PANADOL,
+        },
+        titles=CORPUS.titles,
+    )
+    (only,) = colloquial_candidates(corpus, aliases, count=5, seed=0)
+    assert only.kind == "colloquial" and only.subjects == ("Panadol đỏ",)
+    assert only.expected_section_ids == (f"{PANADOL}:02-cach-dung-lieu-dung",)
+    assert only.query.startswith("Panadol đỏ")
+
+
+def test_glossary_probe_uses_the_phrase_the_section_does_not_write() -> None:
+    nsaid = "drug:x:tuong-tac-thuoc"
+    spelled = "drug:y:tuong-tac-thuoc"
+    corpus = CorpusText(
+        sections={
+            nsaid: "Dùng cùng NSAID làm tăng nguy cơ chảy máu.",
+            spelled: "NSAID (thuốc kháng viêm không steroid) làm giảm tác dụng.",
+        },
+        section_documents={nsaid: "drug:x", spelled: "drug:y"},
+        titles={"drug:x": "WARFARIN", "drug:y": "FUROSEMID"},
+    )
+    (only,) = glossary_candidates(corpus, count=5, seed=0)
+    assert only.expected_section_ids == (nsaid,)
+    assert "thuốc kháng viêm không steroid" in only.query
+    assert only.subjects == ("Warfarin", "thuốc kháng viêm không steroid")
+    rows = generate_probes(corpus, [], {"glossary": 1, "colloquial": 0}, seed=0)
+    assert [r["kind"] for r in rows] == ["glossary"]
+
+
+def test_enrichment_benchmark_asks_every_alias_and_term_in_benchmark_rows() -> None:
+    sections = {
+        f"{PANADOL}:02-cach-dung-lieu-dung": "Uống 1 viên.",
+        f"{PANADOL}:05-chong-chi-dinh": "Suy gan nặng.",
+        "drug:x:tuong-tac-thuoc": "Dùng cùng NSAID làm tăng nguy cơ chảy máu.",
+    }
+    corpus = CorpusText(
+        sections=sections,
+        section_documents={
+            f"{PANADOL}:02-cach-dung-lieu-dung": PANADOL,
+            f"{PANADOL}:05-chong-chi-dinh": PANADOL,
+            "drug:x:tuong-tac-thuoc": "drug:x",
+        },
+        titles={PANADOL: "Panadol Extra", "drug:x": "WARFARIN"},
+    )
+    aliases = [
+        ("Panadol đỏ", [f"{PANADOL}:02-cach-dung-lieu-dung"]),
+        ("Panadol hộp đỏ", [f"{PANADOL}:02-cach-dung-lieu-dung"]),
+    ]
+    colloquial = colloquial_benchmark(corpus, aliases)
+    # Two aliases, two leaflet sections each.
+    assert len(colloquial) == 4
+    assert {c.query_id for c in colloquial} == {
+        f"enrich-colloquial-{n:04d}" for n in range(1, 5)
+    }
+    (glossary,) = glossary_benchmark(corpus)
+    row = benchmark_row(glossary)
+    assert row["eval_group"] == "glossary" and row["answer_mode"] == "single"
+    assert row["expected_section_ids"] == ["drug:x:tuong-tac-thuoc"]
+    assert row["intent_category"] == "tuong-tac-thuoc"

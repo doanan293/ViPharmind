@@ -17,7 +17,7 @@ from pharma_lab.artifacts.manifest import sha256_file, write_json
 from pharma_lab.e2e.corpus_text import CorpusText, normalize_space
 
 SCHEMA = "e2e-golden-v3"
-ANSWERABLE_PER_GROUP = 45
+ANSWERABLE_PER_GROUP = 30
 EVAL_GROUPS = (
     "formulary",
     "leaflet",
@@ -44,8 +44,23 @@ class ExpectedBehavior(StrEnum):
     BLOCKED = "blocked"
 
 
+# Answerable probes: one question kind per retrieval-side component, each chosen where
+# that component decides whether one round finds the gold section (spec §3.0b). Reranking
+# moves the gold chunk into the top five; the lexical half of hybrid search finds what
+# dense search misses and the dense half finds what BM25 misses; colloquial product names
+# and plain-language terms reach a section only through the chunk enrichment.
+PROBE_QUOTAS: dict[str, int] = {
+    "rerank_probe": 20,
+    "lexical_probe": 20,
+    "semantic_probe": 20,
+    "colloquial": 20,
+    "glossary": 10,
+}
+PROBE_KINDS = tuple(PROBE_QUOTAS)
+
 QUOTAS: dict[Category, int] = {
-    Category.ANSWERABLE: ANSWERABLE_PER_GROUP * len(EVAL_GROUPS),
+    Category.ANSWERABLE: ANSWERABLE_PER_GROUP * len(EVAL_GROUPS)
+    + sum(PROBE_QUOTAS.values()),
     Category.MULTI_HOP: 150,
     Category.MULTI_TURN: 50,
     Category.UNANSWERABLE: 10,
@@ -236,6 +251,16 @@ def _item_problems(item: GoldenItem, corpus: CorpusText) -> list[str]:
                 f"{name}: multi_hop items need exactly one kind tag "
                 f"({', '.join(MULTI_HOP_KINDS)})"
             )
+    if item.category is Category.ANSWERABLE:
+        probes = _probe_kinds(item)
+        if len(probes) > 1 or (probes and item.eval_group is not None):
+            problems.append(
+                f"{name}: an answerable probe has one probe tag and no eval_group"
+            )
+        if not probes and item.eval_group not in EVAL_GROUPS:
+            problems.append(
+                f"{name}: answerable items need an eval_group or a probe tag"
+            )
     if item.category is Category.UNANSWERABLE:
         if not item.absent_terms:
             problems.append(f"{name}: unanswerable items need absent_terms")
@@ -254,7 +279,9 @@ def _count_problems(items: Sequence[GoldenItem]) -> list[str]:
         if counts[category] != quota:
             problems.append(f"{category}: {counts[category]} items, expected {quota}")
     groups = Counter(
-        item.eval_group for item in items if item.category is Category.ANSWERABLE
+        item.eval_group
+        for item in items
+        if item.category is Category.ANSWERABLE and not _probe_kinds(item)
     )
     for group in EVAL_GROUPS:
         if groups[group] != ANSWERABLE_PER_GROUP:
@@ -272,7 +299,22 @@ def _count_problems(items: Sequence[GoldenItem]) -> list[str]:
     for kind, quota in MULTI_HOP_QUOTAS.items():
         if kinds[kind] != quota:
             problems.append(f"multi_hop {kind}: {kinds[kind]} items, expected {quota}")
+    probes = Counter(
+        kind
+        for item in items
+        if item.category is Category.ANSWERABLE
+        for kind in _probe_kinds(item)
+    )
+    for kind, quota in PROBE_QUOTAS.items():
+        if probes[kind] != quota:
+            problems.append(
+                f"answerable {kind}: {probes[kind]} items, expected {quota}"
+            )
     return problems
+
+
+def _probe_kinds(item: GoldenItem) -> list[str]:
+    return [tag for tag in item.tags if tag in PROBE_KINDS]
 
 
 def validate_items(
@@ -328,7 +370,9 @@ def build_golden(
     staging.replace(output)
     counts = Counter(str(item.category) for item in items)
     groups = Counter(
-        str(item.eval_group) for item in items if item.category is Category.ANSWERABLE
+        item.eval_group or _probe_kinds(item)[0]
+        for item in items
+        if item.category is Category.ANSWERABLE
     )
     manifest = GoldenManifest.model_validate(
         {
