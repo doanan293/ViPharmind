@@ -308,7 +308,8 @@ công bằng:
   và refine cứu được; chỉ giữ câu có dấu hỏi và mục gold đủ thông tin, vì phần lớn câu trượt của
   benchmark rơi vào mục tên thương mại, thông tin quy chế hay tương kỵ quá ngắn để trả lời), `noisy_retry` 36 câu (câu nhiễu hoặc gõ sai mà vòng đầu trượt, soi refine
   viết lại query), `three_intent` 16 câu (đa intent mà các mục gold rơi vào hai chunk, soi judge
-  đếm intent còn thiếu). Hai loại sinh theo luật từ corpus vì benchmark không có câu nào mà bằng
+  đếm intent còn thiếu; benchmark chỉ cho 7 thuốc khác nhau nên giữ một câu mỗi thuốc và sinh
+  phần còn lại theo luật từ các chuyên luận khác, ba mục hỏi nằm ở ít nhất hai chunk). Hai loại sinh theo luật từ corpus vì benchmark không có câu nào mà bằng
   chứng nằm ở hai thuốc khác nhau (các cặp hai tài liệu của benchmark đều là một sản phẩm ở hai
   hàm lượng): `two_drug` 36 câu, mục tương tác của chuyên luận A nêu tên thuốc B, câu hỏi hỏi dùng
   chung và thêm một ý về B (liều, chống chỉ định hoặc ADR), gold là mục tương tác của A và mục đó

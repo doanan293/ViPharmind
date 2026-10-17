@@ -38,7 +38,12 @@ from pharma_lab.e2e.calibration import (
 )
 from pharma_lab.e2e.compare import SIGNIFICANCE, compare_runs
 from pharma_lab.e2e.configs import E2EConfig, config_label
-from pharma_lab.e2e.corpus_text import chunk_texts, corpus_text, load_corpus_text
+from pharma_lab.e2e.corpus_text import (
+    chunk_texts,
+    corpus_text,
+    load_corpus_text,
+    section_chunks,
+)
 from pharma_lab.e2e.decision_calibration import (
     build_judge_set,
     draft_guard_set,
@@ -68,6 +73,7 @@ from pharma_lab.e2e.golden import (
 )
 from pharma_lab.e2e.golden_draft import (
     DRAFT_MODEL,
+    authored_documents,
     authored_state,
     draft_multi_hop,
     load_candidates,
@@ -309,16 +315,26 @@ def golden_generate(
     * MULTI_HOP_QUOTAS["two_drug"],
     brand: Annotated[int, typer.Option("--brand", min=0)] = 2
     * MULTI_HOP_QUOTAS["brand_to_ingredient"],
+    three_intent: Annotated[int, typer.Option("--three-intent", min=0)] = 2
+    * MULTI_HOP_QUOTAS["three_intent"],
     seed: Annotated[int, typer.Option("--seed")] = 0,
 ) -> None:
-    """Build two-drug and brand-to-ingredient candidates from the corpus
-    (multi-hop.generated.jsonl); twice the quota by default, to cover rejected drafts."""
+    """Build three-intent, two-drug and brand-to-ingredient candidates from the corpus
+    (multi-hop.generated.jsonl); twice the quota by default, to cover rejected drafts.
+    Three-intent candidates skip the drugs the authored three-intent items already use."""
 
     def handler() -> CommandResult:
+        knowledge = read_bundle(bundle)
         rows = generate(
-            load_corpus_text(bundle),
-            {"two_drug": two_drug, "brand_to_ingredient": brand},
+            corpus_text(knowledge),
+            {
+                "three_intent": three_intent,
+                "two_drug": two_drug,
+                "brand_to_ingredient": brand,
+            },
             seed=seed,
+            chunks=section_chunks(knowledge),
+            exclude_documents=authored_documents(authoring_dir, "three_intent"),
         )
         output = authoring_dir / "multi-hop.generated.jsonl"
         output.write_text(

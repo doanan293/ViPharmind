@@ -14,6 +14,7 @@ from pharma_lab.e2e.golden_generate import (
     drug_name,
     generate,
     section_slug,
+    three_intent_candidates,
     two_drug_candidates,
 )
 
@@ -28,6 +29,10 @@ CORPUS = CorpusText(
         f"{PARA}:tuong-tac-thuoc": "Dùng cùng warfarin làm tăng INR. Ethanol tăng độc gan.",
         f"{PARA}:chong-chi-dinh": "Suy gan nặng.",
         f"{PARA}:lieu-luong-va-cach-dung": "500 mg mỗi 4 đến 6 giờ.",
+        f"{PARA}:chi-dinh": "Đau nhẹ và vừa, sốt.",
+        f"{PARA}:tac-dung-khong-mong-muon-adr": "Ban da, độc gan khi quá liều.",
+        f"{WARF}:chi-dinh": "Huyết khối.",
+        f"{WARF}:tac-dung-khong-mong-muon-adr": "Chảy máu.",
         f"{WARF}:tuong-tac-thuoc": "Paracetamol liều cao làm tăng tác dụng chống đông.",
         f"{WARF}:lieu-luong-va-cach-dung": "Khởi đầu 5 mg mỗi ngày.",
         f"{ETH}:tuong-tac-thuoc": "Nhiều thuốc.",
@@ -40,6 +45,10 @@ CORPUS = CorpusText(
         f"{PARA}:tuong-tac-thuoc": PARA,
         f"{PARA}:chong-chi-dinh": PARA,
         f"{PARA}:lieu-luong-va-cach-dung": PARA,
+        f"{PARA}:chi-dinh": PARA,
+        f"{PARA}:tac-dung-khong-mong-muon-adr": PARA,
+        f"{WARF}:chi-dinh": WARF,
+        f"{WARF}:tac-dung-khong-mong-muon-adr": WARF,
         f"{WARF}:tuong-tac-thuoc": WARF,
         f"{WARF}:lieu-luong-va-cach-dung": WARF,
         f"{ETH}:tuong-tac-thuoc": ETH,
@@ -119,16 +128,69 @@ def test_brand_candidates_need_one_ingredient_and_a_missing_section() -> None:
     assert only.subjects[0] in only.query
 
 
+# Paracetamol's three sections span two chunks; warfarin's sit in one chunk.
+CHUNKS = {
+    f"{PARA}:chi-dinh": f"{PARA}:chunk-001",
+    f"{PARA}:lieu-luong-va-cach-dung": f"{PARA}:chunk-001",
+    f"{PARA}:tac-dung-khong-mong-muon-adr": f"{PARA}:chunk-002",
+    f"{WARF}:chi-dinh": f"{WARF}:chunk-001",
+    f"{WARF}:lieu-luong-va-cach-dung": f"{WARF}:chunk-001",
+    f"{WARF}:tac-dung-khong-mong-muon-adr": f"{WARF}:chunk-001",
+}
+
+
+def test_three_intent_needs_sections_in_two_chunks_and_skips_used_drugs() -> None:
+    (only,) = three_intent_candidates(CORPUS, CHUNKS, count=5, seed=0)
+    assert only.kind == "three_intent"
+    assert only.expected_section_ids == (
+        f"{PARA}:chi-dinh",
+        f"{PARA}:lieu-luong-va-cach-dung",
+        f"{PARA}:tac-dung-khong-mong-muon-adr",
+    )
+    assert only.subjects == ("Paracetamol",) and "Paracetamol" in only.query
+    assert (
+        three_intent_candidates(
+            CORPUS, CHUNKS, count=5, seed=0, exclude_documents=[PARA]
+        )
+        == []
+    )
+
+
 def test_generate_rows_match_the_candidate_format() -> None:
-    rows = generate(CORPUS, {"two_drug": 1, "brand_to_ingredient": 1}, seed=0)
-    assert [r["kind"] for r in rows] == ["two_drug", "brand_to_ingredient"]
+    rows = generate(
+        CORPUS,
+        {"three_intent": 1, "two_drug": 1, "brand_to_ingredient": 1},
+        seed=0,
+        chunks=CHUNKS,
+    )
+    assert [r["kind"] for r in rows] == [
+        "three_intent",
+        "two_drug",
+        "brand_to_ingredient",
+    ]
     assert rows[0]["generated"] is True and rows[0]["missing"] == []
     assert isinstance(rows[0]["subjects"], list) and rows[0]["eval_group"] is None
     assert generate(CORPUS, {"two_drug": 0}, seed=0) == []
+    with pytest.raises(ValueError, match="chunk map"):
+        generate(CORPUS, {"three_intent": 1}, seed=0)
 
 
 def test_cli_generate_writes_the_candidates(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(e2e_commands, "load_corpus_text", lambda bundle: CORPUS)
+    monkeypatch.setattr(e2e_commands, "read_bundle", lambda bundle: object())
+    monkeypatch.setattr(e2e_commands, "corpus_text", lambda knowledge: CORPUS)
+    monkeypatch.setattr(e2e_commands, "section_chunks", lambda knowledge: CHUNKS)
+    # An authored three-intent item on paracetamol keeps that drug out of the candidates.
+    (tmp_path / "multi-hop-01.authored.jsonl").write_text(
+        json.dumps(
+            {
+                "item_id": "e2e-mhop-0001",
+                "tags": ["three_intent"],
+                "gold_section_ids": [f"{PARA}:chi-dinh"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     result = CliRunner().invoke(
         app,
         [

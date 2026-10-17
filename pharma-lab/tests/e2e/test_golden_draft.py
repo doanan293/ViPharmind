@@ -8,6 +8,7 @@ from pharma_lab.e2e.golden_draft import (
     DraftFact,
     DraftFailure,
     DraftReference,
+    authored_documents,
     authored_state,
     draft_multi_hop,
     load_candidates,
@@ -179,6 +180,13 @@ def test_used_queries_and_draft_batches(tmp_path) -> None:
     )
     assert used_query_ids(tmp_path) == {"q6", "q7", "q9"}
     assert authored_state(tmp_path) == ({"two_drug": 1}, 2)
+    assert authored_documents(tmp_path, "two_drug") == []
+    (tmp_path / "multi-hop-02.authored.jsonl").write_text(
+        '{"item_id": "e2e-mhop-0003", "tags": ["three_intent"], '
+        '"gold_section_ids": ["drug:a:x", "leaflet:t:b:01-y"]}\n',
+        encoding="utf-8",
+    )
+    assert authored_documents(tmp_path, "three_intent") == ["drug:a", "leaflet:t:b"]
 
     item = to_item(candidate("q1"), good(), "e2e-mhop-0003")
     paths = write_drafts(

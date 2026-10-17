@@ -63,6 +63,17 @@ def chunk_texts(bundle: KnowledgeBundle, section_ids: Iterable[str]) -> dict[str
     return texts
 
 
+def section_chunks(bundle: KnowledgeBundle) -> dict[str, str]:
+    """The gold chunk label that holds each section."""
+    chunks: dict[str, str] = {}
+    for item in iter_document_chunks(bundle):
+        for draft in item.drafts:
+            label = gold_chunk_label(draft.document_key, draft.ordinal)
+            for section_key in draft.section_keys:
+                chunks[section_key] = label
+    return chunks
+
+
 def corpus_text(bundle: KnowledgeBundle) -> CorpusText:
     return CorpusText(
         sections={
