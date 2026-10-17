@@ -49,10 +49,10 @@ def coverage(
 
 # Sections that do not answer a question on their own: trade-name lists, regulatory notes,
 # incompatibility lines, the formulary's front matter and a leaflet's closing notes. Most
-# first-round misses of the benchmark sit there, and a retrieval-miss item must be
-# answerable from its gold section, so the kind keeps only questions whose every gold
-# section is informative and long enough to quote, and which are questions, not template
-# fragments.
+# first-round misses of the benchmark sit there, and a single-section item (retrieval
+# miss or noisy retry) must be answerable from its gold section, so those kinds keep only
+# questions whose every gold section is informative and long enough to quote, and which
+# are questions, not template fragments or open requests.
 UNINFORMATIVE_SLUGS = frozenset(
     {"ten-thuong-mai", "thong-tin-qui-che", "tuong-ky", "noi-dung", "thong-tin-them"}
 )
@@ -136,9 +136,8 @@ class OneRoundRun:
         for query_id, result in sorted(self.coverage.items()):
             row = self.rows[query_id]
             kind = multi_hop_kind(row, result)
-            if kind is None or (
-                kind == "retrieval_miss" and not informative(row, corpus)
-            ):
+            single = kind in {"retrieval_miss", "noisy_retry"}
+            if kind is None or (single and not informative(row, corpus)):
                 continue
             out.append(
                 {

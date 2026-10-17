@@ -77,9 +77,9 @@ BEHAVIOR: dict[Category, ExpectedBehavior] = {
 # has.
 MULTI_HOP_QUOTAS: dict[str, int] = {
     "retrieval_miss": 32,
-    "noisy_retry": 36,
+    "noisy_retry": 30,
     "three_intent": 16,
-    "two_drug": 36,
+    "two_drug": 42,
     "brand_to_ingredient": 30,
 }
 MULTI_HOP_KINDS = tuple(MULTI_HOP_QUOTAS)

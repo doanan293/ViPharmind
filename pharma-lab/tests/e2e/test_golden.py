@@ -250,7 +250,7 @@ def test_complete_sets_must_match_the_quotas() -> None:
         "answerable: 269 items, expected 270",
         "multi_hop: 149 items, expected 150",
         "answerable leaflet: 44 items, expected 45",
-        "multi_hop two_drug: 35 items, expected 36",
+        "multi_hop two_drug: 41 items, expected 42",
     ]
 
 

@@ -156,6 +156,18 @@ def brand_name(title: str) -> str:
     return name or " ".join(title.split())
 
 
+_DOSE = re.compile(r"\d[\d.,]*\s*(mg|g|mcg|µg|iu|ui|%)(?!\w)", re.IGNORECASE)
+_PARENTHESES = re.compile(r"\([^)]*\)")
+
+
+def single_active(composition: str) -> bool:
+    """Whether a composition section lists one active ingredient: one dose figure
+    before the excipients, parenthetical salt equivalents aside. A combination product
+    cannot be answered from one ingredient's monograph."""
+    actives = re.split(r"tá dược", composition, maxsplit=1, flags=re.IGNORECASE)[0]
+    return len(_DOSE.findall(_PARENTHESES.sub("", actives))) == 1
+
+
 def _tokens(text: str) -> list[str]:
     return re.findall(r"\w+", text.casefold())
 
@@ -262,8 +274,9 @@ def brand_candidates(corpus: CorpusText, *, count: int, seed: int) -> list[Candi
         if len(out) == count:
             break
         composition = sections[leaflet][COMPOSITION]
-        named = names.named_in(corpus.sections[composition][:600])
-        if len(named) != 1 or named[0] in used_ingredients:
+        text = corpus.sections[composition][:600]
+        named = names.named_in(text)
+        if len(named) != 1 or named[0] in used_ingredients or not single_active(text):
             continue
         ingredient = named[0]
         for intent, leaflet_slugs, template in _rotate(BRAND_INTENTS, len(out)):
