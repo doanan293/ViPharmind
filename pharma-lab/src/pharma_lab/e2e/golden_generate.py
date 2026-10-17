@@ -22,7 +22,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from pharma_lab.e2e.corpus_text import CorpusText
+from pharma_lab.e2e.corpus_text import CorpusText, section_slug
 
 # Monograph section slugs and the leaflet slugs that hold the same information.
 INTERACTIONS = "tuong-tac-thuoc"
@@ -123,12 +123,6 @@ class Candidate:
             "generated": True,
             "subjects": list(self.subjects),
         }
-
-
-def section_slug(section_id: str) -> str:
-    """`drug:x:tuong-tac-thuoc` -> `tuong-tac-thuoc`; leaflets drop the `NN-` prefix."""
-    slug = section_id.rsplit(":", 1)[1]
-    return re.sub(r"^\d+-", "", slug)
 
 
 def drug_name(title: str) -> str:
