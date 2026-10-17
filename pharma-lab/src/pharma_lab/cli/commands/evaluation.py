@@ -17,17 +17,21 @@ from pharma_lab.cli.runtime import (
 )
 from pharma_lab.config.paths import (
     BUNDLE_DIR,
+    CONVERSATIONAL_GOLD_DIR,
     ENRICHMENT_GOLD_DIR,
     EVALUATION_CHUNKS_PATH,
     GOLD_DIR,
     RAG_FINAL_SECTIONS_PATH,
+    run_dir,
 )
+from pharma_lab.e2e.conversational import PHENOMENA, build_conversational
 from pharma_lab.e2e.corpus_text import corpus_text
 from pharma_lab.e2e.golden_generate import (
     benchmark_row,
     colloquial_benchmark,
     glossary_benchmark,
 )
+from pharma_lab.e2e.one_round import load_one_round
 from pharma_lab.evaluation.build_dataset import (
     EvaluationBuildRequest,
     build_evaluation_dataset,
@@ -178,6 +182,66 @@ def evaluation_enrichment_probe(
             CommandStatus.COMPLETE,
             evaluation,
             {"rows": len(candidates), "judgments": str(judgments), **groups},
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@evaluation_app.command("conversational")
+def evaluation_conversational(
+    ctx: typer.Context,
+    run_name: Annotated[
+        str | None,
+        typer.Option("--run", help="Run whose one-round coverage stratifies parents"),
+    ] = "hybrid-qwen4b-v2-p50-k20-rrf2",
+    model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
+    total: Annotated[int, typer.Option("--total", min=len(PHENOMENA))] = 1_500,
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+    evaluation: Annotated[
+        Path, typer.Option("--evaluation", dir_okay=False)
+    ] = GOLD_EVALUATION_PATH,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    output_dir: Annotated[
+        Path, typer.Option("--output-dir", file_okay=False)
+    ] = CONVERSATIONAL_GOLD_DIR,
+) -> None:
+    """Build the conversational layer of the retrieval benchmark: conversations of two
+    to four user turns whose last turn inherits a benchmark question's gold sections,
+    eight phenomena, parents stratified by one-round coverage (spec v2 §3.1)."""
+
+    def handler() -> CommandResult:
+        try:
+            knowledge = read_bundle(bundle)
+        except BundleValidationError as exc:
+            raise invalid_bundle(exc) from exc
+        rows = [
+            json.loads(line)
+            for line in evaluation.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        covered = None
+        if run_name:
+            found = load_one_round(run_dir(run_name), model=model, top_k=5).coverage
+            covered = {query_id: not c.missing for query_id, c in found.items()}
+        items = build_conversational(
+            rows, corpus_text(knowledge), total=total, seed=seed, covered=covered
+        )
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output = output_dir / "section_retrieval_eval.jsonl"
+        output.write_text(
+            "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in items),
+            encoding="utf-8",
+        )
+        judgments = build_evaluation_judgments(output, bundle)
+        phenomena: dict[str, int] = {}
+        for item in items:
+            form = str(item["query_form"])
+            phenomena[form] = phenomena.get(form, 0) + 1
+        return CommandResult(
+            "evaluation conversational",
+            CommandStatus.COMPLETE,
+            output,
+            {"items": len(items), "judgments": str(judgments), **phenomena},
         )
 
     run_handler(state_from_context(ctx), handler)

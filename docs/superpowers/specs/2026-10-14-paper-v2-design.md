@@ -417,6 +417,11 @@ chạy trước Task 7 của plan pha D.
   hiện tượng.
 - Schema: thêm `turns`, giữ `query` là lượt cuối; `eval_group="conversational"`, `query_form` theo
   hiện tượng. Runner thêm `query_mode` và cache rewrite theo model.
+- Sinh bằng `pharma-lab evaluation conversational`, ghi `data/evaluation/gold-conversational/`
+  (1.500 item, mỗi hiện tượng 187 hoặc 188, 2 đến 4 lượt người dùng, câu cha xen kẽ leaflet với
+  formulary và câu một lượt đã phủ với câu trượt). Câu hỏi theo mẫu chỉ dùng cho câu cha mà mục gold
+  đúng là mục mẫu hỏi, và mọi mục gold, kể cả mục của câu trả lời cố định, đều đủ thông tin. Q0 chạy
+  được ngay như một run retrieval; Q6 là run benchmark sẵn có trên các câu cha.
 - Chiến lược truy vấn so sánh, cùng index, cùng hybrid RRF k=2 và Qwen3-Reranker-4B:
   Q0 lượt cuối như gõ; Q1 nối toàn bộ lịch sử; Q1b nối hai lượt gần nhất; Q2 viết lại độc lập (bước
   rephrase hiện nay); Q3 viết lại từ lịch sử làm giàu kiểu CHIQ (năm prompt); Q3b Q2 với câu trả lời
