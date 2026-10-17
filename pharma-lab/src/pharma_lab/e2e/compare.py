@@ -68,12 +68,15 @@ def compare_runs(
     config: str,
     items: Mapping[str, GoldenItem],
     relevance: LoadedJudgments | None,
+    config_b: str | None = None,
 ) -> list[CompareRow]:
     """Run B minus run A for every metric both runs measured on shared items; writes
-    `<run_b>/reports/compare-<run_a>-<config>.csv|tex`."""
+    `<run_b>/reports/compare-<run_a>-<config>.csv|tex`, or
+    `compare-<run_a>-<config>-vs-<config_b>` when run B's directory is named differently."""
+    other = config if config_b is None else config_b
     values_a = _config_values(run_a, config, items, relevance)
-    values_b = _config_values(run_b, config, items, relevance)
-    same_judge = _judge(run_a, config) == _judge(run_b, config)
+    values_b = _config_values(run_b, other, items, relevance)
+    same_judge = _judge(run_a, config) == _judge(run_b, other)
     rows: list[CompareRow] = []
     for metric in METRICS:
         a, b = values_a[metric.name], values_b[metric.name]
@@ -102,14 +105,17 @@ def compare_runs(
         )
     adjusted = holm([row.p_value for row in rows])
     rows = [replace(row, p_holm=p) for row, p in zip(rows, adjusted, strict=True)]
-    _write(run_b, run_a.name, config, rows)
+    _write(run_b, run_a.name, config, other, rows)
     return rows
 
 
-def _write(run_b: Path, name_a: str, config: str, rows: list[CompareRow]) -> None:
+def _write(
+    run_b: Path, name_a: str, config: str, config_b: str, rows: list[CompareRow]
+) -> None:
     directory = run_b / REPORTS_DIR
     directory.mkdir(parents=True, exist_ok=True)
-    stem = f"compare-{name_a}-{config}"
+    pair = config if config_b == config else f"{config}-vs-{config_b}"
+    stem = f"compare-{name_a}-{pair}"
     write_csv(
         directory / f"{stem}.csv",
         [field.name for field in fields(CompareRow)],
@@ -118,9 +124,10 @@ def _write(run_b: Path, name_a: str, config: str, rows: list[CompareRow]) -> Non
     primary = {metric.name for metric in METRICS if metric.primary}
     write_tex(
         directory / f"{stem}.tex",
-        f"Paired comparison of {config}: {run_b.name} minus {name_a}, mean difference "
+        f"Paired comparison of {config if config_b == config else f'{config} and {config_b}'}: "
+        f"{run_b.name} minus {name_a}, mean difference "
         "[95\\% CI]; * marks Holm-adjusted p < 0.05.",
-        f"tab:e2e-compare-{config}",
+        f"tab:e2e-compare-{pair}",
         ["Metric", name_a, run_b.name, "$\\Delta$"],
         [
             [

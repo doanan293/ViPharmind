@@ -13,11 +13,11 @@ from typing import Any
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.infrastructure.settings import Settings
 
-from pharma_lab.evaluation.artifact_contracts import write_json
+from pharma_lab.artifacts.manifest import write_json
 
 RUN_FILE = "run.json"
 # Recorded on first use; a resume may differ in them.
-INFORMATIONAL = ("git_commit", "created_at", "concurrency")
+INFORMATIONAL = ("git_commit", "created_at", "concurrency", "decision_model_version")
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,7 @@ def identity_from_settings(
         roles[role.value] = {
             "model": endpoint.model,
             "reasoning_effort": endpoint.reasoning_effort,
+            "provider": endpoint.provider,
         }
         # Recorded only when set, so identities of earlier runs stay unchanged.
         if endpoint.extra_body:

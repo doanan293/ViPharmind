@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from pharma_agent.domain.llm.models import LlmRole
-from pharma_agent.infrastructure.settings import Settings
+from pharma_agent.infrastructure.settings import LlmEndpoint, LlmSettings, Settings
 
 
 def test_defaults_match_spec(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -307,3 +307,19 @@ def test_jobs_can_run_inline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PHARMA_JOBS__STALE_AFTER_SECONDS", "900")
     jobs = Settings(_env_file=None).jobs
     assert (jobs.dispatcher, jobs.stale_after_seconds) == ("inline", 900)
+
+
+def test_provider_is_per_role_and_defaults_to_openai() -> None:
+    settings = LlmSettings(
+        default=LlmEndpoint(api_key="k", model="m"),
+        roles={
+            LlmRole.JUDGE: LlmEndpoint(
+                provider="systemone",
+                base_url="https://openrouter.ai/api",
+                model="~typesafe/jev-latest",
+            )
+        },
+    )
+    assert settings.resolve(LlmRole.ANSWER).provider == "openai"
+    assert settings.resolve(LlmRole.JUDGE).provider == "systemone"
+    assert settings.decision_roles() == frozenset({LlmRole.JUDGE})

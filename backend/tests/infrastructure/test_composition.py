@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -6,11 +7,15 @@ from openai.resources.embeddings import AsyncEmbeddings
 
 from pharma_agent.application.chat.context import PipelineOptions
 from pharma_agent.application.chat.runner import ChatTurnRunner
+from pharma_agent.domain.agent.decisions import GuardThresholds
+from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.infrastructure.composition import (
     build_application,
     build_retrieval_service,
+    guard_thresholds,
 )
 from pharma_agent.infrastructure.llm.openai_adapter import OpenAiLlmAdapter
+from pharma_agent.infrastructure.llm.systemone_adapter import SystemOneAdapter
 from pharma_agent.infrastructure.observability.langfuse_retrieval import (
     LangfuseTracedReranker,
 )
@@ -21,7 +26,7 @@ from pharma_agent.infrastructure.retrieval.llama_cpp_reranker import (
 )
 from pharma_agent.infrastructure.retrieval.postgres_corpus import PostgresCorpusReader
 from pharma_agent.infrastructure.retrieval.qdrant_adapter import QdrantHybridRetriever
-from pharma_agent.infrastructure.settings import Settings
+from pharma_agent.infrastructure.settings import LlmEndpoint, LlmSettings, Settings
 from tests.fakes import FakeEmbedder
 
 
@@ -118,3 +123,72 @@ async def test_build_retrieval_service_uses_an_injected_embedder(
 
     assert stack.embedder is embedder and stack.embed_client is None
     await stack.aclose()
+
+
+def _decision_settings(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, roles: dict[LlmRole, LlmEndpoint]
+) -> Settings:
+    monkeypatch.setenv("PHARMA_SKILLS_DIR", str(tmp_path))
+    monkeypatch.setenv("PHARMA_QDRANT__CHECK_COMPATIBILITY", "false")
+    return Settings(
+        _env_file=None,
+        llm=LlmSettings(default=LlmEndpoint(api_key="k", model="m"), roles=roles),
+    )
+
+
+def _jev(extra_body: dict[str, Any] | None = None) -> LlmEndpoint:
+    return LlmEndpoint(
+        provider="systemone",
+        base_url="https://openrouter.ai/api",
+        api_key="or",
+        model="~typesafe/jev-latest",
+        extra_body=extra_body,
+    )
+
+
+async def test_decision_roles_get_the_systemone_adapter(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    settings = _decision_settings(monkeypatch, tmp_path, {LlmRole.JUDGE: _jev()})
+    app = build_application(settings, embedder=FakeEmbedder())
+    assert set(app.deps.decisions) == {LlmRole.JUDGE}
+    assert isinstance(app.deps.decisions[LlmRole.JUDGE], SystemOneAdapter)
+    await app.aclose()
+
+
+async def test_no_decision_roles_means_no_decision_ports(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    settings = _decision_settings(monkeypatch, tmp_path, {})
+    app = build_application(settings, embedder=FakeEmbedder())
+    assert dict(app.deps.decisions) == {}
+    await app.aclose()
+
+
+async def test_guard_thresholds_come_from_the_guard_role_extra_body(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    guard = _jev({"thresholds": {"block": 0.8, "scope": 0.4}})
+    settings = _decision_settings(monkeypatch, tmp_path, {LlmRole.GUARDRAIL: guard})
+    app = build_application(settings, embedder=FakeEmbedder())
+    assert app.deps.guardrail.thresholds == GuardThresholds(block=0.8, scope=0.4)
+    await app.aclose()
+
+
+async def test_guard_thresholds_stay_default_without_a_decision_guard(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    other = LlmEndpoint(extra_body={"thresholds": {"block": 0.9}})
+    settings = _decision_settings(monkeypatch, tmp_path, {LlmRole.GUARDRAIL: other})
+    app = build_application(settings, embedder=FakeEmbedder())
+    assert app.deps.guardrail.thresholds == GuardThresholds()
+    await app.aclose()
+
+
+def test_an_unknown_guard_threshold_key_is_refused() -> None:
+    llm = LlmSettings(
+        default=LlmEndpoint(api_key="k", model="m"),
+        roles={LlmRole.GUARDRAIL: _jev({"thresholds": {"block": 0.8, "blok": 0.9}})},
+    )
+    with pytest.raises(ValueError, match="blok"):
+        guard_thresholds(llm)

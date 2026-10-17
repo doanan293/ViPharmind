@@ -16,15 +16,15 @@ from pharma_lab.bundle.embed import (
     embed_bundle,
 )
 from pharma_lab.bundle.export import ExportRequest, export_bundle
+from pharma_lab.cache.text_embeddings import (
+    TextEmbeddingError,
+    read_embedding_inputs,
+    text_sha256,
+)
 from pharma_lab.embeddings.service import (
     TextEmbeddingRequest,
     TextEmbeddingResult,
     open_text_cache,
-)
-from pharma_lab.embeddings.text_cache import (
-    TextEmbeddingError,
-    read_embedding_inputs,
-    text_sha256,
 )
 from pharma_lab.runtime.catalog import require_model
 

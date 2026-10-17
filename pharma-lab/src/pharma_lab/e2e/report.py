@@ -44,6 +44,7 @@ from pharma_lab.e2e.records import (
     AnswerRecord,
     JsonlStore,
     Judgement,
+    ReactRecord,
 )
 from pharma_lab.e2e.run_identity import RUN_FILE
 from pharma_lab.e2e.statistics import (
@@ -191,6 +192,58 @@ def _rescued(view: ItemView) -> float | None:
     return float(final == 1.0)
 
 
+def _react(read: Callable[[ReactRecord], float]) -> Callable[[ItemView], float | None]:
+    def value(view: ItemView) -> float | None:
+        react = view.answer.react
+        return None if react is None else read(react)
+
+    return value
+
+
+def _uncited(view: ItemView) -> float | None:
+    """A grounded ReAct answer that cites nothing it was shown."""
+    if view.answer.react is None or view.answer.answer_mode != "grounded":
+        return None
+    return float(not view.answer.citations)
+
+
+REACT_METRICS: tuple[Metric, ...] = (
+    Metric("react_rounds", _react(lambda r: float(r.rounds)), False, False),
+    Metric("react_tool_calls", _react(lambda r: float(r.tool_calls)), False, False),
+    Metric(
+        "react_round_cap_rate", _react(lambda r: float(r.round_cap_hit)), True, False
+    ),
+    Metric(
+        "react_budget_forced_rate",
+        _react(lambda r: float(r.budget_forced)),
+        True,
+        False,
+    ),
+    Metric(
+        "react_malformed_rate",
+        _react(lambda r: float(r.malformed_calls > 0)),
+        True,
+        False,
+    ),
+    Metric(
+        "react_duplicate_rate",
+        _react(lambda r: float(r.duplicate_calls > 0)),
+        True,
+        False,
+    ),
+    Metric(
+        "react_budget_hit_rate", _react(lambda r: float(r.budget_hits > 0)), True, False
+    ),
+    Metric(
+        "react_no_search_rate",
+        _react(lambda r: float(r.answered_without_search)),
+        True,
+        False,
+    ),
+    Metric("react_uncited_rate", _uncited, True, False),
+)
+
+
 METRICS: tuple[Metric, ...] = (
     # Truthfulness (CRAG): wrong answers cost more than missing ones.
     Metric("truthfulness", _crag_score, False, True),
@@ -297,6 +350,8 @@ METRICS: tuple[Metric, ...] = (
         False,
         False,
     ),
+    # How the ReAct agent used its tool (spec v2 §2.4); empty for pipeline configs.
+    *REACT_METRICS,
 )
 LATENCY = "latency_seconds"
 
@@ -330,6 +385,7 @@ CONFIG_LABELS: Mapping[str, str] = {
     E2EConfig.DENSE.value: "Dense retriever",
     E2EConfig.HYBRID_K60.value: "Hybrid, RRF $k$=60",
     E2EConfig.CLOSED_BOOK.value: "Closed-book LLM",
+    E2EConfig.REACT.value: "ReAct agent",
 }
 # The LNCS text block is 12.2 cm wide: the main table compares the two systems,
 # and the ablation table carries the other configurations as paired deltas.
@@ -669,6 +725,32 @@ def _cost_table(
     return [cost_csv, cost_tex]
 
 
+def _react_table(
+    directory: Path, configs: Sequence[str], values: Mapping[str, dict[str, Values]]
+) -> Path | None:
+    """How often the ReAct agent hit each failure mode, per configuration with ReAct
+    records: means for counts, Wilson intervals for rates."""
+    header: list[str] = ["config", "n"]
+    for metric in REACT_METRICS:
+        header += [metric.name, f"{metric.name}_ci_low", f"{metric.name}_ci_high"]
+    rows: list[list[object]] = []
+    for config in configs:
+        table = values[config]
+        n = len(table["react_rounds"])
+        if n == 0:
+            continue
+        row: list[object] = [config, n]
+        for metric in REACT_METRICS:
+            summary = summarise(metric, list(table[metric.name].values()))
+            row += [summary.mean, summary.ci_low, summary.ci_high]
+        rows.append(row)
+    if not rows:
+        return None
+    path = directory / "react_failures.csv"
+    write_csv(path, header, rows)
+    return path
+
+
 def _ablation_tables(
     directory: Path, configs: Sequence[str], values: Mapping[str, dict[str, Values]]
 ) -> list[Path]:
@@ -945,6 +1027,9 @@ def write_report(
         written += _ablation_tables(directory, configs, values)
     written.append(_group_table(directory, configs, items, loaded, values))
     written += _cost_table(directory, configs, values)
+    react = _react_table(directory, configs, values)
+    if react is not None:
+        written.append(react)
     written += _calibration_tables(directory, run_root)
     if E2EConfig.FULL.value in loaded:
         answers, judgments, _identity = loaded[E2EConfig.FULL.value]

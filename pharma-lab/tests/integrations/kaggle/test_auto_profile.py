@@ -287,3 +287,33 @@ def test_benchmark_without_a_valid_level_stops_with_the_server_log_tail(tmp_path
         )
 
     assert not list((tmp_path / "profiles").rglob("*.json"))
+
+
+def test_force_reaches_the_benchmark_kernel(tmp_path):
+    """`--force` must not reuse a finished (possibly failed) benchmark kernel of the
+    same job; a valid stored profile is still reused."""
+    calls = []
+
+    def benchmark_runner(**kwargs):
+        calls.append(kwargs)
+        return _benchmark_result(tmp_path)
+
+    def resolve(force: bool, root: str):
+        return ensure_runtime_profile(
+            workload="rerank",
+            benchmark_stage="rerank-benchmark",
+            model=MODEL,
+            input_path=tmp_path / "candidates.jsonl",
+            gguf_root=tmp_path / "gguf",
+            budget_seconds=60,
+            dry_run=False,
+            force=force,
+            profile_root=tmp_path / root,
+            runtime_sha256="b" * 64,
+            benchmark_runner=benchmark_runner,
+        )
+
+    resolve(False, "plain")
+    resolve(True, "forced")
+    assert resolve(True, "forced").action == "reuse"
+    assert [call["force"] for call in calls] == [False, True]

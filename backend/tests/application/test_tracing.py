@@ -57,7 +57,10 @@ class _RecordingHandle:
 async def test_runner_traces_each_turn_and_forwards_callbacks() -> None:
     llm = passing_llm()
     llm.script(
-        LlmRole.JUDGE, JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ")
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ", confidence=1.0
+        ),
     )
     tracer = RecordingTracer()
     runner = ChatTurnRunner(

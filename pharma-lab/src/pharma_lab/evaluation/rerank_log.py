@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TextIO
 
-from pharma_lab.config.paths import rerank_log_path
+from pharma_lab.cache.paths import rerank_log_path
 
 
 def _local_now() -> datetime:
