@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from pharma_lab.artifacts.manifest import sha256_file
 from pharma_lab.e2e.golden import GoldenItem, archive_path
 from pharma_lab.e2e.golden_changes import SUPERSEDED, GoldenChange, reconcile_golden
 from pharma_lab.e2e.harness import run_items
@@ -14,7 +15,6 @@ from pharma_lab.e2e.records import (
     Judgement,
 )
 from pharma_lab.e2e.run_identity import RUN_FILE
-from pharma_lab.evaluation.artifact_contracts import sha256_file
 
 SECTION = "drug:paracetamol:lieu-dung"
 

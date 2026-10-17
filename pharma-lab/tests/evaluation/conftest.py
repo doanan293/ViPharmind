@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from pharma_lab.evaluation.artifact_contracts import sha256_file
+from pharma_lab.artifacts.manifest import sha256_file
 from pharma_lab.evaluation.relevance_judgments import (
     judgments_path,
     write_judgments,

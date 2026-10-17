@@ -46,3 +46,43 @@ testpaths = ["tests"]
 markers = ["integration: needs Docker (run with -m integration)"]
 addopts = ["--import-mode=importlib", "-m", "not integration"]
 filterwarnings = ["error"]
+
+[tool.importlinter]
+root_packages = ["pharma_lab", "pharma_agent"]
+
+[[tool.importlinter.contracts]]
+name = "pharma_lab layers, top to bottom"
+type = "layers"
+# Exhaustive: a new package directly under pharma_lab fails until it is placed in a layer.
+containers = ["pharma_lab"]
+exhaustive = true
+layers = [
+    "cli",
+    "e2e | data_archive",
+    "evaluation | orchestration",
+    "bundle",
+    "embeddings",
+    "integrations",
+    "corpus",
+    "artifacts",
+    "cache",
+    "runtime",
+    "config | hashing",
+]
+
+[[tool.importlinter.contracts]]
+name = "Kaggle workers import neither the backend nor the local data layout"
+type = "forbidden"
+source_modules = ["pharma_lab.integrations.kaggle.workers"]
+# The kernel has no pharma-lab workspace: config.paths raises ConfigurationError there.
+forbidden_modules = ["pharma_agent", "pharma_lab.config.paths"]
+
+[[tool.importlinter.contracts]]
+name = "pharma_lab uses the backend's public surface only"
+type = "forbidden"
+source_modules = ["pharma_lab"]
+forbidden_modules = [
+    "pharma_agent.api",
+    "pharma_agent.infrastructure.persistence",
+]
+allow_indirect_imports = true
