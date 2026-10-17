@@ -295,7 +295,7 @@ async def test_a_probe_is_drafted_as_an_answerable_item_with_its_own_ids(
     assert item.eval_group is None
     paths = write_drafts(tmp_path, items, [], family=PROBE)
     assert [p.name for p in paths] == ["probe-01.draft.jsonl", "probe.failed.jsonl"]
-    assert needed_counts({"rerank_probe": 5}, PROBE)["rerank_probe"] == 15
+    assert needed_counts({"rerank_probe": 5}, PROBE)["rerank_probe"] == 16
     (tmp_path / "probe-01.authored.jsonl").write_text(
         paths[0].read_text("utf-8"), encoding="utf-8"
     )
