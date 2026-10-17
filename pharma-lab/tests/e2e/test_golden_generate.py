@@ -14,6 +14,7 @@ from pharma_lab.e2e.golden_generate import (
     drug_name,
     generate,
     section_slug,
+    single_active,
     three_intent_candidates,
     two_drug_candidates,
 )
@@ -91,6 +92,25 @@ def test_drug_name_and_section_slug() -> None:
     assert drug_name("ACID  FOLIC") == "Acid folic"
     assert section_slug("drug:a:tuong-tac-thuoc") == "tuong-tac-thuoc"
     assert section_slug("leaflet:t:x:09-qua-lieu") == "qua-lieu"
+
+
+@pytest.mark.parametrize(
+    ("composition", "expected"),
+    [
+        ("Hoạt chất: Paracetamol 500 mg. Tá dược: acid citric 10 mg, PEG 6000.", True),
+        (
+            "- Acid alendronic 70 mg (dưới dạng Alendronat natri 91,35 mg). "
+            "- Cholecalciferol 5.600 IU. Thành phần tá dược: lactose",
+            False,
+        ),
+        ("Azelastin hydroclorid 15 mg. Fluticason propionat 5,475 mg.", False),
+        ("Paracetamol 500 mg, Cafein 65 mg. Tá dược: avicel", False),
+    ],
+)
+def test_single_active_counts_dose_figures_before_the_excipients(
+    composition: str, expected: bool
+) -> None:
+    assert single_active(composition) is expected
 
 
 def test_monograph_names_match_whole_words_and_skip_excipients() -> None:

@@ -74,6 +74,7 @@ from pharma_lab.e2e.golden import (
 from pharma_lab.e2e.golden_draft import (
     DRAFT_MODEL,
     authored_documents,
+    authored_sections,
     authored_state,
     draft_multi_hop,
     load_candidates,
@@ -375,6 +376,7 @@ def golden_draft(
             load_candidates(authoring_dir),
             exclude=used_query_ids(authoring_dir),
             seed=seed,
+            exclude_sections=authored_sections(authoring_dir),
         )
         llm = judge_llm(Settings(_env_file=backend_env_file), model)
         items, failures = asyncio.run(

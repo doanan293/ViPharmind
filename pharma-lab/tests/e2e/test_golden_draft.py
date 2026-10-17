@@ -9,6 +9,7 @@ from pharma_lab.e2e.golden_draft import (
     DraftFailure,
     DraftReference,
     authored_documents,
+    authored_sections,
     authored_state,
     draft_multi_hop,
     load_candidates,
@@ -67,16 +68,16 @@ def only_first_section() -> DraftReference:
 def test_needed_counts_top_the_quotas_up() -> None:
     assert needed_counts({}) == {
         "retrieval_miss": 32,
-        "noisy_retry": 36,
+        "noisy_retry": 30,
         "three_intent": 16,
-        "two_drug": 36,
+        "two_drug": 42,
         "brand_to_ingredient": 30,
     }
-    topped = needed_counts({"noisy_retry": 36, "three_intent": 20, "two_drug": 1})
+    topped = needed_counts({"noisy_retry": 30, "three_intent": 20, "two_drug": 1})
     assert (topped["noisy_retry"], topped["three_intent"], topped["two_drug"]) == (
         0,
         0,
-        35,
+        41,
     )
 
 
@@ -187,6 +188,7 @@ def test_used_queries_and_draft_batches(tmp_path) -> None:
         encoding="utf-8",
     )
     assert authored_documents(tmp_path, "three_intent") == ["drug:a", "leaflet:t:b"]
+    assert authored_sections(tmp_path) == [frozenset({"drug:a:x", "leaflet:t:b:01-y"})]
 
     item = to_item(candidate("q1"), good(), "e2e-mhop-0003")
     paths = write_drafts(
@@ -264,3 +266,11 @@ def test_select_keeps_one_candidate_per_gold_section_set() -> None:
         [candidate("q1"), reversed_sections, other], exclude=set(), seed=0
     )
     assert sorted(str(r["query_id"]) for r in chosen["three_intent"]) == ["q1", "q3"]
+    # An authored item's section set keeps a renumbered generated candidate out.
+    chosen = select_candidates(
+        [candidate("q1"), other],
+        exclude=set(),
+        seed=0,
+        exclude_sections=[frozenset({A, B})],
+    )
+    assert [str(r["query_id"]) for r in chosen["three_intent"]] == ["q3"]

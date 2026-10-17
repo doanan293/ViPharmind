@@ -229,12 +229,14 @@ def test_cli_hard_candidates_writes_the_todo(tmp_path: Path, monkeypatch) -> Non
         "q2": row(query_id="q2"),
         "q3": row(query_id="q3", expected_section_ids=["drug:paracetamol:than-trong"]),
         "q4": row(query_id="q4"),
+        "q5": row(query_id="q5", eval_group="noisy", query="cho toi thong tin ve x"),
     }
     found = {
         "q1": OneRoundCoverage("q1", ("answer",), ("answer",)),
         "q2": OneRoundCoverage("q2", ("answer",), ()),
         "q3": OneRoundCoverage("q3", ("answer",), ("answer",)),
         "q4": OneRoundCoverage("q4", ("answer",), ("answer",)),
+        "q5": OneRoundCoverage("q5", ("answer",), ("answer",)),
     }
     monkeypatch.setattr(
         e2e_commands, "load_one_round", lambda *a, **k: _fake_run(found, rows)
@@ -257,7 +259,8 @@ def test_cli_hard_candidates_writes_the_todo(tmp_path: Path, monkeypatch) -> Non
         json.loads(line)
         for line in (tmp_path / "multi-hop.todo.jsonl").read_text("utf-8").splitlines()
     ]
-    # q2 is covered; q3 misses a section too short to answer from.
+    # q2 is covered; q3 misses a section too short to answer from; q5 is a noisy open
+    # request, not a question.
     assert [(t["query_id"], t["kind"], t["missing"]) for t in todo] == [
         ("q1", "noisy_retry", ["answer"]),
         ("q4", "retrieval_miss", ["answer"]),

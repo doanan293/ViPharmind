@@ -17,7 +17,7 @@ import json
 import random
 import re
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
 from pharma_agent.domain.llm.models import ChatMessage, LlmRole, system, user
@@ -102,14 +102,20 @@ def load_candidates(authoring_dir: Path) -> list[dict[str, object]]:
 
 
 def select_candidates(
-    candidates: Sequence[Mapping[str, object]], *, exclude: set[str], seed: int
+    candidates: Sequence[Mapping[str, object]],
+    *,
+    exclude: set[str],
+    seed: int,
+    exclude_sections: Iterable[frozenset[str]] = (),
 ) -> dict[str, list[Mapping[str, object]]]:
-    """Candidates by kind in a seeded order, without questions the set already uses."""
+    """Candidates by kind in a seeded order, without questions the set already uses
+    and without the gold section sets of `exclude_sections` (generated candidate ids
+    are positional, so an authored item is recognised by its sections)."""
     by_kind: dict[str, list[Mapping[str, object]]] = {
         kind: [] for kind in MULTI_HOP_KINDS
     }
     # The benchmark asks the same section pair in both orders; one item is enough.
-    seen_sections: set[frozenset[str]] = set()
+    seen_sections: set[frozenset[str]] = set(exclude_sections)
     for row in sorted(candidates, key=lambda row: str(row["query_id"])):
         sections = frozenset(_gold(row))
         if str(row["query_id"]) in exclude or sections in seen_sections:
@@ -163,6 +169,18 @@ def authored_state(authoring_dir: Path) -> tuple[Counter[str], int]:
                 if pattern.endswith("authored.jsonl") and isinstance(tags, list):
                     counts.update(tag for tag in tags if tag in MULTI_HOP_KINDS)
     return counts, highest
+
+
+def authored_sections(authoring_dir: Path) -> list[frozenset[str]]:
+    """Gold section sets of the authored and drafted multi-hop items."""
+    sets: list[frozenset[str]] = []
+    for pattern in ("multi-hop-*.authored.jsonl", "multi-hop-*.draft.jsonl"):
+        for path in _batches(authoring_dir, pattern):
+            for line in _lines(path):
+                sections = line.get("gold_section_ids")
+                if isinstance(sections, list) and sections:
+                    sets.append(frozenset(str(section) for section in sections))
+    return sets
 
 
 def authored_documents(authoring_dir: Path, kind: str) -> list[str]:
