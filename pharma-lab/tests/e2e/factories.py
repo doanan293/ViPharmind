@@ -3,23 +3,26 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator, Mapping, Sequence
-from typing import TypeVar
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
+from typing import Any, TypeVar
 
+from langchain_core.callbacks import CallbackManagerForLLMRun
+from langchain_core.language_models import BaseChatModel, LanguageModelInput
+from langchain_core.messages import AIMessage, BaseMessage, ToolCall, UsageMetadata
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.runnables import Runnable
+from langchain_core.tools import BaseTool
 from pharma_agent.domain.llm.decision import Decision, NoulQuestion
 from pharma_agent.domain.llm.models import (
     ChatMessage,
     LlmRole,
     LlmUsage,
     StreamDelta,
-    ToolChoice,
-    ToolSpec,
-    ToolTurn,
 )
 from pharma_agent.domain.retrieval.models import Hit, Query, ReleaseScope
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
 from pharma_agent.infrastructure.retrieval.llama_cpp_reranker import NoopReranker
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -34,27 +37,9 @@ class ScriptedLlm:
         self.stream_error = stream_error
         self.scripts: dict[LlmRole, list[BaseModel | Exception]] = {}
         self.calls: list[tuple[LlmRole, list[ChatMessage]]] = []
-        self.tool_turns: list[ToolTurn | Exception] = []
 
     def script(self, role: LlmRole, *responses: BaseModel | Exception) -> None:
         self.scripts.setdefault(role, []).extend(responses)
-
-    def script_tool_turns(self, *turns: ToolTurn | Exception) -> None:
-        self.tool_turns.extend(turns)
-
-    async def tool_call(
-        self,
-        role: LlmRole,
-        messages: Sequence[ChatMessage],
-        tools: Sequence[ToolSpec],
-        *,
-        tool_choice: ToolChoice = "auto",
-    ) -> tuple[ToolTurn, LlmUsage]:
-        self.calls.append((role, list(messages)))
-        turn = self.tool_turns.pop(0)
-        if isinstance(turn, Exception):
-            raise turn
-        return turn, LlmUsage(prompt_tokens=200, completion_tokens=20)
 
     async def structured(
         self, role: LlmRole, messages: Sequence[ChatMessage], schema: type[T]
@@ -74,6 +59,56 @@ class ScriptedLlm:
             raise self.stream_error
         yield StreamDelta(text=self.answer)
         yield StreamDelta(usage=LlmUsage(prompt_tokens=100, completion_tokens=20))
+
+
+class ScriptedChatModel(BaseChatModel):
+    """The ReAct agent's model: returns the scripted AIMessages in order."""
+
+    responses: list[AIMessage] = Field(default_factory=list)
+
+    @property
+    def _llm_type(self) -> str:
+        return "scripted-chat"
+
+    def bind_tools(
+        self,
+        tools: Sequence[dict[str, Any] | type | Callable[..., Any] | BaseTool],
+        *,
+        tool_choice: str | None = None,
+        **kwargs: Any,
+    ) -> Runnable[LanguageModelInput, AIMessage]:
+        return self
+
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        return ChatResult(generations=[ChatGeneration(message=self.responses.pop(0))])
+
+
+AGENT_USAGE = UsageMetadata(input_tokens=200, output_tokens=20, total_tokens=220)
+
+
+def searching(query: str, call_id: str = "c1") -> AIMessage:
+    return AIMessage(
+        content="",
+        tool_calls=[
+            ToolCall(
+                name="search_corpus",
+                args={"query": query},
+                id=call_id,
+                type="tool_call",
+            )
+        ],
+        usage_metadata=AGENT_USAGE,
+    )
+
+
+def answering(text: str) -> AIMessage:
+    return AIMessage(content=text, usage_metadata=AGENT_USAGE)
 
 
 NAMESPACE = uuid.UUID("0f5c1d0e-7a8b-4c3d-9e2f-1a2b3c4d5e6f")

@@ -222,6 +222,7 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
                     config=label,
                     decisions=app.deps.decisions,
                     guard_thresholds=app.deps.guardrail.thresholds,
+                    agent_model=app.deps.agent_model,
                 )
                 if uses_retrieval(request.config)
                 else ClosedBookExecutor(llm=app.deps.llm, config=label)

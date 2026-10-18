@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Mapping, Sequence
 
+from langchain_core.language_models import BaseChatModel
 from pharma_agent.application.chat.context import PipelineOptions, TurnDeps
 from pharma_agent.application.chat.graph import ChatGraph
 from pharma_agent.application.chat.runner import ChatTurnRunner, TurnOutcome
@@ -149,6 +150,26 @@ def with_decision_usage(
     return merged
 
 
+def with_agent_usage(
+    usage: dict[str, TokenUsage], react: ReactRecord | None
+) -> dict[str, TokenUsage]:
+    """The ReAct agent's model calls bypass RecordingLlm, so their usage comes from the
+    turn's ReAct statistics."""
+    if react is None or react.model_calls == 0:
+        return usage
+    role = LlmRole.AGENT.value
+    current = usage.get(role, TokenUsage())
+    return usage | {
+        role: TokenUsage(
+            calls=current.calls + react.model_calls,
+            prompt_tokens=current.prompt_tokens + react.prompt_tokens,
+            completion_tokens=current.completion_tokens + react.completion_tokens,
+            reasoning_tokens=current.reasoning_tokens + react.reasoning_tokens,
+            seconds=round(current.seconds + react.model_seconds, 3),
+        )
+    }
+
+
 def answer_record(
     item: GoldenItem,
     config: str,
@@ -178,7 +199,12 @@ def answer_record(
     failed = run.status in (RunStatus.ERROR, RunStatus.TIMEOUT)
     degraded = degraded_steps(entries)
     decisions = decision_records(entries)
-    usage = with_decision_usage(usage, decisions)
+    react = (
+        None
+        if run.react is None
+        else ReactRecord.model_validate(run.react.model_dump())
+    )
+    usage = with_agent_usage(with_decision_usage(usage, decisions), react)
     return AnswerRecord(
         item_id=item.item_id,
         config=config,
@@ -225,9 +251,7 @@ def answer_record(
         retrieval_seconds=round(_search_total(entries, "retrieval_seconds"), 3),
         rerank_seconds=round(_search_total(entries, "rerank_seconds"), 3),
         rerank_scored=int(_search_total(entries, "rerank_scored")),
-        react=None
-        if run.react is None
-        else ReactRecord.model_validate(run.react.model_dump()),
+        react=react,
         error=(
             f"{run.error_code.value}: {run.error_detail}".strip()
             if run.error_code is not None
@@ -254,7 +278,9 @@ class BackendTurnExecutor:
         clock: Clock | None = None,
         decisions: Mapping[LlmRole, DecisionPort] | None = None,
         guard_thresholds: GuardThresholds = DEFAULT_THRESHOLDS,
+        agent_model: BaseChatModel | None = None,
     ) -> None:
+        self._agent_model = agent_model
         self._guard_thresholds = guard_thresholds
         self._decisions = dict(decisions or {})
         self._graph = graph
@@ -277,6 +303,7 @@ class BackendTurnExecutor:
             retrieval=self._retrieval,
             clock=self._clock,
             decisions=self._decisions,
+            agent_model=self._agent_model,
         )
         runner = ChatTurnRunner(
             self._graph, deps, self._limits, pipeline=self._pipeline

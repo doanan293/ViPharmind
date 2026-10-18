@@ -3,6 +3,7 @@
 import os
 from dataclasses import dataclass
 
+from langchain_core.language_models import BaseChatModel
 from langfuse import get_client
 from openai import AsyncOpenAI
 from qdrant_client import AsyncQdrantClient
@@ -20,6 +21,7 @@ from pharma_agent.domain.llm.port import LlmPort
 from pharma_agent.domain.retrieval.ports import CorpusReader, Reranker
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
 from pharma_agent.domain.shared.clock import SystemClock
+from pharma_agent.infrastructure.llm.agent_model import agent_chat_model
 from pharma_agent.infrastructure.llm.openai_adapter import (
     OpenAiLlmAdapter,
     default_client_factory,
@@ -211,9 +213,11 @@ def build_application(
     llm: LlmPort | None = None,
     embedder: Embedder | None = None,
     decision: DecisionPort | None = None,
+    agent_model: BaseChatModel | None = None,
 ) -> Application:
     """`llm` and `embedder` replace the OpenAI-compatible adapters built from settings;
-    `decision` replaces the SystemOneAdapter that serves the systemone roles."""
+    `decision` replaces the SystemOneAdapter that serves the systemone roles and
+    `agent_model` the ReAct agent's ChatOpenAI."""
     _export_langfuse_environment(settings)
     client_factory = (
         langfuse_client_factory if settings.langfuse.enabled else default_client_factory
@@ -230,6 +234,8 @@ def build_application(
     if roles:
         port = decision if decision is not None else SystemOneAdapter(settings.llm)
         decisions = dict.fromkeys(roles, port)
+    if agent_model is None and settings.llm.configured:
+        agent_model = agent_chat_model(settings.llm)
     deps = TurnDeps(
         llm=llm_port,
         guardrail=GuardrailService(
@@ -240,6 +246,7 @@ def build_application(
         retrieval=retrieval.service,
         clock=SystemClock(),
         decisions=decisions,
+        agent_model=agent_model,
     )
     runner = ChatTurnRunner(
         build_chat_graph(),

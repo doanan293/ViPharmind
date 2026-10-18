@@ -5,12 +5,9 @@ from openai import OpenAIError
 from pydantic import BaseModel, ConfigDict
 
 from pharma_agent.domain.llm.models import (
-    ChatMessage,
     ChatRole,
     LlmRole,
     LlmUsage,
-    ToolCall,
-    ToolSpec,
     system,
     user,
 )
@@ -32,7 +29,6 @@ class FakeCompletions:
         self.parsed: object = Verdict(ok=True)
         self.raise_on_parse: Exception | None = None
         self.usage_details: object | None = None
-        self.tool_response: object | None = None
 
     async def parse(self, **kwargs):
         self.parse_kwargs = kwargs
@@ -50,8 +46,6 @@ class FakeCompletions:
 
     async def create(self, **kwargs):
         self.create_kwargs = kwargs
-        if not kwargs.get("stream"):
-            return self.tool_response
 
         async def chunks():
             yield SimpleNamespace(
@@ -147,7 +141,7 @@ async def test_openai_errors_and_refusals_become_llm_error() -> None:
 
 
 def test_message_roles_serialize_to_openai_roles() -> None:
-    assert [r.value for r in ChatRole] == ["system", "user", "assistant", "tool"]
+    assert [r.value for r in ChatRole] == ["system", "user", "assistant"]
 
 
 async def test_real_sdk_client_against_mocked_http() -> None:
@@ -370,138 +364,3 @@ async def test_structured_reads_reasoning_tokens() -> None:
     _, usage = await adapter.structured(LlmRole.GUARDRAIL, [user("q")], Verdict)
     assert usage.reasoning_tokens == 7
     assert usage.completion_tokens == 3
-
-
-SEARCH = ToolSpec(
-    name="search_corpus",
-    description="Tìm",
-    parameters={
-        "type": "object",
-        "properties": {"query": {"type": "string"}},
-        "required": ["query"],
-    },
-)
-
-
-def tool_response(content, calls, finish_reason):
-    return SimpleNamespace(
-        choices=[
-            SimpleNamespace(
-                finish_reason=finish_reason,
-                message=SimpleNamespace(content=content, tool_calls=calls),
-            )
-        ],
-        usage=SimpleNamespace(prompt_tokens=30, completion_tokens=5),
-    )
-
-
-async def test_tool_call_sends_tools_and_maps_calls() -> None:
-    adapter, created = make_adapter()
-    await adapter.structured(LlmRole.GUARDRAIL, [user("warm")], Verdict)
-    client = created[(None, "sk-cloud")]
-    client.completions.tool_response = tool_response(
-        None,
-        [
-            SimpleNamespace(
-                id="c1",
-                function=SimpleNamespace(
-                    name="search_corpus", arguments='{"query": "liều"}'
-                ),
-            )
-        ],
-        "tool_calls",
-    )
-    turn, usage = await adapter.tool_call(LlmRole.AGENT, [user("liều?")], [SEARCH])
-    kwargs = client.completions.create_kwargs
-    assert kwargs["tools"] == [
-        {
-            "type": "function",
-            "function": {
-                "name": "search_corpus",
-                "description": "Tìm",
-                "parameters": SEARCH.parameters,
-            },
-        }
-    ]
-    assert kwargs["parallel_tool_calls"] is True
-    assert turn.text == ""
-    assert turn.finish_reason == "tool_calls"
-    assert turn.tool_calls == (
-        ToolCall(id="c1", name="search_corpus", arguments='{"query": "liều"}'),
-    )
-    assert usage.prompt_tokens == 30
-
-
-async def test_tool_call_without_tools_and_tool_messages_serialize() -> None:
-    adapter, created = make_adapter()
-    await adapter.structured(LlmRole.GUARDRAIL, [user("warm")], Verdict)
-    client = created[(None, "sk-cloud")]
-    client.completions.tool_response = tool_response("Đáp [1].", None, "stop")
-    call = ToolCall(id="c1", name="search_corpus", arguments='{"query": "x"}')
-    messages = [
-        user("hỏi"),
-        ChatMessage(role=ChatRole.ASSISTANT, content="", tool_calls=(call,)),
-        ChatMessage(role=ChatRole.TOOL, content="[1] tài liệu", tool_call_id="c1"),
-    ]
-    turn, _ = await adapter.tool_call(LlmRole.AGENT, messages, [])
-    kwargs = client.completions.create_kwargs
-    assert "tools" not in kwargs
-    assert "parallel_tool_calls" not in kwargs
-    assert kwargs["messages"][1] == {
-        "role": "assistant",
-        "content": "",
-        "tool_calls": [
-            {
-                "id": "c1",
-                "type": "function",
-                "function": {"name": "search_corpus", "arguments": '{"query": "x"}'},
-            }
-        ],
-    }
-    assert kwargs["messages"][2] == {
-        "role": "tool",
-        "content": "[1] tài liệu",
-        "tool_call_id": "c1",
-    }
-    assert turn.text == "Đáp [1]."
-    assert turn.tool_calls == ()
-
-
-async def test_tool_call_errors_become_llm_error() -> None:
-    adapter, created = make_adapter()
-    await adapter.structured(LlmRole.GUARDRAIL, [user("warm")], Verdict)
-    client = created[(None, "sk-cloud")]
-
-    async def boom(**_kwargs):
-        raise OpenAIError("down")
-
-    client.completions.create = boom
-    with pytest.raises(LlmError, match="agent"):
-        await adapter.tool_call(LlmRole.AGENT, [user("x")], [SEARCH])
-
-
-async def test_tool_choice_none_keeps_the_tools_and_forbids_calls() -> None:
-    adapter, created = make_adapter()
-    await adapter.structured(LlmRole.GUARDRAIL, [user("warm")], Verdict)
-    client = created[(None, "sk-cloud")]
-    client.completions.tool_response = tool_response("Đáp.", None, "stop")
-    await adapter.tool_call(LlmRole.AGENT, [user("hỏi")], [SEARCH], tool_choice="none")
-    kwargs = client.completions.create_kwargs
-    assert kwargs["tool_choice"] == "none"
-    assert [t["function"]["name"] for t in kwargs["tools"]] == ["search_corpus"]
-    assert "parallel_tool_calls" not in kwargs
-
-
-async def test_tool_call_ids_that_are_empty_or_repeated_are_renumbered() -> None:
-    adapter, created = make_adapter()
-    await adapter.structured(LlmRole.GUARDRAIL, [user("warm")], Verdict)
-    client = created[(None, "sk-cloud")]
-    calls = [
-        SimpleNamespace(
-            id=cid, function=SimpleNamespace(name="search_corpus", arguments="{}")
-        )
-        for cid in ("", "dup", "dup", "ok")
-    ]
-    client.completions.tool_response = tool_response(None, calls, "tool_calls")
-    turn, _ = await adapter.tool_call(LlmRole.AGENT, [user("hỏi")], [SEARCH])
-    assert [c.id for c in turn.tool_calls] == ["call_0", "dup", "call_2", "ok"]

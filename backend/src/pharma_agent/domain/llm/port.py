@@ -8,9 +8,6 @@ from pharma_agent.domain.llm.models import (
     LlmRole,
     LlmUsage,
     StreamDelta,
-    ToolChoice,
-    ToolSpec,
-    ToolTurn,
 )
 from pharma_agent.domain.shared.errors import DomainError
 
@@ -32,16 +29,4 @@ class LlmPort(Protocol):
         self, role: LlmRole, messages: Sequence[ChatMessage]
     ) -> AsyncIterator[StreamDelta]:
         """Yield text deltas; the final delta carries `usage`. Raises LlmError."""
-        ...
-
-    async def tool_call(
-        self,
-        role: LlmRole,
-        messages: Sequence[ChatMessage],
-        tools: Sequence[ToolSpec],
-        *,
-        tool_choice: ToolChoice = "auto",
-    ) -> tuple[ToolTurn, LlmUsage]:
-        """One model call that may request tools. Empty `tools`, or tool_choice "none",
-        forbids tool calls. Raises LlmError."""
         ...

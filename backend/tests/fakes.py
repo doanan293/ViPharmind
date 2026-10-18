@@ -1,11 +1,20 @@
 import asyncio
 import hashlib
 import uuid
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from datetime import UTC, datetime
-from typing import TypeVar
+from typing import Any, TypeVar
 
-from pydantic import BaseModel
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForLLMRun,
+    CallbackManagerForLLMRun,
+)
+from langchain_core.language_models import BaseChatModel, LanguageModelInput
+from langchain_core.messages import AIMessage, BaseMessage, ToolCall, UsageMetadata
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.runnables import Runnable
+from langchain_core.tools import BaseTool
+from pydantic import BaseModel, Field
 
 from pharma_agent.application.chat.context import TurnDeps
 from pharma_agent.domain.guardrail.service import GuardrailService
@@ -15,9 +24,6 @@ from pharma_agent.domain.llm.models import (
     LlmRole,
     LlmUsage,
     StreamDelta,
-    ToolChoice,
-    ToolSpec,
-    ToolTurn,
 )
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.models import (
@@ -45,34 +51,9 @@ class FakeLlm:
         self.stream_error: Exception | None = None
         self.stream_delay: float = 0.0
         self.calls: list[tuple[LlmRole, list[ChatMessage]]] = []
-        self.tool_turns: list[ToolTurn | Exception] = []
-        self.tool_calls_seen: list[
-            tuple[LlmRole, list[ChatMessage], list[ToolSpec]]
-        ] = []
-        self.tool_choices: list[ToolChoice] = []
 
     def script(self, role: LlmRole, *responses: BaseModel | Exception) -> None:
         self.structured_responses.setdefault(role, []).extend(responses)
-
-    def script_tool_turns(self, *turns: ToolTurn | Exception) -> None:
-        self.tool_turns.extend(turns)
-
-    async def tool_call(
-        self,
-        role: LlmRole,
-        messages: Sequence[ChatMessage],
-        tools: Sequence[ToolSpec],
-        *,
-        tool_choice: ToolChoice = "auto",
-    ) -> tuple[ToolTurn, LlmUsage]:
-        self.tool_calls_seen.append((role, list(messages), list(tools)))
-        self.tool_choices.append(tool_choice)
-        if not self.tool_turns:
-            raise AssertionError("no scripted tool turn")
-        turn = self.tool_turns.pop(0)
-        if isinstance(turn, Exception):
-            raise turn
-        return turn, LlmUsage(prompt_tokens=200, completion_tokens=20)
 
     async def structured(
         self, role: LlmRole, messages: Sequence[ChatMessage], schema: type[T]
@@ -104,6 +85,86 @@ class FakeLlm:
 
     def calls_for(self, role: LlmRole) -> list[list[ChatMessage]]:
         return [messages for r, messages in self.calls if r is role]
+
+
+class FakeChatModel(BaseChatModel):
+    """Scripted LangChain chat model for the ReAct agent: each call returns the next
+    scripted AIMessage (or raises the next scripted error). `bind_tools` returns the
+    model itself and records what each call was bound with."""
+
+    responses: list[AIMessage | Exception] = Field(default_factory=list)
+    # One entry per model call: the messages it saw, its tool names and tool_choice.
+    seen: list[list[BaseMessage]] = Field(default_factory=list)
+    bound_tools: list[list[str]] = Field(default_factory=list)
+    tool_choices: list[str | None] = Field(default_factory=list)
+
+    @property
+    def _llm_type(self) -> str:
+        return "fake-chat"
+
+    def script(self, *responses: AIMessage | Exception) -> None:
+        self.responses.extend(responses)
+
+    def bind_tools(
+        self,
+        tools: Sequence[dict[str, Any] | type | Callable[..., Any] | BaseTool],
+        *,
+        tool_choice: str | None = None,
+        **kwargs: Any,
+    ) -> Runnable[LanguageModelInput, AIMessage]:
+        self.bound_tools.append(
+            [t.name if isinstance(t, BaseTool) else str(t) for t in tools]
+        )
+        self.tool_choices.append(tool_choice)
+        return self
+
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        self.seen.append(list(messages))
+        if not self.responses:
+            raise AssertionError("no scripted agent response")
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return ChatResult(generations=[ChatGeneration(message=response)])
+
+    async def _agenerate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        return self._generate(messages, stop)
+
+
+AGENT_USAGE = UsageMetadata(input_tokens=200, output_tokens=20, total_tokens=220)
+
+
+def searching(*queries: tuple[str, str]) -> AIMessage:
+    """A response that calls search_corpus once per (call id, query), in order."""
+    return AIMessage(
+        content="",
+        tool_calls=[
+            ToolCall(name="search_corpus", args={"query": q}, id=cid, type="tool_call")
+            for cid, q in queries
+        ],
+        usage_metadata=AGENT_USAGE,
+        response_metadata={"finish_reason": "tool_calls"},
+    )
+
+
+def answering(text: str, *, finish_reason: str = "stop") -> AIMessage:
+    return AIMessage(
+        content=text,
+        usage_metadata=AGENT_USAGE,
+        response_metadata={"finish_reason": finish_reason},
+    )
 
 
 class FakeRetriever:
@@ -183,6 +244,7 @@ def build_deps(
     reranker: Reranker | None = None,
     decisions: Mapping[LlmRole, DecisionPort] | None = None,
     guard_decision: DecisionPort | None = None,
+    agent_model: BaseChatModel | None = None,
 ) -> TurnDeps:
     return TurnDeps(
         llm=llm,
@@ -194,20 +256,24 @@ def build_deps(
         ),
         clock=FixedClock(NOW),
         decisions=dict(decisions or {}),
+        agent_model=agent_model,
     )
 
 
 __all__ = [
     "FAKE_EMBEDDING_DIMENSION",
     "FAKE_EMBEDDING_MODEL",
+    "FakeChatModel",
     "FakeEmbedder",
     "FakeLlm",
     "FakeReranker",
     "FakeRetriever",
     "LlmError",
     "RetrievalError",
+    "answering",
     "build_deps",
     "fake_vector",
+    "searching",
 ]
 
 

@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from langchain_core.language_models import BaseChatModel
 from pharma_agent.application.chat.graph import ChatGraph, build_chat_graph
 from pharma_agent.application.chat.react_graph import build_react_graph
 from pharma_agent.domain.agent.actions import Action, ActionKind
@@ -17,15 +18,18 @@ from pharma_agent.domain.agent.schemas import (
     RephraseResult,
 )
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict
-from pharma_agent.domain.llm.models import LlmRole, LlmUsage, ToolCall, ToolTurn
+from pharma_agent.domain.llm.models import LlmRole, LlmUsage
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.infrastructure.settings import Settings
 from tests.e2e.factories import (
     FakeDecision,
     FakeRetriever,
+    ScriptedChatModel,
     ScriptedLlm,
+    answering,
     make_hit,
     retrieval_service,
+    searching,
 )
 
 from pharma_lab.e2e.configs import E2EConfig, pipeline_for
@@ -107,6 +111,7 @@ def executor(
     config: E2EConfig,
     *,
     graph: ChatGraph | None = None,
+    agent_model: BaseChatModel | None = None,
 ):
     return BackendTurnExecutor(
         graph=graph if graph is not None else build_chat_graph(),
@@ -115,6 +120,7 @@ def executor(
         limits=BudgetLimits(),
         pipeline=pipeline_for(config),
         config=str(config),
+        agent_model=agent_model,
     )
 
 
@@ -458,38 +464,24 @@ def test_old_answer_record_loads() -> None:
     assert record.rerank_scored == 0
 
 
-def test_recording_llm_records_tool_calls() -> None:
-    llm = ScriptedLlm()
-    llm.script_tool_turns(ToolTurn(text="xong", tool_calls=(), finish_reason="stop"))
-    recorder = RecordingLlm(llm)
-    turn, _ = asyncio.run(recorder.tool_call(LlmRole.AGENT, [], []))
-    assert turn.text == "xong"
-    assert recorder.usage_by_role()["agent"].calls == 1
-
-
 async def test_react_executor_records_the_react_statistics() -> None:
     fake = llm(judge=False, rephrase=False)
-    fake.script_tool_turns(
-        ToolTurn(
-            text="",
-            tool_calls=(
-                ToolCall(id="c1", name="search_corpus", arguments='{"query": "x"}'),
-            ),
-            finish_reason="tool_calls",
-        ),
-        ToolTurn(text="Đáp [1].", tool_calls=(), finish_reason="stop"),
-    )
+    model = ScriptedChatModel(responses=[searching("x"), answering("Đáp [1].")])
     record = await executor(
         fake,
         FakeRetriever([make_hit("a", SECTION, score=0.9)]),
         E2EConfig.REACT,
         graph=build_react_graph(),
+        agent_model=model,
     ).execute(item())
     assert record.status == "completed"
     assert record.react is not None
     assert record.react.rounds == 1
     assert record.react.tool_calls == 1
-    assert record.usage_by_role["agent"].calls == 2
+    agent = record.usage_by_role["agent"]
+    assert (agent.calls, agent.prompt_tokens, agent.completion_tokens) == (2, 400, 40)
+    assert agent.seconds == record.react.model_seconds
+    assert record.react.model_calls == 2
     assert [s.kind for s in record.steps][:2] == ["guard", "agent"]
     assert [(c.index, c.section_ids) for c in record.citations] == [(1, [SECTION])]
     assert record.rounds[-1].sections == [SECTION]

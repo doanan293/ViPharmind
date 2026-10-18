@@ -2,6 +2,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal
 
+from langchain_core.language_models import BaseChatModel
+
 from pharma_agent.domain.conversation.models import ConversationContext
 from pharma_agent.domain.guardrail.service import GuardrailService
 from pharma_agent.domain.llm.decision import DecisionPort
@@ -22,6 +24,9 @@ class TurnDeps:
     clock: Clock
     # Roles served by the decision model (spec v2 §2.1); empty means the LLM serves them.
     decisions: Mapping[LlmRole, DecisionPort] = field(default_factory=dict)
+    # The ReAct agent's chat model (spec v2 §2.4); None when no LLM is configured, and
+    # then a ReAct turn falls back.
+    agent_model: BaseChatModel | None = None
 
 
 @dataclass(frozen=True)

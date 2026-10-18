@@ -64,6 +64,13 @@ def emit(event: ProgressEvent) -> None:
     get_stream_writer()(event.model_dump(mode="json"))
 
 
+def emitter() -> Callable[[ProgressEvent], None]:
+    """`emit` bound to this node's stream, for code that runs inside a nested graph
+    (the ReAct agent), whose own stream does not reach the turn's events."""
+    writer = get_stream_writer()
+    return lambda event: writer(event.model_dump(mode="json"))
+
+
 def guarded(code: ErrorCode) -> Callable[[Node], Node]:
     """Last line of defence: any unexpected exception fails the run so routing sends it to fallback."""
 
