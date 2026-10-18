@@ -19,6 +19,7 @@ query rewriter must resolve:
 
 from __future__ import annotations
 
+import hashlib
 import random
 import re
 import unicodedata
@@ -395,7 +396,9 @@ def single_ingredient_leaflets(corpus: CorpusText) -> dict[str, list[str]]:
         ):
             continue
         text = corpus.sections[section_id][:600]
-        named = names.named_in(text)
+        # Only what comes before the excipients: "Tá dược: glycin" names no active.
+        actives = re.split(r"tá dược", text, maxsplit=1, flags=re.IGNORECASE)[0]
+        named = names.named_in(actives)
         if len(named) == 1 and single_active(text):
             out[named[0]].append(document)
     return dict(out)
@@ -412,8 +415,11 @@ def build_conversational(
     """`total` items spread evenly over PHENOMENA. Parents are drawn in a seeded order,
     alternating between questions one retrieval round covers and questions it misses
     when `covered` is given, and keeping leaflet (brand-name) parents in every
-    phenomenon. User turns run from two to four."""
-    rng = random.Random(seed)
+    phenomenon. User turns run from two to four.
+
+    Each item is named by its phenomenon and parent and drawn with its own seed, and
+    parents are ordered by a seeded hash of their id, so a change to one row changes
+    only the items built from it, not every item after it."""
     index = _Index(rows, corpus)
     ingredients = single_ingredient_leaflets(corpus)
     parents = [row for row in rows if _usable(row, corpus)]
@@ -423,14 +429,16 @@ def build_conversational(
     seen: set[tuple[str, tuple[str, ...]]] = set()
     for position, phenomenon in enumerate(PHENOMENA):
         need = per_phenomenon + (1 if position < extra else 0)
-        order = _parent_order(parents, rng, covered)
+        order = _parent_order(parents, phenomenon, seed, covered)
         made: list[Item] = []
         used: set[str] = set()
         for parent in order:
             if len(made) == need:
                 break
-            if str(parent["query_id"]) in used:
+            query_id = str(parent["query_id"])
+            if query_id in used:
                 continue
+            rng = random.Random(_key(seed, phenomenon, query_id))
             depth = rng.choice((2, 2, 3, 4))
             item = build_item(
                 phenomenon, parent, index, corpus, ingredients, rng, depth
@@ -442,33 +450,43 @@ def build_conversational(
             if key in seen:
                 continue
             seen.add(key)
-            used.add(str(parent["query_id"]))
+            used.add(query_id)
             made.append(item)
         items += made
     return [
-        {**item.row(), "query_id": f"conv-{number:04d}"}
-        for number, item in enumerate(items, start=1)
+        {
+            **item.row(),
+            "query_id": f"conv-{item.phenomenon}-{item.parent['query_id']}",
+        }
+        for item in items
     ]
+
+
+def _key(seed: int, *parts: str) -> str:
+    return hashlib.sha1(":".join((str(seed), *parts)).encode()).hexdigest()
 
 
 def _parent_order(
     parents: Sequence[Mapping[str, object]],
-    rng: random.Random,
+    phenomenon: str,
+    seed: int,
     covered: Mapping[str, bool] | None,
 ) -> list[Mapping[str, object]]:
     """Leaflet and formulary parents interleaved, and, given `covered`, covered and
-    missed parents interleaved, each stream in a seeded order."""
+    missed parents interleaved, each stream ordered by a seeded hash of the parent id."""
     streams: dict[tuple[bool, bool], list[Mapping[str, object]]] = defaultdict(list)
     for row in parents:
         leaflet = str(row.get("eval_group", "")).startswith("leaflet")
         hit = covered.get(str(row["query_id"]), True) if covered else True
         streams[(leaflet, hit)].append(row)
     for stream in streams.values():
-        rng.shuffle(stream)
+        stream.sort(key=lambda row: _key(seed, phenomenon, str(row["query_id"])))
     keys = sorted(streams)
     out: list[Mapping[str, object]] = []
-    while any(streams[key] for key in keys):
+    position = 0
+    while any(position < len(streams[key]) for key in keys):
         for key in keys:
-            if streams[key]:
-                out.append(streams[key].pop())
+            if position < len(streams[key]):
+                out.append(streams[key][position])
+        position += 1
     return out
