@@ -6,8 +6,10 @@ belongs to:
 
 - `header_dependent`: no gold section names the drug or product; only the chunk header
   carries the name, so the header enrichment is what lets retrieval find it.
-- `low_overlap`: under 35% of the question's content words occur in the gold sections
-  and the title; lexical search alone misses it, dense search in hybrid finds it.
+- `name_variant`: no word of the drug or product name occurs as written in the
+  question (misspelt, without diacritics, or named another way); lexical search cannot
+  match the name, dense search in hybrid can. Word overlap with the gold section does
+  not separate the dense layer; the name does.
 - `sibling_products`: another leaflet of the same brand with the same active
   ingredients has the asked section (another strength or form); the candidates look
   alike and the reranker decides the order.
@@ -29,40 +31,15 @@ from pharma_lab.e2e.golden_generate import (
     drug_name,
 )
 
-SLICES = ("header_dependent", "low_overlap", "sibling_products", "multi_chunk")
-LOW_OVERLAP = 0.35
-_STOP = frozenset(
-    [
-        "thuốc",
-        "dùng",
-        "như",
-        "thế",
-        "nào",
-        "những",
-        "không",
-        "được",
-        "có",
-        "gì",
-        "bao",
-        "nhiêu",
-        "cần",
-        "khi",
-        "các",
-        "của",
-        "cho",
-        "với",
-        "này",
-        "người",
-    ]
-)
+SLICES = ("header_dependent", "name_variant", "sibling_products", "multi_chunk")
 
 
 def _fold(text: str) -> str:
     return unicodedata.normalize("NFC", text).casefold()
 
 
-def _content_words(text: str) -> set[str]:
-    return set(re.findall(r"\w{3,}", _fold(text))) - _STOP
+def _words(text: str) -> set[str]:
+    return set(re.findall(r"\w{2,}", _fold(text)))
 
 
 def _document(section_id: str) -> str:
@@ -101,6 +78,12 @@ class SliceIndex:
             return _fold(drug_name(title))
         return self.brand(document)
 
+    def full_name(self, document: str) -> str:
+        """The name a user would write: the monograph name, or the product name with
+        its strength."""
+        title = self.corpus.titles.get(document, "")
+        return drug_name(title) if document.startswith("drug:") else brand_name(title)
+
     def brand(self, document: str) -> str:
         words = _fold(brand_name(self.corpus.titles.get(document, ""))).split()
         return words[0] if words else ""
@@ -117,12 +100,9 @@ class SliceIndex:
         name = self.name(document)
         if name and name not in _fold(text):
             found.append("header_dependent")
-        words = _content_words(str(row.get("query", "")))
-        title = self.corpus.titles.get(document, "")
-        if words and len(words & _content_words(f"{text} {title}")) / len(words) < (
-            LOW_OVERLAP
-        ):
-            found.append("low_overlap")
+        named = _words(self.full_name(document))
+        if named and not named & _words(str(row.get("query", ""))):
+            found.append("name_variant")
         if self._has_sibling(document, section_slug(sections[0])):
             found.append("sibling_products")
         if row.get("answer_mode") == "multi_required" and (

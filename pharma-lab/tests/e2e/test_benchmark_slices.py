@@ -50,12 +50,13 @@ def test_a_section_that_does_not_name_its_product_is_header_dependent() -> None:
         row("Paracetamol người lớn uống mấy mg?", f"{PARA}:lieu-luong-va-cach-dung")
     )
     assert "header_dependent" in hapacol and "header_dependent" not in named
-    assert "low_overlap" not in named
+    assert "name_variant" not in named
 
 
-def test_low_overlap_counts_content_words_against_the_gold_and_title() -> None:
-    found = INDEX.slices(row("Sốt cao co giật ở bé thì xử lý sao?", f"{PARA}:chi-dinh"))
-    assert "low_overlap" in found
+def test_a_question_that_does_not_write_the_name_as_written_is_a_name_variant() -> None:
+    typo = INDEX.slices(row("paracetamon chữa gì?", f"{PARA}:chi-dinh"))
+    plain = INDEX.slices(row("Paracetamol chữa gì?", f"{PARA}:chi-dinh"))
+    assert "name_variant" in typo and "name_variant" not in plain
 
 
 def test_sibling_products_share_brand_ingredients_and_the_asked_section() -> None:

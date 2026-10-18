@@ -118,7 +118,7 @@ def test_answerable_groups_follow_the_benchmark_and_slice_items_keep_theirs() ->
         answerable("e2e-ans-s0001", eval_group="leaflet", tags=["sibling_products"]),
     ]
     assert validate_items(ok, CORPUS, complete=False) == []
-    ungrouped = answerable("e2e-ans-s0002", eval_group=None, tags=["low_overlap"])
+    ungrouped = answerable("e2e-ans-s0002", eval_group=None, tags=["name_variant"])
     slice_of_new_group = answerable(
         "e2e-ans-s0003", eval_group="glossary", tags=["header_dependent"]
     )
