@@ -119,6 +119,15 @@ def test_a_brand_question_keeps_its_trade_name_gold_when_the_section_names_it() 
         )
     )
     assert rows["b1"]["expected_section_ids"] == [f"{AMOX}:ten-thuong-mai"]
+    listing, _ = repaired(
+        row(
+            "b2",
+            "AMOXICILIN có những tên biệt dược nào?",
+            f"{AMOX}:ten-thuong-mai",
+            intent="brand_lookup",
+        )
+    )
+    assert listing["b2"]["expected_section_ids"] == [f"{AMOX}:ten-thuong-mai"]
 
 
 def test_a_regold_with_no_target_section_drops_the_row() -> None:
@@ -291,3 +300,47 @@ def test_alternatives_must_answer_alone_and_be_the_same_drug() -> None:
         f"{b}:05-lieu-dung",
     ]
     assert counts["alternative_mismatch"] == 1
+
+
+def test_monograph_alternatives_stay_within_the_asked_drug() -> None:
+    other = "drug:colchicin:do-on-dinh-va-bao-quan"
+    corpus = CorpusText(
+        sections={
+            **SECTIONS,
+            f"{AMOX}:do-on-dinh-va-bao-quan": "Bảo quản trong lọ kín, tránh ánh sáng.",
+            other: "Bảo quản trong lọ kín, tránh ánh sáng.",
+        },
+        section_documents={
+            **CORPUS.section_documents,
+            f"{AMOX}:do-on-dinh-va-bao-quan": AMOX,
+            other: "drug:colchicin",
+        },
+        titles={**CORPUS.titles, "drug:colchicin": "COLCHICIN"},
+    )
+    asked = {
+        **row("s1", "AMOXICILIN bảo quản thế nào?", f"{AMOX}:do-on-dinh-va-bao-quan"),
+        "expected_section_ids": [f"{AMOX}:do-on-dinh-va-bao-quan", other],
+        "answer_mode": "any_acceptable",
+    }
+    fixed, _ = repair_rows([asked], corpus)
+    assert fixed[0]["expected_section_ids"] == [f"{AMOX}:do-on-dinh-va-bao-quan"]
+    assert fixed[0]["answer_mode"] == "single"
+
+
+def test_pasted_headings_and_the_merged_template_are_repaired() -> None:
+    rows, counts = repaired(
+        row(
+            "h1",
+            "Thông tin chung Tên chung quốc tế Amoxicilin",
+            f"{AMOX}:thong-tin-chung",
+        ),
+        row(
+            "m1",
+            "Người có thai hoặc có chống chỉ định thì dùng AMOXICILIN thế nào?",
+            f"{AMOX}:thoi-ky-mang-thai",
+        ),
+    )
+    assert set(rows) == {"m1"} and counts["heading_leak"] == 1
+    assert rows["m1"]["query"] == (
+        "AMOXICILIN có dùng được cho người có thai không, và những ai chống chỉ định?"
+    )

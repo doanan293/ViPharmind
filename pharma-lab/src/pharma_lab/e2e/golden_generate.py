@@ -115,7 +115,8 @@ _FORM_PREFIX = re.compile(
     re.IGNORECASE,
 )
 _NAME_END = re.compile(
-    r"\s+(trị|điều trị|chỉ định|ngừa|phòng|bổ sung|hỗ trợ|giảm|cầm|tuần hoàn|giúp|"
+    r"\s+(trị|điều trị|chỉ định|ngừa|phòng|dự phòng|ngăn ngừa|ngăn|kết hợp|phối hợp|"
+    r"bổ sung|hỗ trợ|giảm|cầm|tuần hoàn|giúp|"
     r"kháng|chống|cải thiện|kiểm soát|điều hòa|ổn định|sát khuẩn|dùng|cho|bôi|làm|"
     r"tăng|hạ|chữa|thuốc tránh thai|hộp|chai|lọ|tuýp|vỉ|ống|gói)\b.*$|\s*\(.*$",
     re.IGNORECASE,
