@@ -405,6 +405,12 @@ def quotable(text: str) -> bool:
     return len(" ".join(text.split())) >= MIN_GOLD_CHARS and not null_statement(text)
 
 
+# Colour words name a pack, not a product, even when a title capitalises them.
+_COLOURS = frozenset(
+    {"xanh", "đỏ", "vàng", "trắng", "nâu", "tím", "hồng", "cam", "đen"}
+)
+
+
 def names_a_product(alias: str, titles: Sequence[str]) -> bool:
     """The alias carries a proper name of one of the titles (a capitalised title word
     other than a dosage form, or a word it starts with: `Berberin` in `Berberine`).
@@ -413,7 +419,11 @@ def names_a_product(alias: str, titles: Sequence[str]) -> bool:
     words = re.findall(r"[^\W\d_][\w-]{2,}", alias.casefold())
     for title in titles:
         for proper in re.findall(r"[^\W\d_][\w-]{2,}", title):
-            if not proper[0].isupper() or _FORM_PREFIX.match(f"{proper} "):
+            if (
+                not proper[0].isupper()
+                or _FORM_PREFIX.match(f"{proper} ")
+                or proper.casefold() in _COLOURS
+            ):
                 continue
             folded = proper.casefold()
             if any(

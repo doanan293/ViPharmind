@@ -18,6 +18,7 @@ from pharma_lab.e2e.golden_generate import (
     generate,
     glossary_benchmark,
     named_as_partner,
+    names_a_product,
     section_slug,
     single_active,
     term_caps,
@@ -274,6 +275,7 @@ def test_colloquial_asks_at_most_two_aliases_per_product_with_quotable_gold() ->
         )
     ]
     rows = colloquial_benchmark(corpus, aliases)
+    assert not names_a_product("thuốc xanh", ["Dung dịch Xanh Methylen 1%"])
     # The official name and "thuốc đỏ" (no product name) are dropped; of the rest, the
     # two sharing fewest title words.
     assert [r.subjects[0] for r in rows] == ["Panadol hộp đỏ", "Panadol vỉ đỏ"]
