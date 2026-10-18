@@ -62,6 +62,7 @@ def assemble(size: int) -> list[dict]:
         ALIASES,
         GOLDEN,
         [],
+        chunks={},
         covered=None,
         seed=0,
         size=size,

@@ -18,6 +18,7 @@ import random
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 
+from pharma_lab.e2e.benchmark_slices import SliceIndex
 from pharma_lab.e2e.conversational import build_conversational
 from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden_generate import (
@@ -101,6 +102,7 @@ def assemble_benchmark(
     golden: Sequence[Mapping[str, object]],
     extra_multi_hop: Sequence[Mapping[str, object]],
     *,
+    chunks: Mapping[str, str],
     covered: Mapping[str, bool] | None,
     seed: int,
     size: int = BENCHMARK_SIZE,
@@ -108,8 +110,9 @@ def assemble_benchmark(
     multi_hop_rows: int = MULTI_HOP_ROWS,
 ) -> list[dict]:
     """The `size`-row benchmark from the rule-built questions: the five added
-    groups in full and the rule-built groups cut to fit. `extra_multi_hop` are generated
-    multi-hop candidates that fill the group beyond the golden items."""
+    groups in full and the rule-built groups cut to fit, every row with its `slices`.
+    `extra_multi_hop` are generated multi-hop candidates that fill the group beyond the
+    golden items; `chunks` maps each section to its chunk."""
     base_ids = {str(row["query_id"]) for row in base}
     conversational = build_conversational(
         base, corpus, total=conversational_rows, seed=seed, covered=covered
@@ -147,7 +150,8 @@ def assemble_benchmark(
         if str(item.get("source_query_id")) in base_ids
     } | {str(row["parent_query_id"]) for row in conversational}
     kept = _cut_rule_groups(base, size - len(added), keep=keep, seed=seed)
-    return [*kept, *added]
+    index = SliceIndex(corpus, chunks)
+    return [{**row, "slices": index.slices(row)} for row in (*kept, *added)]
 
 
 def _cut_rule_groups(

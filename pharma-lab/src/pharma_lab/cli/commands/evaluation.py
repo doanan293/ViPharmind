@@ -179,6 +179,7 @@ def evaluation_assemble(
         if run_name:
             found = load_one_round(run_dir(run_name), model=model, top_k=5).coverage
             covered = {query_id: not c.missing for query_id, c in found.items()}
+        chunks = section_chunks(knowledge)
         extra = generate(
             corpus,
             {
@@ -187,7 +188,7 @@ def evaluation_assemble(
                 "brand_to_ingredient": MULTI_HOP_ROWS,
             },
             seed=seed,
-            chunks=section_chunks(knowledge),
+            chunks=chunks,
         )
         aliases = [
             (alias, mapping.section_keys)
@@ -200,6 +201,7 @@ def evaluation_assemble(
             aliases,
             golden,
             _interleave(extra),
+            chunks=chunks,
             covered=covered,
             seed=seed,
         )
