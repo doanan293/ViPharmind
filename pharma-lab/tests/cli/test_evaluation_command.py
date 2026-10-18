@@ -161,6 +161,8 @@ def test_evaluation_assemble_writes_the_benchmark_and_its_judgments(
         evaluation_command, "build_evaluation_judgments", fake_judgments
     )
 
+    coverage = tmp_path / "coverage.json"
+    coverage.write_text(json.dumps({"q1": True}), encoding="utf-8")
     result = runner.invoke(
         app,
         [
@@ -175,14 +177,14 @@ def test_evaluation_assemble_writes_the_benchmark_and_its_judgments(
             str(tmp_path / "bundle"),
             "--authoring-dir",
             str(authoring),
-            "--run",
-            "",
+            "--coverage",
+            str(coverage),
         ],
     )
 
     assert result.exit_code == 0, result.output
     rows, aliases, golden_items, extra, covered, seed = calls["assemble"]
-    assert (rows, golden_items, covered, seed) == (base, [golden], None, 0)
+    assert (rows, golden_items, covered, seed) == (base, [golden], {"q1": True}, 0)
     assert aliases == [("Panadol đỏ", ["leaflet:t:p:01-thanh-phan"])]
     # Generated candidates take the kinds in turn.
     assert [row["query_id"] for row in extra] == ["g1", "g3", "g2"]
