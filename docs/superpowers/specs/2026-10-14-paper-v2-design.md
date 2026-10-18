@@ -488,7 +488,8 @@ cấu hình đã thắng ở bước tìm:
 1. Giai đoạn tìm (chưa rerank): BM25, dense với từng embedding, hybrid RRF k=2 prefetch 50 giữ 20
    với Qwen3-Embedding-4B và 8B. Chỉ số chính Hit@20, tức gold nằm trong 20 ứng viên reranker nhận;
    chỉ số phụ Hit@5. Các ablation enrichment, dense và hybrid đo ở giai đoạn này.
-2. Giai đoạn rerank, chỉ trên cấu hình thắng: Qwen3-Reranker-0.6B, 4B, 8B. Chỉ số chính Hit@5
+2. Giai đoạn rerank, chỉ trên cấu hình thắng: Qwen3-Reranker-0.6B, 4B, 8B, và bge-reranker-v2-m3
+   làm đối chứng ngoài họ Qwen. Chỉ số chính Hit@5
    (agent đọc 5 đoạn đầu), phụ MRR@10.
 3. Ở mỗi giai đoạn, một cấu hình thắng rõ khi chênh lệch chỉ số chính vượt khoảng tin cậy 95%
    bootstrap theo câu hỏi (1.000 lần lấy mẫu lại) và nó không tụt quá 1 điểm ở lát hay nhóm nào.
