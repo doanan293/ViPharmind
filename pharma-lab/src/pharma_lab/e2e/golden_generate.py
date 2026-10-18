@@ -698,6 +698,9 @@ def glossary_matches(corpus: CorpusText) -> dict[str, list[Candidate]]:
             if not pattern.search(text) or phrase.casefold() in text.casefold():
                 continue
             name = drug_name(corpus.titles[document])
+            # A vaccine prevents; asking whether it treats the infection is not real.
+            if "điều trị" in template and name.casefold().startswith("vắc xin"):
+                continue
             by_term.setdefault(term, []).append(
                 Candidate(
                     "",

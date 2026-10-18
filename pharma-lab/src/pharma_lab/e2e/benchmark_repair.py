@@ -22,7 +22,7 @@ from pharma_lab.e2e.corpus_text import (
     null_statement,
     section_slug,
 )
-from pharma_lab.e2e.golden_generate import brand_name
+from pharma_lab.e2e.golden_generate import COMPOSITION, MonographNames, brand_name
 
 PASTED_MIN_WORDS = 11
 _HEADING_LEAK = re.compile(r"\b(của|trong) mục\b", re.IGNORECASE)
@@ -58,10 +58,11 @@ def repair_rows(
 ) -> tuple[list[dict], Counter[str]]:
     """The repaired rows, in order, and how many rows each rule changed or dropped."""
     sections = _sections_by_document(corpus)
+    actives = _leaflet_actives(corpus)
     counts: Counter[str] = Counter()
     out: list[dict] = []
     for row in rows:
-        fixed = _repair(dict(row), corpus, sections, counts)
+        fixed = _repair(dict(row), corpus, sections, actives, counts)
         if fixed is not None:
             out.append(fixed)
     return out, counts
@@ -71,6 +72,7 @@ def _repair(
     row: dict,
     corpus: CorpusText,
     sections: Mapping[str, Mapping[str, str]],
+    actives: Mapping[str, frozenset[str]],
     counts: Counter[str],
 ) -> dict | None:
     query = normalize_space(str(row["query"]))
@@ -89,6 +91,11 @@ def _repair(
     ):
         counts["null_gold"] += 1
         return None
+    if row.get("answer_mode") == "any_acceptable" and len(answering) > 1:
+        kept = _answering_alternatives(query, answering, corpus, actives)
+        if len(kept) < len(answering):
+            counts["alternative_mismatch"] += 1
+            answering = kept
     if len(answering) < len(gold):
         counts["null_alternative"] += 1
         row = _with_gold(
@@ -115,6 +122,46 @@ def _repair(
             counts["truncated_name"] += 1
             row = {**row, "query": restored}
     return row
+
+
+_DOSE_QUESTION = re.compile(r"\blieu\b")
+
+
+def _answering_alternatives(
+    query: str,
+    alternatives: Sequence[str],
+    corpus: CorpusText,
+    actives: Mapping[str, frozenset[str]],
+) -> list[str]:
+    """The alternatives that answer alone: of a product with the first one's active
+    ingredients (another strength or maker, not another drug), and, for a dose
+    question, holding a figure (a section with only the route and timing does not
+    give the dose)."""
+    first = actives.get(corpus.section_documents.get(alternatives[0], ""))
+    kept = [
+        s
+        for s in alternatives
+        if first is None
+        or actives.get(corpus.section_documents.get(s, "")) in (None, first)
+    ]
+    if _DOSE_QUESTION.search(_fold(query)):
+        with_figures = [s for s in kept if re.search(r"\d", corpus.sections.get(s, ""))]
+        kept = with_figures or kept
+    return kept
+
+
+def _leaflet_actives(corpus: CorpusText) -> dict[str, frozenset[str]]:
+    """Leaflet -> the monographs its composition names before the excipients."""
+    names = MonographNames(corpus)
+    out: dict[str, frozenset[str]] = {}
+    for section_id, document in corpus.section_documents.items():
+        if document.startswith("leaflet:") and section_slug(section_id) == COMPOSITION:
+            text = corpus.sections[section_id][:600]
+            head = re.split(r"tá dược", text, maxsplit=1, flags=re.IGNORECASE)[0]
+            found = frozenset(names.named_in(head))
+            if found:
+                out[document] = found
+    return out
 
 
 def _fold(text: str) -> str:
@@ -156,27 +203,32 @@ def _restore_name(query: str, title: str) -> str | None:
     """The question with its product name cut back to the brand when the generator
     cut the title in the middle of a phrase: "Tamiflu 75 mg phòng và dùng liều thế
     nào?" from "Tamiflu 75 mg phòng và trị cúm …" becomes "Tamiflu 75 mg dùng liều
-    thế nào?". A name that stops at a phrase break is left as it is."""
+    thế nào?". The copied title may keep its dosage form ("Siro …") and sit anywhere
+    in the question. A name that stops at a phrase break is left as it is."""
     brand = brand_name(title)
-    if not brand or not query.casefold().startswith(brand.casefold()):
-        return None
-    at = title.casefold().find(brand.casefold())
+    words = title.split()
+    at = title.casefold().find(brand.casefold()) if brand else -1
     if at < 0:
         return None
-    asked = query[len(brand) :].split()
-    rest = title[at + len(brand) :].split()
-    common = 0
-    while (
-        common < min(len(asked), len(rest))
-        and asked[common].casefold() == rest[common].casefold()
-        and not _NAME_BREAK.search(rest[common])
-    ):
-        common += 1
-    if common == 0 or common >= len(asked) or common >= len(rest):
-        return None
-    if asked[common].casefold() == rest[common].casefold():
-        return None  # the question copies the title up to a phrase break
-    return f"{brand} {' '.join(asked[common:])}"
+    named = len(title[: at + len(brand)].split())
+    asked = query.split()
+    for size in range(len(words) - 1, named, -1):
+        if _NAME_BREAK.search(words[size - 1]):
+            continue
+        cut = [_bare(w) for w in words[:size]]
+        for start in range(len(asked) - size + 1):
+            window = [_bare(w) for w in asked[start : start + size]]
+            if window != cut or start + size == len(asked):
+                continue
+            if _bare(asked[start + size]) == _bare(words[size]):
+                return None  # the question goes on with the title
+            kept = [*asked[:start], *words[:named], *asked[start + size :]]
+            return " ".join(kept)
+    return None
+
+
+def _bare(word: str) -> str:
+    return word.casefold().strip(",.;:")
 
 
 def _regold(
