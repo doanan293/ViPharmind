@@ -380,7 +380,8 @@ def build_golden(
     benchmark_ids: Set[str] | None = None,
 ) -> GoldenManifest:
     """Validate authored batches and freeze them into one sorted golden file. With
-    `benchmark_ids`, every item must be a row of the benchmark (its source_query_id)."""
+    `benchmark_ids`, every item must be a row of the benchmark (its source_query_id, or
+    its own item id for the rows the golden set adds)."""
     if not sources:
         raise ValueError("no authored batches to build from")
     items: list[GoldenItem] = []
@@ -391,10 +392,13 @@ def build_golden(
         problems.extend(batch_problems)
     problems.extend(validate_items(items, corpus, complete=True))
     if benchmark_ids is not None:
+        # A generated multi-hop item or a safety turn is a benchmark row under its own
+        # item id; every other item points at its row with source_query_id.
         problems.extend(
             f"{item.item_id}: source {item.source_query_id} is not a benchmark row"
             for item in items
             if item.source_query_id not in benchmark_ids
+            and item.item_id not in benchmark_ids
         )
     if problems:
         raise ValueError(
