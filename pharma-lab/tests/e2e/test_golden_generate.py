@@ -8,6 +8,7 @@ from pharma_lab.cli.app import app
 from pharma_lab.cli.commands import e2e as e2e_commands
 from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden_generate import (
+    GLOSSARY_TERM_SHARE,
     MonographNames,
     benchmark_row,
     brand_candidates,
@@ -18,6 +19,7 @@ from pharma_lab.e2e.golden_generate import (
     glossary_benchmark,
     section_slug,
     single_active,
+    term_caps,
     three_intent_candidates,
     two_drug_candidates,
 )
@@ -236,33 +238,79 @@ def test_cli_generate_writes_the_candidates(tmp_path: Path, monkeypatch) -> None
     assert [r["kind"] for r in rows] == ["two_drug", "brand_to_ingredient"]
 
 
-def test_enrichment_benchmark_asks_every_alias_and_term_in_benchmark_rows() -> None:
+LEAF_TEXT = "Uống 1 viên mỗi lần, ngày 3 lần, cách nhau ít nhất 4 giờ."
+
+
+def colloquial_corpus() -> CorpusText:
     sections = {
-        f"{PANADOL}:02-cach-dung-lieu-dung": "Uống 1 viên.",
-        f"{PANADOL}:05-chong-chi-dinh": "Suy gan nặng.",
-        "drug:x:tuong-tac-thuoc": "Dùng cùng NSAID làm tăng nguy cơ chảy máu.",
+        f"{PANADOL}:02-cach-dung-lieu-dung": LEAF_TEXT,
+        f"{PANADOL}:05-chong-chi-dinh": "Không có.",
+        f"{EXTRA}:02-cach-dung-lieu-dung": LEAF_TEXT,
+        "leaflet:t:smecta:02-cach-dung-lieu-dung": LEAF_TEXT,
     }
+    return CorpusText(
+        sections=sections,
+        section_documents={k: k.rsplit(":", 1)[0] for k in sections},
+        titles={
+            PANADOL: "Panadol 500 mg",
+            EXTRA: "Panadol Extra",
+            "leaflet:t:smecta": "Bột pha hỗn dịch uống Smecta 3 g",
+        },
+    )
+
+
+def test_colloquial_asks_at_most_two_aliases_per_product_with_quotable_gold() -> None:
+    corpus = colloquial_corpus()
+    aliases = [
+        (name, [f"{EXTRA}:02-cach-dung-lieu-dung"])
+        for name in ("Panadol đỏ", "Panadol hộp đỏ", "thuốc đỏ", "Panadol Extra")
+    ]
+    rows = colloquial_benchmark(corpus, aliases)
+    # The official name is dropped; of the rest, the two sharing fewest title words.
+    assert [r.subjects[0] for r in rows] == ["thuốc đỏ", "Panadol hộp đỏ"]
+    assert {r.query_id for r in rows} == {
+        "enrich-colloquial-0001",
+        "enrich-colloquial-0002",
+    }
+    # A null statement like "Không có." is not a gold section.
+    short = colloquial_benchmark(
+        corpus, [("Panadol xanh", [f"{PANADOL}:05-chong-chi-dinh"])]
+    )
+    assert [r.expected_section_ids for r in short] == [
+        (f"{PANADOL}:02-cach-dung-lieu-dung",)
+    ]
+
+
+def test_an_alias_of_several_products_accepts_any_of_them() -> None:
+    corpus = colloquial_corpus()
+    shared = [
+        ("Panadol thường", [f"{PANADOL}:02-cach-dung-lieu-dung"]),
+        ("Panadol thường", [f"{EXTRA}:02-cach-dung-lieu-dung"]),
+        # Written apart or together, the official name is the same name.
+        ("Smecta 3g", ["leaflet:t:smecta:02-cach-dung-lieu-dung"]),
+    ]
+    (only,) = colloquial_benchmark(corpus, shared)
+    row = benchmark_row(only)
+    assert row["answer_mode"] == "any_acceptable"
+    assert row["expected_section_ids"] == [
+        f"{PANADOL}:02-cach-dung-lieu-dung",
+        f"{EXTRA}:02-cach-dung-lieu-dung",
+    ]
+
+
+def test_glossary_rows_are_benchmark_rows_and_no_term_dominates() -> None:
+    sections = {"drug:x:tuong-tac-thuoc": "Dùng cùng NSAID làm tăng nguy cơ chảy máu."}
     corpus = CorpusText(
         sections=sections,
-        section_documents={
-            f"{PANADOL}:02-cach-dung-lieu-dung": PANADOL,
-            f"{PANADOL}:05-chong-chi-dinh": PANADOL,
-            "drug:x:tuong-tac-thuoc": "drug:x",
-        },
-        titles={PANADOL: "Panadol Extra", "drug:x": "WARFARIN"},
+        section_documents={"drug:x:tuong-tac-thuoc": "drug:x"},
+        titles={"drug:x": "WARFARIN"},
     )
-    aliases = [
-        ("Panadol đỏ", [f"{PANADOL}:02-cach-dung-lieu-dung"]),
-        ("Panadol hộp đỏ", [f"{PANADOL}:02-cach-dung-lieu-dung"]),
-    ]
-    colloquial = colloquial_benchmark(corpus, aliases)
-    # Two aliases, two leaflet sections each.
-    assert len(colloquial) == 4
-    assert {c.query_id for c in colloquial} == {
-        f"enrich-colloquial-{n:04d}" for n in range(1, 5)
-    }
     (glossary,) = glossary_benchmark(corpus)
     row = benchmark_row(glossary)
     assert row["eval_group"] == "glossary" and row["answer_mode"] == "single"
     assert row["expected_section_ids"] == ["drug:x:tuong-tac-thuoc"]
     assert row["intent_category"] == "tuong-tac-thuoc"
+    caps = term_caps({"TKTW": 150, "HIV": 90, "MAO": 40, "INR": 10, "ECG": 10})
+    # 20 is the largest cap at most a quarter of what is kept (20 + 20 + 20 + 10 + 10).
+    assert caps == {"TKTW": 20, "HIV": 20, "MAO": 20, "INR": 10, "ECG": 10}
+    assert max(caps.values()) <= GLOSSARY_TERM_SHARE * sum(caps.values())

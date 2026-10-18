@@ -146,3 +146,41 @@ def test_build_spreads_items_over_the_phenomena_with_benchmark_rows() -> None:
     assert first["query"] == turns[-1]["text"]
     assert first["parent_query_id"] in {r["query_id"] for r in ROWS}
     assert "missing" not in first
+
+
+def test_heading_intents_are_never_asked_by_their_noun_phrase() -> None:
+    general = f"{PARA}:thong-tin-chung"
+    corpus = CorpusText(
+        sections={**SECTIONS, general: f"Paracetamol là thuốc giảm đau. {LONG}"},
+        section_documents={**CORPUS.section_documents, general: PARA},
+        titles=CORPUS.titles,
+    )
+    parent = row("p-gen", general, "general_info", "PARACETAMOL là thuốc gì?")
+    rows = [*ROWS, parent]
+
+    def build(phenomenon: str) -> Item | None:
+        return build_item(
+            phenomenon, parent, _Index(rows, corpus), corpus, {}, random.Random(0), 2
+        )
+
+    assert build("intent_shift") is None and build("noisy_followup") is None
+    pronoun = build("pronoun")
+    assert pronoun is not None and pronoun.turns[-1][1] == "Thuốc này là thuốc gì?"
+
+
+def test_build_takes_only_questions_dedupes_and_marks_the_control() -> None:
+    pasted = row(
+        "p-pasted",
+        f"{PARA}:chi-dinh",
+        "indication",
+        "Giảm đau, hạ sốt trong các trường hợp đau đầu đau răng",
+    )
+    items = build_conversational([*ROWS, pasted], CORPUS, total=64, seed=0)
+    assert all(i["parent_query_id"] != "p-pasted" for i in items)
+    assert all(pasted["query"] not in str(i["turns"]) for i in items)
+    keys = [(i["query"], str(i["expected_section_ids"])) for i in items]
+    assert len(keys) == len(set(keys))
+    for item in items:
+        assert ("'control'" in str(item["eval_tags"])) == (
+            item["query_form"] == "topic_switch"
+        )

@@ -26,21 +26,23 @@ from pharma_lab.e2e.corpus_text import CorpusText, section_slug
 
 # Monograph section slugs and the leaflet slugs that hold the same information.
 INTERACTIONS = "tuong-tac-thuoc"
+# Neutral wording: many interacting drugs are injected or used in hospital, so the user is
+# not cast as the one taking them.
 TWO_DRUG_INTENTS: tuple[tuple[str, str], ...] = (
     (
         "lieu-luong-va-cach-dung",
-        "Tôi đang dùng {a}, bác sĩ kê thêm {b}. Hai thuốc này có tương tác với nhau "
-        "không, và liều {b} thường dùng là bao nhiêu?",
+        "{a} và {b} dùng cùng nhau có tương tác không, và liều {b} thường dùng là "
+        "bao nhiêu?",
     ),
     (
         "chong-chi-dinh",
-        "Tôi đang dùng {a} và định dùng thêm {b}. Dùng chung có tương tác gì không, "
-        "và {b} chống chỉ định với những ai?",
+        "{a} dùng chung với {b} có tương tác gì không, và {b} chống chỉ định với "
+        "những ai?",
     ),
     (
         "tac-dung-khong-mong-muon-adr",
-        "Tôi đang dùng {a}, giờ được kê thêm {b}. Hai thuốc có tương tác không, và "
-        "{b} có tác dụng không mong muốn nào cần theo dõi?",
+        "{a} và {b} dùng cùng lúc có tương tác không, và {b} có tác dụng không mong "
+        "muốn nào cần theo dõi?",
     ),
 )
 BRAND_INTENTS: tuple[tuple[str, tuple[str, ...], str], ...] = (
@@ -170,6 +172,11 @@ def single_active(composition: str) -> bool:
 
 def _tokens(text: str) -> list[str]:
     return re.findall(r"\w+", text.casefold())
+
+
+def _name_tokens(text: str) -> set[str]:
+    """Words and numbers apart, so `3g` and `3 g` are the same name."""
+    return set(re.findall(r"\d+|[^\W\d_]+", text.casefold()))
 
 
 def _ngrams(tokens: Sequence[str], longest: int) -> set[str]:
@@ -349,47 +356,89 @@ COLLOQUIAL_INTENTS: tuple[tuple[str, str], ...] = (
     ("tac-dung-phu", "Dùng {alias} có thể bị tác dụng phụ gì?"),
     ("cong-dung-chi-dinh", "{alias} dùng để chữa bệnh gì?"),
     ("thai-ky-va-cho-con-bu", "Bà bầu có dùng {alias} được không?"),
+    ("tuong-tac-thuoc", "{alias} uống chung với thuốc khác có sao không?"),
+    ("qua-lieu", "Lỡ dùng quá liều {alias} thì phải làm sao?"),
 )
 
 
-def absent_aliases(
+# The aliases asked per product (or per group of products sharing an alias), and the
+# length below which a section is a null statement ("Không có thận trọng đặc biệt.")
+# rather than an answer.
+ALIASES_PER_PRODUCT = 2
+MIN_GOLD_CHARS = 40
+
+
+def quotable(text: str) -> bool:
+    """A section long enough to answer a question by itself."""
+    return len(" ".join(text.split())) >= MIN_GOLD_CHARS
+
+
+def colloquial_groups(
     corpus: CorpusText, aliases: Sequence[tuple[str, Sequence[str]]]
-) -> dict[str, list[str]]:
-    """Leaflet document -> its colloquial aliases that occur in neither its title nor
-    its sections, so retrieval reaches it under such a name only through the colloquial
-    enrichment of its chunks. `aliases` pairs each alias with the sections it maps to."""
+) -> dict[tuple[str, ...], list[str]]:
+    """Leaflets that share colloquial aliases -> the aliases asked for them, at most
+    ALIASES_PER_PRODUCT, those sharing the fewest words with the titles first.
+
+    An alias belongs to every leaflet it maps to. It is kept only when it occurs in none
+    of their titles or sections and is not an official name (every word of it in one
+    title), so retrieval reaches the product under it only through the colloquial
+    enrichment of its chunks."""
     texts: dict[str, list[str]] = {}
     for section_id, document in corpus.section_documents.items():
         texts.setdefault(document, []).append(corpus.sections[section_id])
-    by_document: dict[str, list[str]] = {}
+    spelling: dict[str, str] = {}
+    documents: dict[str, set[str]] = {}
     for alias, section_ids in aliases:
-        if not section_ids or section_ids[0] not in corpus.section_documents:
+        key = alias.casefold()
+        spelling.setdefault(key, alias)
+        documents.setdefault(key, set()).update(
+            corpus.section_documents[s]
+            for s in section_ids
+            if s in corpus.section_documents
+        )
+    by_group: dict[tuple[str, ...], list[tuple[float, str]]] = {}
+    for key, found in documents.items():
+        if not found:
             continue
-        document = corpus.section_documents[section_ids[0]]
-        text = " ".join([corpus.titles.get(document, ""), *texts[document]]).casefold()
-        if alias.casefold() not in text and alias not in by_document.get(document, []):
-            by_document.setdefault(document, []).append(alias)
-    return {document: sorted(names) for document, names in by_document.items()}
+        words = _name_tokens(key)
+        titles = [_name_tokens(corpus.titles.get(d, "")) for d in found]
+        text = " ".join(
+            " ".join([corpus.titles.get(d, ""), *texts.get(d, [])]) for d in found
+        ).casefold()
+        if key in text or any(words <= title for title in titles):
+            continue
+        overlap = len(words & set().union(*titles)) / len(words)
+        by_group.setdefault(tuple(sorted(found)), []).append((overlap, spelling[key]))
+    return {
+        group: [alias for _, alias in sorted(ranked)[:ALIASES_PER_PRODUCT]]
+        for group, ranked in sorted(by_group.items())
+    }
 
 
 def colloquial_benchmark(
     corpus: CorpusText, aliases: Sequence[tuple[str, Sequence[str]]]
 ) -> list[Candidate]:
-    """Every absent alias asked for every COLLOQUIAL_INTENTS section its leaflet has:
-    the colloquial group of the enrichment probe benchmark."""
+    """Every alias of `colloquial_groups` asked for every COLLOQUIAL_INTENTS section its
+    leaflets have that can answer alone: the colloquial group of the benchmark. An alias
+    of several leaflets accepts that section of any of them."""
     sections = _sections_by_document(corpus)
     out: list[Candidate] = []
-    for document, names in sorted(absent_aliases(corpus, aliases).items()):
+    for group, names in colloquial_groups(corpus, aliases).items():
         for alias in names:
             for slug, template in COLLOQUIAL_INTENTS:
-                section_id = sections.get(document, {}).get(slug)
-                if section_id is not None:
+                gold = tuple(
+                    section_id
+                    for document in group
+                    if (section_id := sections.get(document, {}).get(slug))
+                    and quotable(corpus.sections[section_id])
+                )
+                if gold:
                     out.append(
                         Candidate(
                             f"enrich-colloquial-{len(out) + 1:04d}",
                             template.format(alias=alias),
                             "colloquial",
-                            (section_id,),
+                            gold,
                             (alias,),
                         )
                     )
@@ -425,9 +474,27 @@ GLOSSARY_PHRASES: tuple[tuple[str, str, str, str], ...] = (
     ),
     (
         "MAO",
-        "thuốc ức chế monoamin oxidase",
+        "monoamin oxidase",
         INTERACTIONS,
         "{drug} có dùng được cùng thuốc ức chế monoamin oxidase không?",
+    ),
+    (
+        "ACE",
+        "enzym chuyển angiotensin",
+        INTERACTIONS,
+        "{drug} dùng cùng thuốc ức chế enzym chuyển angiotensin có tương tác không?",
+    ),
+    (
+        "CYP",
+        "cytochrom P450",
+        INTERACTIONS,
+        "{drug} có bị ảnh hưởng khi dùng cùng thuốc ức chế cytochrom P450 không?",
+    ),
+    (
+        "INR",
+        "tỷ số chuẩn hóa quốc tế",
+        INTERACTIONS,
+        "Dùng {drug} cùng thuốc chống đông có làm thay đổi tỷ số chuẩn hóa quốc tế không?",
     ),
     (
         "TKTW",
@@ -436,22 +503,40 @@ GLOSSARY_PHRASES: tuple[tuple[str, str, str, str], ...] = (
         "{drug} có gây tác dụng phụ trên thần kinh trung ương không?",
     ),
     (
-        "COPD",
-        "bệnh phổi tắc nghẽn mạn tính",
-        "than-trong",
-        "Người bị bệnh phổi tắc nghẽn mạn tính dùng {drug} cần lưu ý gì?",
+        "HIV",
+        "suy giảm miễn dịch",
+        "chi-dinh",
+        "{drug} có dùng để điều trị nhiễm virus gây suy giảm miễn dịch ở người không?",
     ),
     (
-        "ECG",
-        "điện tâm đồ",
-        "than-trong",
-        "Dùng {drug} có cần theo dõi điện tâm đồ không?",
+        "AIDS",
+        "hội chứng suy giảm miễn dịch mắc phải",
+        "chi-dinh",
+        "{drug} có dùng cho người mắc hội chứng suy giảm miễn dịch mắc phải không?",
     ),
     (
         "HBV",
         "virus viêm gan B",
         "than-trong",
         "Người nhiễm virus viêm gan B dùng {drug} cần thận trọng gì?",
+    ),
+    (
+        "HCV",
+        "virus viêm gan C",
+        "chi-dinh",
+        "{drug} có dùng để điều trị viêm gan do virus viêm gan C không?",
+    ),
+    (
+        "COPD",
+        "bệnh phổi tắc nghẽn mạn tính",
+        "chi-dinh",
+        "{drug} có dùng cho người bệnh phổi tắc nghẽn mạn tính không?",
+    ),
+    (
+        "ECG",
+        "điện tâm đồ",
+        "than-trong",
+        "Dùng {drug} có cần theo dõi điện tâm đồ không?",
     ),
     (
         "SJS",
@@ -471,7 +556,87 @@ GLOSSARY_PHRASES: tuple[tuple[str, str, str, str], ...] = (
         INTERACTIONS,
         "Phụ nữ đang dùng liệu pháp hormon thay thế có dùng {drug} được không?",
     ),
+    (
+        "TSH",
+        "hormon kích thích tuyến giáp",
+        "lieu-luong-va-cach-dung",
+        "Liều {drug} được chỉnh theo hormon kích thích tuyến giáp thế nào?",
+    ),
+    (
+        "LDL",
+        "lipoprotein tỷ trọng thấp",
+        "duoc-ly-va-co-che-tac-dung",
+        "{drug} có làm giảm lipoprotein tỷ trọng thấp trong máu không?",
+    ),
+    (
+        "HDL",
+        "lipoprotein tỷ trọng cao",
+        "duoc-ly-va-co-che-tac-dung",
+        "{drug} ảnh hưởng thế nào đến lipoprotein tỷ trọng cao?",
+    ),
+    (
+        "TEN",
+        "hoại tử thượng bì nhiễm độc",
+        "tac-dung-khong-mong-muon-adr",
+        "{drug} có thể gây hoại tử thượng bì nhiễm độc không?",
+    ),
+    (
+        "VTE",
+        "huyết khối thuyên tắc tĩnh mạch",
+        "than-trong",
+        "Người có nguy cơ huyết khối thuyên tắc tĩnh mạch dùng {drug} cần lưu ý gì?",
+    ),
+    (
+        "NYHA",
+        "Hội Tim New York",
+        "chong-chi-dinh",
+        "Suy tim theo phân loại của Hội Tim New York có được dùng {drug} không?",
+    ),
+    (
+        "NSAID",
+        "thuốc kháng viêm không steroid",
+        "than-trong",
+        "Dùng {drug} cùng thuốc kháng viêm không steroid cần thận trọng gì?",
+    ),
+    (
+        "MAO",
+        "monoamin oxidase",
+        "chong-chi-dinh",
+        "Người đang dùng thuốc ức chế monoamin oxidase có được dùng {drug} không?",
+    ),
+    (
+        "INR",
+        "tỷ số chuẩn hóa quốc tế",
+        "lieu-luong-va-cach-dung",
+        "Liều {drug} được chỉnh theo tỷ số chuẩn hóa quốc tế thế nào?",
+    ),
+    (
+        "TKTW",
+        "thần kinh trung ương",
+        INTERACTIONS,
+        "{drug} uống cùng thuốc an thần gây ức chế thần kinh trung ương có sao không?",
+    ),
+    (
+        "HIV",
+        "suy giảm miễn dịch",
+        "lieu-luong-va-cach-dung",
+        "Người nhiễm virus gây suy giảm miễn dịch ở người dùng {drug} liều thế nào?",
+    ),
+    (
+        "HIV",
+        "suy giảm miễn dịch",
+        "than-trong",
+        "Người nhiễm virus gây suy giảm miễn dịch dùng {drug} cần thận trọng gì?",
+    ),
+    (
+        "AIDS",
+        "hội chứng suy giảm miễn dịch mắc phải",
+        "lieu-luong-va-cach-dung",
+        "Liều {drug} cho người mắc hội chứng suy giảm miễn dịch mắc phải là bao nhiêu?",
+    ),
 )
+# No term holds more than this share of the glossary group.
+GLOSSARY_TERM_SHARE = 0.25
 
 
 def glossary_matches(corpus: CorpusText) -> dict[str, list[Candidate]]:
@@ -502,32 +667,51 @@ def glossary_matches(corpus: CorpusText) -> dict[str, list[Candidate]]:
     return by_term
 
 
-def glossary_benchmark(corpus: CorpusText) -> list[Candidate]:
-    """Every term and monograph pair of `glossary_matches`: the glossary group of the
-    enrichment probe benchmark."""
+def glossary_benchmark(corpus: CorpusText, *, seed: int = 0) -> list[Candidate]:
+    """The term and monograph pairs of `glossary_matches`, each term cut to
+    GLOSSARY_TERM_SHARE of the group by a seeded draw: the glossary group of the
+    benchmark, so no single abbreviation decides the glossary layer's score."""
+    found = glossary_matches(corpus)
+    caps = term_caps({term: len(pairs) for term, pairs in found.items()})
+    rng = random.Random(seed)
     out: list[Candidate] = []
-    for found in glossary_matches(corpus).values():
-        for candidate in found:
+    for term, pairs in found.items():
+        keep = sorted(rng.sample(range(len(pairs)), caps[term]))
+        for position in keep:
             out.append(
-                replace(candidate, query_id=f"enrich-glossary-{len(out) + 1:04d}")
+                replace(pairs[position], query_id=f"enrich-glossary-{len(out) + 1:04d}")
             )
     return out
 
 
+def term_caps(counts: Mapping[str, int]) -> dict[str, int]:
+    """Rows kept per term: every term cut to the largest common cap that is at most
+    GLOSSARY_TERM_SHARE of the rows kept, but never below the smallest term (with
+    too few terms the share cannot hold)."""
+    cap = max(counts.values(), default=0)
+    floor = min(counts.values(), default=0)
+    while cap > floor and cap > GLOSSARY_TERM_SHARE * sum(
+        min(n, cap) for n in counts.values()
+    ):
+        cap -= 1
+    return {term: min(n, cap) for term, n in counts.items()}
+
+
 def benchmark_row(candidate: Candidate) -> dict[str, object]:
-    """A probe question in the retrieval benchmark's row format (single section)."""
-    section_id = candidate.expected_section_ids[0]
+    """A probe question in the retrieval benchmark's row format; several sections are
+    alternatives (the same section of products sharing an alias)."""
+    sections = list(candidate.expected_section_ids)
     return {
         "query_id": candidate.query_id,
         "query": candidate.query,
         "eval_group": candidate.kind,
         "source_family": "enrichment_probe",
         "query_form": candidate.kind,
-        "intent_category": section_slug(section_id),
-        "expected_section_id": section_id,
-        "expected_section_ids": [section_id],
+        "intent_category": section_slug(sections[0]),
+        "expected_section_id": sections[0],
+        "expected_section_ids": sections,
         "query_intent_count": 1,
-        "answer_mode": "single",
+        "answer_mode": "any_acceptable" if len(sections) > 1 else "single",
         "eval_tags": ["enrichment_probe", candidate.kind],
         "notes": f"enrichment probe; subjects: {', '.join(candidate.subjects)}",
     }
