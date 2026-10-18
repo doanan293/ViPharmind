@@ -1,5 +1,5 @@
 from pharma_lab.e2e.benchmark_repair import repair_rows
-from pharma_lab.e2e.corpus_text import CorpusText
+from pharma_lab.e2e.corpus_text import CorpusText, null_statement
 
 LONG = " ".join(["chữ"] * 20)
 AMOX, PAN = "drug:amoxicilin", "leaflet:t:tamiflu-75"
@@ -413,3 +413,10 @@ def test_an_alias_question_without_a_product_name_is_dropped() -> None:
         [vague, named], corpus, ["viên xanh xám cầm tiêu chảy", "Loperamide xanh xám"]
     )
     assert [r["query_id"] for r in fixed] == ["a2"] and counts["vague_alias"] == 1
+
+
+def test_a_bracketed_heading_is_a_null_statement() -> None:
+    assert null_statement("(DỤNG CỤ TỬ CUNG CHỨA LEVONORGESTREL)")
+    assert not null_statement(
+        "Levonorgestrel (dụng cụ tử cung) giải phóng hormon tại chỗ."
+    )
