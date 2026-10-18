@@ -170,7 +170,21 @@ multi_turn có lịch sử dán đoạn).
 3. Golden: audit độc lập toàn bộ câu mới và mẫu 60 câu cũ.
 4. `golden build` qua với kiểm tra mọi câu là dòng benchmark.
 
-## 7. Thứ tự làm
+### 6.1 Sổ audit benchmark (Fable 5.1, rubric `data/work/benchmark-audit/audit-rubric.md`)
+
+Mỗi vòng lấy mẫu mới 25 câu mỗi nhóm (275 câu), dựng lại benchmark sau mỗi lần sửa luật.
+
+| Vòng | Lỗi | Tỉ lệ | Nhóm còn từ 5% | Luật sửa sau vòng |
+| --- | --- | --- | --- | --- |
+| 1 | 22/275 | 8,0% | colloquial 20%, noisy 16%, leaflet_short 12%, multi_hop 12% | gold rỗng, thai kỳ/cho con bú theo câu hỏi, tên cắt dở, alias phải có tên riêng, B là thuốc tương tác thật, lịch sử không trùng mục gold |
+| 2 | 8/275 | 2,9% | structured 12%, leaflet 8%, leaflet_short 8% | tên cắt ở mọi vị trí, mục thay thế cùng thuốc, câu liều chỉ nhận mục liều, vắc xin không hỏi điều trị |
+| 3 | 10/275 | 3,6% | formulary 12%, leaflet 8%, leaflet_short 8%, structured 8% | câu hỏi tên biệt dược giữ mục tên thương mại, mục thay thế trong cùng chuyên luận, bỏ tiêu đề dán, viết lại mẫu "người có thai hoặc có chống chỉ định" |
+| 4 | 6/275 | 2,2% | leaflet 8% | câu "cần lưu ý gì" chỉ nhận mục thận trọng, sản phẩm dùng ngoài không ghép chuyên luận toàn thân |
+| leaflet 5 | 3/50 | 6,0% | | "phòng," một từ vẫn là tên cắt, alias leaflet phải có tên riêng |
+| leaflet 6 | 2/60 | 3,3% | | mục thay thế cùng thương hiệu, từ chỉ màu không là tên riêng |
+
+Sau luật cuối, 110 câu leaflet đã audit ở hai vòng có chủ đích còn 1 lỗi (≈1%). Benchmark đóng băng
+ngày 2026-10-18 bằng `evaluation assemble` (đúng 10.000 câu).
 
 1. Sửa luật sinh câu benchmark gốc (3.1) và chạy lại `evaluation build`; giữ id câu cũ khi câu không
    đổi để cache dùng lại.
