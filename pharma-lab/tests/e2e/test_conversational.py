@@ -142,7 +142,8 @@ def test_build_spreads_items_over_the_phenomena_with_benchmark_rows() -> None:
     first = items[0]
     turns = first["turns"]
     assert isinstance(turns, list)
-    assert first["query_id"] == "conv-0001" and first["eval_group"] == "conversational"
+    assert first["query_id"] == f"conv-{first['query_form']}-{first['parent_query_id']}"
+    assert first["eval_group"] == "conversational"
     assert first["query"] == turns[-1]["text"]
     assert first["parent_query_id"] in {r["query_id"] for r in ROWS}
     assert "missing" not in first
@@ -207,3 +208,34 @@ def test_history_never_answers_from_the_section_the_last_turn_asks() -> None:
         )
         assert item is not None
         assert same["query"] not in [text for _, text in item.turns]
+
+
+def test_items_stay_when_an_unrelated_row_goes() -> None:
+    full = build_conversational(ROWS, CORPUS, total=16, seed=0)
+    fewer = build_conversational(
+        [r for r in ROWS if r["query_id"] != "w-ind"], CORPUS, total=16, seed=0
+    )
+    untouched = {
+        str(i["query_id"]): i
+        for i in full
+        if "w-ind" not in str(i["turns"])
+        and i["parent_query_id"] != "w-ind"
+        and "WARFARIN chữa gì?" not in str(i["turns"])
+    }
+    kept = {str(i["query_id"]): i for i in fewer}
+    assert untouched and all(kept.get(q) == i for q, i in untouched.items())
+
+
+def test_an_excipient_is_not_the_active_ingredient_of_a_leaflet() -> None:
+    dut = "leaflet:t:dutaon"
+    sections = {
+        **SECTIONS,
+        f"{dut}:01-thanh-phan": f"Dutasterid 0,5 mg. Tá dược: glycin, gelatin. {LONG}",
+        "drug:glycin:than-trong": f"Thận trọng khi dùng glycin. {LONG}",
+    }
+    corpus = CorpusText(
+        sections=sections,
+        section_documents={k: k.rsplit(":", 1)[0] for k in sections},
+        titles={**CORPUS.titles, dut: "Dutaon 0.5 mg", "drug:glycin": "GLYCIN"},
+    )
+    assert "drug:glycin" not in single_ingredient_leaflets(corpus)
