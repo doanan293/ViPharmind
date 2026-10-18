@@ -88,6 +88,7 @@ CORPUS = CorpusText(
         ("Rosepire thuốc tránh thai hằng ngày (1 vỉ x 28 viên)", "Rosepire"),
         ("Siro Rutantop 30 mg/5 ml trị mày đay chai 70 ml", "Rutantop 30 mg/5 ml"),
         ("Infartan 75", "Infartan 75"),
+        ("Nystatab 500.000IU dự phòng và điều trị nấm Candida", "Nystatab 500.000IU"),
     ],
 )
 def test_brand_name_keeps_the_product_name_and_strength(title: str, name: str) -> None:

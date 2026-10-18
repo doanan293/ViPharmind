@@ -25,7 +25,11 @@ from pharma_lab.e2e.corpus_text import (
 from pharma_lab.e2e.golden_generate import COMPOSITION, MonographNames, brand_name
 
 PASTED_MIN_WORDS = 11
-_HEADING_LEAK = re.compile(r"\b(của|trong) mục\b", re.IGNORECASE)
+_HEADING_LEAK = re.compile(r"\b(của|trong) mục\b|tên chung quốc tế", re.IGNORECASE)
+# A rule-built multi-intent template no user says, and its rewording.
+_MERGED_TEMPLATE = re.compile(
+    r"^Người có thai hoặc có chống chỉ định thì dùng (?P<drug>.+) thế nào\?$"
+)
 _GENERAL = re.compile(
     r"là thuốc gì|là thuốc như thế nào|tìm thông tin|thông tin về|thông tin dược thư|"
     r"cần xem chuyên luận nào|thông tin dược thư tổng quát",
@@ -39,6 +43,12 @@ _ADR = re.compile(
 # Matched on the question without diacritics, so noisy questions count too.
 _PREGNANCY = re.compile(r"co thai|mang thai|ba bau|co bau|dang bau|thai ky|thai phu")
 _LACTATION = re.compile(r"cho con bu|cho bu|nuoi con")
+# A question that asks for the trade names themselves: the trade-name list answers it.
+_ASKS_BRANDS = re.compile(
+    r"(tên|những|các) (biệt dược|tên thương mại|thương mại)|biệt dược (nào|gì)|"
+    r"tên thương mại (nào|gì|là)",
+    re.IGNORECASE,
+)
 # Sections that cannot answer a general or ADR question.
 UNANSWERING = {
     "thong-tin-qui-che",
@@ -102,6 +112,14 @@ def _repair(
             row, answering, "any_acceptable" if len(answering) > 1 else ("single")
         )
         gold = answering
+    merged = _MERGED_TEMPLATE.match(query)
+    if merged:
+        counts["merged_template"] += 1
+        row = {
+            **row,
+            "query": f"{merged['drug']} có dùng được cho người có thai không, và những "
+            "ai chống chỉ định?",
+        }
     document = corpus.section_documents.get(gold[0], "")
     slugs = sections.get(document, {})
     if len(gold) == 1 and section_slug(gold[0]) in UNANSWERING:
@@ -133,21 +151,39 @@ def _answering_alternatives(
     corpus: CorpusText,
     actives: Mapping[str, frozenset[str]],
 ) -> list[str]:
-    """The alternatives that answer alone: of a product with the first one's active
-    ingredients (another strength or maker, not another drug), and, for a dose
-    question, holding a figure (a section with only the route and timing does not
-    give the dose)."""
-    first = actives.get(corpus.section_documents.get(alternatives[0], ""))
+    """The alternatives that answer alone: of the same drug as the first one (the same
+    monograph, or a leaflet with the same active ingredients or brand, never another
+    drug whose section happens to read alike), and, for a dose question, a dose
+    section rather than one with only the route and timing."""
+    first = corpus.section_documents.get(alternatives[0], "")
     kept = [
         s
         for s in alternatives
-        if first is None
-        or actives.get(corpus.section_documents.get(s, "")) in (None, first)
+        if _same_drug(first, corpus.section_documents.get(s, ""), corpus, actives)
     ]
     if _DOSE_QUESTION.search(_fold(query)):
-        with_figures = [s for s in kept if re.search(r"\d", corpus.sections.get(s, ""))]
-        kept = with_figures or kept
+        dose = [s for s in kept if "lieu" in section_slug(s)]
+        with_figures = [s for s in dose or kept if re.search(r"\d", corpus.sections[s])]
+        kept = with_figures or dose or kept
     return kept
+
+
+def _same_drug(
+    first: str,
+    other: str,
+    corpus: CorpusText,
+    actives: Mapping[str, frozenset[str]],
+) -> bool:
+    if other == first:
+        return True
+    if not (first.startswith("leaflet:") and other.startswith("leaflet:")):
+        return False
+    if first in actives and actives.get(other) == actives[first]:
+        return True
+    brands = [brand_name(corpus.titles.get(d, "")).split()[:1] for d in (first, other)]
+    return bool(brands[0]) and _bare(brands[0][0]) == _bare(
+        brands[1][0] if brands[1] else ""
+    )
 
 
 def _leaflet_actives(corpus: CorpusText) -> dict[str, frozenset[str]]:
@@ -237,7 +273,9 @@ def _regold(
     """Where a question attached to an unanswering section belongs, and the rule name;
     no rule when the attachment is right (a brand question naming a listed brand)."""
     slug = section_slug(section_id)
-    if slug == "ten-thuong-mai" and _names_a_listed_brand(query, section_id, corpus):
+    if slug == "ten-thuong-mai" and (
+        _ASKS_BRANDS.search(query) or _names_a_listed_brand(query, section_id, corpus)
+    ):
         return (), ""
     if intent == "adr" or _ADR.search(query):
         return ADR_TARGET, "adr_regold"
