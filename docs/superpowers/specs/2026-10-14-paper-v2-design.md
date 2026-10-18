@@ -434,7 +434,9 @@ chạy trước Task 7 của plan pha D.
   Q0 lượt cuối như gõ; Q1 nối toàn bộ lịch sử; Q1b nối hai lượt gần nhất; Q2 viết lại độc lập (bước
   rephrase hiện nay); Q3 viết lại từ lịch sử làm giàu kiểu CHIQ (năm prompt); Q3b Q2 với câu trả lời
   grounded trước đó và rolling summary làm lịch sử; Q5 RRF hai bản viết lại; Q6 oracle là câu cha.
-  Rewriter: gemini-3.1-flash-lite và Qwen3.5-9B. Báo Hit@3/5/10, MRR@10, nDCG@10, CER@10, số lời gọi và
+  Rewriter: gemini-3.1-flash-lite và Qwen3.5-9B. Ngân sách: các chiến lược không gọi LLM (Q0, Q1,
+  Q1b, Q6) chạy trên cả nhóm conversational của benchmark; các chiến lược viết lại bằng LLM (Q2, Q3,
+  Q3b, Q5) chỉ chạy trên 50 câu multi-turn của golden, vì mọi lời gọi LLM chỉ dành cho 500 câu golden. Báo Hit@3/5/10, MRR@10, nDCG@10, CER@10, số lời gọi và
   token mỗi rewrite, chênh với oracle, phân theo hiện tượng và độ sâu lượt, kiểm định Holm.
 
 ### 3.2 Bộ e2e
