@@ -366,3 +366,45 @@ def test_a_caution_question_accepts_the_precautions_only() -> None:
     }
     fixed, _ = repair_rows([asked], corpus)
     assert fixed[0]["expected_section_ids"] == [f"{PAN}:08-than-trong-khi-su-dung"]
+
+
+def test_a_one_word_phrase_before_a_comma_is_still_a_cut_name() -> None:
+    corpus = CorpusText(
+        sections=SECTIONS,
+        section_documents=CORPUS.section_documents,
+        titles={
+            **CORPUS.titles,
+            PAN: "Siro Ceelin 100 mg/5 ml phòng, trị thiếu vitamin C",
+        },
+    )
+    cut = row(
+        "t5",
+        "Siro Ceelin 100 mg/5 ml phòng, dùng liều thế nào?",
+        f"{PAN}:03-cach-dung-lieu-dung",
+    )
+    fixed, _ = repair_rows([cut], corpus)
+    assert fixed[0]["query"] == "Siro Ceelin 100 mg/5 ml dùng liều thế nào?"
+
+
+def test_an_alias_question_without_a_product_name_is_dropped() -> None:
+    corpus = CorpusText(
+        sections=SECTIONS,
+        section_documents=CORPUS.section_documents,
+        titles={**CORPUS.titles, PAN: "Loperamide Stella 2 mg trị tiêu chảy"},
+    )
+    vague = row(
+        "a1",
+        "viên xanh xám cầm tiêu chảy là thuốc gì?",
+        f"{PAN}:03-cach-dung-lieu-dung",
+        query_form="colloquial_alias",
+    )
+    named = row(
+        "a2",
+        "Loperamide xanh xám uống thế nào?",
+        f"{PAN}:03-cach-dung-lieu-dung",
+        query_form="colloquial_alias",
+    )
+    fixed, counts = repair_rows(
+        [vague, named], corpus, ["viên xanh xám cầm tiêu chảy", "Loperamide xanh xám"]
+    )
+    assert [r["query_id"] for r in fixed] == ["a2"] and counts["vague_alias"] == 1

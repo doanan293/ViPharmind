@@ -22,7 +22,12 @@ from pharma_lab.e2e.corpus_text import (
     null_statement,
     section_slug,
 )
-from pharma_lab.e2e.golden_generate import COMPOSITION, MonographNames, brand_name
+from pharma_lab.e2e.golden_generate import (
+    COMPOSITION,
+    MonographNames,
+    brand_name,
+    names_a_product,
+)
 
 PASTED_MIN_WORDS = 11
 _HEADING_LEAK = re.compile(r"\b(của|trong) mục\b|tên chung quốc tế", re.IGNORECASE)
@@ -64,18 +69,41 @@ _NAME_BREAK = re.compile(r"[,.;:)]$")
 
 
 def repair_rows(
-    rows: Sequence[dict], corpus: CorpusText
+    rows: Sequence[dict], corpus: CorpusText, aliases: Sequence[str] = ()
 ) -> tuple[list[dict], Counter[str]]:
-    """The repaired rows, in order, and how many rows each rule changed or dropped."""
+    """The repaired rows, in order, and how many rows each rule changed or dropped.
+    `aliases` are the colloquial names of the corpus, to judge the alias rows."""
     sections = _sections_by_document(corpus)
     actives = _leaflet_actives(corpus)
+    names = sorted({a.casefold() for a in aliases}, key=len, reverse=True)
     counts: Counter[str] = Counter()
     out: list[dict] = []
     for row in rows:
+        if _vague_alias(row, corpus, names):
+            counts["vague_alias"] += 1
+            continue
         fixed = _repair(dict(row), corpus, sections, actives, counts)
         if fixed is not None:
             out.append(fixed)
     return out, counts
+
+
+def _vague_alias(
+    row: Mapping[str, object], corpus: CorpusText, names: Sequence[str]
+) -> bool:
+    """An alias question whose alias names a kind of product, not a product
+    ("viên xanh xám cầm tiêu chảy"), so a user could mean many products."""
+    if row.get("query_form") != "colloquial_alias":
+        return False
+    query = str(row["query"]).casefold()
+    alias = next((name for name in names if name in query), None)
+    gold = row.get("expected_section_ids")
+    if alias is None or not isinstance(gold, list) or not gold:
+        return False
+    titles = [
+        corpus.titles.get(corpus.section_documents.get(str(s), ""), "") for s in gold
+    ]
+    return not names_a_product(alias, titles)
 
 
 def _repair(
@@ -256,7 +284,8 @@ def _restore_name(query: str, title: str) -> str | None:
     named = len(title[: at + len(brand)].split())
     asked = query.split()
     for size in range(len(words) - 1, named, -1):
-        if _NAME_BREAK.search(words[size - 1]):
+        # A break after one word ("phòng,") ends no phrase; after two or more it does.
+        if _NAME_BREAK.search(words[size - 1]) and size - named >= 2:
             continue
         cut = [_bare(w) for w in words[:size]]
         for start in range(len(asked) - size + 1):
@@ -265,6 +294,8 @@ def _restore_name(query: str, title: str) -> str | None:
                 continue
             if _bare(asked[start + size]) == _bare(words[size]):
                 return None  # the question goes on with the title
+            if size - named >= 2 and _NAME_BREAK.search(words[size - 1]):
+                return None
             kept = [*asked[:start], *words[:named], *asked[start + size :]]
             return " ".join(kept)
     return None
