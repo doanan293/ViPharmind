@@ -561,6 +561,11 @@ def golden_build(
             load_corpus_text(bundle),
             bundle_manifest_sha256=sha256_file(bundle / "manifest.json"),
             gold_sha256=sha256_file(evaluation),
+            benchmark_ids={
+                str(json.loads(line)["query_id"])
+                for line in evaluation.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            },
         )
         return CommandResult(
             "e2e golden build",

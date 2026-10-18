@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Sequence, Set
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -372,8 +372,10 @@ def build_golden(
     *,
     bundle_manifest_sha256: str,
     gold_sha256: str,
+    benchmark_ids: Set[str] | None = None,
 ) -> GoldenManifest:
-    """Validate authored batches and freeze them into one sorted golden file."""
+    """Validate authored batches and freeze them into one sorted golden file. With
+    `benchmark_ids`, every item must be a row of the benchmark (its source_query_id)."""
     if not sources:
         raise ValueError("no authored batches to build from")
     items: list[GoldenItem] = []
@@ -383,6 +385,12 @@ def build_golden(
         items.extend(batch)
         problems.extend(batch_problems)
     problems.extend(validate_items(items, corpus, complete=True))
+    if benchmark_ids is not None:
+        problems.extend(
+            f"{item.item_id}: source {item.source_query_id} is not a benchmark row"
+            for item in items
+            if item.source_query_id not in benchmark_ids
+        )
     if problems:
         raise ValueError(
             f"golden set has {len(problems)} problem(s):\n" + "\n".join(problems)

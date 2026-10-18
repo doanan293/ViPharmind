@@ -173,6 +173,10 @@ async def current_release_id(service: SearchService, probe_query: str) -> str:
     return releases.pop()
 
 
+# The benchmark group that holds the e2e safety questions; it has no gold sections.
+SAFETY_GROUP = "safety"
+
+
 def _read_query_rows(path: Path, limit: int | None) -> list[dict]:
     rows: list[dict] = []
     try:
@@ -195,6 +199,10 @@ def _read_query_rows(path: Path, limit: int | None) -> list[dict]:
                         "Evaluation row requires query_id and query at "
                         f"{path}:{line_number}"
                     )
+                # Safety rows (unanswerable, out-of-scope, injection) have no gold
+                # section: they belong to the e2e golden set, not to retrieval.
+                if row.get("eval_group") == SAFETY_GROUP:
+                    continue
                 rows.append(row)
                 if limit is not None and len(rows) >= limit:
                     break

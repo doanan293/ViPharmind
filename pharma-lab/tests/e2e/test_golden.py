@@ -350,6 +350,35 @@ def test_build_freezes_sorted_items_and_a_manifest(tmp_path: Path) -> None:
     assert len(manifest["sha256"]) == 64
 
 
+def test_build_needs_every_item_to_be_a_benchmark_row(tmp_path: Path) -> None:
+    items = [
+        item.model_copy(update={"source_query_id": item.item_id})
+        if item.source_query_id is None
+        else item
+        for item in complete_set()
+    ]
+    source = write_batch(tmp_path / "all.authored.jsonl", items)
+    ids = {str(item.source_query_id) for item in items}
+    missing = next(iter(ids))
+    with pytest.raises(ValueError, match=f"source {missing} is not a benchmark row"):
+        build_golden(
+            [source],
+            tmp_path / "golden_e2e.jsonl",
+            CORPUS,
+            bundle_manifest_sha256="b" * 64,
+            gold_sha256="g" * 64,
+            benchmark_ids=ids - {missing},
+        )
+    build_golden(
+        [source],
+        tmp_path / "golden_e2e.jsonl",
+        CORPUS,
+        bundle_manifest_sha256="b" * 64,
+        gold_sha256="g" * 64,
+        benchmark_ids=ids,
+    )
+
+
 def test_build_reports_every_problem_and_writes_nothing(tmp_path: Path) -> None:
     source = write_batch(tmp_path / "a.authored.jsonl", [answerable("bad")])
     with pytest.raises(ValueError, match="bad: id must start with e2e-ans-"):
@@ -393,7 +422,7 @@ def test_cli_builds_the_golden_set(tmp_path: Path) -> None:
     (tmp_path / "authoring").mkdir()
     write_batch(tmp_path / "authoring" / "a.authored.jsonl", [answerable()])
     gold = tmp_path / "gold.jsonl"
-    gold.write_text("{}\n", encoding="utf-8")
+    gold.write_text('{"query_id": "q-1"}\n', encoding="utf-8")
 
     result = CliRunner().invoke(
         app,

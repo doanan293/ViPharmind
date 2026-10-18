@@ -17,14 +17,15 @@ from pharma_lab.cli.runtime import (
 )
 from pharma_lab.config.paths import (
     BUNDLE_DIR,
+    E2E_AUTHORING_DIR,
     EVALUATION_CHUNKS_PATH,
     GOLD_DIR,
     RAG_FINAL_SECTIONS_PATH,
     run_dir,
 )
-from pharma_lab.e2e.benchmark_extension import extend_rows
-from pharma_lab.e2e.conversational import PHENOMENA
-from pharma_lab.e2e.corpus_text import corpus_text
+from pharma_lab.e2e.benchmark_extension import MULTI_HOP_ROWS, assemble_benchmark
+from pharma_lab.e2e.corpus_text import corpus_text, section_chunks
+from pharma_lab.e2e.golden_generate import generate
 from pharma_lab.e2e.one_round import load_one_round
 from pharma_lab.evaluation.build_dataset import (
     EvaluationBuildRequest,
@@ -34,6 +35,8 @@ from pharma_lab.evaluation.relevance_judgments import build_evaluation_judgments
 
 evaluation_app = typer.Typer(no_args_is_help=True, add_completion=False)
 GOLD_EVALUATION_PATH = GOLD_DIR / "section_retrieval_eval.jsonl"
+# The 10,000 questions `evaluation build` wrote, before `evaluation assemble`.
+RULE_BUILT_EVALUATION_PATH = GOLD_DIR / "archive" / "section_retrieval_eval.10k.jsonl"
 
 
 def evaluation_build_command(
@@ -131,69 +134,109 @@ def evaluation_judgments(
     )
 
 
-@evaluation_app.command("extend")
-def evaluation_extend(
+@evaluation_app.command("assemble")
+def evaluation_assemble(
     ctx: typer.Context,
-    evaluation: Annotated[
-        Path, typer.Option("--evaluation", dir_okay=False)
+    source: Annotated[
+        Path,
+        typer.Option(
+            "--source", dir_okay=False, help="The 10,000 rule-built questions"
+        ),
+    ] = RULE_BUILT_EVALUATION_PATH,
+    output: Annotated[
+        Path, typer.Option("--output", dir_okay=False)
     ] = GOLD_EVALUATION_PATH,
     bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    authoring_dir: Annotated[
+        Path, typer.Option("--authoring-dir", file_okay=False)
+    ] = E2E_AUTHORING_DIR,
     run_name: Annotated[
         str | None,
         typer.Option("--run", help="Run whose one-round coverage stratifies parents"),
     ] = "hybrid-qwen4b-v2-p50-k20-rrf2",
     model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
-    conversational_total: Annotated[
-        int, typer.Option("--conversational-total", min=len(PHENOMENA))
-    ] = 1_500,
     seed: Annotated[int, typer.Option("--seed")] = 0,
 ) -> None:
-    """Append the generated groups to the benchmark in place and rebuild its judgments:
-    colloquial names absent from their leaflet, plain-language phrases for abbreviated
-    terms, and conversational follow-ups that inherit a question's gold sections. Rows
-    of these groups already in the file are replaced, so extending twice is the same."""
+    """Assemble the 10,000-question benchmark from the rule-built questions: colloquial,
+    glossary, conversational, multi-hop and safety groups in full, the rule-built groups
+    cut to fit while keeping every question the golden set or a conversational row uses,
+    then rebuild the judgments. The golden set is drawn from the result."""
 
     def handler() -> CommandResult:
         try:
             knowledge = read_bundle(bundle)
         except BundleValidationError as exc:
             raise invalid_bundle(exc) from exc
-        base = [
-            json.loads(line)
-            for line in evaluation.read_text(encoding="utf-8").splitlines()
-            if line.strip()
+        base = _jsonl(source)
+        golden = [
+            row
+            for path in sorted(authoring_dir.glob("*.authored.jsonl"))
+            for row in _jsonl(path)
         ]
         covered = None
         if run_name:
             found = load_one_round(run_dir(run_name), model=model, top_k=5).coverage
             covered = {query_id: not c.missing for query_id, c in found.items()}
+        corpus = corpus_text(knowledge)
+        extra = generate(
+            corpus,
+            {
+                "three_intent": MULTI_HOP_ROWS,
+                "two_drug": MULTI_HOP_ROWS,
+                "brand_to_ingredient": MULTI_HOP_ROWS,
+            },
+            seed=seed,
+            chunks=section_chunks(knowledge),
+        )
         aliases = [
             (alias, mapping.section_keys)
             for mapping in knowledge.colloquial_mappings
             for alias in mapping.aliases
         ]
-        rows = extend_rows(
+        rows = assemble_benchmark(
             base,
-            corpus_text(knowledge),
+            corpus,
             aliases,
+            golden,
+            _interleave(extra),
             covered=covered,
-            conversational_total=conversational_total,
             seed=seed,
         )
-        evaluation.write_text(
+        output.write_text(
             "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
             encoding="utf-8",
         )
-        judgments = build_evaluation_judgments(evaluation, bundle)
+        judgments = build_evaluation_judgments(output, bundle)
         groups: dict[str, int] = {}
         for row in rows:
             group = str(row.get("eval_group"))
             groups[group] = groups.get(group, 0) + 1
         return CommandResult(
-            "evaluation extend",
+            "evaluation assemble",
             CommandStatus.COMPLETE,
-            evaluation,
+            output,
             {"rows": len(rows), "judgments": str(judgments), **groups},
         )
 
     run_handler(state_from_context(ctx), handler)
+
+
+def _jsonl(path: Path) -> list[dict]:
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def _interleave(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Generated candidates taking the kinds in turn, so the group is balanced."""
+    by_kind: dict[str, list[dict[str, object]]] = {}
+    for row in rows:
+        by_kind.setdefault(str(row["kind"]), []).append(row)
+    out: list[dict[str, object]] = []
+    while any(by_kind.values()):
+        for queue in by_kind.values():
+            if queue:
+                out.append(queue.pop(0))
+    return out
