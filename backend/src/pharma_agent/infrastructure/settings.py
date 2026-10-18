@@ -56,6 +56,11 @@ class LlmSettings(BaseModel):
     roles: dict[LlmRole, LlmEndpoint] = Field(default_factory=dict)
     timeout_seconds: float = 60.0
     max_retries: int = 2
+    # The decision model answers in well under a second; a stuck call must give up long
+    # before the turn deadline so the guard and judge can fail open (TypeSafe SDK
+    # defaults: 10 s per request, 30 s with retries).
+    decision_timeout_seconds: float = 10.0
+    decision_total_seconds: float = 30.0
 
     @property
     def configured(self) -> bool:

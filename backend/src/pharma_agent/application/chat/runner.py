@@ -28,6 +28,11 @@ from pharma_agent.domain.agent.run import AgentRun, ErrorCode
 from pharma_agent.domain.conversation.models import Citation, ConversationContext
 from pharma_agent.domain.retrieval.models import ReleaseScope
 
+# A safety net under the domain budget (search rounds, tool rounds, LLM calls): a
+# routing bug that loops ends as an internal failure in a few steps, not at the turn
+# deadline. Both graphs stay far below it.
+RECURSION_LIMIT = 64
+
 
 class TurnOutcome(BaseModel):
     run: AgentRun
@@ -99,7 +104,10 @@ class ChatTurnExecution:
         self, queue: asyncio.Queue[ProgressEvent | None], handle: TraceHandle
     ) -> None:
         final: ChatTurnState | None = None
-        config: RunnableConfig = {"callbacks": list(handle.callbacks)}
+        config: RunnableConfig = {
+            "callbacks": list(handle.callbacks),
+            "recursion_limit": RECURSION_LIMIT,
+        }
         modes: list[StreamMode] = ["custom", "values"]
         context = TurnContext(
             deps=self._deps,
