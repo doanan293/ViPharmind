@@ -349,3 +349,19 @@ def test_brand_candidates_skip_products_used_on_the_skin() -> None:
     )
     found = brand_candidates(creams, count=5, seed=0)
     assert all(not c.expected_section_ids[0].startswith(PANADOL) for c in found)
+
+
+def test_two_drug_skips_a_component_of_a_combination_monograph() -> None:
+    combo = "drug:lopinavir-va-ritonavir"
+    rito = "drug:ritonavir"
+    sections = {
+        f"{combo}:tuong-tac-thuoc": "Dùng cùng ritonavir liều cao làm tăng nồng độ.",
+        f"{rito}:lieu-luong-va-cach-dung": "600 mg hai lần mỗi ngày.",
+        f"{rito}:tuong-tac-thuoc": "Nhiều thuốc.",
+    }
+    corpus = CorpusText(
+        sections=sections,
+        section_documents={k: k.rsplit(":", 1)[0] for k in sections},
+        titles={combo: "LOPINAVIR VÀ RITONAVIR", rito: "RITONAVIR"},
+    )
+    assert two_drug_candidates(corpus, count=5, seed=0) == []

@@ -268,6 +268,9 @@ def two_drug_candidates(
                 if b != a
                 and partners.get(b, 0) < 2
                 and named_as_partner(corpus.sections[a_section], corpus.titles[b])
+                # A combination monograph names its own components.
+                and " ".join(_tokens(corpus.titles[b]))
+                not in " ".join(_tokens(corpus.titles[a]))
                 for intent, template in _rotate(TWO_DRUG_INTENTS, len(out))
                 if intent in sections.get(b, {})
             ),
