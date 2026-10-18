@@ -1,15 +1,15 @@
 {
   "answerable_per_group": {
     "colloquial": 20,
-    "formulary": 56,
+    "formulary": 48,
     "glossary": 10,
-    "leaflet": 43,
+    "leaflet": 54,
     "leaflet_short": 33,
     "multi_intent": 30,
-    "noisy": 44,
-    "structured": 34
+    "noisy": 38,
+    "structured": 37
   },
-  "bundle_manifest_sha256": "b8f7640a746f826b7f41fe9e1f767092a66ed22e154ef172dc3d14e3bf4f980f",
+  "bundle_manifest_sha256": "8d9315d9143a1804aa1fbe91b64668be85ee1fba7b88c9d739095a7f7f04260c",
   "counts": {
     "answerable": 270,
     "injection": 10,
@@ -18,8 +18,8 @@
     "out_of_scope": 10,
     "unanswerable": 10
   },
-  "created_at": "2026-10-18T03:22:52+00:00",
-  "gold_sha256": "99d408f038559946a5cc984cf4c81cfb855d845bda8f39c4b5203302de8c0866",
+  "created_at": "2026-10-18T09:15:26+00:00",
+  "gold_sha256": "fbd87ebb741076f1c61d10105634a9b8fa982d099db2857a3bd48d43589e89cb",
   "schema": "e2e-golden-v3",
-  "sha256": "5a0dfc36917577dc44077a7216416374dc176a32ddec9b27ac3fe38a4d18dbb8"
+  "sha256": "45d5b87cd22cb37b84e3f2b8dff384b80dc382b29b089cc76473b8f6b07c6308"
 }
