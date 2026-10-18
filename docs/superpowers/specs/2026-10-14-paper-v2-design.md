@@ -307,11 +307,12 @@ công bằng:
   `glossary` 219 (mọi cụm lời thường của thuật ngữ mà chuyên luận chỉ ghi viết tắt) và
   `conversational` 1.500 (§3.1), do `pharma-lab evaluation extend` nối vào. Mọi bảng retrieval và
   e2e báo theo cùng chín nhóm; D2 và D5 là các dòng của bảng chính, không phải tập riêng.
-- Phân bổ golden: answerable 270 gồm 180 câu tự nhiên (30 × 6 nhóm) và 90 probe một mục, mỗi loại
-  chọn bằng dữ liệu hoặc sinh từ corpus: `rerank_probe` 21 (hybrid không rerank trượt top 5, có
-  rerank thì trúng), `lexical_probe` 19 (dense trượt cả 20 ứng viên), `semantic_probe` 20 (BM25
-  trượt cả 20 ứng viên), `colloquial` 20 (gọi sản phẩm chỉ bằng alias dân dã vắng trong văn bản),
-  `glossary` 10 (dùng cụm lời thường cho thuật ngữ mà mục chỉ ghi viết tắt). Category `multi_hop` 150,
+- Phân bổ golden: answerable 270 theo đúng các nhóm của benchmark, gồm 30 câu tự nhiên cho mỗi
+  nhóm sinh bằng luật, `colloquial` 20 và `glossary` 10 (mỗi câu trỏ về dòng `enrich-*` của benchmark),
+  cộng 60 probe giữ nhóm nguồn: `rerank_probe` 21 (hybrid không rerank trượt top 5, có rerank thì
+  trúng), `lexical_probe` 19 (dense trượt cả 20 ứng viên), `semantic_probe` 20 (BM25 trượt cả 20 ứng
+  viên). Multi-turn 50 lấy từ nhóm `conversational` của benchmark, chia theo hiện tượng (pronoun 7,
+  ellipsis 7, sáu hiện tượng còn lại 6), giữ nguyên lịch sử. Category `multi_hop` 150,
   multi-turn 50, unanswerable, out-of-scope, injection 10 mỗi loại. Mục §3.2 nâng nhóm an toàn lên
   50 không còn áp dụng; limitations nêu khoảng tin cậy rộng của 10 câu mỗi loại.
 - Câu answerable tự nhiên bị bỏ là những câu mà retrieval một lượt (hybrid + rerank, top 5) đã phủ
