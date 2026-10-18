@@ -125,12 +125,26 @@ Cỡ formulary và leaflet là phần còn lại để tổng đúng 10.000.
 Mỗi dòng có thêm trường `slices` tính khi assemble, không dùng kết quả hệ thống:
 
 - `header_dependent`: mục gold không chứa từ đầu của tên thuốc/sản phẩm.
-- `low_overlap`: trùng từ nội dung giữa câu và mục gold + tiêu đề dưới 35%.
+- `name_variant`: câu hỏi không viết nguyên văn chữ nào của tên thuốc/sản phẩm (gõ sai, không
+  dấu, gọi cách khác). Thay `low_overlap`: độ trùng từ với mục gold không tách được lớp dense
+  (mọi ngưỡng thử dưới 2 lần), tên thuốc thì tách được.
 - `sibling_products`: sản phẩm có biến thể cùng hoạt chất và cùng mục, khác hàm lượng hoặc dạng
   (định nghĩa sắc hơn "họ sản phẩm"; cần kiểm lại tỉ lệ rerank thắng trước khi dùng).
 - `multi_chunk`: các mục gold nằm ở từ hai chunk trở lên.
 
 Báo cáo retrieval có bảng theo nhóm và bảng theo lát.
+
+Kiểm trước trên run v2, 5.831 dòng không đổi, tỉ lệ dòng mà lớp thắng (top 5) trong và ngoài lát:
+
+| Lát | Lớp (đủ so với bỏ) | Trong lát | Ngoài lát | Gấp |
+| --- | --- | --- | --- | --- |
+| header_dependent | hybrid so với plain | 14,0% | 5,6% | 2,5 |
+| name_variant | dense so với BM25 | 46,2% | 14,1% | 3,3 |
+| name_variant | hybrid so với BM25 | 41,0% | 12,9% | 3,2 |
+| sibling_products | rerank 4B so với không rerank | 9,2% | 3,2% | 2,9 |
+| multi_chunk | chunk gộp so với chunk theo mục | 34,4% | 10,1% | 3,4 |
+
+Số chính thức đo lại trên run `-v3-` (Task 6).
 
 ## 4. Golden 500 câu
 

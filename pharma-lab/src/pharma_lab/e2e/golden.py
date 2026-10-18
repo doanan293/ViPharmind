@@ -57,12 +57,14 @@ CONVERSATIONAL_GROUP = "conversational"
 # Slice items are answerable items of the rule-built groups drawn at random from one
 # construction-defined slice of the benchmark (eval data v3 design §3.4, §4), each the
 # questions one layer is built for: the gold section does not name the drug (header
-# enrichment), the question shares few words with it (dense half of hybrid search), or
-# a sibling product of the same brand has the same section (reranking). A slice is set
-# by the question and the corpus, never by a system's result. An item keeps its group.
+# enrichment), the question writes the drug name in a form lexical search cannot match
+# (dense half of hybrid search), or a sibling product of the same brand has the same
+# section (reranking). A slice is set by the question and the corpus, never by a
+# system's result, and was checked to separate its layer on retrieval runs. An item
+# keeps its group.
 SLICE_QUOTAS: dict[str, int] = {
     "header_dependent": 20,
-    "low_overlap": 20,
+    "name_variant": 20,
     "sibling_products": 20,
 }
 SLICE_KINDS = tuple(SLICE_QUOTAS)

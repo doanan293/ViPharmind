@@ -287,25 +287,25 @@ async def test_a_slice_item_is_drafted_as_an_answerable_item_with_its_own_ids(
 ) -> None:
     llm = ScriptedLlm()
     llm.script(LlmRole.ANSWER, good())
-    row = dict(candidate("q1", "low_overlap"), eval_group="formulary")
+    row = dict(candidate("q1", "name_variant"), eval_group="formulary")
     items, _ = await draft_multi_hop(
-        llm, {"low_overlap": [row]}, {"low_overlap": 1}, CORPUS, family=SLICE
+        llm, {"name_variant": [row]}, {"name_variant": 1}, CORPUS, family=SLICE
     )
     (item,) = items
     assert (item.item_id, item.category, item.tags) == (
         "e2e-ans-s0001",
         Category.ANSWERABLE,
-        ["low_overlap"],
+        ["name_variant"],
     )
     # A slice item keeps the benchmark group of its row.
     assert item.eval_group == "formulary"
     paths = write_drafts(tmp_path, items, [], family=SLICE)
     assert [p.name for p in paths] == ["slice-01.draft.jsonl", "slice.failed.jsonl"]
-    assert needed_counts({"low_overlap": 5}, SLICE)["low_overlap"] == 15
+    assert needed_counts({"name_variant": 5}, SLICE)["name_variant"] == 15
     (tmp_path / "slice-01.authored.jsonl").write_text(
         paths[0].read_text("utf-8"), encoding="utf-8"
     )
-    assert authored_state(tmp_path, SLICE) == ({"low_overlap": 1}, 1)
+    assert authored_state(tmp_path, SLICE) == ({"name_variant": 1}, 1)
     assert authored_state(tmp_path) == ({}, 0)
 
 
@@ -324,7 +324,7 @@ def test_the_natural_family_counts_answerable_items_by_group_wherever_authored(
             "item_id": "e2e-ans-s0001",
             "category": "answerable",
             "eval_group": "noisy",
-            "tags": ["low_overlap"],
+            "tags": ["name_variant"],
         },
     ]
     for name, line in zip(
@@ -340,7 +340,7 @@ def test_the_natural_family_counts_answerable_items_by_group_wherever_authored(
 
 def test_answerable_candidates_by_group_and_by_slice() -> None:
     rows = [
-        {"query_id": "a", "eval_group": "formulary", "slices": ["low_overlap"]},
+        {"query_id": "a", "eval_group": "formulary", "slices": ["name_variant"]},
         {"query_id": "b", "eval_group": "colloquial", "slices": ["header_dependent"]},
         {"query_id": "c", "eval_group": "conversational", "slices": []},
     ]
@@ -350,7 +350,7 @@ def test_answerable_candidates_by_group_and_by_slice() -> None:
         ("b", "colloquial"),
     ]
     # Slice items come from the rule-built groups only.
-    assert [(r["query_id"], r["kind"]) for r in slices] == [("a", "low_overlap")]
+    assert [(r["query_id"], r["kind"]) for r in slices] == [("a", "name_variant")]
 
 
 async def test_a_multi_turn_item_keeps_the_conversation_of_its_row() -> None:
