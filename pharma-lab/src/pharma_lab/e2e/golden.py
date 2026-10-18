@@ -44,25 +44,43 @@ class ExpectedBehavior(StrEnum):
     BLOCKED = "blocked"
 
 
-# Answerable probes: one question kind per retrieval-side component, each chosen where
-# that component decides whether one round finds the gold section (spec §3.0b). Reranking
-# moves the gold chunk into the top five; the lexical half of hybrid search finds what
-# dense search misses and the dense half finds what BM25 misses; colloquial product names
-# and plain-language terms reach a section only through the chunk enrichment.
+# Answerable groups follow the retrieval benchmark's groups: 30 items for each of the six
+# rule-built groups, and the two enrichment groups (a product named only by a colloquial
+# alias, a plain-language phrase for an abbreviated term). The conversational group is the
+# multi_turn category (spec §3.0b, §3.1).
+ANSWERABLE_GROUP_QUOTAS: dict[str, int] = {
+    **dict.fromkeys(EVAL_GROUPS, ANSWERABLE_PER_GROUP),
+    "colloquial": 20,
+    "glossary": 10,
+}
+CONVERSATIONAL_GROUP = "conversational"
+# Probes are answerable items of the rule-built groups chosen where one retrieval-side
+# component decides whether one round finds the gold section: reranking moves the gold
+# chunk into the top five; the lexical half of hybrid search finds what dense search
+# misses and the dense half finds what BM25 misses. A probe keeps its source group.
 PROBE_QUOTAS: dict[str, int] = {
     "rerank_probe": 21,
     "lexical_probe": 19,
     "semantic_probe": 20,
-    "colloquial": 20,
-    "glossary": 10,
 }
 PROBE_KINDS = tuple(PROBE_QUOTAS)
+# Multi-turn items per phenomenon of the benchmark's conversational group.
+MULTI_TURN_QUOTAS: dict[str, int] = {
+    "pronoun": 7,
+    "ellipsis": 7,
+    "intent_shift": 6,
+    "drug_shift": 6,
+    "answer_entity": 6,
+    "topic_switch": 6,
+    "multi_intent": 6,
+    "noisy_followup": 6,
+}
 
 QUOTAS: dict[Category, int] = {
-    Category.ANSWERABLE: ANSWERABLE_PER_GROUP * len(EVAL_GROUPS)
+    Category.ANSWERABLE: sum(ANSWERABLE_GROUP_QUOTAS.values())
     + sum(PROBE_QUOTAS.values()),
     Category.MULTI_HOP: 150,
-    Category.MULTI_TURN: 50,
+    Category.MULTI_TURN: sum(MULTI_TURN_QUOTAS.values()),
     Category.UNANSWERABLE: 10,
     Category.OUT_OF_SCOPE: 10,
     Category.INJECTION: 10,
@@ -253,13 +271,18 @@ def _item_problems(item: GoldenItem, corpus: CorpusText) -> list[str]:
             )
     if item.category is Category.ANSWERABLE:
         probes = _probe_kinds(item)
-        if len(probes) > 1 or (probes and item.eval_group is not None):
+        if item.eval_group not in ANSWERABLE_GROUP_QUOTAS:
+            problems.append(f"{name}: answerable items need a benchmark eval_group")
+        elif len(probes) > 1 or (probes and item.eval_group not in EVAL_GROUPS):
             problems.append(
-                f"{name}: an answerable probe has one probe tag and no eval_group"
+                f"{name}: a probe has one probe tag and a rule-built source group"
             )
-        if not probes and item.eval_group not in EVAL_GROUPS:
+    if item.category is Category.MULTI_TURN:
+        phenomena = [tag for tag in item.tags if tag in MULTI_TURN_QUOTAS]
+        if item.eval_group != CONVERSATIONAL_GROUP or len(phenomena) != 1:
             problems.append(
-                f"{name}: answerable items need an eval_group or a probe tag"
+                f"{name}: multi_turn items are in the {CONVERSATIONAL_GROUP} group "
+                "with one phenomenon tag"
             )
     if item.category is Category.UNANSWERABLE:
         if not item.absent_terms:
@@ -283,11 +306,23 @@ def _count_problems(items: Sequence[GoldenItem]) -> list[str]:
         for item in items
         if item.category is Category.ANSWERABLE and not _probe_kinds(item)
     )
-    for group in EVAL_GROUPS:
-        if groups[group] != ANSWERABLE_PER_GROUP:
+    for group, quota in ANSWERABLE_GROUP_QUOTAS.items():
+        if groups[group] != quota:
             problems.append(
-                f"answerable {group}: {groups[group]} items, "
-                f"expected {ANSWERABLE_PER_GROUP}"
+                f"answerable {group}: {groups[group]} items, expected {quota}"
+            )
+    phenomena = Counter(
+        tag
+        for item in items
+        if item.category is Category.MULTI_TURN
+        for tag in item.tags
+        if tag in MULTI_TURN_QUOTAS
+    )
+    for phenomenon, quota in MULTI_TURN_QUOTAS.items():
+        if phenomena[phenomenon] != quota:
+            problems.append(
+                f"multi_turn {phenomenon}: {phenomena[phenomenon]} items, "
+                f"expected {quota}"
             )
     kinds = Counter(
         tag
@@ -370,9 +405,7 @@ def build_golden(
     staging.replace(output)
     counts = Counter(str(item.category) for item in items)
     groups = Counter(
-        item.eval_group or _probe_kinds(item)[0]
-        for item in items
-        if item.category is Category.ANSWERABLE
+        str(item.eval_group) for item in items if item.category is Category.ANSWERABLE
     )
     manifest = GoldenManifest.model_validate(
         {

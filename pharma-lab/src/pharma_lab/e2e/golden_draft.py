@@ -30,6 +30,7 @@ from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden import (
     ID_PREFIX,
     MULTI_HOP_QUOTAS,
+    MULTI_TURN_QUOTAS,
     PROBE_QUOTAS,
     Category,
     ExpectedBehavior,
@@ -65,7 +66,13 @@ MULTI_HOP = Family(
 PROBE = Family(
     "probe", Category.ANSWERABLE, PROBE_QUOTAS, f"{ID_PREFIX[Category.ANSWERABLE]}p"
 )
-FAMILIES = {family.batch: family for family in (MULTI_HOP, PROBE)}
+MULTI_TURN = Family(
+    "multi-turn",
+    Category.MULTI_TURN,
+    MULTI_TURN_QUOTAS,
+    ID_PREFIX[Category.MULTI_TURN],
+)
+FAMILIES = {family.batch: family for family in (MULTI_HOP, PROBE, MULTI_TURN)}
 
 DRAFT_SYSTEM = """Bạn soạn đáp án mẫu cho bộ đánh giá hệ thống tra cứu thuốc tiếng Việt.
 Cho một câu hỏi và các mục tài liệu (mỗi mục có id), hãy trả về:
@@ -281,7 +288,15 @@ def draft_messages(
     sections = "\n\n".join(
         f"### {section_id}\n{corpus.sections[section_id]}" for section_id in _gold(row)
     )
-    prompt = f"Câu hỏi:\n{row['query']}\n\nCác mục tài liệu:\n{sections}"
+    history = _turns(row)[:-1]
+    prompt = ""
+    if history:
+        prompt = "Lịch sử hội thoại (câu hỏi cuối hỏi tiếp từ đây):\n" + "\n".join(
+            f"{'Người dùng' if role == 'user' else 'Trợ lý'}: {text}"
+            for role, text in history
+        )
+        prompt += "\n\n"
+    prompt += f"Câu hỏi:\n{row['query']}\n\nCác mục tài liệu:\n{sections}"
     if row.get("generated"):
         prompt += "\n\n" + REWRITE_QUESTION.format(names=", ".join(_subjects(row)))
     if problems:
@@ -298,12 +313,20 @@ def to_item(
     family: Family = MULTI_HOP,
 ) -> GoldenItem:
     question = draft.question if row.get("generated") and draft.question else None
+    history = [
+        Turn.model_validate({"role": role, "text": text})
+        for role, text in _turns(row)[:-1]
+    ]
+    last = Turn(role="user", text=(question or str(row["query"])).strip())
+    # Answerable probes and multi-turn items keep the benchmark group of their row.
+    group = row.get("eval_group") if family.category is not Category.MULTI_HOP else None
     return GoldenItem(
         item_id=item_id,
         category=family.category,
         source_query_id=str(row["query_id"]),
-        turns=[Turn(role="user", text=(question or str(row["query"])).strip())],
+        turns=[*history, last],
         expected_behavior=ExpectedBehavior.GROUNDED,
+        eval_group=str(group) if group else None,
         gold_section_ids=_gold(row),
         reference=Reference(
             answer=draft.answer.strip(),
@@ -423,3 +446,15 @@ def _subjects(row: Mapping[str, object]) -> list[str]:
     if not isinstance(subjects, list):
         raise TypeError(f"{row['query_id']}: subjects is not a list")
     return [str(subject) for subject in subjects]
+
+
+def _turns(row: Mapping[str, object]) -> list[tuple[str, str]]:
+    """The conversation of a candidate, ending with its question."""
+    turns = row.get("turns")
+    if not isinstance(turns, list):
+        return [("user", str(row["query"]))]
+    return [
+        (str(turn["role"]), str(turn["text"]))
+        for turn in turns
+        if isinstance(turn, dict)
+    ]

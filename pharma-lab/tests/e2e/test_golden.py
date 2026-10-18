@@ -10,12 +10,14 @@ from typer.testing import CliRunner
 
 from pharma_lab.bundle.export import ExportRequest, export_bundle
 from pharma_lab.cli.app import app
+from pharma_lab.e2e.conversational import PHENOMENA
 from pharma_lab.e2e.corpus_text import CorpusText, chunk_texts, load_corpus_text
 from pharma_lab.e2e.golden import (
-    ANSWERABLE_PER_GROUP,
+    ANSWERABLE_GROUP_QUOTAS,
     EVAL_GROUPS,
     MULTI_HOP_KINDS,
     MULTI_HOP_QUOTAS,
+    MULTI_TURN_QUOTAS,
     PROBE_QUOTAS,
     QUOTAS,
     SCHEMA,
@@ -81,6 +83,23 @@ def multi_hop(item_id: str = "e2e-mhop-0001", **changes: Any) -> GoldenItem:
     return answerable(item_id, **data)
 
 
+DIALOGUE = [
+    {"role": "user", "text": "Paracetamol dùng làm gì?"},
+    {"role": "assistant", "text": "Giảm đau."},
+    {"role": "user", "text": "Liều tối đa?"},
+]
+
+
+def multi_turn(item_id: str, **changes: Any) -> GoldenItem:
+    data: dict[str, Any] = {
+        "category": "multi_turn",
+        "eval_group": "conversational",
+        "turns": DIALOGUE,
+    }
+    data.update(changes)
+    return answerable(item_id, **data)
+
+
 def test_golden_schema_is_v3_without_chunk_ids() -> None:
     assert SCHEMA == "e2e-golden-v3"
     assert "structured" in EVAL_GROUPS and "chunk_risk" not in EVAL_GROUPS
@@ -90,20 +109,34 @@ def test_golden_schema_is_v3_without_chunk_ids() -> None:
         )
 
 
-def test_answerable_probes_need_one_probe_tag_and_no_group() -> None:
-    assert (
-        validate_items(
-            [answerable("e2e-ans-p0001", eval_group=None, tags=["colloquial"])],
-            CORPUS,
-            complete=False,
-        )
-        == []
+def test_answerable_groups_follow_the_benchmark_and_probes_keep_theirs() -> None:
+    assert sum(ANSWERABLE_GROUP_QUOTAS.values()) + sum(PROBE_QUOTAS.values()) == 270
+    assert ANSWERABLE_GROUP_QUOTAS["colloquial"] == 20
+    assert ANSWERABLE_GROUP_QUOTAS["glossary"] == 10
+    ok = [
+        answerable("e2e-ans-0001", eval_group="colloquial"),
+        answerable("e2e-ans-p0001", eval_group="leaflet", tags=["rerank_probe"]),
+    ]
+    assert validate_items(ok, CORPUS, complete=False) == []
+    ungrouped = answerable("e2e-ans-p0002", eval_group=None, tags=["rerank_probe"])
+    probe_of_new_group = answerable(
+        "e2e-ans-p0003", eval_group="glossary", tags=["lexical_probe"]
     )
-    both = answerable("e2e-ans-p0002", eval_group="leaflet", tags=["colloquial"])
-    neither = answerable("e2e-ans-p0003", eval_group=None)
-    assert validate_items([both, neither], CORPUS, complete=False) == [
-        "e2e-ans-p0002: an answerable probe has one probe tag and no eval_group",
-        "e2e-ans-p0003: answerable items need an eval_group or a probe tag",
+    assert validate_items([ungrouped, probe_of_new_group], CORPUS, complete=False) == [
+        "e2e-ans-p0002: answerable items need a benchmark eval_group",
+        "e2e-ans-p0003: a probe has one probe tag and a rule-built source group",
+    ]
+
+
+def test_multi_turn_items_are_conversational_with_one_phenomenon() -> None:
+    assert set(MULTI_TURN_QUOTAS) == set(PHENOMENA)
+    assert sum(MULTI_TURN_QUOTAS.values()) == 50
+    good = multi_turn("e2e-mt-0001", tags=["pronoun"])
+    assert validate_items([good], CORPUS, complete=False) == []
+    wrong = multi_turn("e2e-mt-0002", eval_group="formulary", tags=[])
+    assert validate_items([wrong], CORPUS, complete=False) == [
+        "e2e-mt-0002: multi_turn items are in the conversational group "
+        "with one phenomenon tag"
     ]
 
 
@@ -177,12 +210,12 @@ def test_turn_shapes_per_category() -> None:
     two_users = answerable(
         turns=[{"role": "user", "text": "a"}, {"role": "user", "text": "b"}]
     )
-    short_dialogue = answerable(
-        "e2e-mt-0001", category="multi_turn", turns=[{"role": "user", "text": "a"}]
+    short_dialogue = multi_turn(
+        "e2e-mt-0001", turns=[{"role": "user", "text": "a"}], tags=["ellipsis"]
     )
-    dialogue = answerable(
+    dialogue = multi_turn(
         "e2e-mt-0002",
-        category="multi_turn",
+        tags=["pronoun"],
         turns=[
             {"role": "user", "text": "Paracetamol dùng làm gì?"},
             {"role": "assistant", "text": "Giảm đau, hạ sốt."},
@@ -227,22 +260,18 @@ def test_ids_are_unique_and_prefixed() -> None:
 def complete_set() -> list[GoldenItem]:
     items = [
         answerable(f"e2e-ans-{group}-{index:02d}", eval_group=group)
-        for group in EVAL_GROUPS
-        for index in range(ANSWERABLE_PER_GROUP)
+        for group, quota in ANSWERABLE_GROUP_QUOTAS.items()
+        for index in range(quota)
     ]
     items += [
-        answerable(f"e2e-ans-p{kind}-{index:02d}", eval_group=None, tags=[kind])
+        answerable(f"e2e-ans-p{kind}-{index:02d}", eval_group="formulary", tags=[kind])
         for kind, quota in PROBE_QUOTAS.items()
         for index in range(quota)
     ]
-    dialogue = [
-        {"role": "user", "text": "Paracetamol dùng làm gì?"},
-        {"role": "assistant", "text": "Giảm đau."},
-        {"role": "user", "text": "Liều tối đa?"},
-    ]
     items += [
-        answerable(f"e2e-mt-{index:04d}", category="multi_turn", turns=dialogue)
-        for index in range(QUOTAS[Category.MULTI_TURN])
+        multi_turn(f"e2e-mt-{phenomenon}-{index:02d}", tags=[phenomenon])
+        for phenomenon, quota in MULTI_TURN_QUOTAS.items()
+        for index in range(quota)
     ]
     items += [
         multi_hop(f"e2e-mhop-{kind}-{index:04d}", tags=[kind])

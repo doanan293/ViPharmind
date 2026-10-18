@@ -372,41 +372,6 @@ def absent_aliases(
     return {document: sorted(names) for document, names in by_document.items()}
 
 
-def colloquial_candidates(
-    corpus: CorpusText,
-    aliases: Sequence[tuple[str, Sequence[str]]],
-    *,
-    count: int,
-    seed: int,
-) -> list[Candidate]:
-    """`count` questions, one per product, that name a leaflet product only by an
-    alias of `absent_aliases`; the asked section cycles through COLLOQUIAL_INTENTS."""
-    by_document = absent_aliases(corpus, aliases)
-    sections = _sections_by_document(corpus)
-    documents = sorted(by_document)
-    random.Random(seed).shuffle(documents)
-    out: list[Candidate] = []
-    for document in documents:
-        if len(out) == count:
-            break
-        alias = by_document[document][0]
-        for slug, template in _rotate(COLLOQUIAL_INTENTS, len(out)):
-            section_id = sections.get(document, {}).get(slug)
-            if section_id is None:
-                continue
-            out.append(
-                Candidate(
-                    f"gen-colloquial-{len(out) + 1:04d}",
-                    template.format(alias=alias),
-                    "colloquial",
-                    (section_id,),
-                    (alias,),
-                )
-            )
-            break
-    return out
-
-
 def colloquial_benchmark(
     corpus: CorpusText, aliases: Sequence[tuple[str, Sequence[str]]]
 ) -> list[Candidate]:
@@ -537,43 +502,6 @@ def glossary_matches(corpus: CorpusText) -> dict[str, list[Candidate]]:
     return by_term
 
 
-def glossary_candidates(
-    corpus: CorpusText, *, count: int, seed: int
-) -> list[Candidate]:
-    """`count` questions, one per drug, taking the terms in turn, that use the plain
-    Vietnamese phrase for a term the monograph section writes only as its abbreviation,
-    so retrieval matches them only through the glossary expansion of the chunk."""
-    rng = random.Random(seed)
-    by_term = {term: list(found) for term, found in glossary_matches(corpus).items()}
-    for found in by_term.values():
-        rng.shuffle(found)
-    out: list[Candidate] = []
-    used: set[str] = set()
-    while len(out) < count and any(by_term.values()):
-        for term, _phrase, _slug, _template in GLOSSARY_PHRASES:
-            found = by_term.get(term, [])
-            while (
-                found
-                and corpus.section_documents.get(
-                    found[0].expected_section_ids[0], found[0].expected_section_ids[0]
-                )
-                in used
-            ):
-                found.pop(0)
-            if found and len(out) < count:
-                candidate = found.pop(0)
-                used.add(
-                    corpus.section_documents.get(
-                        candidate.expected_section_ids[0],
-                        candidate.expected_section_ids[0],
-                    )
-                )
-                out.append(
-                    replace(candidate, query_id=f"gen-glossary-{len(out) + 1:04d}")
-                )
-    return out
-
-
 def glossary_benchmark(corpus: CorpusText) -> list[Candidate]:
     """Every term and monograph pair of `glossary_matches`: the glossary group of the
     enrichment probe benchmark."""
@@ -609,24 +537,6 @@ def _rotate[T](items: Sequence[T], offset: int) -> list[T]:
     """`items` starting from `offset`, so each candidate tries another intent first."""
     offset %= len(items)
     return [*items[offset:], *items[:offset]]
-
-
-def generate_probes(
-    corpus: CorpusText,
-    aliases: Sequence[tuple[str, Sequence[str]]],
-    counts: Mapping[str, int],
-    *,
-    seed: int,
-) -> list[dict[str, object]]:
-    """Candidate rows of the generated answerable probes (colloquial and glossary)."""
-    rows: list[Candidate] = []
-    if counts.get("colloquial", 0) > 0:
-        rows += colloquial_candidates(
-            corpus, aliases, count=counts["colloquial"], seed=seed
-        )
-    if counts.get("glossary", 0) > 0:
-        rows += glossary_candidates(corpus, count=counts["glossary"], seed=seed)
-    return [candidate.row() for candidate in rows]
 
 
 def generate(

@@ -10,7 +10,8 @@ uv run pharma-lab e2e golden hard-candidates --run hybrid-qwen4b-v2-p50-k20-rrf2
 uv run pharma-lab e2e golden generate            # ứng viên hai thuốc và biệt dược sang hoạt chất, sinh từ corpus
 uv run pharma-lab e2e golden draft               # nháp các câu multi-hop còn thiếu quota bằng LLM, ghi multi-hop-NN.draft.jsonl để duyệt
 uv run pharma-lab e2e golden probe-candidates --run hybrid-qwen4b-v2-p50-k20-rrf2   # probe rerank, lexical, semantic từ benchmark
-uv run pharma-lab e2e golden generate-probes     # probe colloquial và glossary sinh từ corpus
+uv run pharma-lab e2e golden multi-turn-candidates   # câu multi-turn lấy từ nhóm conversational của benchmark
+uv run pharma-lab e2e golden draft --family multi-turn  # nháp câu multi-turn còn thiếu quota, ghi multi-turn-NN.draft.jsonl
 uv run pharma-lab e2e golden draft --family probe   # nháp các probe còn thiếu quota, ghi probe-NN.draft.jsonl
 uv run pharma-lab evaluation extend             # thêm ba nhóm colloquial, glossary, conversational vào benchmark retrieval (ghi đè file gold, dựng lại judgments)
 # soạn mỗi lô X.todo.jsonl thành X.authored.jsonl, cộng thêm multi-hop-NN và special.authored.jsonl
@@ -58,14 +59,10 @@ Mỗi dòng của `*.authored.jsonl` là một `GoldenItem` JSON do tác giả s
   - Bản nháp chưa phải bản soạn: người duyệt (Claude Fable 5.1 trong vai dược sĩ, theo rubric) duyệt từng câu trong `multi-hop-NN.draft.jsonl` (câu hỏi có cần đủ mọi section không, key fact có đúng và đủ không), sửa rồi lưu thành `multi-hop-NN.authored.jsonl`. `golden build` chỉ đọc file `*.authored.jsonl` và kiểm số câu mỗi loại đúng quota.
   - `turns` là đúng một lượt `user`; key fact phải có quote từ mọi section gold, kể cả section vòng đầu bỏ sót.
   - `eval_group` để trống.
-- **Probe answerable** (90 câu, `grounded`, id `e2e-ans-p`, `eval_group` để trống, `tags` có đúng một loại): mỗi loại nhắm vào một thành phần retrieval và được chọn đúng chỗ thành phần đó quyết định, để ablation của nó lộ ra. `rerank_probe` 21 (hybrid không rerank trượt top 5, có rerank thì trúng), `lexical_probe` 19 (dense trượt cả 20 ứng viên nên phải nhờ BM25), `semantic_probe` 20 (BM25 trượt cả 20 ứng viên nên phải nhờ dense) lấy từ `authoring/probe.todo.jsonl` do `golden probe-candidates` ghi, chỉ câu một mục, có dấu hỏi và mục đủ thông tin. `colloquial` 20 (gọi sản phẩm chỉ bằng alias dân dã như "Panadol đỏ", alias không có trong tiêu đề lẫn văn bản tờ hướng dẫn) và `glossary` 10 (dùng cụm lời thường như "thuốc kháng viêm không steroid" cho thuật ngữ mà mục chỉ ghi viết tắt) lấy từ `authoring/probe.generated.jsonl` do `golden generate-probes` sinh. Nháp và duyệt như multi-hop, batch `probe-NN`; câu colloquial phải giữ nguyên alias và không thêm tên chính thức.
+- **Nhóm answerable theo benchmark.** Mỗi câu answerable có `eval_group` là một nhóm của benchmark retrieval: 30 câu tự nhiên cho mỗi nhóm trong sáu nhóm sinh bằng luật, `colloquial` 20 (gọi sản phẩm chỉ bằng alias dân dã vắng trong tờ hướng dẫn) và `glossary` 10 (cụm lời thường cho thuật ngữ mà mục chỉ ghi viết tắt), mỗi câu trỏ về đúng dòng `enrich-*` của benchmark qua `source_query_id`. Nhờ vậy bảng e2e theo nhóm khớp bảng retrieval theo nhóm.
+- **Probe answerable** (60 câu, id `e2e-ans-p`, `tags` có đúng một loại, giữ `eval_group` của dòng benchmark nguồn): `rerank_probe` 21 (hybrid không rerank trượt top 5, có rerank thì trúng), `lexical_probe` 19 (dense trượt cả 20 ứng viên nên phải nhờ BM25), `semantic_probe` 20 (BM25 trượt cả 20 ứng viên nên phải nhờ dense), lấy từ `authoring/probe.todo.jsonl` do `golden probe-candidates` ghi, chỉ câu một mục, có dấu hỏi và mục đủ thông tin. Nháp và duyệt như multi-hop, batch `probe-NN`.
+- **Multi-turn** (50 câu, id `e2e-mt-`, `eval_group = conversational`, `tags` có đúng một hiện tượng): lấy từ nhóm `conversational` của benchmark qua `golden multi-turn-candidates`, quota theo hiện tượng (pronoun 7, ellipsis 7, sáu hiện tượng còn lại 6). Lịch sử hội thoại giữ nguyên từ benchmark, người duyệt chỉ sửa đáp án và key fact.
 - **Bỏ bớt answerable.** Sau khi soạn, `uv run pharma-lab e2e golden trim --run <run>` bỏ câu tự nhiên mà một lượt đã phủ đủ gold, đều theo nhóm, để còn 30 câu mỗi nhóm; probe không bị bỏ.
-- **`multi_turn`**: dùng hai dòng nguồn A và B về cùng một thuốc.
-  - **Lượt 1** (`user`) là câu hỏi của A, có thể sửa nhẹ cho tự nhiên.
-  - **Lượt 2** (`assistant`) trả lời đúng A trong 1–2 câu, lấy từ section của A.
-  - **Lượt 3** (`user`) hỏi tiếp về nội dung của B nhưng không nhắc tên thuốc. Dùng đại từ hoặc tỉnh lược, ví dụ "Thuốc này có dùng được cho phụ nữ có thai không?" hay "Còn liều cho trẻ em thì sao?".
-  - Key fact, `gold_*`, `source_query_id` và `eval_group` lấy theo B.
-  - `tags` thêm `multi_turn`.
 - **`unanswerable`** (10 câu, `abstain`)
   - Hỏi về thuốc hoặc hoạt chất có thật nhưng không có trong corpus.
   - `absent_terms` ghi tên thuốc và hoạt chất; `golden check` xác nhận chúng không xuất hiện trong bất kỳ section hay tiêu đề nào.
