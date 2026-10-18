@@ -18,8 +18,8 @@
     "out_of_scope": 10,
     "unanswerable": 10
   },
-  "created_at": "2026-10-18T10:28:00+00:00",
-  "gold_sha256": "97482b2a63b1d406bd27b1183b8d8ddfa816d486517be660a37ac292a966e698",
+  "created_at": "2026-10-18T10:53:55+00:00",
+  "gold_sha256": "070bbe39fca5fd02371d1b7de19e16f1ea3e4180fe48e73ad2e9976760f57deb",
   "schema": "e2e-golden-v3",
-  "sha256": "e5d1141ab29f84e6a3aee2a8db4dc77113706efc4433fcb87858a3c98f122b71"
+  "sha256": "c37c7fdad638ca308f5bfd8250ea5180c258ec99174b6c2b0a62ee5d2476cde0"
 }
