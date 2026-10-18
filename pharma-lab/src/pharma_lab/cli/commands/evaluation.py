@@ -21,13 +21,11 @@ from pharma_lab.config.paths import (
     EVALUATION_CHUNKS_PATH,
     GOLD_DIR,
     RAG_FINAL_SECTIONS_PATH,
-    run_dir,
 )
 from pharma_lab.e2e.benchmark_extension import MULTI_HOP_ROWS, assemble_benchmark
 from pharma_lab.e2e.benchmark_repair import repair_rows
 from pharma_lab.e2e.corpus_text import corpus_text, section_chunks
 from pharma_lab.e2e.golden_generate import generate
-from pharma_lab.e2e.one_round import load_one_round
 from pharma_lab.evaluation.build_dataset import (
     EvaluationBuildRequest,
     build_evaluation_dataset,
@@ -38,6 +36,9 @@ evaluation_app = typer.Typer(no_args_is_help=True, add_completion=False)
 GOLD_EVALUATION_PATH = GOLD_DIR / "section_retrieval_eval.jsonl"
 # The 10,000 questions `evaluation build` wrote, before `evaluation assemble`.
 RULE_BUILT_EVALUATION_PATH = GOLD_DIR / "archive" / "section_retrieval_eval.10k.jsonl"
+ONE_ROUND_COVERAGE_PATH = (
+    GOLD_DIR / "archive" / "one-round-coverage.hybrid-qwen4b-v2.json"
+)
 
 
 def evaluation_build_command(
@@ -151,11 +152,14 @@ def evaluation_assemble(
     authoring_dir: Annotated[
         Path, typer.Option("--authoring-dir", file_okay=False)
     ] = E2E_AUTHORING_DIR,
-    run_name: Annotated[
-        str | None,
-        typer.Option("--run", help="Run whose one-round coverage stratifies parents"),
-    ] = "hybrid-qwen4b-v2-p50-k20-rrf2",
-    model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
+    coverage: Annotated[
+        Path,
+        typer.Option(
+            "--coverage",
+            dir_okay=False,
+            help="One-round coverage of the rule-built questions ({query_id: covered})",
+        ),
+    ] = ONE_ROUND_COVERAGE_PATH,
     seed: Annotated[int, typer.Option("--seed")] = 0,
 ) -> None:
     """Assemble the 10,000-question benchmark from the rule-built questions: colloquial,
@@ -179,10 +183,12 @@ def evaluation_assemble(
             for path in sorted(authoring_dir.glob("*.authored.jsonl"))
             for row in _jsonl(path)
         ]
-        covered = None
-        if run_name:
-            found = load_one_round(run_dir(run_name), model=model, top_k=5).coverage
-            covered = {query_id: not c.missing for query_id, c in found.items()}
+        # Saved once from the run on the rule-built questions: assembling replaces the
+        # gold file that run was made from, so the run itself cannot be read again.
+        covered = {
+            str(query_id): bool(hit)
+            for query_id, hit in json.loads(coverage.read_text("utf-8")).items()
+        }
         chunks = section_chunks(knowledge)
         extra = generate(
             corpus,
