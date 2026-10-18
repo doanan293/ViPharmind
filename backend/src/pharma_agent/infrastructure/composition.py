@@ -82,6 +82,11 @@ class Application:
 
     async def aclose(self) -> None:
         await self.retrieval.aclose()
+        # One adapter serves every decision role; close it once.
+        for port in {id(port): port for port in self.deps.decisions.values()}.values():
+            close = getattr(port, "aclose", None)
+            if close is not None:
+                await close()
 
 
 def _export_langfuse_environment(settings: Settings) -> None:

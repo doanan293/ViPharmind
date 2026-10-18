@@ -24,6 +24,7 @@ class Decision(BaseModel):
     input_tokens: int
     seconds: float
     raw: dict[str, object]
+    request_id: str | None = None
 
     @field_validator("answers")
     @classmethod

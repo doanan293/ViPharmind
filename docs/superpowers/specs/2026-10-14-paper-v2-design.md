@@ -79,17 +79,19 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
 - Thêm `LlmEndpoint.provider: Literal["openai", "systemone"] = "openai"` trong settings, cùng
   `base_url`, `api_key`, `model` dùng chung. `systemone` là giao thức `POST /v1/systemone`
   `{state, model, questions}` của Jev.
-- Adapter mới `infrastructure/llm/systemone_adapter.py` chỉ cài `structured()` cho hai vai trò
-  GUARDRAIL và JUDGE; `stream()` raise `LlmError`. Lỗi HTTP và parse thành `LlmError` để giữ hành vi
-  fail-open của guard và `judge_failed` hiện có. Usage lấy từ `usage.input_tokens` của phản hồi.
-- `infrastructure/llm/routing.py`: `RoutingLlm(by_role, default)` chọn port theo vai trò.
-  `build_application` lắp theo `provider` của từng role. Identity của run ghi `provider` và phiên bản
-  model mà phản hồi trả về (`jev-1.13.0`).
+- Port riêng `DecisionPort.decide(role, state, questions) -> Decision` (domain `llm/decision.py`),
+  cài bằng `infrastructure/llm/systemone_adapter.py` (`AsyncTypeSafeClient.system_one`) cho hai vai
+  trò GUARDRAIL và JUDGE, tiêm vào `TurnDeps.decisions`. Lỗi SDK, HTTP và parse thành `LlmError` để
+  giữ hành vi fail-open của guard và `judge_failed`. Usage lấy từ `usage.input_tokens`; `Decision`
+  giữ phản hồi thô và `request_id`. Client có timeout riêng cho decision model (10 giây mỗi request,
+  30 giây cả retry, theo mặc định của SDK), xa dưới hạn 90 giây của lượt, và được đóng khi tắt app.
+  Identity của run ghi phiên bản model mà phản hồi trả về; qua OpenRouter đó là id OpenRouter, ví
+  dụ `typesafe/jev-1.13-20260917`, và bài báo ghi đúng id này.
 - Lưu phản hồi thô của mọi lời gọi decision model vào `answers.jsonl` (trường mới `decisions`) để tái
   lập và để phân tích hiệu chuẩn sau.
 - Bộ câu hỏi, đóng băng trong mã, bản nháp ở `03-jev-typesafe.md` §7:
   - Guard, một request mỗi lượt: noul `is_attack`, `is_about_medicines`, `is_smalltalk_or_meta`, cộng
-    16 noul `asks_<intent>` cho 16 intent cụ thể của `ALLOWED_INTENT_CATEGORIES`. State gồm lịch sử và
+    17 noul `asks_<intent>` cho 17 intent của `INTENTS` trong `domain/agent/decisions.py`. State gồm lịch sử và
     lượt mới nhất. Regex screen hiện có vẫn chạy trước. Ngưỡng khởi điểm theo cookbook guardrail của
     vendor (0,35 review, 0,70 block) và được chỉnh trên tập giữ lại (§3.3). Lưu ý: TypeSafe không có
     model hay endpoint guardrail chuyên biệt; cookbook "Guardrails for LLMs" chỉ là một battery câu hỏi
@@ -172,8 +174,9 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   thiết kế: id `latest` không ghim được phiên bản, nên mỗi run ghi phiên bản model mà phản hồi trả
   về và dừng nếu phiên bản đổi giữa run; ngữ cảnh OpenRouter ghi 32.000 token, nên trần evidence
   của judge phải nằm dưới mức đó (đo ở bước đầu của pha 1); chi phí trong bài tính theo giá niêm yết
-  của TypeSafe 0,042 USD mỗi triệu token vào, còn tiền thật lấy từ trường usage và cost của
-  OpenRouter. Đây là dịch vụ ngoài trả tiền duy nhất của lab.
+  của TypeSafe 0,042 USD mỗi triệu token vào (`pricing.py`). Model `Usage` của SDK bỏ trường `cost`
+  của OpenRouter, nên tiền thật chỉ còn trong phản hồi thô (`Decision.raw`); bài chỉ báo chi phí theo
+  giá niêm yết. Đây là dịch vụ ngoài trả tiền duy nhất của lab.
 - Judge đánh giá: gemini-3.1-flash-lite qua cli-proxy-api; `judge.json` ghi thêm provider. Reasoning
   của judge (RAGAS và judge cấu trúc, hằng `JUDGE_REASONING` trong `judging/structured.py`) đổi từ
   `medium` của v1 sang `none`, vì judge gọi rất nhiều lần mỗi item. Qua proxy, flash-lite có thinking
@@ -215,9 +218,14 @@ công bằng:
 - Port: thêm `LlmPort.tool_call(role, messages, tools) -> (ToolTurn, LlmUsage)` với `ToolTurn` gồm
   `text`, `tool_calls: list[ToolCall{id, name, arguments}]`, `finish_reason`. Adapter OpenAI dùng
   `chat.completions.create(tools=..., parallel_tool_calls=True)`. `RecordingLlm` và các fake ghi theo.
-- Graph mới `application/chat/react_graph.py`: nodes `guard` (dùng lại nguyên), `plan` (một lời gọi
-  tool_call), `tools` (thực thi), `answer` (khi phản hồi không còn tool call), `fallback`. Lịch sử hội
-  thoại đưa thẳng vào messages; không có rephrase, judge, refine riêng.
+- Graph mới `application/chat/react_graph.py`: nodes `guard` (dùng lại nguyên), `agent` (một lời gọi
+  tool_call), `tools` (thực thi), `finalize` (khi phản hồi không còn tool call), `answer` cho lượt bị
+  chặn hoặc ngoài phạm vi. Lịch sử hội thoại đưa thẳng vào messages; không có rephrase, judge, refine
+  riêng. Đây là vòng ReAct tự viết trên cùng `LlmPort`, retriever, ngân sách và luật evidence với
+  pipeline graph, không phải `langchain.agents.create_agent`: agent dựng sẵn cần chat model của
+  LangChain và đếm ngân sách theo middleware riêng, nên khác biệt đo được sẽ lẫn cả khác biệt giao
+  diện model. Bài nêu rõ điều này. Cả hai graph chạy với `recursion_limit` 64 làm lưới an toàn dưới
+  ngân sách miền.
 - Tool, một cái, chỉ đọc, gọi song song được:
   - `search_corpus(query: str)`: `RetrievalService.search` với cùng hybrid RRF, cùng reranker, trả tối đa
     5 chunk dạng `[E<n>] <tiêu đề > các heading> (trang):` rồi nguyên text chunk, đúng văn bản mà

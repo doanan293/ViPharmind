@@ -74,7 +74,7 @@ def make_adapter() -> tuple[SystemOneAdapter, FakeSystemOne]:
         },
     )
     return SystemOneAdapter(
-        settings, client_factory=lambda endpoint, timeout, retries: fake
+        settings, client_factory=lambda endpoint, timeout, total, retries: fake
     ), fake
 
 
@@ -143,11 +143,11 @@ def test_default_client_builds_without_network() -> None:
         api_key="sk-or",
         model="~typesafe/jev-latest",
     )
-    client = default_systemone_client(endpoint, 60.0, 2)
+    client = default_systemone_client(endpoint, 10.0, 30.0, 2)
     assert isinstance(client, AsyncTypeSafeClient)
 
 
-def test_default_client_retry_budget_covers_every_attempt(
+def test_default_client_bounds_one_request_and_every_attempt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     built: dict[str, Any] = {}
@@ -163,12 +163,42 @@ def test_default_client_retry_budget_covers_every_attempt(
         api_key="sk-or",
         model="~typesafe/jev-latest",
     )
-    systemone_adapter.default_systemone_client(endpoint, 60.0, 2)
+    systemone_adapter.default_systemone_client(endpoint, 10.0, 30.0, 2)
     policy = built["retry"]
     assert isinstance(policy, RetryPolicy)
     assert policy.max_retries == 2
-    assert policy.timeout == 180.0
-    assert built["timeout"] == 60.0
+    assert policy.timeout == 30.0
+    assert built["timeout"] == 10.0
+
+
+def test_the_decision_model_gives_up_long_before_the_turn_deadline() -> None:
+    settings = LlmSettings()
+    assert settings.decision_total_seconds < BudgetLimits().deadline_seconds / 2
+    assert settings.decision_timeout_seconds <= settings.decision_total_seconds
+
+
+async def test_aclose_closes_every_client_once() -> None:
+    closed: list[str] = []
+
+    class Closable:
+        async def aclose(self) -> None:
+            closed.append("x")
+
+    adapter = SystemOneAdapter(
+        LlmSettings(
+            default=LlmEndpoint(
+                provider="systemone",
+                base_url="https://openrouter.ai/api",
+                api_key="sk-or",
+                model="~typesafe/jev-latest",
+            )
+        ),
+        client_factory=lambda endpoint, timeout, total, retries: Closable(),
+    )
+    adapter._client(adapter.endpoint(LlmRole.GUARDRAIL))
+    await adapter.aclose()
+    await adapter.aclose()
+    assert closed == ["x"]
 
 
 class ConstantSystemOne:
@@ -234,7 +264,7 @@ async def run_graph(llm: FakeLlm, adapter: SystemOneAdapter, roles: set[LlmRole]
 async def test_a_nan_guard_answer_fails_open_in_the_graph() -> None:
     adapter = SystemOneAdapter(
         systemone_settings(LlmRole.GUARDRAIL),
-        client_factory=lambda endpoint, timeout, retries: ConstantSystemOne(
+        client_factory=lambda endpoint, timeout, total, retries: ConstantSystemOne(
             float("nan")
         ),
     )
@@ -256,7 +286,7 @@ async def test_a_nan_guard_answer_fails_open_in_the_graph() -> None:
 async def test_an_out_of_range_judge_answer_records_judge_failed() -> None:
     adapter = SystemOneAdapter(
         systemone_settings(LlmRole.JUDGE),
-        client_factory=lambda endpoint, timeout, retries: ConstantSystemOne(1.5),
+        client_factory=lambda endpoint, timeout, total, retries: ConstantSystemOne(1.5),
     )
     llm = rephrasing_llm()
     llm.script(

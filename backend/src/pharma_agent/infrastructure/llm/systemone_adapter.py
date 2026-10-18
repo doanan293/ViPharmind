@@ -12,19 +12,19 @@ from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.infrastructure.settings import LlmSettings, ResolvedEndpoint
 
-SystemOneClientFactory = Callable[[ResolvedEndpoint, float, int], Any]
+SystemOneClientFactory = Callable[[ResolvedEndpoint, float, float, int], Any]
 
 
 def default_systemone_client(
-    endpoint: ResolvedEndpoint, timeout: float, max_retries: int
+    endpoint: ResolvedEndpoint, timeout: float, total: float, max_retries: int
 ) -> Any:
+    """A client whose `timeout` bounds one request and `total` every attempt."""
     return AsyncTypeSafeClient(
         api_key=endpoint.api_key,
         base_url=endpoint.base_url,
         model=endpoint.model,
         timeout=timeout,
-        # The SDK's total retry budget defaults to 30 s; cover every attempt in full.
-        retry=RetryPolicy(max_retries=max_retries, timeout=timeout * (max_retries + 1)),
+        retry=RetryPolicy(max_retries=max_retries, timeout=total),
     )
 
 
@@ -71,9 +71,20 @@ class SystemOneAdapter:
         key = (endpoint.base_url, endpoint.api_key)
         if key not in self._clients:
             self._clients[key] = self._factory(
-                endpoint, self._settings.timeout_seconds, self._settings.max_retries
+                endpoint,
+                self._settings.decision_timeout_seconds,
+                self._settings.decision_total_seconds,
+                self._settings.max_retries,
             )
         return self._clients[key]
+
+    async def aclose(self) -> None:
+        """Close every client the adapter opened."""
+        clients, self._clients = list(self._clients.values()), {}
+        for client in clients:
+            close = getattr(client, "aclose", None)
+            if close is not None:
+                await close()
 
     async def decide(
         self,
@@ -89,9 +100,9 @@ class SystemOneAdapter:
             response = await client.system_one(
                 dict(state), payload, model=endpoint.model
             )
-        except (
-            Exception
-        ) as exc:  # every SDK, HTTP or parse failure degrades like an LLM failure
+        except Exception as exc:
+            # Every SDK, HTTP or parse failure degrades like an LLM failure; an API
+            # error's text carries its status and request id.
             raise LlmError(f"{role.value}: systemone request failed: {exc}") from exc
         seconds = time.perf_counter() - started
         answers = {key: probability(role, response, key) for key in questions}
@@ -102,11 +113,20 @@ class SystemOneAdapter:
                 input_tokens=int(getattr(response.usage, "input_tokens", 0) or 0),
                 seconds=round(seconds, 4),
                 raw=raw_body(response),
+                request_id=request_id(response),
             )
         except (ValidationError, ValueError, TypeError) as exc:
             raise LlmError(
                 f"{role.value}: malformed systemone response: {exc}"
             ) from exc
+
+
+def request_id(response: Any) -> str | None:
+    """The response's request id, for tracing a decision back to the provider."""
+    try:
+        return str(response.request_id)
+    except (TypeSafeError, AttributeError):
+        return None
 
 
 def probability(role: LlmRole, response: Any, key: str) -> float:

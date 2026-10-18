@@ -264,6 +264,7 @@ def test_record_guard_carries_asked_intents_and_the_raw_decision() -> None:
         "input_tokens": 300,
         "seconds": 0.2,
         "raw": {"answers": {"asks_dosage": 0.9}},
+        "request_id": None,
     }
 
 
