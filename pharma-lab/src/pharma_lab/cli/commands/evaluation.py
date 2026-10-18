@@ -24,6 +24,7 @@ from pharma_lab.config.paths import (
     run_dir,
 )
 from pharma_lab.e2e.benchmark_extension import MULTI_HOP_ROWS, assemble_benchmark
+from pharma_lab.e2e.benchmark_repair import repair_rows
 from pharma_lab.e2e.corpus_text import corpus_text, section_chunks
 from pharma_lab.e2e.golden_generate import generate
 from pharma_lab.e2e.one_round import load_one_round
@@ -167,7 +168,8 @@ def evaluation_assemble(
             knowledge = read_bundle(bundle)
         except BundleValidationError as exc:
             raise invalid_bundle(exc) from exc
-        base = _jsonl(source)
+        corpus = corpus_text(knowledge)
+        base, repairs = repair_rows(_jsonl(source), corpus)
         golden = [
             row
             for path in sorted(authoring_dir.glob("*.authored.jsonl"))
@@ -177,7 +179,6 @@ def evaluation_assemble(
         if run_name:
             found = load_one_round(run_dir(run_name), model=model, top_k=5).coverage
             covered = {query_id: not c.missing for query_id, c in found.items()}
-        corpus = corpus_text(knowledge)
         extra = generate(
             corpus,
             {
@@ -215,7 +216,12 @@ def evaluation_assemble(
             "evaluation assemble",
             CommandStatus.COMPLETE,
             output,
-            {"rows": len(rows), "judgments": str(judgments), **groups},
+            {
+                "rows": len(rows),
+                "judgments": str(judgments),
+                **groups,
+                **{f"repair_{rule}": n for rule, n in sorted(repairs.items())},
+            },
         )
 
     run_handler(state_from_context(ctx), handler)

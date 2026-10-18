@@ -1,4 +1,5 @@
 import json
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -150,6 +151,11 @@ def test_evaluation_assemble_writes_the_benchmark_and_its_judgments(
     )
     monkeypatch.setattr(evaluation_command, "assemble_benchmark", fake_assemble)
     monkeypatch.setattr(
+        evaluation_command,
+        "repair_rows",
+        lambda rows, corpus: (rows, Counter({"pasted_text": 2})),
+    )
+    monkeypatch.setattr(
         evaluation_command, "build_evaluation_judgments", fake_judgments
     )
 
@@ -183,3 +189,4 @@ def test_evaluation_assemble_writes_the_benchmark_and_its_judgments(
     assert calls["judgments"] == (output, tmp_path / "bundle")
     details = json.loads(result.stdout)["details"]
     assert (details["rows"], details["safety"]) == (2, 1)
+    assert details["repair_pasted_text"] == 2
