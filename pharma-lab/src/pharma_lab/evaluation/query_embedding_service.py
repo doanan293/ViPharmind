@@ -148,11 +148,44 @@ class KaggleQueryEmbeddingBackend:
             ensure_runtime_profile,
         )
 
+        remote_dir = (
+            WORK_DIR / "kaggle-query-embeddings" / require_model(request.model).slug
+        )
+        rows = _read_query_rows(request.evaluation_path)
+        cached = QueryEmbeddingCache(
+            request.output_dir,
+            vector_dim=spec.vector_dimension,
+            model_sha256=spec.sha256,
+        )
+        # Only the questions the local cache lacks go to Kaggle: a recomputed vector
+        # differs from the cached one in the last digits, and the cache keeps one.
+        missing = [
+            row
+            for row in rows
+            if request.force
+            or cached.get(
+                request.model, str(row.get("query_id")), str(row.get("query") or "")
+            )
+            is None
+        ]
+        if not missing:
+            subset = cached.validate_subset(rows, request.model)
+            return QueryEmbeddingStageResult(
+                request.output_dir, subset.sha256, ("cache=complete",)
+            )
+        input_path = request.output_dir.with_name(
+            f"{request.output_dir.stem}.{spec.slug}.missing.jsonl"
+        )
+        input_path.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in missing),
+            encoding="utf-8",
+        )
+
         resolution = ensure_runtime_profile(
             workload="query-embed",
             benchmark_stage=StageName.QUERY_EMBED_BENCHMARK.value,
             model=request.model,
-            input_path=request.evaluation_path,
+            input_path=input_path,
             gguf_root=GGUF_ROOT,
             budget_seconds=request.budget_seconds,
             dry_run=request.dry_run,
@@ -163,13 +196,10 @@ class KaggleQueryEmbeddingBackend:
             return QueryEmbeddingStageResult(
                 None, None, (f"profile={resolution.action}",), incomplete=True
             )
-        remote_dir = (
-            WORK_DIR / "kaggle-query-embeddings" / require_model(request.model).slug
-        )
         result = run_kaggle_stage(
             stage=StageName.QUERY_EMBED,
             model=request.model,
-            input_path=request.evaluation_path,
+            input_path=input_path,
             output_dir=remote_dir,
             gguf_root=GGUF_ROOT,
             force=request.force,
@@ -207,9 +237,7 @@ class KaggleQueryEmbeddingBackend:
             vector_dim=spec.vector_dimension,
             model_sha256=spec.sha256,
         )
-        subset = local.validate_subset(
-            _read_query_rows(request.evaluation_path), request.model
-        )
+        subset = local.validate_subset(rows, request.model)
         return QueryEmbeddingStageResult(
             request.output_dir,
             subset.sha256,
