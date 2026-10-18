@@ -17,20 +17,14 @@ from pharma_lab.cli.runtime import (
 )
 from pharma_lab.config.paths import (
     BUNDLE_DIR,
-    CONVERSATIONAL_GOLD_DIR,
-    ENRICHMENT_GOLD_DIR,
     EVALUATION_CHUNKS_PATH,
     GOLD_DIR,
     RAG_FINAL_SECTIONS_PATH,
     run_dir,
 )
-from pharma_lab.e2e.conversational import PHENOMENA, build_conversational
+from pharma_lab.e2e.benchmark_extension import extend_rows
+from pharma_lab.e2e.conversational import PHENOMENA
 from pharma_lab.e2e.corpus_text import corpus_text
-from pharma_lab.e2e.golden_generate import (
-    benchmark_row,
-    colloquial_benchmark,
-    glossary_benchmark,
-)
 from pharma_lab.e2e.one_round import load_one_round
 from pharma_lab.evaluation.build_dataset import (
     EvaluationBuildRequest,
@@ -137,84 +131,34 @@ def evaluation_judgments(
     )
 
 
-@evaluation_app.command("enrichment-probe")
-def evaluation_enrichment_probe(
+@evaluation_app.command("extend")
+def evaluation_extend(
     ctx: typer.Context,
+    evaluation: Annotated[
+        Path, typer.Option("--evaluation", dir_okay=False)
+    ] = GOLD_EVALUATION_PATH,
     bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
-    output_dir: Annotated[
-        Path, typer.Option("--output-dir", file_okay=False)
-    ] = ENRICHMENT_GOLD_DIR,
-) -> None:
-    """Build the enrichment probe benchmark: every colloquial alias absent from its
-    leaflet asked for each common leaflet section, and every plain-language phrase for a
-    term a monograph section writes only as its abbreviation (spec §4.D2)."""
-
-    def handler() -> CommandResult:
-        try:
-            knowledge = read_bundle(bundle)
-        except BundleValidationError as exc:
-            raise invalid_bundle(exc) from exc
-        corpus = corpus_text(knowledge)
-        aliases = [
-            (alias, mapping.section_keys)
-            for mapping in knowledge.colloquial_mappings
-            for alias in mapping.aliases
-        ]
-        candidates = [
-            *colloquial_benchmark(corpus, aliases),
-            *glossary_benchmark(corpus),
-        ]
-        output_dir.mkdir(parents=True, exist_ok=True)
-        evaluation = output_dir / "section_retrieval_eval.jsonl"
-        evaluation.write_text(
-            "".join(
-                json.dumps(benchmark_row(c), ensure_ascii=False) + "\n"
-                for c in candidates
-            ),
-            encoding="utf-8",
-        )
-        judgments = build_evaluation_judgments(evaluation, bundle)
-        groups: dict[str, int] = {}
-        for candidate in candidates:
-            groups[candidate.kind] = groups.get(candidate.kind, 0) + 1
-        return CommandResult(
-            "evaluation enrichment-probe",
-            CommandStatus.COMPLETE,
-            evaluation,
-            {"rows": len(candidates), "judgments": str(judgments), **groups},
-        )
-
-    run_handler(state_from_context(ctx), handler)
-
-
-@evaluation_app.command("conversational")
-def evaluation_conversational(
-    ctx: typer.Context,
     run_name: Annotated[
         str | None,
         typer.Option("--run", help="Run whose one-round coverage stratifies parents"),
     ] = "hybrid-qwen4b-v2-p50-k20-rrf2",
     model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
-    total: Annotated[int, typer.Option("--total", min=len(PHENOMENA))] = 1_500,
+    conversational_total: Annotated[
+        int, typer.Option("--conversational-total", min=len(PHENOMENA))
+    ] = 1_500,
     seed: Annotated[int, typer.Option("--seed")] = 0,
-    evaluation: Annotated[
-        Path, typer.Option("--evaluation", dir_okay=False)
-    ] = GOLD_EVALUATION_PATH,
-    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
-    output_dir: Annotated[
-        Path, typer.Option("--output-dir", file_okay=False)
-    ] = CONVERSATIONAL_GOLD_DIR,
 ) -> None:
-    """Build the conversational layer of the retrieval benchmark: conversations of two
-    to four user turns whose last turn inherits a benchmark question's gold sections,
-    eight phenomena, parents stratified by one-round coverage (spec v2 §3.1)."""
+    """Append the generated groups to the benchmark in place and rebuild its judgments:
+    colloquial names absent from their leaflet, plain-language phrases for abbreviated
+    terms, and conversational follow-ups that inherit a question's gold sections. Rows
+    of these groups already in the file are replaced, so extending twice is the same."""
 
     def handler() -> CommandResult:
         try:
             knowledge = read_bundle(bundle)
         except BundleValidationError as exc:
             raise invalid_bundle(exc) from exc
-        rows = [
+        base = [
             json.loads(line)
             for line in evaluation.read_text(encoding="utf-8").splitlines()
             if line.strip()
@@ -223,25 +167,33 @@ def evaluation_conversational(
         if run_name:
             found = load_one_round(run_dir(run_name), model=model, top_k=5).coverage
             covered = {query_id: not c.missing for query_id, c in found.items()}
-        items = build_conversational(
-            rows, corpus_text(knowledge), total=total, seed=seed, covered=covered
+        aliases = [
+            (alias, mapping.section_keys)
+            for mapping in knowledge.colloquial_mappings
+            for alias in mapping.aliases
+        ]
+        rows = extend_rows(
+            base,
+            corpus_text(knowledge),
+            aliases,
+            covered=covered,
+            conversational_total=conversational_total,
+            seed=seed,
         )
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output = output_dir / "section_retrieval_eval.jsonl"
-        output.write_text(
-            "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in items),
+        evaluation.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
             encoding="utf-8",
         )
-        judgments = build_evaluation_judgments(output, bundle)
-        phenomena: dict[str, int] = {}
-        for item in items:
-            form = str(item["query_form"])
-            phenomena[form] = phenomena.get(form, 0) + 1
+        judgments = build_evaluation_judgments(evaluation, bundle)
+        groups: dict[str, int] = {}
+        for row in rows:
+            group = str(row.get("eval_group"))
+            groups[group] = groups.get(group, 0) + 1
         return CommandResult(
-            "evaluation conversational",
+            "evaluation extend",
             CommandStatus.COMPLETE,
-            output,
-            {"items": len(items), "judgments": str(judgments), **phenomena},
+            evaluation,
+            {"rows": len(rows), "judgments": str(judgments), **groups},
         )
 
     run_handler(state_from_context(ctx), handler)

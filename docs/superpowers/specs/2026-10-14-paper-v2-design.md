@@ -302,9 +302,11 @@ công bằng:
   judge và vòng refine ứng với `retrieval_miss`, `noisy_retry`, `three_intent`; graph so với ReAct
   ứng với `two_drug`, `brand_to_ingredient`; rephrase ứng với multi-turn; guard ứng với ba nhóm an
   toàn; closed-book và gating τ đọc trên toàn bộ, tách answerable với multi-hop. Ở mức retrieval,
-  enrichment (D2) có thêm benchmark thăm dò riêng ở `data/evaluation/gold-enrichment/` (mọi alias
-  dân dã vắng trong tờ hướng dẫn hỏi theo năm mục thường gặp, và mọi cụm lời thường của thuật ngữ mà
-  chuyên luận chỉ ghi viết tắt), chạy như một run retrieval riêng, không đổi benchmark 10.000 câu.
+  benchmark retrieval là một file duy nhất 12.355 câu, chín nhóm: sáu nhóm sinh bằng luật (10.000
+  câu) cộng `colloquial` 636 (mọi alias dân dã vắng trong tờ hướng dẫn hỏi theo năm mục thường gặp),
+  `glossary` 219 (mọi cụm lời thường của thuật ngữ mà chuyên luận chỉ ghi viết tắt) và
+  `conversational` 1.500 (§3.1), do `pharma-lab evaluation extend` nối vào. Mọi bảng retrieval và
+  e2e báo theo cùng chín nhóm; D2 và D5 là các dòng của bảng chính, không phải tập riêng.
 - Phân bổ golden: answerable 270 gồm 180 câu tự nhiên (30 × 6 nhóm) và 90 probe một mục, mỗi loại
   chọn bằng dữ liệu hoặc sinh từ corpus: `rerank_probe` 21 (hybrid không rerank trượt top 5, có
   rerank thì trúng), `lexical_probe` 19 (dense trượt cả 20 ứng viên), `semantic_probe` 20 (BM25
@@ -417,11 +419,11 @@ chạy trước Task 7 của plan pha D.
   hiện tượng.
 - Schema: thêm `turns`, giữ `query` là lượt cuối; `eval_group="conversational"`, `query_form` theo
   hiện tượng. Runner thêm `query_mode` và cache rewrite theo model.
-- Sinh bằng `pharma-lab evaluation conversational`, ghi `data/evaluation/gold-conversational/`
-  (1.500 item, mỗi hiện tượng 187 hoặc 188, 2 đến 4 lượt người dùng, câu cha xen kẽ leaflet với
+- Sinh bằng `pharma-lab evaluation extend`, nối vào chính file benchmark thành nhóm
+  `conversational` (1.500 item, mỗi hiện tượng 187 hoặc 188, 2 đến 4 lượt người dùng, câu cha xen kẽ leaflet với
   formulary và câu một lượt đã phủ với câu trượt). Câu hỏi theo mẫu chỉ dùng cho câu cha mà mục gold
   đúng là mục mẫu hỏi, và mọi mục gold, kể cả mục của câu trả lời cố định, đều đủ thông tin. Q0 chạy
-  được ngay như một run retrieval; Q6 là run benchmark sẵn có trên các câu cha.
+  được ngay vì `query` là lượt cuối; Q6 là chính câu cha trong cùng benchmark.
 - Chiến lược truy vấn so sánh, cùng index, cùng hybrid RRF k=2 và Qwen3-Reranker-4B:
   Q0 lượt cuối như gõ; Q1 nối toàn bộ lịch sử; Q1b nối hai lượt gần nhất; Q2 viết lại độc lập (bước
   rephrase hiện nay); Q3 viết lại từ lịch sử làm giàu kiểu CHIQ (năm prompt); Q3b Q2 với câu trả lời
@@ -504,8 +506,8 @@ nào cho chất lượng cao nhất trên mỗi USD và mỗi giây, và kết l
 
 - D1 dense Qwen3-Emb-4B + Qwen3-Reranker-4B, so với hybrid + reranker (trả lời "sao phải hybrid").
 - D2 ablation enrichment: một biến thể duy nhất không enrichment (không header, glossary, colloquial)
-  trên hybrid + rerank; phân theo nhóm, nhất là noisy và leaflet, và chạy cả trên benchmark thăm dò
-  enrichment (855 câu: 636 colloquial, 219 glossary) để thấy phần enrichment gánh.
+  trên hybrid + rerank, trên toàn benchmark chín nhóm; enrichment lộ rõ nhất ở colloquial,
+  glossary, leaflet và noisy.
 - D3 bảng retrieval theo nhóm câu hỏi và theo intent cho các cấu hình chính; độ khó không còn là
   trường của benchmark, trục thay thế là "một lượt top 5 đã phủ đủ gold hay chưa" tính từ cấu hình
   hybrid + rerank.
