@@ -151,7 +151,7 @@ Số chính thức đo lại trên run `-v3-` (Task 6).
 | Tầng golden | Cỡ | Cách chọn | Dùng cho |
 | --- | --- | --- | --- |
 | Tự nhiên | 30 × 6 nhóm luật + colloquial 20 + glossary 10 | ngẫu nhiên phân tầng trong nhóm | số không lệch, D6 |
-| Lát cắt | 60 | theo thuộc tính `slices` (header_dependent 20, low_overlap 20, sibling_products 20), không theo kết quả hệ thống | hiệu quả tầng retrieval ở e2e |
+| Lát cắt | 60 | theo thuộc tính `slices` (header_dependent 20, name_variant 20, sibling_products 20), không theo kết quả hệ thống | hiệu quả tầng retrieval ở e2e |
 | multi_hop sinh | 72 (sequential 42, parallel 30) | luật multi_hop đã sửa | graph so với ReAct, loop |
 | multi_section | 16 | luật multi_section | judge đếm intent |
 | trượt vòng 1 | 62 (retrieval_miss 32, noisy_retry 30) | hệ đầy đủ trượt vòng 1; chỉ báo chỉ số có điều kiện (tỉ lệ cứu) | loop |
