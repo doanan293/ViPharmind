@@ -125,6 +125,9 @@ SLUG_INTENTS: dict[str, str] = {
     "thanh-phan": "ingredient",
     "thong-tin-chung": "general_info",
 }
+# Intents whose noun phrase is a heading, not something a user says ("còn thông tin
+# chung thì sao?"); they are asked only as full questions.
+HEADING_INTENTS = frozenset({"general_info"})
 ANSWER_SENTENCES = 2
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 
@@ -158,6 +161,8 @@ class Item:
             "eval_tags": [
                 "conversational",
                 self.phenomenon,
+                # The last turn is a full question: the control for the history.
+                *(["control"] if self.phenomenon == "topic_switch" else []),
                 *(tags if isinstance(tags, list) else []),
             ],
         }
@@ -208,7 +213,7 @@ class _Index:
             sections = row.get("expected_section_ids")
             if not isinstance(sections, list) or len(sections) != 1:
                 continue
-            if row.get("eval_group") == "noisy" or not informative_gold(row, corpus):
+            if not _usable(row, corpus):
                 continue
             self.by_document[_document(str(sections[0]))].append(row)
             self.by_intent[str(row.get("intent_category"))].append(row)
@@ -236,6 +241,16 @@ class _Index:
             if _document(_gold(row)[0]) != document:
                 return row
         return None
+
+
+def _usable(row: Mapping[str, object], corpus: CorpusText) -> bool:
+    """A benchmark row that can open or end a conversation: a question (not pasted
+    text), not noisy, with informative gold."""
+    return (
+        row.get("eval_group") != "noisy"
+        and "?" in str(row.get("query", ""))
+        and informative_gold(row, corpus)
+    )
 
 
 def _gold(row: Mapping[str, object]) -> list[str]:
@@ -292,7 +307,7 @@ def build_item(
         if not multi:
             return None
         intents = [SLUG_INTENTS.get(section_slug(s)) for s in gold]
-        if None in intents or len(set(intents)) < 2:
+        if None in intents or len(set(intents)) < 2 or HEADING_INTENTS & set(intents):
             return None
         nouns = [INTENT_PHRASES[i][0] for i in intents if i is not None]
         history = _history(document, "multi_intent", index, corpus, rng, depth)
@@ -309,6 +324,8 @@ def build_item(
     ):
         return None
     noun, pronoun_question, ellipsis_question = phrases
+    if phenomenon in {"intent_shift", "noisy_followup"} and intent in HEADING_INTENTS:
+        return None
     if phenomenon in {"pronoun", "ellipsis", "intent_shift", "noisy_followup"}:
         history = _history(document, intent, index, corpus, rng, depth)
         if history is None:
@@ -391,14 +408,11 @@ def build_conversational(
     rng = random.Random(seed)
     index = _Index(rows, corpus)
     ingredients = single_ingredient_leaflets(corpus)
-    parents = [
-        row
-        for row in rows
-        if row.get("eval_group") != "noisy" and informative_gold(row, corpus)
-    ]
+    parents = [row for row in rows if _usable(row, corpus)]
     per_phenomenon = total // len(PHENOMENA)
     extra = total - per_phenomenon * len(PHENOMENA)
     items: list[Item] = []
+    seen: set[tuple[str, tuple[str, ...]]] = set()
     for position, phenomenon in enumerate(PHENOMENA):
         need = per_phenomenon + (1 if position < extra else 0)
         order = _parent_order(parents, rng, covered)
@@ -415,6 +429,11 @@ def build_conversational(
             )
             if item is None:
                 continue
+            # Two items ending in the same turn with the same gold test one thing.
+            key = (item.turns[-1][1], item.expected_section_ids)
+            if key in seen:
+                continue
+            seen.add(key)
             used.add(str(parent["query_id"]))
             made.append(item)
         items += made

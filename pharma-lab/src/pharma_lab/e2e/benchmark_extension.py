@@ -33,6 +33,13 @@ WHOLE_GROUPS = ("structured", "leaflet_short", "noisy", "multi_intent")
 SAMPLED_GROUPS = {"formulary": 2, "leaflet": 1}
 GENERATED_GROUPS = ("colloquial", "glossary", "conversational", "multi_hop", "safety")
 SAFETY_CATEGORIES = ("unanswerable", "out_of_scope", "injection")
+# How the evidence of a multi-hop kind is reached: two documents found independently,
+# a second document found through the first, or several chunks of one document.
+MULTI_HOP_SHAPES = {
+    "two_drug": "parallel",
+    "brand_to_ingredient": "sequential",
+    "three_intent": "multi_section",
+}
 
 
 def golden_rows(
@@ -79,7 +86,11 @@ def _row(
         "expected_section_ids": sections,
         "query_intent_count": len(sections),
         "answer_mode": "multi_required" if len(sections) > 1 else "single",
-        "eval_tags": [group, form],
+        "eval_tags": [
+            group,
+            form,
+            *([MULTI_HOP_SHAPES[form]] if form in MULTI_HOP_SHAPES else []),
+        ],
     }
 
 

@@ -108,7 +108,7 @@ Cỡ formulary và leaflet là phần còn lại để tổng đúng 10.000.
 ### 3.3 Sửa các nhóm sinh thêm
 
 - **colloquial**: một alias một sản phẩm (alias trỏ nhiều sản phẩm thì `any_acceptable` với gold là
-  mục tương ứng của mọi sản phẩm); tối đa hai biến thể alias mỗi mục; gold ít nhất hai câu; bỏ alias
+  mục tương ứng của mọi sản phẩm); tối đa hai biến thể alias mỗi nhóm sản phẩm (ưu tiên alias ít trùng từ với tên); gold ít nhất 40 ký tự (bỏ câu rỗng kiểu "Không có."); bỏ alias
   là tên chính thức (tên tiếng Anh in trên hộp); trải trên mọi sản phẩm có alias.
 - **glossary**: thêm thuật ngữ Dược thư viết tắt (ADR, HIV, AIDS, COX-2, ACE, PPI, SSRI, NSAID, MAO,
   TKTW, ECG, GFR, HBV, COPD, INR, QT, G6PD, LDL, HbA1c…) với cụm lời thường tự nhiên; mỗi thuật ngữ tối

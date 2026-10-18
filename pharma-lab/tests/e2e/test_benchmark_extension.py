@@ -75,6 +75,8 @@ def test_golden_rows_carry_the_items_no_rule_built_question_has() -> None:
     assert [(r["query_id"], r["eval_group"], r["answer_mode"]) for r in multi_hop] == [
         ("e2e-mhop-0001", "multi_hop", "multi_required")
     ]
+    # Two drugs found independently: the parallel shape.
+    assert multi_hop[0]["eval_tags"] == ["multi_hop", "two_drug", "parallel"]
     assert [
         (r["query_id"], r["eval_group"], r["expected_section_ids"]) for r in safety
     ] == [("e2e-inj-0001", "safety", [])]
