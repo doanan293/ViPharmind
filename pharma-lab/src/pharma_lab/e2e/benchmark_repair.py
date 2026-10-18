@@ -143,6 +143,7 @@ def _repair(
 
 
 _DOSE_QUESTION = re.compile(r"\blieu\b")
+_CAUTION_QUESTION = re.compile(r"luu y|than trong")
 
 
 def _answering_alternatives(
@@ -154,13 +155,19 @@ def _answering_alternatives(
     """The alternatives that answer alone: of the same drug as the first one (the same
     monograph, or a leaflet with the same active ingredients or brand, never another
     drug whose section happens to read alike), and, for a dose question, a dose
-    section rather than one with only the route and timing."""
+    section rather than one with only the route and timing, and, for a caution
+    question, the precautions."""
     first = corpus.section_documents.get(alternatives[0], "")
     kept = [
         s
         for s in alternatives
         if _same_drug(first, corpus.section_documents.get(s, ""), corpus, actives)
     ]
+    if _CAUTION_QUESTION.search(_fold(query)):
+        # "Cần lưu ý gì?" is answered by the precautions, not by the pregnancy or
+        # driving section of the same leaflet.
+        caution = [s for s in kept if "than-trong" in section_slug(s)]
+        kept = caution or kept
     if _DOSE_QUESTION.search(_fold(query)):
         dose = [s for s in kept if "lieu" in section_slug(s)]
         with_figures = [s for s in dose or kept if re.search(r"\d", corpus.sections[s])]

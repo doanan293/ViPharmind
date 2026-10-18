@@ -344,3 +344,25 @@ def test_pasted_headings_and_the_merged_template_are_repaired() -> None:
     assert rows["m1"]["query"] == (
         "AMOXICILIN có dùng được cho người có thai không, và những ai chống chỉ định?"
     )
+
+
+def test_a_caution_question_accepts_the_precautions_only() -> None:
+    sections = {
+        f"{PAN}:08-than-trong-khi-su-dung": f"Thận trọng ở người suy thận. {LONG}",
+        f"{PAN}:09-thai-ky-va-cho-con-bu": f"Không dùng trong thời gian này. {LONG}",
+        f"{PAN}:10-kha-nang-lai-xe": f"Không ảnh hưởng đến khả năng lái xe. {LONG}",
+    }
+    corpus = CorpusText(
+        sections={**SECTIONS, **sections},
+        section_documents={**CORPUS.section_documents, **dict.fromkeys(sections, PAN)},
+        titles=CORPUS.titles,
+    )
+    asked = {
+        **row(
+            "c2", "Khi dùng Tamiflu cần lưu ý gì?", f"{PAN}:08-than-trong-khi-su-dung"
+        ),
+        "expected_section_ids": list(sections),
+        "answer_mode": "any_acceptable",
+    }
+    fixed, _ = repair_rows([asked], corpus)
+    assert fixed[0]["expected_section_ids"] == [f"{PAN}:08-than-trong-khi-su-dung"]

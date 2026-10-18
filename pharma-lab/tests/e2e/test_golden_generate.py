@@ -334,3 +334,16 @@ def test_a_partner_is_named_as_a_drug_not_a_reference_likeness_or_class() -> Non
     assert not named_as_partner(
         "Tương tự như các tetracyclin nói chung.", "TETRACYCLIN"
     )
+
+
+def test_brand_candidates_skip_products_used_on_the_skin() -> None:
+    creams = CorpusText(
+        sections={
+            **CORPUS.sections,
+            f"{PANADOL}:01-thanh-phan": "Paracetamol 500 mg. Tá dược: tinh bột.",
+        },
+        section_documents=CORPUS.section_documents,
+        titles={**CORPUS.titles, PANADOL: "Kem bôi da Panadol 500 mg"},
+    )
+    found = brand_candidates(creams, count=5, seed=0)
+    assert all(not c.expected_section_ids[0].startswith(PANADOL) for c in found)
