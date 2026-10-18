@@ -377,6 +377,20 @@ def test_build_needs_every_item_to_be_a_benchmark_row(tmp_path: Path) -> None:
         gold_sha256="g" * 64,
         benchmark_ids=ids,
     )
+    # A generated multi-hop item is a benchmark row under its own item id.
+    hop = next(i for i, item in enumerate(items) if item.category is Category.MULTI_HOP)
+    items[hop] = items[hop].model_copy(update={"source_query_id": "gen-two-drug-0001"})
+    source = write_batch(tmp_path / "all.authored.jsonl", items)
+    build_golden(
+        [source],
+        tmp_path / "golden_e2e.jsonl",
+        CORPUS,
+        bundle_manifest_sha256="b" * 64,
+        gold_sha256="g" * 64,
+        benchmark_ids={str(item.source_query_id) for item in items}
+        - {"gen-two-drug-0001"}
+        | {items[hop].item_id},
+    )
 
 
 def test_build_reports_every_problem_and_writes_nothing(tmp_path: Path) -> None:
