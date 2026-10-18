@@ -159,6 +159,13 @@ def brand_name(title: str) -> str:
     return name or " ".join(title.split())
 
 
+# Products used on the skin, eyes, nose or mucosa: the systemic monograph sections
+# (interactions, overdose, pregnancy) describe the drug taken by mouth or injected.
+_LOCAL_USE = re.compile(
+    r"\b(kem|gel|thuốc mỡ|bôi|nhỏ mắt|nhỏ mũi|xịt mũi|nhỏ tai|đặt âm đạo|"
+    r"viên đặt|dầu gội|súc miệng|ngậm|dán)\b",
+    re.IGNORECASE,
+)
 _DOSE = re.compile(r"\d[\d.,]*\s*(mg|g|mcg|µg|iu|ui|%)(?!\w)", re.IGNORECASE)
 _PARENTHESES = re.compile(r"\([^)]*\)")
 
@@ -306,6 +313,8 @@ def brand_candidates(corpus: CorpusText, *, count: int, seed: int) -> list[Candi
         if len(named) != 1 or named[0] in used_ingredients or not single_active(text):
             continue
         ingredient = named[0]
+        if _LOCAL_USE.search(corpus.titles[leaflet]):
+            continue
         brand = brand_name(corpus.titles[leaflet])
         # A brand that spells out its ingredient needs no composition section.
         if " ".join(_tokens(corpus.titles[ingredient])) in " ".join(_tokens(brand)):
