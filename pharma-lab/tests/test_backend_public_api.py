@@ -2,7 +2,7 @@ import importlib
 import inspect
 
 import pytest
-from pharma_agent.application.chat.context import PipelineOptions
+from pharma_agent.application.chat.context import PipelineOptions, TurnDeps
 from pharma_agent.application.chat.runner import ChatTurnRunner, TurnOutcome
 from pharma_agent.domain.corpus.bundle import BUNDLE_SCHEMA_VERSION, model_slug
 from pharma_agent.domain.corpus.chunking import (
@@ -51,3 +51,7 @@ def test_chat_runner_accepts_pipeline_options() -> None:
     assert "pipeline" in inspect.signature(ChatTurnRunner).parameters
     assert PipelineOptions() == PipelineOptions(rephrase=True, judge_refine=True)
     assert "context_text" in TurnOutcome.model_fields
+
+
+def test_turn_deps_carry_the_react_agent_model() -> None:
+    assert "agent_model" in inspect.signature(TurnDeps).parameters

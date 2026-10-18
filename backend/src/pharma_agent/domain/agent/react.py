@@ -1,27 +1,21 @@
 """The ReAct agent's tool, prompt and rules for what the model sees (spec v2 §2.4).
 
 One read-only tool, `search_corpus`, returns at most five chunks as the pipeline reads
-them. Chunks are numbered [n] in first-shown order across the turn, so the answer cites
-them with the pipeline's rules; a chunk shown before appears again only as its number,
-and the evidence budget counts the chunk text placed in the messages.
+them; the application builds it as a LangChain tool from SEARCH_TOOL_NAME, its
+description and SearchArgs. Chunks are numbered [n] in first-shown order across the
+turn, so the answer cites them with the pipeline's rules; a chunk shown before appears
+again only as its number, and the evidence budget counts the chunk text placed in the
+messages.
 """
 
-import json
 from collections.abc import Sequence
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from pharma_agent.domain.agent.prompts import ASSISTANT_ROLE, CITATION_RULES
 from pharma_agent.domain.conversation.models import ConversationContext
-from pharma_agent.domain.llm.models import (
-    ChatMessage,
-    ChatRole,
-    ToolCall,
-    ToolSpec,
-    system,
-    user,
-)
+from pharma_agent.domain.llm.models import ChatMessage, ChatRole, user
 from pharma_agent.domain.retrieval.models import Hit
 
 MAX_TOOL_ROUNDS = 6
@@ -30,24 +24,30 @@ BUDGET_NOTE = "Hết ngân sách bằng chứng, trả lời từ những gì đ
 DUPLICATE_NOTE = "(Truy vấn này đã tìm ở trên; kết quả như cũ.)"
 NO_HIT = "Không tìm thấy tài liệu phù hợp."
 
-SEARCH_TOOL = ToolSpec(
-    name="search_corpus",
-    description=(
-        "Tìm trong Dược thư Quốc gia Việt Nam và tờ hướng dẫn sử dụng thuốc. "
-        "Trả về tối đa 5 đoạn, mỗi đoạn có số [n] để trích dẫn."
-    ),
-    parameters={
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "Câu tìm kiếm tiếng Việt: tên thuốc hoặc hoạt chất và ý cần tìm.",
-            }
-        },
-        "required": ["query"],
-        "additionalProperties": False,
-    },
+SEARCH_TOOL_NAME = "search_corpus"
+SEARCH_TOOL_DESCRIPTION = (
+    "Tìm trong Dược thư Quốc gia Việt Nam và tờ hướng dẫn sử dụng thuốc. "
+    "Trả về tối đa 5 đoạn, mỗi đoạn có số [n] để trích dẫn."
 )
+
+
+class SearchArgs(BaseModel):
+    """The arguments of a search_corpus call: one non-empty query."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(
+        description="Câu tìm kiếm tiếng Việt: tên thuốc hoặc hoạt chất và ý cần tìm."
+    )
+
+    @field_validator("query")
+    @classmethod
+    def _not_blank(cls, query: str) -> str:
+        query = query.strip()
+        if not query:
+            raise ValueError("search_corpus needs a non-empty string argument query")
+        return query
+
 
 REACT_SYSTEM = f"""{ASSISTANT_ROLE}
 Bạn có một công cụ: search_corpus(query) tìm trong Dược thư Quốc gia và tờ hướng dẫn sử dụng thuốc, trả về tối đa 5 đoạn, mỗi đoạn có số [n].
@@ -73,8 +73,10 @@ class Shown(BaseModel):
     results: dict[str, str] = Field(default_factory=dict)
 
 
-def react_messages(context: ConversationContext, question: str) -> list[ChatMessage]:
-    messages = [system(REACT_SYSTEM)]
+def react_history(context: ConversationContext, question: str) -> list[ChatMessage]:
+    """The turn's messages after the system prompt: the summary, the earlier turns and
+    the question."""
+    messages: list[ChatMessage] = []
     if context.summary:
         messages.append(user(f"Tóm tắt hội thoại trước:\n{context.summary}"))
     for turn in context.turns:
@@ -88,20 +90,6 @@ def react_messages(context: ConversationContext, question: str) -> list[ChatMess
 
 def normalize_query(text: str) -> str:
     return " ".join(text.lower().split())
-
-
-def parse_query(call: ToolCall) -> str:
-    """The `query` of a search_corpus call; ValueError says what is wrong."""
-    if call.name != SEARCH_TOOL.name:
-        raise ValueError(f"unknown tool {call.name}; the only tool is search_corpus")
-    try:
-        arguments = json.loads(call.arguments)
-    except ValueError as exc:
-        raise ValueError(f"arguments are not valid JSON: {exc}") from exc
-    query = arguments.get("query") if isinstance(arguments, dict) else None
-    if not isinstance(query, str) or not query.strip():
-        raise ValueError("search_corpus needs a non-empty string argument query")
-    return query.strip()
 
 
 def render_result(

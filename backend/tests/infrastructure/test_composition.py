@@ -2,6 +2,7 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
+from langchain_openai import ChatOpenAI
 from langfuse import get_client
 from openai.resources.embeddings import AsyncEmbeddings
 
@@ -41,6 +42,7 @@ async def test_build_application_wires_real_adapters(
     assert isinstance(app.runner, ChatTurnRunner)
     assert app.runner.pipeline == PipelineOptions()
     assert isinstance(app.deps.llm, OpenAiLlmAdapter)
+    assert isinstance(app.deps.agent_model, ChatOpenAI)
     assert isinstance(app.retrieval.retriever, QdrantHybridRetriever)
     assert isinstance(app.retrieval.reranker, NativeReranker)
     await app.aclose()

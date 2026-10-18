@@ -273,7 +273,6 @@ def test_react_config_selects_the_react_graph() -> None:
     assert graph_for(E2EConfig.REACT).get_graph().nodes.keys() >= {
         "guard",
         "agent",
-        "tools",
         "finalize",
     }
     assert "rephrase" in graph_for(E2EConfig.FULL).get_graph().nodes

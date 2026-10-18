@@ -1,16 +1,18 @@
 import pytest
+from pydantic import ValidationError
 
 from pharma_agent.domain.agent.react import (
     BUDGET_NOTE,
-    SEARCH_TOOL,
+    REACT_SYSTEM,
+    SEARCH_TOOL_NAME,
+    SearchArgs,
     Shown,
     normalize_query,
-    parse_query,
-    react_messages,
+    react_history,
     render_result,
 )
 from pharma_agent.domain.conversation.models import ConversationContext, Turn
-from pharma_agent.domain.llm.models import ChatRole, ToolCall
+from pharma_agent.domain.llm.models import ChatRole
 from tests.domain.factories import chunk_uuid, make_hit
 
 
@@ -19,9 +21,10 @@ def hit(label: str, text: str = "Liều 500 mg."):
 
 
 def test_search_tool_schema_has_one_required_query() -> None:
-    assert SEARCH_TOOL.name == "search_corpus"
-    assert SEARCH_TOOL.parameters["required"] == ["query"]
-    assert SEARCH_TOOL.parameters["additionalProperties"] is False
+    assert SEARCH_TOOL_NAME == "search_corpus"
+    schema = SearchArgs.model_json_schema()
+    assert schema["required"] == ["query"]
+    assert schema["additionalProperties"] is False
 
 
 def test_render_numbers_new_hits_and_refers_to_shown_ones() -> None:
@@ -59,26 +62,18 @@ def test_render_says_when_nothing_was_found() -> None:
     assert not budget_hit
 
 
-def test_parse_query_rejects_malformed_arguments() -> None:
-    call = ToolCall(id="1", name="search_corpus", arguments='{"query": " liều  dùng "}')
-    assert parse_query(call) == "liều  dùng"
-    for arguments, reason in (
-        ("not json", "JSON"),
-        ('{"q": "x"}', "query"),
-        ('{"query": ""}', "query"),
-        ('["x"]', "query"),
-    ):
-        with pytest.raises(ValueError, match=reason):
-            parse_query(ToolCall(id="1", name="search_corpus", arguments=arguments))
-    with pytest.raises(ValueError, match="unknown tool"):
-        parse_query(ToolCall(id="1", name="read_section", arguments='{"query": "x"}'))
+def test_search_args_strip_the_query_and_reject_malformed_ones() -> None:
+    assert SearchArgs.model_validate({"query": " liều  dùng "}).query == "liều  dùng"
+    for arguments in ({"q": "x"}, {"query": ""}, {"query": "   "}, {"query": 1}):
+        with pytest.raises(ValidationError):
+            SearchArgs.model_validate(arguments)
 
 
 def test_normalize_query_folds_case_and_spaces() -> None:
     assert normalize_query("  Paracetamol   LIỀU ") == "paracetamol liều"
 
 
-def test_messages_put_history_before_the_question() -> None:
+def test_history_puts_earlier_turns_before_the_question() -> None:
     context = ConversationContext(
         turns=[
             Turn(
@@ -88,13 +83,15 @@ def test_messages_put_history_before_the_question() -> None:
             )
         ]
     )
-    messages = react_messages(context, "Người lớn uống tối đa bao nhiêu?")
+    messages = react_history(context, "Người lớn uống tối đa bao nhiêu?")
     assert [m.role for m in messages] == [
-        ChatRole.SYSTEM,
         ChatRole.USER,
         ChatRole.ASSISTANT,
         ChatRole.USER,
     ]
-    assert "search_corpus" in messages[0].content
-    assert "[n]" in messages[0].content
     assert messages[-1].content == "Người lớn uống tối đa bao nhiêu?"
+
+
+def test_system_prompt_names_the_tool_and_the_citations() -> None:
+    assert "search_corpus" in REACT_SYSTEM
+    assert "[n]" in REACT_SYSTEM

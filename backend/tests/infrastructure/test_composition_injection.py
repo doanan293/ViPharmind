@@ -7,7 +7,7 @@ import pytest
 from pharma_agent.infrastructure.composition import build_application
 from pharma_agent.infrastructure.container import open_container
 from pharma_agent.infrastructure.settings import Settings
-from tests.fakes import FakeEmbedder, FakeLlm
+from tests.fakes import FakeChatModel, FakeEmbedder, FakeLlm
 
 DEVELOPER_ENV = (
     "PHARMA_LLM__DEFAULT__API_KEY",
@@ -32,6 +32,23 @@ async def test_build_application_uses_the_injected_llm_and_embedder(
     try:
         assert application.deps.llm is llm
         assert application.retrieval.embedder is embedder
+        # No credentials: the ReAct agent has no model and its turns fall back.
+        assert application.deps.agent_model is None
+    finally:
+        await application.aclose()
+
+
+async def test_build_application_uses_the_injected_agent_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _without_llm_or_langfuse(monkeypatch)
+    settings = Settings(_env_file=None, qdrant={"check_compatibility": False})
+    model = FakeChatModel()
+    application = build_application(
+        settings, llm=FakeLlm(), embedder=FakeEmbedder(), agent_model=model
+    )
+    try:
+        assert application.deps.agent_model is model
     finally:
         await application.aclose()
 

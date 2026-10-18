@@ -91,6 +91,12 @@ class ReactRecord(BaseModel):
     budget_forced: bool = False
     budget_hits: int = 0
     answered_without_search: bool = False
+    # The agent model's calls, which usage_by_role also counts under "agent".
+    model_calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    reasoning_tokens: int = 0
+    model_seconds: float = 0.0
 
 
 class ItemRecord(BaseModel):

@@ -16,7 +16,7 @@ from pharma_agent.domain.agent.schemas import (
 )
 from pharma_agent.domain.guardrail.models import Verdict
 from pharma_agent.domain.llm.decision import Decision
-from pharma_agent.domain.llm.models import LlmUsage, ToolCall
+from pharma_agent.domain.llm.models import LlmUsage
 from pharma_agent.domain.retrieval.evidence import EvidenceSet
 from pharma_agent.domain.retrieval.models import Hit, Query, QueryOrigin
 from pharma_agent.domain.retrieval.service import SearchResult
@@ -101,6 +101,19 @@ class ReactStats(BaseModel):
     budget_forced: bool = False
     budget_hits: int = 0  # results cut by the evidence budget
     answered_without_search: bool = False
+    # The agent model's calls: they bypass LlmPort, so the turn reports their usage.
+    model_calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    reasoning_tokens: int = 0
+    model_seconds: float = 0.0
+
+    def record_model_call(self, usage: LlmUsage, seconds: float) -> None:
+        self.model_calls += 1
+        self.prompt_tokens += usage.prompt_tokens
+        self.completion_tokens += usage.completion_tokens
+        self.reasoning_tokens += usage.reasoning_tokens
+        self.model_seconds = round(self.model_seconds + seconds, 3)
 
 
 class AgentRun(BaseModel):
@@ -365,20 +378,22 @@ class AgentRun(BaseModel):
 
     def record_tool_round(
         self,
-        calls: Sequence[ToolCall],
+        names: Sequence[str],
+        arguments: Sequence[str],
         *,
         now: datetime,
         malformed: Sequence[bool] = (),
         finish_reason: str = "",
     ) -> None:
-        """One response of the ReAct model: the tool calls it asked for, or its answer."""
+        """One response of the ReAct model: the tools it called with their JSON
+        arguments, or its answer when it called none."""
         self._log(
             ActionKind.AGENT,
             now,
-            outcome="tools" if calls else "answer",
+            outcome="tools" if names else "answer",
             payload={
-                "calls": [call.name for call in calls],
-                "arguments": [call.arguments for call in calls],
+                "calls": list(names),
+                "arguments": list(arguments),
                 "malformed": list(malformed),
                 "finish_reason": finish_reason,
             },

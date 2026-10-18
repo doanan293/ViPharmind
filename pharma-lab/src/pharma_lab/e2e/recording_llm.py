@@ -11,9 +11,6 @@ from pharma_agent.domain.llm.models import (
     LlmRole,
     LlmUsage,
     StreamDelta,
-    ToolChoice,
-    ToolSpec,
-    ToolTurn,
 )
 from pharma_agent.domain.llm.port import LlmPort
 from pydantic import BaseModel
@@ -56,21 +53,6 @@ class RecordingLlm:
                 usage = delta.usage
             yield delta
         self._record(role, usage, started)
-
-    async def tool_call(
-        self,
-        role: LlmRole,
-        messages: Sequence[ChatMessage],
-        tools: Sequence[ToolSpec],
-        *,
-        tool_choice: ToolChoice = "auto",
-    ) -> tuple[ToolTurn, LlmUsage]:
-        started = time.perf_counter()
-        turn, usage = await self._inner.tool_call(
-            role, messages, tools, tool_choice=tool_choice
-        )
-        self._record(role, usage, started)
-        return turn, usage
 
     def usage_by_role(self) -> dict[str, TokenUsage]:
         return dict(self._usage)

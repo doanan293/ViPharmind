@@ -8,14 +8,9 @@ from pydantic import BaseModel, ValidationError
 
 from pharma_agent.domain.llm.models import (
     ChatMessage,
-    ChatRole,
     LlmRole,
     LlmUsage,
     StreamDelta,
-    ToolCall,
-    ToolChoice,
-    ToolSpec,
-    ToolTurn,
 )
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.infrastructure.openai_client import build_async_openai
@@ -123,62 +118,6 @@ class OpenAiLlmAdapter:
         except OpenAIError as exc:
             raise LlmError(f"{role.value}: {exc}") from exc
 
-    async def tool_call(
-        self,
-        role: LlmRole,
-        messages: Sequence[ChatMessage],
-        tools: Sequence[ToolSpec],
-        *,
-        tool_choice: ToolChoice = "auto",
-    ) -> tuple[ToolTurn, LlmUsage]:
-        """Native tool calling; with no tools the model can only answer."""
-        client, endpoint = self._client(role)
-        request: dict[str, Any] = {
-            "model": endpoint.model,
-            "messages": _to_openai(messages),
-            **_options(endpoint),
-        }
-        if tools:
-            request["tools"] = [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": tool.name,
-                        "description": tool.description,
-                        "parameters": tool.parameters,
-                    },
-                }
-                for tool in tools
-            ]
-            if tool_choice == "none":
-                request["tool_choice"] = "none"
-            else:
-                request["parallel_tool_calls"] = True
-        try:
-            completion = await client.chat.completions.create(**request)
-        except OpenAIError as exc:
-            raise LlmError(f"{role.value}: {exc}") from exc
-        choice = completion.choices[0]
-        calls: list[ToolCall] = []
-        for index, call in enumerate(choice.message.tool_calls or []):
-            call_id = str(call.id or "")
-            # Each tool message answers one id, so an empty or repeated id is replaced.
-            if not call_id or any(c.id == call_id for c in calls):
-                call_id = f"call_{index}"
-            calls.append(
-                ToolCall(
-                    id=call_id,
-                    name=str(call.function.name),
-                    arguments=str(call.function.arguments or ""),
-                )
-            )
-        turn = ToolTurn(
-            text=choice.message.content or "",
-            tool_calls=tuple(calls),
-            finish_reason=str(choice.finish_reason or ""),
-        )
-        return turn, _usage(completion.usage)
-
 
 def _options(endpoint: ResolvedEndpoint) -> dict[str, Any]:
     """Optional request fields, sent only when set so any OpenAI-compatible server accepts the call."""
@@ -193,23 +132,7 @@ def _options(endpoint: ResolvedEndpoint) -> dict[str, Any]:
 
 
 def _to_openai(messages: Sequence[ChatMessage]) -> list[dict[str, Any]]:
-    return [_message(m) for m in messages]
-
-
-def _message(message: ChatMessage) -> dict[str, Any]:
-    payload: dict[str, Any] = {"role": message.role.value, "content": message.content}
-    if message.tool_calls:
-        payload["tool_calls"] = [
-            {
-                "id": call.id,
-                "type": "function",
-                "function": {"name": call.name, "arguments": call.arguments},
-            }
-            for call in message.tool_calls
-        ]
-    if message.role is ChatRole.TOOL and message.tool_call_id is not None:
-        payload["tool_call_id"] = message.tool_call_id
-    return payload
+    return [{"role": m.role.value, "content": m.content} for m in messages]
 
 
 def _usage(usage: Any) -> LlmUsage:

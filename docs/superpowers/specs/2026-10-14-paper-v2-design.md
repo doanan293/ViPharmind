@@ -215,23 +215,40 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
 Thiết kế rút từ dsh, Codex và Claude Agent SDK (`01-*.md` §8, `02-*.md` Part 4), cố ý tối thiểu và
 công bằng:
 
-- Port: thêm `LlmPort.tool_call(role, messages, tools) -> (ToolTurn, LlmUsage)` với `ToolTurn` gồm
-  `text`, `tool_calls: list[ToolCall{id, name, arguments}]`, `finish_reason`. Adapter OpenAI dùng
-  `chat.completions.create(tools=..., parallel_tool_calls=True)`. `RecordingLlm` và các fake ghi theo.
-- Graph mới `application/chat/react_graph.py`: nodes `guard` (dùng lại nguyên), `agent` (một lời gọi
-  tool_call), `tools` (thực thi), `finalize` (khi phản hồi không còn tool call), `answer` cho lượt bị
-  chặn hoặc ngoài phạm vi. Lịch sử hội thoại đưa thẳng vào messages; không có rephrase, judge, refine
-  riêng. Đây là vòng ReAct tự viết trên cùng `LlmPort`, retriever, ngân sách và luật evidence với
-  pipeline graph, không phải `langchain.agents.create_agent`: agent dựng sẵn cần chat model của
-  LangChain và đếm ngân sách theo middleware riêng, nên khác biệt đo được sẽ lẫn cả khác biệt giao
-  diện model. Bài nêu rõ điều này. Cả hai graph chạy với `recursion_limit` 64 làm lưới an toàn dưới
-  ngân sách miền.
+- Agent dựng sẵn của LangChain 1.x: `langchain.agents.create_agent` (chạy trên LangGraph) với một
+  `BaseChatModel` riêng cho vai `agent`. `infrastructure/llm/agent_model.py` dựng `ChatOpenAI` từ
+  `LlmSettings.resolve(LlmRole.AGENT)` (base_url, khoá, model, reasoning_effort, extra_body,
+  max_output_tokens; endpoint muốn `max_tokens` thì nhận trường đó trong extra_body), cùng timeout
+  và số lần thử lại với các vai khác, Chat Completions, `stream_usage`. `build_application` gắn nó
+  vào `TurnDeps.agent_model` khi LLM đã cấu hình; harness lấy lại từ đó. `LlmPort` không có lời gọi
+  tool nào.
+- Graph `application/chat/react_graph.py`: `guard` (dùng lại nguyên) → `agent` → `finalize`, cùng
+  `answer` cho lượt bị chặn hoặc ngoài phạm vi và `fallback` cho lỗi. Node `agent` dựng mỗi lượt một
+  `create_agent(model, tools=[search_corpus], system_prompt=REACT_SYSTEM, middleware=[ReactBudget])`
+  (`application/chat/react_agent.py`) rồi `ainvoke` với lịch sử hội thoại và câu hỏi, truyền config
+  của graph cha để callback (Langfuse) nối vào trace của lượt. Tin nhắn AI cuối là câu trả lời đưa
+  sang `finalize`; thiếu model, lỗi model hay câu trả lời rỗng làm lượt thất bại và đi `fallback`.
+  Không có rephrase, judge, refine riêng. Agent dùng cùng retriever, ngân sách và luật evidence với
+  pipeline graph; vòng model ⇄ tool là của LangChain, luật miền nằm ở middleware. Cả hai graph chạy
+  với `recursion_limit` 64 làm lưới an toàn dưới ngân sách miền.
+- Middleware `ReactBudget` (`AgentMiddleware`, điểm mở rộng chính thức) giữ ngân sách miền:
+  `awrap_model_call` thêm ghi chú hết lượt và gọi với `tool_choice="none"` (tool vẫn khai báo, vì
+  lịch sử có tool call) khi đã đủ 6 vòng, khi còn dưới hai lời gọi LLM, hoặc khi lời gọi trước làm
+  cạn ngân sách; sau mỗi lời gọi nó đọc `usage_metadata`, tính vào `AgentRun` (lời gọi, token), ghi
+  một action `agent` và cộng usage, số giây vào `ReactStats` để harness tính giá và độ trễ dưới vai
+  `agent`. Phản hồi xin tool khi đã cạn ngân sách thì bỏ các tool call đó và gọi thêm đúng một lần
+  không tool. `awrap_tool_call` trả `Error: ...` cho tool call sai định dạng (tên lạ, thiếu `query`,
+  đối số không phải JSON) mà không chạy tool.
 - Tool, một cái, chỉ đọc, gọi song song được:
   - `search_corpus(query: str)`: `RetrievalService.search` với cùng hybrid RRF, cùng reranker, trả tối đa
     5 chunk dạng `[E<n>] <tiêu đề > các heading> (trang):` rồi nguyên text chunk, đúng văn bản mà
     pipeline đọc (§3.0c). Không có tool đọc lân cận: pipeline graph không có bước nào tương ứng, và
     chunk đã gộp các mục liền kề nên tool đó không còn giá trị; đây là điều kiện để §4.C so sánh đúng
     "ai điều khiển".
+  - Tool là `StructuredTool` của LangChain với schema pydantic `SearchArgs` (một `query` bắt buộc,
+    không rỗng). Các tool call của một phản hồi chạy đồng thời trong ToolNode nhưng gộp thành một
+    vòng tìm: mỗi query mới (đã chuẩn hoá) tìm đúng một lần, tất cả cùng lúc, kết quả đánh số theo
+    thứ tự gọi và ghi thành một action `search`.
 - Quy tắc dừng và ngân sách: dừng khi phản hồi không có tool call; tối đa 6 vòng tool; hết vòng thì một
   lời gọi cuối không tool với ghi chú "đã hết lượt tra cứu, trả lời từ những gì đã có"; cùng
   `max_llm_calls`, `max_tokens`, `max_evidence_chars` và deadline với pipeline. Ngân sách evidence
