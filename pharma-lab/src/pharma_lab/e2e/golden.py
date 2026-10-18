@@ -54,16 +54,18 @@ ANSWERABLE_GROUP_QUOTAS: dict[str, int] = {
     "glossary": 10,
 }
 CONVERSATIONAL_GROUP = "conversational"
-# Probes are answerable items of the rule-built groups chosen where one retrieval-side
-# component decides whether one round finds the gold section: reranking moves the gold
-# chunk into the top five; the lexical half of hybrid search finds what dense search
-# misses and the dense half finds what BM25 misses. A probe keeps its source group.
-PROBE_QUOTAS: dict[str, int] = {
-    "rerank_probe": 21,
-    "lexical_probe": 19,
-    "semantic_probe": 20,
+# Slice items are answerable items of the rule-built groups drawn at random from one
+# construction-defined slice of the benchmark (eval data v3 design §3.4, §4), each the
+# questions one layer is built for: the gold section does not name the drug (header
+# enrichment), the question shares few words with it (dense half of hybrid search), or
+# a sibling product of the same brand has the same section (reranking). A slice is set
+# by the question and the corpus, never by a system's result. An item keeps its group.
+SLICE_QUOTAS: dict[str, int] = {
+    "header_dependent": 20,
+    "low_overlap": 20,
+    "sibling_products": 20,
 }
-PROBE_KINDS = tuple(PROBE_QUOTAS)
+SLICE_KINDS = tuple(SLICE_QUOTAS)
 # Multi-turn items per phenomenon of the benchmark's conversational group.
 MULTI_TURN_QUOTAS: dict[str, int] = {
     "pronoun": 7,
@@ -78,7 +80,7 @@ MULTI_TURN_QUOTAS: dict[str, int] = {
 
 QUOTAS: dict[Category, int] = {
     Category.ANSWERABLE: sum(ANSWERABLE_GROUP_QUOTAS.values())
-    + sum(PROBE_QUOTAS.values()),
+    + sum(SLICE_QUOTAS.values()),
     Category.MULTI_HOP: 150,
     Category.MULTI_TURN: sum(MULTI_TURN_QUOTAS.values()),
     Category.UNANSWERABLE: 10,
@@ -270,12 +272,12 @@ def _item_problems(item: GoldenItem, corpus: CorpusText) -> list[str]:
                 f"({', '.join(MULTI_HOP_KINDS)})"
             )
     if item.category is Category.ANSWERABLE:
-        probes = _probe_kinds(item)
+        slices = _slice_kinds(item)
         if item.eval_group not in ANSWERABLE_GROUP_QUOTAS:
             problems.append(f"{name}: answerable items need a benchmark eval_group")
-        elif len(probes) > 1 or (probes and item.eval_group not in EVAL_GROUPS):
+        elif len(slices) > 1 or (slices and item.eval_group not in EVAL_GROUPS):
             problems.append(
-                f"{name}: a probe has one probe tag and a rule-built source group"
+                f"{name}: a slice item has one slice tag and a rule-built source group"
             )
     if item.category is Category.MULTI_TURN:
         phenomena = [tag for tag in item.tags if tag in MULTI_TURN_QUOTAS]
@@ -304,7 +306,7 @@ def _count_problems(items: Sequence[GoldenItem]) -> list[str]:
     groups = Counter(
         item.eval_group
         for item in items
-        if item.category is Category.ANSWERABLE and not _probe_kinds(item)
+        if item.category is Category.ANSWERABLE and not _slice_kinds(item)
     )
     for group, quota in ANSWERABLE_GROUP_QUOTAS.items():
         if groups[group] != quota:
@@ -334,22 +336,22 @@ def _count_problems(items: Sequence[GoldenItem]) -> list[str]:
     for kind, quota in MULTI_HOP_QUOTAS.items():
         if kinds[kind] != quota:
             problems.append(f"multi_hop {kind}: {kinds[kind]} items, expected {quota}")
-    probes = Counter(
+    slices = Counter(
         kind
         for item in items
         if item.category is Category.ANSWERABLE
-        for kind in _probe_kinds(item)
+        for kind in _slice_kinds(item)
     )
-    for kind, quota in PROBE_QUOTAS.items():
-        if probes[kind] != quota:
+    for kind, quota in SLICE_QUOTAS.items():
+        if slices[kind] != quota:
             problems.append(
-                f"answerable {kind}: {probes[kind]} items, expected {quota}"
+                f"answerable {kind}: {slices[kind]} items, expected {quota}"
             )
     return problems
 
 
-def _probe_kinds(item: GoldenItem) -> list[str]:
-    return [tag for tag in item.tags if tag in PROBE_KINDS]
+def _slice_kinds(item: GoldenItem) -> list[str]:
+    return [tag for tag in item.tags if tag in SLICE_KINDS]
 
 
 def validate_items(

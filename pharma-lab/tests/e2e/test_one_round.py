@@ -15,7 +15,6 @@ from pharma_lab.e2e.one_round import (
     coverage,
     informative,
     multi_hop_kind,
-    trim_covered,
 )
 
 LONG = " ".join(["liều"] * 30)
@@ -144,92 +143,8 @@ def item(item_id: str, group: str, source: str) -> GoldenItem:
     )
 
 
-def test_trim_drops_covered_items_evenly_per_group() -> None:
-    items = [item(f"e2e-ans-{g}{i}", g, f"{g}{i}") for g in "ab" for i in range(4)]
-    covered = {
-        f"{g}{i}": OneRoundCoverage(f"{g}{i}", ("answer",), ())
-        for g in "ab"
-        for i in range(4)
-    }
-    covered["a0"] = OneRoundCoverage("a0", ("answer",), ("answer",))
-    dropped = trim_covered(items, covered, keep_per_group=2)
-    assert dropped == ["e2e-ans-a1", "e2e-ans-a2", "e2e-ans-b0", "e2e-ans-b1"]
-
-
-def test_trim_leaves_probes_alone() -> None:
-    items = [item(f"e2e-ans-a{i}", "a", f"a{i}") for i in range(2)]
-    probe = item("e2e-ans-p0001", "a", "p1").model_copy(
-        update={"eval_group": None, "tags": ["rerank_probe"]}
-    )
-    covered = {q: OneRoundCoverage(q, ("answer",), ()) for q in ("a0", "a1", "p1")}
-    assert trim_covered([*items, probe], covered, keep_per_group=1) == ["e2e-ans-a0"]
-
-
-def test_trim_fails_when_a_group_has_too_few_covered_items() -> None:
-    items = [item(f"e2e-ans-a{i}", "a", f"a{i}") for i in range(3)]
-    missed = {
-        f"a{i}": OneRoundCoverage(f"a{i}", ("answer",), ("answer",)) for i in range(3)
-    }
-    with pytest.raises(ValueError, match="a: 0 covered items, need 1"):
-        trim_covered(items, missed, keep_per_group=2)
-
-
 def _fake_run(coverage_by_query: dict[str, OneRoundCoverage], rows: dict[str, dict]):
     return OneRoundRun(rows, {key: {} for key in rows}, coverage_by_query)
-
-
-def test_cli_trim_rewrites_authored_batches(tmp_path: Path, monkeypatch) -> None:
-    items = [item(f"e2e-ans-a{i}", "a", f"a{i}") for i in range(3)]
-    batch = tmp_path / "answerable-01.authored.jsonl"
-    batch.write_text(
-        "".join(
-            json.dumps(i.model_dump(mode="json"), ensure_ascii=False) + "\n"
-            for i in items
-        ),
-        encoding="utf-8",
-    )
-    # A replacement batch holds answerable items too; its other categories stay.
-    other = tmp_path / "replacement-01.authored.jsonl"
-    other.write_text(
-        json.dumps(item("e2e-ans-a3", "a", "a3").model_dump(mode="json"))
-        + "\n"
-        + json.dumps(
-            {
-                "item_id": "e2e-oos-0001",
-                "category": "out_of_scope",
-                "turns": [{"role": "user", "text": "Thời tiết?"}],
-                "expected_behavior": "redirect",
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    covered = {f"a{i}": OneRoundCoverage(f"a{i}", ("answer",), ()) for i in range(4)}
-    monkeypatch.setattr(
-        e2e_commands, "load_one_round", lambda *a, **k: _fake_run(covered, {})
-    )
-    result = CliRunner().invoke(
-        app,
-        [
-            "e2e",
-            "golden",
-            "trim",
-            "--run",
-            "r",
-            "--per-group",
-            "2",
-            "--authoring-dir",
-            str(tmp_path),
-        ],
-    )
-    assert result.exit_code == 0, result.output
-    kept = [
-        json.loads(line)["item_id"] for line in batch.read_text("utf-8").splitlines()
-    ]
-    assert kept == ["e2e-ans-a2"]
-    assert [
-        json.loads(line)["item_id"] for line in other.read_text("utf-8").splitlines()
-    ] == ["e2e-ans-a3", "e2e-oos-0001"]
 
 
 def test_cli_hard_candidates_writes_the_todo(tmp_path: Path, monkeypatch) -> None:
