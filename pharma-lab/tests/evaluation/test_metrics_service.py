@@ -46,6 +46,30 @@ def test_accumulate_breakdown_metrics_groups_rows_by_eval_group():
     assert breakdowns["eval_group"]["unknown"]["count"] == 1
 
 
+def test_slices_break_down_inside_and_outside_each_slice():
+    breakdowns = {
+        "eval_group": defaultdict(lambda: defaultdict(float)),
+        "slices": defaultdict(lambda: defaultdict(float)),
+    }
+    hits = {"hit@5": 1, "mrr": 1.0}
+    accumulate_breakdown_metrics(
+        breakdowns,
+        hits,
+        {"eval_group": "noisy", "slices": ["name_variant"], "answer_mode": "single"},
+    )
+    accumulate_breakdown_metrics(
+        breakdowns,
+        {"hit@5": 0, "mrr": 0.0},
+        {"eval_group": "noisy", "slices": [], "answer_mode": "single"},
+    )
+    slices = breakdowns["slices"]
+    assert slices["name_variant"]["count"] == 1 and slices["name_variant"]["hit@5"] == 1
+    assert slices["name_variant:outside"]["count"] == 1
+    assert slices["name_variant:outside"]["hit@5"] == 0
+    assert slices["header_dependent:outside"]["count"] == 2
+    assert breakdowns["eval_group"]["noisy"]["count"] == 2
+
+
 def test_markdown_breakdown_tables_renders_only_compact_metrics():
     breakdowns = {
         "eval_group": {
