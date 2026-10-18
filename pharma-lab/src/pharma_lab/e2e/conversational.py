@@ -71,9 +71,10 @@ INTENT_PHRASES: dict[str, tuple[str, str, str]] = {
         "Thuốc này có tương tác với thuốc nào không?",
         "Có tương tác với thuốc nào không?",
     ),
+    # Pregnancy only: the gold of a single-section parent is the pregnancy section.
     "pregnancy_lactation": (
-        "dùng cho bà bầu và mẹ cho con bú",
-        "Bà bầu hay mẹ cho con bú có dùng thuốc này được không?",
+        "dùng cho bà bầu",
+        "Bà bầu có dùng thuốc này được không?",
         "Bà bầu có dùng được không?",
     ),
     "overdose": (
@@ -219,13 +220,15 @@ class _Index:
             self.by_intent[str(row.get("intent_category"))].append(row)
 
     def sibling(
-        self, document: str, asked: set[str], rng: random.Random
+        self, document: str, asked: set[str], seen: set[str], rng: random.Random
     ) -> Mapping[str, object] | None:
-        """A question about the same document and an intent not asked yet."""
+        """A question about the same document, of an intent not asked yet and with a
+        gold section no turn has used yet."""
         options = [
             row
             for row in self.by_document.get(document, [])
             if str(row.get("intent_category")) not in asked
+            and not set(_gold(row)) & seen
         ]
         return rng.choice(options) if options else None
 
@@ -272,15 +275,20 @@ def _history(
     corpus: CorpusText,
     rng: random.Random,
     depth: int,
+    gold: Sequence[str],
 ) -> list[tuple[str, str]] | None:
-    """`depth - 1` earlier exchanges about `document`, the first naming it."""
+    """`depth - 1` earlier exchanges about `document`, the first naming it, none
+    answered from a section of `gold` or of another earlier exchange (the last turn
+    would re-ask what was just answered)."""
     turns: list[tuple[str, str]] = []
     asked = {intent}
+    seen = set(gold)
     for _ in range(depth - 1):
-        sibling = index.sibling(document, asked, rng)
+        sibling = index.sibling(document, asked, seen, rng)
         if sibling is None:
             break
         asked.add(str(sibling.get("intent_category")))
+        seen |= set(_gold(sibling))
         turns += _turn(sibling, corpus)
     return turns or None
 
@@ -310,7 +318,7 @@ def build_item(
         if None in intents or len(set(intents)) < 2 or HEADING_INTENTS & set(intents):
             return None
         nouns = [INTENT_PHRASES[i][0] for i in intents if i is not None]
-        history = _history(document, "multi_intent", index, corpus, rng, depth)
+        history = _history(document, "multi_intent", index, corpus, rng, depth, gold)
         if history is None:
             return None
         last = f"Cho mình hỏi luôn {' và '.join(nouns)}?"
@@ -327,7 +335,7 @@ def build_item(
     if phenomenon in {"intent_shift", "noisy_followup"} and intent in HEADING_INTENTS:
         return None
     if phenomenon in {"pronoun", "ellipsis", "intent_shift", "noisy_followup"}:
-        history = _history(document, intent, index, corpus, rng, depth)
+        history = _history(document, intent, index, corpus, rng, depth, gold)
         if history is None:
             return None
         last = {

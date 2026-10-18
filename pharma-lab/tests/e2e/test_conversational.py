@@ -184,3 +184,26 @@ def test_build_takes_only_questions_dedupes_and_marks_the_control() -> None:
         assert ("'control'" in str(item["eval_tags"])) == (
             item["query_form"] == "topic_switch"
         )
+
+
+def test_history_never_answers_from_the_section_the_last_turn_asks() -> None:
+    same = row(
+        "p-dose-2",
+        f"{PARA}:lieu-luong-va-cach-dung",
+        "administration",
+        "PARACETAMOL uống mấy lần một ngày?",
+    )
+    rows = [*ROWS, same]
+    parent = ROWS[0]
+    for seed in range(20):
+        item = build_item(
+            "pronoun",
+            parent,
+            _Index(rows, CORPUS),
+            CORPUS,
+            {},
+            random.Random(seed),
+            4,
+        )
+        assert item is not None
+        assert same["query"] not in [text for _, text in item.turns]
