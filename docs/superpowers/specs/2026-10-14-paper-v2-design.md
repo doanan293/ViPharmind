@@ -480,18 +480,21 @@ chạy trước Task 7 của plan pha D.
 - Hiệu chuẩn judge đánh giá bằng dược sĩ chấm mù giữ giao thức v1, mở rộng mẫu cho các cấu hình mới
   (50 item mỗi cấu hình chính) và báo tương quan lỗi giữa judge và người chấm theo Rao và Callison-Burch.
 
-### 3.4 Luật chọn embedding và reranker cho agent (chốt 2026-10-18, trước khi có số `-v3-`)
+### 3.4 Luật chọn retrieval và reranker cho agent (chốt 2026-10-18, trước khi có số `-v3-`)
 
-Không thiên vị cấu hình nào, kể cả model lớn hơn. Ứng viên: embedding {Qwen3-Embedding-4B, 8B} ×
-reranker {Qwen3-Reranker-4B, 8B}, cùng hybrid RRF k=2, prefetch 50, giữ 20; Qwen3-Reranker-0.6B và
-bge-reranker-v2-m3 làm đối chứng.
+Không thiên vị cấu hình nào, kể cả model lớn hơn. Chọn theo hai giai đoạn, để reranker chỉ chạy trên
+cấu hình đã thắng ở bước tìm:
 
-1. Chỉ số chính: Hit@5 trên toàn benchmark (agent đọc 5 đoạn đầu). Chỉ số phụ: MRR@10.
-2. Một cặp thắng rõ khi chênh lệch Hit@5 vượt khoảng tin cậy 95% bootstrap theo câu hỏi (1.000 lần
-   lấy mẫu lại) và nó không tụt quá 1 điểm Hit@5 ở lát hay nhóm nào.
-3. Không cặp nào thắng rõ ở Hit@5: xét MRR@10 theo cùng luật. Vẫn hòa: chọn cặp rẻ và nhanh hơn, vì
-   bài đo cả độ trễ và chi phí.
-4. Bảng retrieval của bài báo cáo mọi cặp, kể cả cặp không được chọn.
+1. Giai đoạn tìm (chưa rerank): BM25, dense với từng embedding, hybrid RRF k=2 prefetch 50 giữ 20
+   với Qwen3-Embedding-4B và 8B. Chỉ số chính Hit@20, tức gold nằm trong 20 ứng viên reranker nhận;
+   chỉ số phụ Hit@5. Các ablation enrichment, dense và hybrid đo ở giai đoạn này.
+2. Giai đoạn rerank, chỉ trên cấu hình thắng: Qwen3-Reranker-0.6B, 4B, 8B. Chỉ số chính Hit@5
+   (agent đọc 5 đoạn đầu), phụ MRR@10.
+3. Ở mỗi giai đoạn, một cấu hình thắng rõ khi chênh lệch chỉ số chính vượt khoảng tin cậy 95%
+   bootstrap theo câu hỏi (1.000 lần lấy mẫu lại) và nó không tụt quá 1 điểm ở lát hay nhóm nào.
+   Không ai thắng rõ: xét chỉ số phụ theo cùng luật; vẫn hòa thì chọn cấu hình rẻ và nhanh hơn, vì bài
+   đo cả độ trễ và chi phí.
+4. Bảng retrieval của bài báo cáo mọi cấu hình đã chạy, kể cả cấu hình không được chọn.
 
 ## 4. Ma trận thí nghiệm
 
