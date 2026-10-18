@@ -125,7 +125,9 @@ def test_evaluation_assemble_writes_the_benchmark_and_its_judgments(
     )
     knowledge = SimpleNamespace(colloquial_mappings=[mapping])
 
-    def fake_assemble(rows, corpus, aliases, golden_items, extra, *, covered, seed):
+    def fake_assemble(
+        rows, corpus, aliases, golden_items, extra, *, chunks, covered, seed
+    ):
         calls["assemble"] = (rows, aliases, golden_items, extra, covered, seed)
         return [*rows, {"query_id": "e2e-inj-0001", "eval_group": "safety"}]
 
