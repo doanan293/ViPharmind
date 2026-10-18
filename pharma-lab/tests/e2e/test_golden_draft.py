@@ -1,3 +1,5 @@
+import json
+
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.llm.port import LlmError
 from tests.e2e.factories import ScriptedLlm
@@ -5,6 +7,7 @@ from tests.e2e.factories import ScriptedLlm
 from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden import Category, ExpectedBehavior
 from pharma_lab.e2e.golden_draft import (
+    MULTI_TURN,
     PROBE,
     DraftFact,
     DraftFailure,
@@ -292,7 +295,8 @@ async def test_a_probe_is_drafted_as_an_answerable_item_with_its_own_ids(
         Category.ANSWERABLE,
         ["rerank_probe"],
     )
-    assert item.eval_group is None
+    # A probe keeps the benchmark group of its row.
+    assert item.eval_group == "formulary"
     paths = write_drafts(tmp_path, items, [], family=PROBE)
     assert [p.name for p in paths] == ["probe-01.draft.jsonl", "probe.failed.jsonl"]
     assert needed_counts({"rerank_probe": 5}, PROBE)["rerank_probe"] == 16
@@ -301,3 +305,70 @@ async def test_a_probe_is_drafted_as_an_answerable_item_with_its_own_ids(
     )
     assert authored_state(tmp_path, PROBE) == ({"rerank_probe": 1}, 1)
     assert authored_state(tmp_path) == ({}, 0)
+
+
+async def test_a_multi_turn_item_keeps_the_conversation_of_its_row() -> None:
+    llm = ScriptedLlm()
+    llm.script(LlmRole.ANSWER, good())
+    turns = [
+        {"role": "user", "text": "PARACETAMOL dùng để làm gì?"},
+        {"role": "assistant", "text": "Giảm đau, hạ sốt."},
+        {"role": "user", "text": "Thuốc này dùng liều thế nào?"},
+    ]
+    row = dict(
+        candidate("conv-0001", "pronoun"),
+        query=turns[-1]["text"],
+        turns=turns,
+        eval_group="conversational",
+    )
+    items, _ = await draft_multi_hop(
+        llm, {"pronoun": [row]}, {"pronoun": 1}, CORPUS, family=MULTI_TURN
+    )
+    (item,) = items
+    assert (item.item_id, item.category, item.eval_group, item.tags) == (
+        "e2e-mt-0001",
+        Category.MULTI_TURN,
+        "conversational",
+        ["pronoun"],
+    )
+    assert [(t.role, t.text) for t in item.turns] == [
+        (t["role"], t["text"]) for t in turns
+    ]
+    prompt = llm.calls[0][1][-1].content
+    assert "Lịch sử hội thoại" in prompt and "Giảm đau, hạ sốt." in prompt
+
+
+def test_cli_multi_turn_candidates_take_the_conversational_rows(tmp_path) -> None:
+    from typer.testing import CliRunner
+
+    from pharma_lab.cli.app import app
+
+    gold = tmp_path / "gold.jsonl"
+    rows = [
+        {"query_id": "q1", "query": "Liều?", "eval_group": "formulary"},
+        {
+            "query_id": "conv-0001",
+            "query": "Còn liều thì sao?",
+            "eval_group": "conversational",
+            "query_form": "intent_shift",
+        },
+    ]
+    gold.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    result = CliRunner().invoke(
+        app,
+        [
+            "e2e",
+            "golden",
+            "multi-turn-candidates",
+            "--evaluation",
+            str(gold),
+            "--authoring-dir",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    (only,) = [
+        json.loads(line)
+        for line in (tmp_path / "multi-turn.todo.jsonl").read_text("utf-8").splitlines()
+    ]
+    assert (only["query_id"], only["kind"]) == ("conv-0001", "intent_shift")

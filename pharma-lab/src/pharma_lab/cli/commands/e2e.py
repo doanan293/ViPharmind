@@ -62,8 +62,8 @@ from pharma_lab.e2e.decision_scoring import (
 )
 from pharma_lab.e2e.golden import (
     ANSWERABLE_PER_GROUP,
+    CONVERSATIONAL_GROUP,
     MULTI_HOP_QUOTAS,
-    PROBE_QUOTAS,
     QUOTAS,
     Category,
     build_golden,
@@ -86,7 +86,7 @@ from pharma_lab.e2e.golden_draft import (
     used_query_ids,
     write_drafts,
 )
-from pharma_lab.e2e.golden_generate import generate, generate_probes
+from pharma_lab.e2e.golden_generate import generate
 from pharma_lab.e2e.golden_probe import load_probe_runs, probe_candidates
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
 from pharma_lab.e2e.judging.service import JudgeRequest, run_judge
@@ -392,43 +392,41 @@ def golden_probe_candidates(
     run_handler(state_from_context(ctx), handler)
 
 
-@golden_app.command("generate-probes")
-def golden_generate_probes(
+@golden_app.command("multi-turn-candidates")
+def golden_multi_turn_candidates(
     ctx: typer.Context,
-    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    evaluation: Annotated[
+        Path, typer.Option("--evaluation", dir_okay=False)
+    ] = GOLD_PATH,
     authoring_dir: Annotated[
         Path, typer.Option("--authoring-dir", file_okay=False)
     ] = E2E_AUTHORING_DIR,
-    colloquial: Annotated[int, typer.Option("--colloquial", min=0)] = 2
-    * PROBE_QUOTAS["colloquial"],
-    glossary: Annotated[int, typer.Option("--glossary", min=0)] = 2
-    * PROBE_QUOTAS["glossary"],
-    seed: Annotated[int, typer.Option("--seed")] = 0,
 ) -> None:
-    """Build colloquial-name and plain-language-term probes from the corpus
-    (probe.generated.jsonl); twice the quota by default, to cover rejected drafts."""
+    """List the benchmark's conversational rows as multi-turn candidates
+    (multi-turn.todo.jsonl), the phenomenon as their kind."""
 
     def handler() -> CommandResult:
-        knowledge = read_bundle(bundle)
-        aliases = [
-            (alias, mapping.section_keys)
-            for mapping in knowledge.colloquial_mappings
-            for alias in mapping.aliases
+        rows = [
+            json.loads(line)
+            for line in evaluation.read_text(encoding="utf-8").splitlines()
+            if line.strip()
         ]
-        rows = generate_probes(
-            corpus_text(knowledge),
-            aliases,
-            {"colloquial": colloquial, "glossary": glossary},
-            seed=seed,
-        )
-        output = authoring_dir / "probe.generated.jsonl"
+        candidates = [
+            {**row, "kind": row["query_form"]}
+            for row in rows
+            if row.get("eval_group") == CONVERSATIONAL_GROUP
+        ]
+        output = authoring_dir / "multi-turn.todo.jsonl"
         output.write_text(
-            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            "".join(json.dumps(c, ensure_ascii=False) + "\n" for c in candidates),
             encoding="utf-8",
         )
-        kinds = Counter(str(row["kind"]) for row in rows)
+        kinds = Counter(str(c["kind"]) for c in candidates)
         return CommandResult(
-            "e2e golden generate-probes", CommandStatus.COMPLETE, output, dict(kinds)
+            "e2e golden multi-turn-candidates",
+            CommandStatus.COMPLETE,
+            output,
+            dict(kinds),
         )
 
     run_handler(state_from_context(ctx), handler)
@@ -447,7 +445,7 @@ def golden_draft(
     ] = DRAFT_MODEL,
     concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 8,
     family_name: Annotated[
-        str, typer.Option("--family", help="multi-hop or probe")
+        str, typer.Option("--family", help="multi-hop, probe or multi-turn")
     ] = MULTI_HOP.batch,
     backend_env_file: Annotated[
         Path, typer.Option("--backend-env-file", dir_okay=False)
