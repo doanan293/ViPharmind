@@ -12,7 +12,7 @@ uv run pharma-lab e2e golden draft               # nháp các câu multi-hop cò
 uv run pharma-lab e2e golden probe-candidates --run hybrid-qwen4b-v2-p50-k20-rrf2   # probe rerank, lexical, semantic từ benchmark
 uv run pharma-lab e2e golden generate-probes     # probe colloquial và glossary sinh từ corpus
 uv run pharma-lab e2e golden draft --family probe   # nháp các probe còn thiếu quota, ghi probe-NN.draft.jsonl
-uv run pharma-lab evaluation enrichment-probe    # benchmark thăm dò enrichment cho D2, ghi data/evaluation/gold-enrichment/
+uv run pharma-lab evaluation extend             # thêm ba nhóm colloquial, glossary, conversational vào benchmark retrieval (ghi đè file gold, dựng lại judgments)
 # soạn mỗi lô X.todo.jsonl thành X.authored.jsonl, cộng thêm multi-hop-NN và special.authored.jsonl
 uv run pharma-lab e2e golden check data/evaluation/e2e/authoring/X.authored.jsonl
 uv run pharma-lab e2e golden build               # kiểm đủ số lượng, ghi golden_e2e.jsonl và manifest
