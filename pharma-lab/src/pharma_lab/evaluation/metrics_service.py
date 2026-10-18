@@ -42,10 +42,11 @@ from pharma_lab.evaluation.run_workspace import (
     load_run_record,
     resolve_evaluation_reference,
 )
+from pharma_lab.evaluation.section_eval_schema import BENCHMARK_SLICES
 from pharma_lab.evaluation.variant_identity import MetricsArtifactIdentity
 from pharma_lab.runtime.catalog import require_model
 
-BREAKDOWN_DIMENSIONS = ("eval_group",)
+BREAKDOWN_DIMENSIONS = ("eval_group", "slices")
 
 
 def validate_metrics_cutoff(top_k: int, candidate_k: int) -> None:
@@ -113,14 +114,30 @@ def markdown_metric_table(metrics: dict, top_k: int = 30) -> str:
 
 
 def accumulate_breakdown_metrics(breakdowns: dict, hits: dict, row: dict) -> None:
-    for dimension in BREAKDOWN_DIMENSIONS:
-        value = str(row.get(dimension) or "unknown")
+    for value in breakdown_values(row):
+        dimension = (
+            "slices" if value.split(":")[0] in BENCHMARK_SLICES else "eval_group"
+        )
         accumulate_metrics(breakdowns[dimension][value], hits, row)
+
+
+def breakdown_values(row: dict) -> list[str]:
+    """The group of a row, and for a row of the assembled benchmark each slice as
+    `<slice>` or `<slice>:outside`, so a layer's gain reads inside against outside."""
+    values = [str(row.get("eval_group") or "unknown")]
+    slices = row.get("slices")
+    if isinstance(slices, list):
+        values += [
+            name if name in slices else f"{name}:outside" for name in BENCHMARK_SLICES
+        ]
+    return values
 
 
 def markdown_breakdown_tables(breakdowns: dict, top_k: int = 30) -> str:
     sections = []
     for dimension in BREAKDOWN_DIMENSIONS:
+        if not breakdowns.get(dimension):
+            continue  # a benchmark without slices has no slice table
         cutoffs = metric_cutoffs(top_k)
         headers = [
             dimension,

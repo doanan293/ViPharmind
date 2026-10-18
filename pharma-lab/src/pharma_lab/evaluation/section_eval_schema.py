@@ -184,3 +184,13 @@ def clean_query_label(value: str, max_chars: int = 72) -> str:
     if len(truncated) < 24:
         return ""
     return f"{truncated}..."
+
+
+# Construction-defined slices of the benchmark, each the questions one layer is built
+# for (eval data v3 design §3.4); `evaluation assemble` writes them on every row.
+BENCHMARK_SLICES = (
+    "header_dependent",
+    "name_variant",
+    "sibling_products",
+    "multi_chunk",
+)

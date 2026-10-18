@@ -30,8 +30,9 @@ from pharma_lab.e2e.golden_generate import (
     brand_name,
     drug_name,
 )
+from pharma_lab.evaluation.section_eval_schema import BENCHMARK_SLICES
 
-SLICES = ("header_dependent", "name_variant", "sibling_products", "multi_chunk")
+SLICES = BENCHMARK_SLICES
 
 
 def _fold(text: str) -> str:
