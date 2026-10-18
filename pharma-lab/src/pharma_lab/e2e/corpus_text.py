@@ -34,12 +34,15 @@ _EMERGENCY_ONLY = re.compile(r"cấp cứu 115", re.IGNORECASE)
 
 def null_statement(text: str) -> bool:
     """A short section that answers nothing: it only says there is no information,
-    no report or nothing to note, without advice, or only points to emergency care."""
+    no report or nothing to note, without advice, only points to emergency care, or
+    is a bracketed heading."""
     flat = normalize_space(text)
     if len(flat) >= NULL_STATEMENT_CHARS:
         return False
     if len(flat) < 15 or _EMERGENCY_ONLY.search(flat):
         return True
+    if flat.startswith("(") and flat.rstrip(".").endswith(")"):
+        return True  # a heading in brackets: "(DỤNG CỤ TỬ CUNG CHỨA LEVONORGESTREL)"
     return bool(_NULL_OPENER.search(flat)) and not _ADVICE.search(flat)
 
 
