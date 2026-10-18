@@ -13,7 +13,7 @@ uv run pharma-lab e2e golden probe-candidates --run hybrid-qwen4b-v2-p50-k20-rrf
 uv run pharma-lab e2e golden multi-turn-candidates   # câu multi-turn lấy từ nhóm conversational của benchmark
 uv run pharma-lab e2e golden draft --family multi-turn  # nháp câu multi-turn còn thiếu quota, ghi multi-turn-NN.draft.jsonl
 uv run pharma-lab e2e golden draft --family probe   # nháp các probe còn thiếu quota, ghi probe-NN.draft.jsonl
-uv run pharma-lab evaluation extend             # thêm ba nhóm colloquial, glossary, conversational vào benchmark retrieval (ghi đè file gold, dựng lại judgments)
+uv run pharma-lab evaluation assemble           # benchmark đúng 10.000 câu: nhóm sinh bằng luật cắt cho vừa, cộng colloquial, glossary, conversational, multi_hop, safety; mọi câu golden là một dòng của nó
 # soạn mỗi lô X.todo.jsonl thành X.authored.jsonl, cộng thêm multi-hop-NN và special.authored.jsonl
 uv run pharma-lab e2e golden check data/evaluation/e2e/authoring/X.authored.jsonl
 uv run pharma-lab e2e golden build               # kiểm đủ số lượng, ghi golden_e2e.jsonl và manifest

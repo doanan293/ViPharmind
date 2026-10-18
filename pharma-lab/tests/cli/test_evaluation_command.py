@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 from typer.testing import CliRunner
 
@@ -102,23 +103,30 @@ def test_evaluation_judgments_rebuild_only_the_judgments(tmp_path, monkeypatch):
     )
 
 
-def test_evaluation_extend_rewrites_the_gold_file_and_its_judgments(
+def test_evaluation_assemble_writes_the_benchmark_and_its_judgments(
     tmp_path, monkeypatch
 ):
     from pharma_lab.e2e.corpus_text import CorpusText
 
-    gold = tmp_path / "gold.jsonl"
+    source = tmp_path / "rule-built.jsonl"
+    output = tmp_path / "gold.jsonl"
     base = [{"query_id": "q1", "query": "Liều?", "eval_group": "formulary"}]
-    gold.write_text(json.dumps(base[0]) + "\n", encoding="utf-8")
-    calls: dict[str, object] = {}
+    source.write_text(json.dumps(base[0]) + "\n", encoding="utf-8")
+    authoring = tmp_path / "authoring"
+    authoring.mkdir()
+    golden = {"item_id": "e2e-inj-0001", "category": "injection"}
+    (authoring / "special.authored.jsonl").write_text(
+        json.dumps(golden) + "\n", encoding="utf-8"
+    )
+    calls: dict[str, Any] = {}
     mapping = SimpleNamespace(
         aliases=["Panadol đỏ"], section_keys=["leaflet:t:p:01-thanh-phan"]
     )
     knowledge = SimpleNamespace(colloquial_mappings=[mapping])
 
-    def fake_extend(rows, corpus, aliases, *, covered, conversational_total, seed):
-        calls["extend"] = (rows, aliases, covered, conversational_total, seed)
-        return [*rows, {"query_id": "conv-0001", "eval_group": "conversational"}]
+    def fake_assemble(rows, corpus, aliases, golden_items, extra, *, covered, seed):
+        calls["assemble"] = (rows, aliases, golden_items, extra, covered, seed)
+        return [*rows, {"query_id": "e2e-inj-0001", "eval_group": "safety"}]
 
     def fake_judgments(evaluation_path, bundle_dir):
         calls["judgments"] = (evaluation_path, bundle_dir)
@@ -130,7 +138,17 @@ def test_evaluation_extend_rewrites_the_gold_file_and_its_judgments(
         "corpus_text",
         lambda knowledge: CorpusText(sections={}, section_documents={}, titles={}),
     )
-    monkeypatch.setattr(evaluation_command, "extend_rows", fake_extend)
+    monkeypatch.setattr(evaluation_command, "section_chunks", lambda knowledge: {})
+    monkeypatch.setattr(
+        evaluation_command,
+        "generate",
+        lambda corpus, counts, *, seed, chunks: [
+            {"query_id": "g1", "kind": "two_drug"},
+            {"query_id": "g2", "kind": "two_drug"},
+            {"query_id": "g3", "kind": "brand_to_ingredient"},
+        ],
+    )
+    monkeypatch.setattr(evaluation_command, "assemble_benchmark", fake_assemble)
     monkeypatch.setattr(
         evaluation_command, "build_evaluation_judgments", fake_judgments
     )
@@ -140,32 +158,28 @@ def test_evaluation_extend_rewrites_the_gold_file_and_its_judgments(
         [
             "--json",
             "evaluation",
-            "extend",
-            "--evaluation",
-            str(gold),
+            "assemble",
+            "--source",
+            str(source),
+            "--output",
+            str(output),
             "--bundle",
             str(tmp_path / "bundle"),
+            "--authoring-dir",
+            str(authoring),
             "--run",
             "",
-            "--conversational-total",
-            "16",
         ],
     )
 
     assert result.exit_code == 0, result.output
-    assert calls["extend"] == (
-        base,
-        [("Panadol đỏ", ["leaflet:t:p:01-thanh-phan"])],
-        None,
-        16,
-        0,
-    )
-    written = [json.loads(line) for line in gold.read_text("utf-8").splitlines()]
-    assert [row["query_id"] for row in written] == ["q1", "conv-0001"]
-    assert calls["judgments"] == (gold, tmp_path / "bundle")
+    rows, aliases, golden_items, extra, covered, seed = calls["assemble"]
+    assert (rows, golden_items, covered, seed) == (base, [golden], None, 0)
+    assert aliases == [("Panadol đỏ", ["leaflet:t:p:01-thanh-phan"])]
+    # Generated candidates take the kinds in turn.
+    assert [row["query_id"] for row in extra] == ["g1", "g3", "g2"]
+    written = [json.loads(line) for line in output.read_text("utf-8").splitlines()]
+    assert [row["query_id"] for row in written] == ["q1", "e2e-inj-0001"]
+    assert calls["judgments"] == (output, tmp_path / "bundle")
     details = json.loads(result.stdout)["details"]
-    assert (details["rows"], details["formulary"], details["conversational"]) == (
-        2,
-        1,
-        1,
-    )
+    assert (details["rows"], details["safety"]) == (2, 1)

@@ -302,11 +302,16 @@ công bằng:
   judge và vòng refine ứng với `retrieval_miss`, `noisy_retry`, `three_intent`; graph so với ReAct
   ứng với `two_drug`, `brand_to_ingredient`; rephrase ứng với multi-turn; guard ứng với ba nhóm an
   toàn; closed-book và gating τ đọc trên toàn bộ, tách answerable với multi-hop. Ở mức retrieval,
-  benchmark retrieval là một file duy nhất 12.355 câu, chín nhóm: sáu nhóm sinh bằng luật (10.000
-  câu) cộng `colloquial` 636 (mọi alias dân dã vắng trong tờ hướng dẫn hỏi theo năm mục thường gặp),
-  `glossary` 219 (mọi cụm lời thường của thuật ngữ mà chuyên luận chỉ ghi viết tắt) và
-  `conversational` 1.500 (§3.1), do `pharma-lab evaluation extend` nối vào. Mọi bảng retrieval và
-  e2e báo theo cùng chín nhóm; D2 và D5 là các dòng của bảng chính, không phải tập riêng.
+  benchmark là một file duy nhất đúng 10.000 câu, mười một nhóm, và mọi câu golden là một dòng của
+  nó (golden chỉ lấy dòng ra và thêm đáp án mẫu). `pharma-lab evaluation assemble` dựng từ 10.000
+  câu sinh bằng luật (giữ ở `data/evaluation/gold/archive/`): `colloquial` 636 (mọi alias dân dã
+  vắng trong tờ hướng dẫn hỏi theo năm mục thường gặp), `glossary` 219 (mọi cụm lời thường của thuật
+  ngữ mà chuyên luận chỉ ghi viết tắt), `conversational` 1.500 (§3.1), `multi_hop` 300 (các câu
+  multi-hop sinh theo luật của golden cộng câu cùng loại) và `safety` 30 (câu an toàn của golden,
+  không có mục gold, retrieval bỏ qua) được đưa vào đủ; structured, leaflet_short, noisy và
+  multi_intent giữ nguyên; formulary và leaflet được lấy mẫu theo tỉ lệ 2:1, phân tầng theo intent,
+  giữ mọi câu mà golden hay một dòng conversational tham chiếu. Mọi bảng retrieval và e2e báo theo
+  cùng các nhóm; D2 và D5 là các dòng của bảng chính, không phải tập riêng.
 - Phân bổ golden: answerable 270 theo đúng các nhóm của benchmark, gồm 30 câu tự nhiên cho mỗi
   nhóm sinh bằng luật, `colloquial` 20 và `glossary` 10 (mỗi câu trỏ về dòng `enrich-*` của benchmark),
   cộng 60 probe giữ nhóm nguồn: `rerank_probe` 21 (hybrid không rerank trượt top 5, có rerank thì
@@ -420,8 +425,8 @@ chạy trước Task 7 của plan pha D.
   hiện tượng.
 - Schema: thêm `turns`, giữ `query` là lượt cuối; `eval_group="conversational"`, `query_form` theo
   hiện tượng. Runner thêm `query_mode` và cache rewrite theo model.
-- Sinh bằng `pharma-lab evaluation extend`, nối vào chính file benchmark thành nhóm
-  `conversational` (1.500 item, mỗi hiện tượng 187 hoặc 188, 2 đến 4 lượt người dùng, câu cha xen kẽ leaflet với
+- Sinh trong `pharma-lab evaluation assemble`, là nhóm `conversational` của benchmark (1.500
+  item, mỗi hiện tượng 187 hoặc 188, 2 đến 4 lượt người dùng, câu cha xen kẽ leaflet với
   formulary và câu một lượt đã phủ với câu trượt). Câu hỏi theo mẫu chỉ dùng cho câu cha mà mục gold
   đúng là mục mẫu hỏi, và mọi mục gold, kể cả mục của câu trả lời cố định, đều đủ thông tin. Q0 chạy
   được ngay vì `query` là lượt cuối; Q6 là chính câu cha trong cùng benchmark.
