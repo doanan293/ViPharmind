@@ -180,11 +180,11 @@ def _answering_alternatives(
     corpus: CorpusText,
     actives: Mapping[str, frozenset[str]],
 ) -> list[str]:
-    """The alternatives that answer alone: of the same drug as the first one (the same
-    monograph, or a leaflet with the same active ingredients or brand, never another
-    drug whose section happens to read alike), and, for a dose question, a dose
-    section rather than one with only the route and timing, and, for a caution
-    question, the precautions."""
+    """The alternatives that answer alone: of the same product as the first one (the
+    same monograph, or a leaflet of the same brand and active ingredients in another
+    strength or pack, never another brand whose section happens to read alike), and,
+    for a dose question, a dose section rather than one with only the route and
+    timing, and, for a caution question, the precautions."""
     first = corpus.section_documents.get(alternatives[0], "")
     kept = [
         s
@@ -213,8 +213,8 @@ def _same_drug(
         return True
     if not (first.startswith("leaflet:") and other.startswith("leaflet:")):
         return False
-    if first in actives and actives.get(other) == actives[first]:
-        return True
+    if first in actives and actives.get(other) not in (None, actives[first]):
+        return False
     brands = [brand_name(corpus.titles.get(d, "")).split()[:1] for d in (first, other)]
     return bool(brands[0]) and _bare(brands[0][0]) == _bare(
         brands[1][0] if brands[1] else ""

@@ -269,6 +269,8 @@ def test_alternatives_must_answer_alone_and_be_the_same_drug() -> None:
         f"{b}:05-lieu-dung": f"Người lớn 250 mg mỗi 12 giờ. {LONG}",
         f"{c}:01-thanh-phan": "Cefaclor 250 mg. Tá dược: vừa đủ.",
         f"{c}:05-lieu-dung": f"Người lớn 250 mg mỗi 8 giờ. {LONG}",
+        "leaflet:t:zinnat:01-thanh-phan": "Cefuroxim 500 mg. Tá dược: vừa đủ.",
+        "leaflet:t:zinnat:05-lieu-dung": f"Người lớn 250 mg mỗi 12 giờ. {LONG}",
         "drug:cefuroxim:chi-dinh": "Nhiễm khuẩn.",
         "drug:cefaclor:chi-dinh": "Nhiễm khuẩn.",
     }
@@ -279,6 +281,7 @@ def test_alternatives_must_answer_alone_and_be_the_same_drug() -> None:
             a: "Cefu 500",
             b: "Cefu 250",
             c: "Cefa 250",
+            "leaflet:t:zinnat": "Zinnat 500",
             "drug:cefuroxim": "CEFUROXIM",
             "drug:cefaclor": "CEFACLOR",
         },
@@ -290,11 +293,13 @@ def test_alternatives_must_answer_alone_and_be_the_same_drug() -> None:
             f"{a}:04-cach-dung",
             f"{b}:05-lieu-dung",
             f"{c}:05-lieu-dung",
+            "leaflet:t:zinnat:05-lieu-dung",
         ],
         "answer_mode": "any_acceptable",
     }
     fixed, counts = repair_rows([asked], corpus)
-    # The route-only section and the other drug's section are not answers.
+    # The route-only section, the other drug and the other brand of the same drug
+    # are not answers.
     assert fixed[0]["expected_section_ids"] == [
         f"{a}:05-lieu-dung",
         f"{b}:05-lieu-dung",
