@@ -238,6 +238,56 @@ def test_a_name_cut_mid_phrase_is_restored_and_a_whole_phrase_is_kept() -> None:
         "Agifivit phòng và trị thiếu máu, có dùng cho trẻ em không?",
         f"{PAN}:03-cach-dung-lieu-dung",
     )
-    fixed, counts = repair_rows([cut, whole], corpus)
+    framed = row(
+        "t4",
+        "Khi dùng Agifivit phòng, cần lưu ý gì?",
+        f"{PAN}:03-cach-dung-lieu-dung",
+    )
+    fixed, counts = repair_rows([cut, whole, framed], corpus)
     assert fixed[0]["query"] == "Agifivit của hãng nào?"
-    assert fixed[1] == whole and counts["truncated_name"] == 1
+    assert fixed[1] == whole
+    assert fixed[2]["query"] == "Khi dùng Agifivit cần lưu ý gì?"
+    assert counts["truncated_name"] == 2
+
+
+def test_alternatives_must_answer_alone_and_be_the_same_drug() -> None:
+    a, b, c = "leaflet:t:cefu-500", "leaflet:t:cefu-250", "leaflet:t:cefa-250"
+    sections = {
+        f"{a}:01-thanh-phan": "Cefuroxim 500 mg. Tá dược: vừa đủ.",
+        f"{a}:04-cach-dung": f"Uống sau bữa ăn, nuốt nguyên viên với nước. {LONG}",
+        f"{a}:05-lieu-dung": f"Người lớn 250 mg mỗi 12 giờ. {LONG}",
+        f"{b}:01-thanh-phan": "Cefuroxim 250 mg. Tá dược: vừa đủ.",
+        f"{b}:05-lieu-dung": f"Người lớn 250 mg mỗi 12 giờ. {LONG}",
+        f"{c}:01-thanh-phan": "Cefaclor 250 mg. Tá dược: vừa đủ.",
+        f"{c}:05-lieu-dung": f"Người lớn 250 mg mỗi 8 giờ. {LONG}",
+        "drug:cefuroxim:chi-dinh": "Nhiễm khuẩn.",
+        "drug:cefaclor:chi-dinh": "Nhiễm khuẩn.",
+    }
+    corpus = CorpusText(
+        sections=sections,
+        section_documents={k: k.rsplit(":", 1)[0] for k in sections},
+        titles={
+            a: "Cefu 500",
+            b: "Cefu 250",
+            c: "Cefa 250",
+            "drug:cefuroxim": "CEFUROXIM",
+            "drug:cefaclor": "CEFACLOR",
+        },
+    )
+    asked = {
+        **row("d1", "Cefu 500 dùng liều thế nào?", f"{a}:05-lieu-dung"),
+        "expected_section_ids": [
+            f"{a}:05-lieu-dung",
+            f"{a}:04-cach-dung",
+            f"{b}:05-lieu-dung",
+            f"{c}:05-lieu-dung",
+        ],
+        "answer_mode": "any_acceptable",
+    }
+    fixed, counts = repair_rows([asked], corpus)
+    # The route-only section and the other drug's section are not answers.
+    assert fixed[0]["expected_section_ids"] == [
+        f"{a}:05-lieu-dung",
+        f"{b}:05-lieu-dung",
+    ]
+    assert counts["alternative_mismatch"] == 1
