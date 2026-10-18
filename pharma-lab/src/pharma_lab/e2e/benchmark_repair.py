@@ -12,10 +12,16 @@ before the benchmark is assembled. A row no rule touches is returned unchanged.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections import Counter
 from collections.abc import Mapping, Sequence
 
-from pharma_lab.e2e.corpus_text import CorpusText, normalize_space, section_slug
+from pharma_lab.e2e.corpus_text import (
+    CorpusText,
+    normalize_space,
+    null_statement,
+    section_slug,
+)
 from pharma_lab.e2e.golden_generate import brand_name
 
 PASTED_MIN_WORDS = 11
@@ -30,14 +36,9 @@ _ADR = re.compile(
     r"nghĩ tới adr|có thể bị vấn đề gì",
     re.IGNORECASE,
 )
-_PREGNANCY = re.compile(r"có thai|mang thai|bà bầu|thai kỳ", re.IGNORECASE)
-_LACTATION = re.compile(r"cho con bú", re.IGNORECASE)
-# The generator cut product names after the first use verb, sometimes keeping "và":
-# "Tamiflu 75 mg phòng và dùng liều thế nào?" from "Tamiflu 75 mg phòng và trị cúm …".
-_CUT_NAME = re.compile(
-    r"^(?P<prefix>.+?\s(?:phòng|trị|điều trị|giảm|hỗ trợ|bổ sung|chống|ngừa|cầm|tăng|"
-    r"giúp)(?:\svà)?)\s(?P<rest>(?:có|dùng|bảo|cần|là|thì|nên|chứa|uống|trong)\b.*)$"
-)
+# Matched on the question without diacritics, so noisy questions count too.
+_PREGNANCY = re.compile(r"co thai|mang thai|ba bau|co bau|dang bau|thai ky|thai phu")
+_LACTATION = re.compile(r"cho con bu|cho bu|nuoi con")
 # Sections that cannot answer a general or ADR question.
 UNANSWERING = {
     "thong-tin-qui-che",
@@ -49,6 +50,7 @@ GENERAL_TARGET = ("thong-tin-chung",)
 ADR_TARGET = ("tac-dung-khong-mong-muon-adr", "tac-dung-phu")
 PREGNANCY_SLUGS = ("thoi-ky-mang-thai", "thai-ky-va-cho-con-bu")
 LACTATION_SLUGS = ("thoi-ky-cho-con-bu", "thai-ky-va-cho-con-bu")
+_NAME_BREAK = re.compile(r"[,.;:)]$")
 
 
 def repair_rows(
@@ -81,6 +83,18 @@ def _repair(
     if _HEADING_LEAK.search(query):
         counts["heading_leak"] += 1
         return None
+    answering = [s for s in gold if not null_statement(corpus.sections.get(s, "x"))]
+    if not answering or (
+        len(answering) < len(gold) and row.get("answer_mode") != ("any_acceptable")
+    ):
+        counts["null_gold"] += 1
+        return None
+    if len(answering) < len(gold):
+        counts["null_alternative"] += 1
+        row = _with_gold(
+            row, answering, "any_acceptable" if len(answering) > 1 else ("single")
+        )
+        gold = answering
     document = corpus.section_documents.get(gold[0], "")
     slugs = sections.get(document, {})
     if len(gold) == 1 and section_slug(gold[0]) in UNANSWERING:
@@ -93,27 +107,76 @@ def _repair(
             counts[rule] += 1
             row = _with_gold(row, [found], "single")
             gold = [found]
-    if (
-        len(gold) == 1
-        and _PREGNANCY.search(query)
-        and _LACTATION.search(query)
-        and section_slug(gold[0]) in {*PREGNANCY_SLUGS, *LACTATION_SLUGS}
-    ):
-        both = [
-            next((slugs[s] for s in PREGNANCY_SLUGS if s in slugs), None),
-            next((slugs[s] for s in LACTATION_SLUGS if s in slugs), None),
-        ]
-        pair = [s for s in dict.fromkeys(both) if s is not None]
+    if len(gold) == 1 and section_slug(gold[0]) in {*PREGNANCY_SLUGS, *LACTATION_SLUGS}:
+        row = _pregnancy_lactation(row, query, gold[0], slugs, counts)
+    if document.startswith("leaflet:"):
+        restored = _restore_name(query, corpus.titles.get(document, ""))
+        if restored is not None:
+            counts["truncated_name"] += 1
+            row = {**row, "query": restored}
+    return row
+
+
+def _fold(text: str) -> str:
+    decomposed = unicodedata.normalize("NFD", text.replace("đ", "d").replace("Đ", "D"))
+    return "".join(c for c in decomposed if unicodedata.category(c) != "Mn").lower()
+
+
+def _pregnancy_lactation(
+    row: dict,
+    query: str,
+    section_id: str,
+    slugs: Mapping[str, str],
+    counts: Counter[str],
+) -> dict:
+    """A pregnancy or lactation question gets the section of what it asks: both
+    sections when it asks both, the other section when it was attached to the wrong
+    one."""
+    folded = _fold(query)
+    pregnancy, lactation = (
+        bool(_PREGNANCY.search(folded)),
+        bool(_LACTATION.search(folded)),
+    )
+    preg = next((slugs[s] for s in PREGNANCY_SLUGS if s in slugs), None)
+    lact = next((slugs[s] for s in LACTATION_SLUGS if s in slugs), None)
+    if pregnancy and lactation:
+        pair = [s for s in dict.fromkeys([preg, lact]) if s is not None]
         if len(pair) == 2:
             counts["pregnancy_lactation"] += 1
-            row = _with_gold(row, pair, "multi_required")
-    if document.startswith("leaflet:"):
-        match = _CUT_NAME.match(query)
-        title = corpus.titles.get(document, "")
-        if match and title.casefold().startswith(match["prefix"].casefold()):
-            counts["truncated_name"] += 1
-            row = {**row, "query": f"{brand_name(title)} {match['rest']}"}
+            return _with_gold(row, pair, "multi_required")
+        return row
+    wanted = preg if pregnancy else lact if lactation else None
+    if wanted is not None and wanted != section_id:
+        counts["pregnancy_lactation_regold"] += 1
+        return _with_gold(row, [wanted], "single")
     return row
+
+
+def _restore_name(query: str, title: str) -> str | None:
+    """The question with its product name cut back to the brand when the generator
+    cut the title in the middle of a phrase: "Tamiflu 75 mg phòng và dùng liều thế
+    nào?" from "Tamiflu 75 mg phòng và trị cúm …" becomes "Tamiflu 75 mg dùng liều
+    thế nào?". A name that stops at a phrase break is left as it is."""
+    brand = brand_name(title)
+    if not brand or not query.casefold().startswith(brand.casefold()):
+        return None
+    at = title.casefold().find(brand.casefold())
+    if at < 0:
+        return None
+    asked = query[len(brand) :].split()
+    rest = title[at + len(brand) :].split()
+    common = 0
+    while (
+        common < min(len(asked), len(rest))
+        and asked[common].casefold() == rest[common].casefold()
+        and not _NAME_BREAK.search(rest[common])
+    ):
+        common += 1
+    if common == 0 or common >= len(asked) or common >= len(rest):
+        return None
+    if asked[common].casefold() == rest[common].casefold():
+        return None  # the question copies the title up to a phrase break
+    return f"{brand} {' '.join(asked[common:])}"
 
 
 def _regold(

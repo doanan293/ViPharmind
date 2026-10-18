@@ -17,6 +17,7 @@ from pharma_lab.e2e.golden_generate import (
     drug_name,
     generate,
     glossary_benchmark,
+    named_as_partner,
     section_slug,
     single_active,
     term_caps,
@@ -263,11 +264,18 @@ def test_colloquial_asks_at_most_two_aliases_per_product_with_quotable_gold() ->
     corpus = colloquial_corpus()
     aliases = [
         (name, [f"{EXTRA}:02-cach-dung-lieu-dung"])
-        for name in ("Panadol đỏ", "Panadol hộp đỏ", "thuốc đỏ", "Panadol Extra")
+        for name in (
+            "Panadol đỏ",
+            "Panadol hộp đỏ",
+            "Panadol vỉ đỏ",
+            "thuốc đỏ",
+            "Panadol Extra",
+        )
     ]
     rows = colloquial_benchmark(corpus, aliases)
-    # The official name is dropped; of the rest, the two sharing fewest title words.
-    assert [r.subjects[0] for r in rows] == ["thuốc đỏ", "Panadol hộp đỏ"]
+    # The official name and "thuốc đỏ" (no product name) are dropped; of the rest, the
+    # two sharing fewest title words.
+    assert [r.subjects[0] for r in rows] == ["Panadol hộp đỏ", "Panadol vỉ đỏ"]
     assert {r.query_id for r in rows} == {
         "enrich-colloquial-0001",
         "enrich-colloquial-0002",
@@ -314,3 +322,14 @@ def test_glossary_rows_are_benchmark_rows_and_no_term_dominates() -> None:
     # 20 is the largest cap at most a quarter of what is kept (20 + 20 + 20 + 10 + 10).
     assert caps == {"TKTW": 20, "HIV": 20, "MAO": 20, "INR": 10, "ECG": 10}
     assert max(caps.values()) <= GLOSSARY_TERM_SHARE * sum(caps.values())
+
+
+def test_a_partner_is_named_as_a_drug_not_a_reference_likeness_or_class() -> None:
+    assert named_as_partner("Dùng cùng warfarin làm tăng INR.", "WARFARIN")
+    assert not named_as_partner(
+        "Cũng như các progestogen khác (Xem progesteron).", "PROGESTERON"
+    )
+    assert not named_as_partner("Rượu: phản ứng giống disulfiram.", "DISULFIRAM")
+    assert not named_as_partner(
+        "Tương tự như các tetracyclin nói chung.", "TETRACYCLIN"
+    )

@@ -22,7 +22,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 
-from pharma_lab.e2e.corpus_text import CorpusText, section_slug
+from pharma_lab.e2e.corpus_text import CorpusText, null_statement, section_slug
 
 # Monograph section slugs and the leaflet slugs that hold the same information.
 INTERACTIONS = "tuong-tac-thuoc"
@@ -207,6 +207,23 @@ class MonographNames:
         return [self.by_name[name] for name in found]
 
 
+# Words before a drug name that mean the text does not describe an interaction with it:
+# a cross-reference ("Xem progesteron"), a likeness ("phản ứng giống disulfiram") or the
+# drug's class ("các tetracyclin", "như tetracyclin nói chung").
+_NOT_A_PARTNER = re.compile(r"(xem|giống|các|như|nhóm|họ)\s*$")
+
+
+def named_as_partner(text: str, name: str) -> bool:
+    """Whether `text` names the drug `name` at least once as a drug in its own right."""
+    folded = " ".join(_tokens(text))
+    target = " ".join(_tokens(name))
+    for match in re.finditer(rf"(?<!\w){re.escape(target)}(?!\w)", folded):
+        before = folded[max(0, match.start() - 12) : match.start()]
+        if not _NOT_A_PARTNER.search(before):
+            return True
+    return False
+
+
 def _sections_by_document(corpus: CorpusText) -> dict[str, dict[str, str]]:
     """document key -> section slug -> section id."""
     index: dict[str, dict[str, str]] = {}
@@ -240,7 +257,9 @@ def two_drug_candidates(
             (
                 (b, intent, template)
                 for b in names.named_in(corpus.sections[a_section])
-                if b != a and partners.get(b, 0) < 2
+                if b != a
+                and partners.get(b, 0) < 2
+                and named_as_partner(corpus.sections[a_section], corpus.titles[b])
                 for intent, template in _rotate(TWO_DRUG_INTENTS, len(out))
                 if intent in sections.get(b, {})
             ),
@@ -286,13 +305,16 @@ def brand_candidates(corpus: CorpusText, *, count: int, seed: int) -> list[Candi
         if len(named) != 1 or named[0] in used_ingredients or not single_active(text):
             continue
         ingredient = named[0]
+        brand = brand_name(corpus.titles[leaflet])
+        # A brand that spells out its ingredient needs no composition section.
+        if " ".join(_tokens(corpus.titles[ingredient])) in " ".join(_tokens(brand)):
+            continue
         for intent, leaflet_slugs, template in _rotate(BRAND_INTENTS, len(out)):
             if intent not in sections.get(ingredient, {}):
                 continue
             if any(slug in sections[leaflet] for slug in leaflet_slugs):
                 continue
             used_ingredients.add(ingredient)
-            brand = brand_name(corpus.titles[leaflet])
             out.append(
                 Candidate(
                     f"gen-brand-{len(out) + 1:04d}",
@@ -369,8 +391,26 @@ MIN_GOLD_CHARS = 40
 
 
 def quotable(text: str) -> bool:
-    """A section long enough to answer a question by itself."""
-    return len(" ".join(text.split())) >= MIN_GOLD_CHARS
+    """A section long enough to answer a question by itself, not a null statement."""
+    return len(" ".join(text.split())) >= MIN_GOLD_CHARS and not null_statement(text)
+
+
+def names_a_product(alias: str, titles: Sequence[str]) -> bool:
+    """The alias carries a proper name of one of the titles (a capitalised title word
+    other than a dosage form, or a word it starts with: `Berberin` in `Berberine`).
+    "nước muối sinh lý" or "viên xanh xám cầm tiêu chảy" name a kind of product,
+    not a product."""
+    words = re.findall(r"[^\W\d_][\w-]{2,}", alias.casefold())
+    for title in titles:
+        for proper in re.findall(r"[^\W\d_][\w-]{2,}", title):
+            if not proper[0].isupper() or _FORM_PREFIX.match(f"{proper} "):
+                continue
+            folded = proper.casefold()
+            if any(
+                w == folded or (len(w) >= 5 and folded.startswith(w)) for w in words
+            ):
+                return True
+    return False
 
 
 def colloquial_groups(
@@ -382,7 +422,8 @@ def colloquial_groups(
     An alias belongs to every leaflet it maps to. It is kept only when it occurs in none
     of their titles or sections and is not an official name (every word of it in one
     title), so retrieval reaches the product under it only through the colloquial
-    enrichment of its chunks."""
+    enrichment of its chunks, and only when it carries a product's proper name
+    (`names_a_product`), so a user could mean nothing else by it."""
     texts: dict[str, list[str]] = {}
     for section_id, document in corpus.section_documents.items():
         texts.setdefault(document, []).append(corpus.sections[section_id])
@@ -406,6 +447,8 @@ def colloquial_groups(
             " ".join([corpus.titles.get(d, ""), *texts.get(d, [])]) for d in found
         ).casefold()
         if key in text or any(words <= title for title in titles):
+            continue
+        if not names_a_product(key, [corpus.titles.get(d, "") for d in found]):
             continue
         overlap = len(words & set().union(*titles)) / len(words)
         by_group.setdefault(tuple(sorted(found)), []).append((overlap, spelling[key]))

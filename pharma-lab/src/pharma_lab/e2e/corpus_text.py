@@ -17,6 +17,32 @@ def normalize_space(text: str) -> str:
     return " ".join(text.split())
 
 
+# A section that says there is nothing to say: "Không có.", "Chưa có báo cáo.", or the
+# leaflet line that only tells the reader to call the emergency number.
+NULL_STATEMENT_CHARS = 200
+_NULL_OPENER = re.compile(
+    r"^(hiện( nay)? |cho đến nay |hiện tại )?(không|chưa) (có|thấy|ghi nhận|được)",
+    re.IGNORECASE,
+)
+_ADVICE = re.compile(
+    r"không (nên )?(dùng|sử dụng|khuyến)|thận trọng|tránh|ngừng|điều trị|xử trí|"
+    r"theo dõi|chỉ (khi|nên|dùng)|cân nhắc",
+    re.IGNORECASE,
+)
+_EMERGENCY_ONLY = re.compile(r"cấp cứu 115", re.IGNORECASE)
+
+
+def null_statement(text: str) -> bool:
+    """A short section that answers nothing: it only says there is no information,
+    no report or nothing to note, without advice, or only points to emergency care."""
+    flat = normalize_space(text)
+    if len(flat) >= NULL_STATEMENT_CHARS:
+        return False
+    if len(flat) < 15 or _EMERGENCY_ONLY.search(flat):
+        return True
+    return bool(_NULL_OPENER.search(flat)) and not _ADVICE.search(flat)
+
+
 def section_slug(section_id: str) -> str:
     """`drug:x:tuong-tac-thuoc` -> `tuong-tac-thuoc`; leaflets drop the `NN-` prefix."""
     slug = section_id.rsplit(":", 1)[1]

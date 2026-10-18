@@ -123,7 +123,7 @@ def test_a_brand_question_keeps_its_trade_name_gold_when_the_section_names_it() 
 
 def test_a_regold_with_no_target_section_drops_the_row() -> None:
     corpus = CorpusText(
-        sections={f"{AMOX}:tuong-ky": "x"},
+        sections={f"{AMOX}:tuong-ky": "Không trộn với aminoglycosid trong bơm tiêm."},
         section_documents={f"{AMOX}:tuong-ky": AMOX},
         titles={AMOX: "AMOXICILIN"},
     )
@@ -170,3 +170,74 @@ def test_rows_the_repair_does_not_touch_stay_identical() -> None:
     )
     rows, counts = repaired(clean)
     assert rows["c1"] == clean and sum(counts.values()) == 0
+
+
+def test_null_gold_drops_the_row_or_the_alternative() -> None:
+    corpus = CorpusText(
+        sections={
+            **SECTIONS,
+            f"{PAN}:04-qua-lieu": "Chưa có báo cáo.",
+            f"{PAN}:05-qua-lieu": "Gọi ngay cấp cứu 115 hoặc đến trạm y tế gần nhất.",
+            f"{PAN}:06-qua-lieu": f"Quá liều gây buồn nôn, cần rửa dạ dày. {LONG}",
+        },
+        section_documents={
+            **CORPUS.section_documents,
+            **{f"{PAN}:0{n}-qua-lieu": PAN for n in (4, 5, 6)},
+        },
+        titles=CORPUS.titles,
+    )
+    single = row("n1", "Tamiflu quá liều thì sao?", f"{PAN}:04-qua-lieu")
+    alternatives = {
+        **row("n2", "Tamiflu quá liều thì sao?", f"{PAN}:04-qua-lieu"),
+        "expected_section_ids": [f"{PAN}:05-qua-lieu", f"{PAN}:06-qua-lieu"],
+        "answer_mode": "any_acceptable",
+    }
+    fixed, counts = repair_rows([single, alternatives], corpus)
+    assert [r["query_id"] for r in fixed] == ["n2"]
+    assert fixed[0]["expected_section_ids"] == [f"{PAN}:06-qua-lieu"]
+    assert fixed[0]["answer_mode"] == "single"
+    assert counts["null_gold"] == 1 and counts["null_alternative"] == 1
+
+
+def test_pregnancy_and_lactation_follow_what_the_question_asks() -> None:
+    rows, counts = repaired(
+        row(
+            "b1",
+            "dang cho con bu dung amoxicilin co sao khong?",
+            f"{AMOX}:thoi-ky-mang-thai",
+            intent="pregnancy_lactation",
+        ),
+        row(
+            "b2",
+            "co bau dung amoxicilin duoc khong?",
+            f"{AMOX}:thoi-ky-cho-con-bu",
+            intent="pregnancy_lactation",
+        ),
+        row(
+            "b3",
+            "Kê AMOXICILIN cho phụ nữ mang thai hoặc nuôi con nhỏ?",
+            f"{AMOX}:thoi-ky-cho-con-bu",
+            intent="pregnancy_lactation",
+        ),
+    )
+    assert rows["b1"]["expected_section_ids"] == [f"{AMOX}:thoi-ky-cho-con-bu"]
+    assert rows["b2"]["expected_section_ids"] == [f"{AMOX}:thoi-ky-mang-thai"]
+    assert rows["b3"]["answer_mode"] == "multi_required"
+    assert counts["pregnancy_lactation_regold"] == 2
+
+
+def test_a_name_cut_mid_phrase_is_restored_and_a_whole_phrase_is_kept() -> None:
+    corpus = CorpusText(
+        sections=SECTIONS,
+        section_documents=CORPUS.section_documents,
+        titles={**CORPUS.titles, PAN: "Agifivit phòng và trị thiếu máu, bổ sung sắt"},
+    )
+    cut = row("t2", "Agifivit phòng và của hãng nào?", f"{PAN}:03-cach-dung-lieu-dung")
+    whole = row(
+        "t3",
+        "Agifivit phòng và trị thiếu máu, có dùng cho trẻ em không?",
+        f"{PAN}:03-cach-dung-lieu-dung",
+    )
+    fixed, counts = repair_rows([cut, whole], corpus)
+    assert fixed[0]["query"] == "Agifivit của hãng nào?"
+    assert fixed[1] == whole and counts["truncated_name"] == 1
