@@ -28,10 +28,13 @@ from pydantic import BaseModel, Field
 
 from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden import (
+    ANSWERABLE_GROUP_QUOTAS,
+    EVAL_GROUPS,
     ID_PREFIX,
     MULTI_HOP_QUOTAS,
     MULTI_TURN_QUOTAS,
-    PROBE_QUOTAS,
+    SLICE_KINDS,
+    SLICE_QUOTAS,
     Category,
     ExpectedBehavior,
     GoldenItem,
@@ -48,12 +51,16 @@ DRAFT_MODEL = "gemini-3.1-flash-lite"
 @dataclass(frozen=True)
 class Family:
     """A group of drafted items with its own batches, quotas and item ids: the
-    multi-hop items, and the answerable probes of the retrieval-side components."""
+    multi-hop items, the multi-turn items, the answerable items of each benchmark
+    group, and the answerable items of each construction-defined slice. A family
+    counted by group fills its quotas by the benchmark group of every answerable item
+    outside the slices, wherever it was authored."""
 
     batch: str
     category: Category
     quotas: Mapping[str, int]
     id_prefix: str
+    by_group: bool = False
 
     @property
     def candidate_files(self) -> tuple[str, str]:
@@ -63,8 +70,15 @@ class Family:
 MULTI_HOP = Family(
     "multi-hop", Category.MULTI_HOP, MULTI_HOP_QUOTAS, ID_PREFIX[Category.MULTI_HOP]
 )
-PROBE = Family(
-    "probe", Category.ANSWERABLE, PROBE_QUOTAS, f"{ID_PREFIX[Category.ANSWERABLE]}p"
+NATURAL = Family(
+    "natural",
+    Category.ANSWERABLE,
+    ANSWERABLE_GROUP_QUOTAS,
+    f"{ID_PREFIX[Category.ANSWERABLE]}n",
+    by_group=True,
+)
+SLICE = Family(
+    "slice", Category.ANSWERABLE, SLICE_QUOTAS, f"{ID_PREFIX[Category.ANSWERABLE]}s"
 )
 MULTI_TURN = Family(
     "multi-turn",
@@ -72,7 +86,7 @@ MULTI_TURN = Family(
     MULTI_TURN_QUOTAS,
     ID_PREFIX[Category.MULTI_TURN],
 )
-FAMILIES = {family.batch: family for family in (MULTI_HOP, PROBE, MULTI_TURN)}
+FAMILIES = {family.batch: family for family in (MULTI_HOP, NATURAL, SLICE, MULTI_TURN)}
 
 DRAFT_SYSTEM = """Bạn soạn đáp án mẫu cho bộ đánh giá hệ thống tra cứu thuốc tiếng Việt.
 Cho một câu hỏi và các mục tài liệu (mỗi mục có id), hãy trả về:
@@ -109,6 +123,30 @@ class DraftReference(BaseModel):
     answer: str
     key_facts: list[DraftFact] = Field(default_factory=list)
     question: str | None = None
+
+
+def answerable_candidates(
+    rows: Sequence[Mapping[str, object]],
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    """Benchmark rows as candidates of the natural family (kind: the row's group) and
+    of the slice family (kind: each slice of a rule-built row)."""
+    natural = [
+        {**row, "kind": row["eval_group"]}
+        for row in rows
+        if row.get("eval_group") in ANSWERABLE_GROUP_QUOTAS
+    ]
+    slices = [
+        {**row, "kind": kind}
+        for row in rows
+        if row.get("eval_group") in EVAL_GROUPS
+        for kind in _strings(row.get("slices"))
+        if kind in SLICE_QUOTAS
+    ]
+    return natural, slices
+
+
+def _strings(value: object) -> list[str]:
+    return [str(entry) for entry in value] if isinstance(value, list) else []
 
 
 def needed_counts(
@@ -207,8 +245,23 @@ def authored_state(
                 if item_id.startswith(prefix) and item_id[len(prefix) :].isdigit():
                     highest = max(highest, int(item_id[len(prefix) :]))
                 tags = line.get("tags")
-                if pattern.endswith("authored.jsonl") and isinstance(tags, list):
+                if (
+                    not family.by_group
+                    and pattern.endswith("authored.jsonl")
+                    and isinstance(tags, list)
+                ):
                     counts.update(tag for tag in tags if tag in family.quotas)
+    if family.by_group:
+        for path in _batches(authoring_dir, "*.authored.jsonl"):
+            for line in _lines(path):
+                tags = line.get("tags")
+                group = line.get("eval_group")
+                if (
+                    line.get("category") == family.category
+                    and group in family.quotas
+                    and not (isinstance(tags, list) and set(tags) & set(SLICE_KINDS))
+                ):
+                    counts[group] += 1
     return counts, highest
 
 

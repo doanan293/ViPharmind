@@ -8,10 +8,12 @@ from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden import Category, ExpectedBehavior
 from pharma_lab.e2e.golden_draft import (
     MULTI_TURN,
-    PROBE,
+    NATURAL,
+    SLICE,
     DraftFact,
     DraftFailure,
     DraftReference,
+    answerable_candidates,
     authored_documents,
     authored_sections,
     authored_state,
@@ -280,31 +282,75 @@ def test_select_keeps_one_candidate_per_gold_section_set() -> None:
     assert [str(r["query_id"]) for r in chosen["three_intent"]] == ["q3"]
 
 
-async def test_a_probe_is_drafted_as_an_answerable_item_with_its_own_ids(
+async def test_a_slice_item_is_drafted_as_an_answerable_item_with_its_own_ids(
     tmp_path,
 ) -> None:
     llm = ScriptedLlm()
     llm.script(LlmRole.ANSWER, good())
-    row = dict(candidate("q1", "rerank_probe"), eval_group="formulary")
+    row = dict(candidate("q1", "low_overlap"), eval_group="formulary")
     items, _ = await draft_multi_hop(
-        llm, {"rerank_probe": [row]}, {"rerank_probe": 1}, CORPUS, family=PROBE
+        llm, {"low_overlap": [row]}, {"low_overlap": 1}, CORPUS, family=SLICE
     )
     (item,) = items
     assert (item.item_id, item.category, item.tags) == (
-        "e2e-ans-p0001",
+        "e2e-ans-s0001",
         Category.ANSWERABLE,
-        ["rerank_probe"],
+        ["low_overlap"],
     )
-    # A probe keeps the benchmark group of its row.
+    # A slice item keeps the benchmark group of its row.
     assert item.eval_group == "formulary"
-    paths = write_drafts(tmp_path, items, [], family=PROBE)
-    assert [p.name for p in paths] == ["probe-01.draft.jsonl", "probe.failed.jsonl"]
-    assert needed_counts({"rerank_probe": 5}, PROBE)["rerank_probe"] == 16
-    (tmp_path / "probe-01.authored.jsonl").write_text(
+    paths = write_drafts(tmp_path, items, [], family=SLICE)
+    assert [p.name for p in paths] == ["slice-01.draft.jsonl", "slice.failed.jsonl"]
+    assert needed_counts({"low_overlap": 5}, SLICE)["low_overlap"] == 15
+    (tmp_path / "slice-01.authored.jsonl").write_text(
         paths[0].read_text("utf-8"), encoding="utf-8"
     )
-    assert authored_state(tmp_path, PROBE) == ({"rerank_probe": 1}, 1)
+    assert authored_state(tmp_path, SLICE) == ({"low_overlap": 1}, 1)
     assert authored_state(tmp_path) == ({}, 0)
+
+
+def test_the_natural_family_counts_answerable_items_by_group_wherever_authored(
+    tmp_path,
+) -> None:
+    lines = [
+        {"item_id": "e2e-ans-0001", "category": "answerable", "eval_group": "noisy"},
+        {
+            "item_id": "e2e-ans-n0003",
+            "category": "answerable",
+            "eval_group": "glossary",
+        },
+        # A slice item counts for its slice, not for its group.
+        {
+            "item_id": "e2e-ans-s0001",
+            "category": "answerable",
+            "eval_group": "noisy",
+            "tags": ["low_overlap"],
+        },
+    ]
+    for name, line in zip(
+        ("answerable-01", "natural-01", "slice-01"), lines, strict=True
+    ):
+        (tmp_path / f"{name}.authored.jsonl").write_text(
+            json.dumps(line) + "\n", encoding="utf-8"
+        )
+    counts, highest = authored_state(tmp_path, NATURAL)
+    assert counts == {"noisy": 1, "glossary": 1} and highest == 3
+    assert needed_counts(counts, NATURAL)["noisy"] == 29
+
+
+def test_answerable_candidates_by_group_and_by_slice() -> None:
+    rows = [
+        {"query_id": "a", "eval_group": "formulary", "slices": ["low_overlap"]},
+        {"query_id": "b", "eval_group": "colloquial", "slices": ["header_dependent"]},
+        {"query_id": "c", "eval_group": "conversational", "slices": []},
+    ]
+    natural, slices = answerable_candidates(rows)
+    assert [(r["query_id"], r["kind"]) for r in natural] == [
+        ("a", "formulary"),
+        ("b", "colloquial"),
+    ]
+    # Slice items come from the rule-built groups only.
+    assert [(r["query_id"], r["kind"]) for r in slices] == [("a", "low_overlap")]
 
 
 async def test_a_multi_turn_item_keeps_the_conversation_of_its_row() -> None:

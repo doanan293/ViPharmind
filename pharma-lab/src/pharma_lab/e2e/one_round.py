@@ -8,13 +8,11 @@ are the ones that round already covers.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from pharma_lab.e2e.corpus_text import CorpusText, section_slug
-from pharma_lab.e2e.golden import GoldenItem
 from pharma_lab.evaluation.retrieval_metrics import (
     evidence_units,
     expected_section_ids,
@@ -88,42 +86,6 @@ def multi_hop_kind(
     if query_row.get("eval_group") == "noisy":
         return "noisy_retry"
     return "retrieval_miss"
-
-
-def trim_covered(
-    items: Sequence[GoldenItem],
-    coverage_by_query: Mapping[str, OneRoundCoverage],
-    *,
-    keep_per_group: int,
-) -> list[str]:
-    """Ids of answerable items to drop so each group keeps `keep_per_group`.
-
-    Only items whose gold one round fully covers are dropped, in id order.
-    """
-    by_group: dict[str, list[GoldenItem]] = defaultdict(list)
-    for item in items:
-        # Probes have no group and are never trimmed.
-        if item.eval_group is not None:
-            by_group[item.eval_group].append(item)
-    dropped: list[str] = []
-    problems: list[str] = []
-    for group, members in sorted(by_group.items()):
-        excess = len(members) - keep_per_group
-        if excess <= 0:
-            continue
-        covered = sorted(
-            item.item_id
-            for item in members
-            if (result := coverage_by_query.get(str(item.source_query_id)))
-            and not result.missing
-        )
-        if len(covered) < excess:
-            problems.append(f"{group}: {len(covered)} covered items, need {excess}")
-            continue
-        dropped.extend(covered[:excess])
-    if problems:
-        raise ValueError("cannot trim the golden set:\n" + "\n".join(problems))
-    return dropped
 
 
 @dataclass(frozen=True)

@@ -18,9 +18,9 @@ from pharma_lab.e2e.golden import (
     MULTI_HOP_KINDS,
     MULTI_HOP_QUOTAS,
     MULTI_TURN_QUOTAS,
-    PROBE_QUOTAS,
     QUOTAS,
     SCHEMA,
+    SLICE_QUOTAS,
     Category,
     GoldenItem,
     build_golden,
@@ -109,22 +109,22 @@ def test_golden_schema_is_v3_without_chunk_ids() -> None:
         )
 
 
-def test_answerable_groups_follow_the_benchmark_and_probes_keep_theirs() -> None:
-    assert sum(ANSWERABLE_GROUP_QUOTAS.values()) + sum(PROBE_QUOTAS.values()) == 270
+def test_answerable_groups_follow_the_benchmark_and_slice_items_keep_theirs() -> None:
+    assert sum(ANSWERABLE_GROUP_QUOTAS.values()) + sum(SLICE_QUOTAS.values()) == 270
     assert ANSWERABLE_GROUP_QUOTAS["colloquial"] == 20
     assert ANSWERABLE_GROUP_QUOTAS["glossary"] == 10
     ok = [
         answerable("e2e-ans-0001", eval_group="colloquial"),
-        answerable("e2e-ans-p0001", eval_group="leaflet", tags=["rerank_probe"]),
+        answerable("e2e-ans-s0001", eval_group="leaflet", tags=["sibling_products"]),
     ]
     assert validate_items(ok, CORPUS, complete=False) == []
-    ungrouped = answerable("e2e-ans-p0002", eval_group=None, tags=["rerank_probe"])
-    probe_of_new_group = answerable(
-        "e2e-ans-p0003", eval_group="glossary", tags=["lexical_probe"]
+    ungrouped = answerable("e2e-ans-s0002", eval_group=None, tags=["low_overlap"])
+    slice_of_new_group = answerable(
+        "e2e-ans-s0003", eval_group="glossary", tags=["header_dependent"]
     )
-    assert validate_items([ungrouped, probe_of_new_group], CORPUS, complete=False) == [
-        "e2e-ans-p0002: answerable items need a benchmark eval_group",
-        "e2e-ans-p0003: a probe has one probe tag and a rule-built source group",
+    assert validate_items([ungrouped, slice_of_new_group], CORPUS, complete=False) == [
+        "e2e-ans-s0002: answerable items need a benchmark eval_group",
+        "e2e-ans-s0003: a slice item has one slice tag and a rule-built source group",
     ]
 
 
@@ -264,8 +264,8 @@ def complete_set() -> list[GoldenItem]:
         for index in range(quota)
     ]
     items += [
-        answerable(f"e2e-ans-p{kind}-{index:02d}", eval_group="formulary", tags=[kind])
-        for kind, quota in PROBE_QUOTAS.items()
+        answerable(f"e2e-ans-s{kind}-{index:02d}", eval_group="formulary", tags=[kind])
+        for kind, quota in SLICE_QUOTAS.items()
         for index in range(quota)
     ]
     items += [

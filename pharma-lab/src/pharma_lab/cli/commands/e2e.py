@@ -76,6 +76,9 @@ from pharma_lab.e2e.golden_draft import (
     DRAFT_MODEL,
     FAMILIES,
     MULTI_HOP,
+    NATURAL,
+    SLICE,
+    answerable_candidates,
     authored_documents,
     authored_sections,
     authored_state,
@@ -87,7 +90,6 @@ from pharma_lab.e2e.golden_draft import (
     write_drafts,
 )
 from pharma_lab.e2e.golden_generate import generate
-from pharma_lab.e2e.golden_probe import load_probe_runs, probe_candidates
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
 from pharma_lab.e2e.judging.service import JudgeRequest, run_judge
 from pharma_lab.e2e.judging.structured import (
@@ -96,7 +98,7 @@ from pharma_lab.e2e.judging.structured import (
     judge_llm,
 )
 from pharma_lab.e2e.model_server import attach_model, env_path, serve_model
-from pharma_lab.e2e.one_round import load_one_round, trim_covered
+from pharma_lab.e2e.one_round import load_one_round
 from pharma_lab.e2e.report import write_report
 from pharma_lab.e2e.sampling import (
     replacement_candidates,
@@ -354,39 +356,38 @@ def golden_generate(
     run_handler(state_from_context(ctx), handler)
 
 
-@golden_app.command("probe-candidates")
-def golden_probe_candidates(
+@golden_app.command("answerable-candidates")
+def golden_answerable_candidates(
     ctx: typer.Context,
-    run_name: Annotated[str, typer.Option("--run")],
-    bm25_run: Annotated[str, typer.Option("--bm25-run")] = "bm25-v2-k20",
-    dense_run: Annotated[str, typer.Option("--dense-run")] = "dense-qwen4b-v2-k20",
-    model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
-    depth: Annotated[int, typer.Option("--depth", min=1)] = 20,
-    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    evaluation: Annotated[
+        Path, typer.Option("--evaluation", dir_okay=False)
+    ] = GOLD_PATH,
     authoring_dir: Annotated[
         Path, typer.Option("--authoring-dir", file_okay=False)
     ] = E2E_AUTHORING_DIR,
 ) -> None:
-    """List benchmark questions whose one-round coverage reranking, the lexical or the
-    dense half of hybrid search decides (probe.todo.jsonl)."""
+    """List the benchmark's answerable rows as candidates: by group
+    (natural.todo.jsonl) and by construction-defined slice (slice.todo.jsonl)."""
 
     def handler() -> CommandResult:
-        runs = load_probe_runs(
-            run_dir(run_name),
-            run_dir(bm25_run),
-            run_dir(dense_run),
-            model=model,
-            depth=depth,
-        )
-        rows = probe_candidates(runs, load_corpus_text(bundle))
-        output = authoring_dir / "probe.todo.jsonl"
-        output.write_text(
-            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
-            encoding="utf-8",
-        )
-        kinds = Counter(str(row["kind"]) for row in rows)
+        rows = [
+            json.loads(line)
+            for line in evaluation.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        natural, slices = answerable_candidates(rows)
+        for family, candidates in ((NATURAL, natural), (SLICE, slices)):
+            path = authoring_dir / family.candidate_files[0]
+            path.write_text(
+                "".join(json.dumps(c, ensure_ascii=False) + "\n" for c in candidates),
+                encoding="utf-8",
+            )
+        kinds = Counter(str(c["kind"]) for c in [*natural, *slices])
         return CommandResult(
-            "e2e golden probe-candidates", CommandStatus.COMPLETE, output, dict(kinds)
+            "e2e golden answerable-candidates",
+            CommandStatus.COMPLETE,
+            authoring_dir,
+            dict(kinds),
         )
 
     run_handler(state_from_context(ctx), handler)
@@ -445,7 +446,7 @@ def golden_draft(
     ] = DRAFT_MODEL,
     concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 8,
     family_name: Annotated[
-        str, typer.Option("--family", help="multi-hop, probe or multi-turn")
+        str, typer.Option("--family", help="multi-hop, natural, slice or multi-turn")
     ] = MULTI_HOP.batch,
     backend_env_file: Annotated[
         Path, typer.Option("--backend-env-file", dir_okay=False)
@@ -492,49 +493,6 @@ def golden_draft(
                 "files": len(paths),
                 **kinds,
             },
-        )
-
-    run_handler(state_from_context(ctx), handler)
-
-
-@golden_app.command("trim")
-def golden_trim(
-    ctx: typer.Context,
-    run_name: Annotated[str, typer.Option("--run")],
-    model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
-    top_k: Annotated[int, typer.Option("--top-k", min=1)] = 5,
-    per_group: Annotated[
-        int, typer.Option("--per-group", min=1)
-    ] = ANSWERABLE_PER_GROUP,
-    authoring_dir: Annotated[
-        Path, typer.Option("--authoring-dir", file_okay=False)
-    ] = E2E_AUTHORING_DIR,
-) -> None:
-    """Drop answerable items one retrieval round covers, evenly per group."""
-
-    def handler() -> CommandResult:
-        # Answerable items also sit in replacement batches.
-        paths = sorted(authoring_dir.glob("*.authored.jsonl"))
-        items = [
-            item
-            for path in paths
-            for item in read_items(path)[0]
-            if item.category is Category.ANSWERABLE
-        ]
-        found = load_one_round(run_dir(run_name), model=model, top_k=top_k).coverage
-        dropped = set(trim_covered(items, found, keep_per_group=per_group))
-        for path in paths:
-            kept = [
-                line
-                for line in path.read_text(encoding="utf-8").splitlines()
-                if line.strip() and json.loads(line)["item_id"] not in dropped
-            ]
-            path.write_text("\n".join(kept) + "\n", encoding="utf-8")
-        return CommandResult(
-            "e2e golden trim",
-            CommandStatus.COMPLETE,
-            authoring_dir,
-            {"dropped": len(dropped), "kept": len(items) - len(dropped)},
         )
 
     run_handler(state_from_context(ctx), handler)
