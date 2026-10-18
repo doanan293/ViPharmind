@@ -155,7 +155,7 @@ def test_evaluation_assemble_writes_the_benchmark_and_its_judgments(
     monkeypatch.setattr(
         evaluation_command,
         "repair_rows",
-        lambda rows, corpus: (rows, Counter({"pasted_text": 2})),
+        lambda rows, corpus, aliases: (rows, Counter({"pasted_text": 2})),
     )
     monkeypatch.setattr(
         evaluation_command, "build_evaluation_judgments", fake_judgments

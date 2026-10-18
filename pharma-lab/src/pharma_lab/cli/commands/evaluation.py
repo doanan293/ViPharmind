@@ -169,7 +169,11 @@ def evaluation_assemble(
         except BundleValidationError as exc:
             raise invalid_bundle(exc) from exc
         corpus = corpus_text(knowledge)
-        base, repairs = repair_rows(_jsonl(source), corpus)
+        base, repairs = repair_rows(
+            _jsonl(source),
+            corpus,
+            [a for mapping in knowledge.colloquial_mappings for a in mapping.aliases],
+        )
         golden = [
             row
             for path in sorted(authoring_dir.glob("*.authored.jsonl"))
