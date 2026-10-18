@@ -73,17 +73,17 @@ def only_first_section() -> DraftReference:
 
 def test_needed_counts_top_the_quotas_up() -> None:
     assert needed_counts({}) == {
-        "retrieval_miss": 32,
-        "noisy_retry": 30,
+        "retrieval_miss": 25,
+        "noisy_retry": 25,
         "three_intent": 16,
-        "two_drug": 42,
-        "brand_to_ingredient": 30,
+        "two_drug": 48,
+        "brand_to_ingredient": 36,
     }
-    topped = needed_counts({"noisy_retry": 30, "three_intent": 20, "two_drug": 1})
+    topped = needed_counts({"noisy_retry": 25, "three_intent": 20, "two_drug": 1})
     assert (topped["noisy_retry"], topped["three_intent"], topped["two_drug"]) == (
         0,
         0,
-        41,
+        47,
     )
 
 

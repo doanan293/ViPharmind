@@ -110,12 +110,15 @@ BEHAVIOR: dict[Category, ExpectedBehavior] = {
 # sections fall in two chunks. Generated from the corpus: two drugs whose evidence sits in
 # two monographs, and a brand whose leaflet lacks the section its ingredient's monograph
 # has.
+# The two benchmark kinds hold every first-round miss the review kept: one round of
+# hybrid search and reranking misses few clean questions, so the generated kinds, which
+# need two documents by construction, take the rest of the 150.
 MULTI_HOP_QUOTAS: dict[str, int] = {
-    "retrieval_miss": 32,
-    "noisy_retry": 30,
+    "retrieval_miss": 25,
+    "noisy_retry": 25,
     "three_intent": 16,
-    "two_drug": 42,
-    "brand_to_ingredient": 30,
+    "two_drug": 48,
+    "brand_to_ingredient": 36,
 }
 MULTI_HOP_KINDS = tuple(MULTI_HOP_QUOTAS)
 
