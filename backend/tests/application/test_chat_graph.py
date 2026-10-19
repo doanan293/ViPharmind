@@ -17,6 +17,7 @@ from pharma_agent.domain.agent.schemas import (
     RefineResult,
     RephraseResult,
 )
+from pharma_agent.domain.conversation.models import ConversationContext, Turn
 from pharma_agent.domain.guardrail.models import LlmGuardVerdict
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.llm.port import LlmError
@@ -51,6 +52,7 @@ async def run_turn(
     limits: BudgetLimits | None = None,
     reranker: FakeReranker | None = None,
     pipeline: PipelineOptions | None = None,
+    conversation: ConversationContext | None = None,
 ):
     graph = build_chat_graph()
     runner = ChatTurnRunner(
@@ -59,7 +61,7 @@ async def run_turn(
         limits or BudgetLimits(),
         pipeline=pipeline,
     )
-    execution = runner.start(user_id="u1", message=QUESTION)
+    execution = runner.start(user_id="u1", message=QUESTION, conversation=conversation)
     events = [event async for event in execution.events()]
     assert execution.outcome is not None
     return events, execution.outcome
@@ -347,6 +349,75 @@ async def test_one_step_pipeline_calls_guard_and_answer_only() -> None:
     assert llm.calls_for(LlmRole.JUDGE) == []
     assert events[-1].data["usage"]["llm_calls"] == 2
     assert "[1]" in outcome.context_text
+
+
+async def test_history_query_searches_earlier_questions_with_the_turn() -> None:
+    llm = guard_only_llm()
+    retriever = FakeRetriever([make_hit("c1", fusion=0.9)])
+    reranker = FakeReranker()
+    conversation = ConversationContext(
+        turns=[
+            Turn(
+                user_text="Panadol là thuốc gì?", assistant_text="a", status="completed"
+            )
+        ]
+    )
+
+    _, outcome = await run_turn(
+        llm,
+        retriever,
+        reranker=reranker,
+        pipeline=PipelineOptions(
+            rephrase=False, judge_refine=False, history_query=True
+        ),
+        conversation=conversation,
+    )
+
+    assert outcome.run.status is RunStatus.COMPLETED
+    assert retriever.calls[0][0].text == f"Panadol là thuốc gì? {QUESTION}"
+    assert reranker.queries == [f"Panadol là thuốc gì? {QUESTION}"]
+    assert outcome.run.standalone_query == QUESTION
+    assert llm.calls_for(LlmRole.REPHRASE) == []
+
+
+async def test_history_query_leaves_refine_queries_unchanged() -> None:
+    llm = guard_only_llm()
+    llm.script(
+        LlmRole.JUDGE,
+        JudgeDecision(
+            decision=JudgeOutcome.SEARCH_MORE, gaps=["liều trẻ em"], reason="thiếu"
+        ),
+        JudgeDecision(decision=JudgeOutcome.ANSWER, gaps=[], reason="đủ"),
+    )
+    llm.script(LlmRole.REFINE, RefineResult(queries=["liều paracetamol trẻ em"]))
+    retriever = FakeRetriever(
+        [make_hit("c1", fusion=0.9)],
+        [make_hit("c1", fusion=0.9), make_hit("c9", fusion=0.8)],
+    )
+    reranker = FakeReranker()
+    conversation = ConversationContext(
+        turns=[
+            Turn(
+                user_text="Panadol là thuốc gì?", assistant_text="a", status="completed"
+            )
+        ]
+    )
+
+    _, outcome = await run_turn(
+        llm,
+        retriever,
+        reranker=reranker,
+        pipeline=PipelineOptions(rephrase=False, history_query=True),
+        conversation=conversation,
+    )
+
+    history_query = f"Panadol là thuốc gì? {QUESTION}"
+    assert outcome.run.status is RunStatus.COMPLETED
+    assert retriever.calls[0][0].text == history_query
+    assert retriever.calls[1][0].text == "liều paracetamol trẻ em"
+    # Both rounds rerank against the history query, so round one's scores are reused.
+    assert reranker.queries == [history_query, history_query]
+    assert reranker.received == [[chunk_uuid("c1")], [chunk_uuid("c9")]]
 
 
 async def test_no_rephrase_keeps_the_judge() -> None:

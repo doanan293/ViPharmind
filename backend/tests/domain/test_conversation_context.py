@@ -1,5 +1,8 @@
-from pharma_agent.domain.conversation.context import context_for_rephrase
-from pharma_agent.domain.conversation.models import Turn
+from pharma_agent.domain.conversation.context import (
+    context_for_rephrase,
+    query_with_history,
+)
+from pharma_agent.domain.conversation.models import ConversationContext, Turn
 
 
 def turn(i: int, status: str = "completed", size: int = 10) -> Turn:
@@ -37,3 +40,28 @@ def test_summary_alone_is_cut_to_max_chars() -> None:
     assert len(context.summary) == 100 and context.turns == []
     empty = context_for_rephrase("", [], max_turns=4, max_chars=100)
     assert empty.summary == "" and empty.turns == []
+
+
+def test_query_with_history_puts_earlier_questions_before_the_turn() -> None:
+    context = ConversationContext(
+        summary="tóm tắt",
+        turns=[
+            Turn(
+                user_text=" Panadol là thuốc gì? ",
+                assistant_text="a1",
+                status="completed",
+            ),
+            Turn(
+                user_text="Có dùng cho trẻ em không?",
+                assistant_text="a2",
+                status="completed",
+            ),
+        ],
+    )
+    assert query_with_history("Liều bao nhiêu? ", context) == (
+        "Panadol là thuốc gì? Có dùng cho trẻ em không? Liều bao nhiêu?"
+    )
+    assert (
+        query_with_history("Liều bao nhiêu?", ConversationContext())
+        == "Liều bao nhiêu?"
+    )

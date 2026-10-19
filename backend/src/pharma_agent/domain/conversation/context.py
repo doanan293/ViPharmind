@@ -15,3 +15,8 @@ def context_for_rephrase(
     while usable and sum(t.char_count() for t in usable) > budget:
         usable.pop(0)
     return ConversationContext(summary=summary, turns=usable)
+
+
+def query_with_history(question: str, context: ConversationContext) -> str:
+    """The earlier user questions followed by this one: a conversational query with no rewrite."""
+    return " ".join([*(t.user_text.strip() for t in context.turns), question.strip()])
