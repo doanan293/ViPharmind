@@ -14,7 +14,7 @@ intent, and every question the golden set or a conversational row refers to is k
 
 from __future__ import annotations
 
-import random
+import hashlib
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 
@@ -158,8 +158,10 @@ def _cut_rule_groups(
     base: Sequence[dict], size: int, *, keep: set[str], seed: int
 ) -> list[dict]:
     """`size` rule-built rows: WHOLE_GROUPS in full, SAMPLED_GROUPS by weight, each
-    keeping every row of `keep` and filling the rest by intent in a seeded order; the
-    rows stay in file order."""
+    group's rows spread over intents in proportion and taken in a seeded rank of their
+    ids, with every row of `keep` taken first; the rows stay in file order. A row that
+    is already taken stays taken when it joins `keep`, so a new golden source drawn
+    from the benchmark does not reshuffle the rest."""
     by_group: dict[str, list[dict]] = defaultdict(list)
     for row in base:
         by_group[str(row.get("eval_group"))].append(row)
@@ -174,40 +176,48 @@ def _cut_rule_groups(
     chosen: set[str] = {
         str(row["query_id"]) for group in WHOLE_GROUPS for row in by_group[group]
     }
-    rng = random.Random(seed)
     for group, target in targets.items():
         rows = by_group[group]
-        must = [row for row in rows if str(row["query_id"]) in keep]
+        must = {str(row["query_id"]) for row in rows if str(row["query_id"]) in keep}
         if len(must) > target:
             raise ValueError(f"{group}: {len(must)} rows must stay, room for {target}")
-        chosen |= {str(row["query_id"]) for row in must}
-        chosen |= _fill_by_intent(
-            [row for row in rows if str(row["query_id"]) not in keep],
-            target - len(must),
-            rng,
-        )
+        chosen |= _take_by_intent(rows, target, must, seed)
     return [row for row in base if str(row["query_id"]) in chosen]
 
 
-def _fill_by_intent(rows: Sequence[dict], count: int, rng: random.Random) -> set[str]:
-    """`count` row ids spread over intents in proportion (largest remainder)."""
-    by_intent: dict[str, list[dict]] = defaultdict(list)
+def _rank(query_id: str, seed: int) -> str:
+    return hashlib.sha256(f"{seed}:{query_id}".encode()).hexdigest()
+
+
+def _take_by_intent(
+    rows: Sequence[dict], count: int, must: set[str], seed: int
+) -> set[str]:
+    """`count` row ids spread over intents in proportion (largest remainder): in each
+    intent the rows of `must`, then the others by rank; an intent whose `must` rows
+    overflow its quota keeps them all and the lowest-ranked others elsewhere give way."""
+    by_intent: dict[str, list[str]] = defaultdict(list)
     for row in rows:
-        by_intent[str(row.get("intent_category"))].append(row)
+        by_intent[str(row.get("intent_category"))].append(str(row["query_id"]))
     total = len(rows)
-    shares = {intent: count * len(group) / total for intent, group in by_intent.items()}
+    shares = {intent: count * len(ids) / total for intent, ids in by_intent.items()}
     quotas = {intent: int(share) for intent, share in shares.items()}
     leftover = count - sum(quotas.values())
     for intent in sorted(shares, key=lambda i: shares[i] - quotas[i], reverse=True)[
         :leftover
     ]:
         quotas[intent] += 1
-    picked: set[str] = set()
-    for intent, group in sorted(by_intent.items()):
-        order = list(group)
-        rng.shuffle(order)
-        picked |= {str(row["query_id"]) for row in order[: quotas[intent]]}
-    return picked
+    taken: list[str] = []
+    for intent, ids in sorted(by_intent.items()):
+        ordered = sorted(ids, key=lambda q: (q not in must, _rank(q, seed)))
+        taken += ordered[: max(quotas[intent], sum(q in must for q in ids))]
+    extra = len(taken) - count
+    if extra > 0:
+        optional = sorted(
+            (q for q in taken if q not in must), key=lambda q: _rank(q, seed)
+        )
+        drop = set(optional[-extra:])
+        taken = [q for q in taken if q not in drop]
+    return set(taken)
 
 
 def _strings(value: object) -> list[str]:

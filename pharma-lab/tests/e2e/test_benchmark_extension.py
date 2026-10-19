@@ -110,3 +110,21 @@ def test_assemble_has_the_exact_size_and_keeps_what_others_refer_to() -> None:
 def test_assemble_refuses_when_the_kept_rows_do_not_fit() -> None:
     with pytest.raises(ValueError, match="must stay"):
         assemble(22)
+
+
+def test_a_taken_row_joining_keep_does_not_reshuffle_the_cut() -> None:
+    from pharma_lab.e2e.benchmark_extension import _cut_rule_groups
+
+    base = [row for row in FILLER if row["eval_group"] in ("formulary", "leaflet")]
+    before = _cut_rule_groups(base, 15, keep=set(), seed=0)
+    taken = {str(row["query_id"]) for row in before}
+    one = sorted(taken)[0]
+    after = _cut_rule_groups(base, 15, keep={one}, seed=0)
+    assert {str(row["query_id"]) for row in after} == taken
+    # A row from outside the cut that joins keep displaces one row only.
+    outside = sorted({row["query_id"] for row in base} - taken)[0]
+    moved = {
+        str(row["query_id"])
+        for row in _cut_rule_groups(base, 15, keep={outside}, seed=0)
+    }
+    assert outside in moved and len(moved - taken) == 1
