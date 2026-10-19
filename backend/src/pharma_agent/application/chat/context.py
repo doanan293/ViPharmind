@@ -24,6 +24,8 @@ class PipelineOptions:
 
     rephrase: bool = True
     judge_refine: bool = True
+    # The first search uses the earlier user questions plus this one (a baseline without rephrase).
+    history_query: bool = False
 
 
 @dataclass(frozen=True)

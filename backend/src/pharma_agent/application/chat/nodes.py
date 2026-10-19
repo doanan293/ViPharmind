@@ -31,6 +31,7 @@ from pharma_agent.domain.agent.schemas import (
     RefineResult,
     RephraseResult,
 )
+from pharma_agent.domain.conversation.context import query_with_history
 from pharma_agent.domain.guardrail.models import VerdictSource
 from pharma_agent.domain.llm.models import LlmRole, LlmUsage
 from pharma_agent.domain.llm.port import LlmError
@@ -115,13 +116,18 @@ async def search_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
     run, deps = state.run, runtime.context.deps
+    search_query = (
+        query_with_history(run.original_query, runtime.context.conversation)
+        if runtime.context.pipeline.history_query
+        else run.standalone_query
+    )
     queries = state.pending_queries or [
-        Query(text=run.standalone_query, origin=QueryOrigin.INITIAL)
+        Query(text=search_query, origin=QueryOrigin.INITIAL)
     ]
     _emit(ProgressEvent.phase(Phase.SEARCHING, round=run.usage.search_rounds + 1))
     result = await deps.retrieval.search(
         queries,
-        rerank_query=run.standalone_query,
+        rerank_query=search_query,
         known_scores=run.evidence.rerank_scores(),
         scope=runtime.context.scope,
     )
