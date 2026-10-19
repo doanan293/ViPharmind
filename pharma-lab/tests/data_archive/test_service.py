@@ -139,3 +139,27 @@ def test_push_drops_files_when_removal_is_allowed(tmp_path: Path) -> None:
     )
 
     assert (trimmed.version, trimmed.file_count) == (2, len(FILES) - 1)
+
+
+def test_push_and_pull_use_the_named_dataset(tmp_path: Path) -> None:
+    kaggle = FakeKaggle(tmp_path / "remote")
+    dataset = DatasetService(kaggle, "owner")
+    source = make_project(tmp_path / "source")
+
+    pushed = push_data(
+        project_root=source,
+        dataset=dataset,
+        message="Named",
+        now=NOW,
+        slug="vipharmind-data",
+    )
+    clone = make_project(tmp_path / "clone", with_data=False)
+    pulled = pull_data(
+        project_root=clone, dataset=dataset, force=False, slug="vipharmind-data"
+    )
+
+    assert pushed.reference == pulled.reference == "owner/vipharmind-data"
+    assert any("owner/vipharmind-data" in " ".join(call) for call in kaggle.calls)
+    assert not any(
+        "owner/seed-pipeline-data" in " ".join(call) for call in kaggle.calls
+    )

@@ -80,3 +80,35 @@ def test_manifest_rejects_unsafe_paths(tmp_path: Path, unsafe: str) -> None:
 
     with pytest.raises(ArchiveError, match="Unsafe archive path"):
         read_archive_manifest(path)
+
+
+def test_manifest_accepts_the_part_names_of_a_renamed_dataset(tmp_path: Path) -> None:
+    manifest = ArchiveManifest(
+        "2026-10-14T00:00:00+00:00",
+        "c" * 40,
+        (ArchiveFile("cache/a.jsonl", 3, "a" * 64),),
+        (ArchivePart("vipharmind-data.tar.zst.part-0001", 10, "b" * 64),),
+    )
+    path = tmp_path / "archive-manifest.json"
+    write_archive_manifest(path, manifest)
+
+    assert read_archive_manifest(path) == manifest
+
+
+@pytest.mark.parametrize(
+    "name", ["../seed.tar.zst.part-0001", "data.tar.zst.part-1", "data.zip"]
+)
+def test_manifest_rejects_other_part_names(tmp_path: Path, name: str) -> None:
+    path = tmp_path / "archive-manifest.json"
+    write_archive_manifest(
+        path,
+        ArchiveManifest(
+            "2026-10-14T00:00:00+00:00",
+            "c" * 40,
+            (),
+            (ArchivePart(name, 10, "b" * 64),),
+        ),
+    )
+
+    with pytest.raises(ArchiveError, match="Unexpected archive part name"):
+        read_archive_manifest(path)
