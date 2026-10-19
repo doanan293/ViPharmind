@@ -51,9 +51,9 @@ def archive_dir(project_root: Path) -> Path:
 
 
 def _archived_files_missing_locally(
-    dataset: DatasetService, staging: Path, local_files: list[str]
+    dataset: DatasetService, staging: Path, local_files: list[str], slug: str
 ) -> list[str]:
-    reference = f"{dataset.owner}/{DATASET_SLUG}"
+    reference = f"{dataset.owner}/{slug}"
     state = dataset.inspect_state(reference, active_owner=dataset.owner)
     if state.presence is not DatasetPresence.EXISTS:
         return []
@@ -72,6 +72,7 @@ def push_data(
     now: datetime,
     part_size: int = PART_SIZE_BYTES,
     allow_removal: bool = False,
+    slug: str = DATASET_SLUG,
 ) -> PushResult:
     staging = archive_dir(project_root)
     with kaggle_job_lock(staging):
@@ -82,7 +83,9 @@ def push_data(
         if not allow_removal:
             # A push replaces the whole archive, so a trimmed data/ would silently
             # drop results that exist only on Kaggle.
-            missing = _archived_files_missing_locally(dataset, staging, local_files)
+            missing = _archived_files_missing_locally(
+                dataset, staging, local_files, slug
+            )
             if missing:
                 listed = "\n".join(f"  {path}" for path in missing)
                 raise ArchiveError(
@@ -101,9 +104,7 @@ def push_data(
             git_commit=git_head(project_root),
         )
         write_archive_manifest(staging / ARCHIVE_MANIFEST_NAME, manifest)
-        prepared = dataset.ensure_dataset(
-            DATASET_SLUG, DATASET_TITLE, staging, message=message
-        )
+        prepared = dataset.ensure_dataset(slug, DATASET_TITLE, staging, message=message)
     return PushResult(
         prepared.reference,
         prepared.expected_version,
@@ -113,10 +114,14 @@ def push_data(
 
 
 def pull_data(
-    *, project_root: Path, dataset: DatasetService, force: bool
+    *,
+    project_root: Path,
+    dataset: DatasetService,
+    force: bool,
+    slug: str = DATASET_SLUG,
 ) -> PullResult:
     staging = archive_dir(project_root)
-    reference = f"{dataset.owner}/{DATASET_SLUG}"
+    reference = f"{dataset.owner}/{slug}"
     with kaggle_job_lock(staging):
         dataset.require_ready(reference, "`pharma-lab data push`")
         manifest = read_archive_manifest(
