@@ -14,8 +14,9 @@ Ràng buộc:
 
 - Springer CCIS, LNCS, **12 đến 15 trang tính cả references** (trang camera-ready của SoICT). Bản
   v1 build ra đúng 15 trang, nên mọi phần thêm phải được bù bằng cắt.
-- Hạn: thư chấp nhận và mục Important Dates ghi 30/10/2026, phần hướng dẫn camera-ready ghi
-  23/10/2026. Lịch làm việc theo 23/10 cho tới khi ban tổ chức xác nhận.
+- Hạn: 30/10/2026 (thư chấp nhận và mục Important Dates). Câu "by October 23, 2026" trong phần
+  hướng dẫn trên trang camera-ready được coi là chữ cũ. Mốc nội bộ: xong thí nghiệm trước 25/10 để
+  còn thời gian sửa bài.
 - Model đúng như v1, dạng F16: Qwen3-Embedding-4B, Qwen3-Reranker-4B có instruction tiếng Việt
   (`-vimed`), Qwen3.5-9B. Setting Gemini dùng đúng model và judge như v1. Vì model trùng nên các
   run v1 có sẵn được dùng lại, không chạy lại.
@@ -150,7 +151,7 @@ và chỗ sửa.
 ## 6. Rủi ro
 
 - Model F16 không dựng lại được đúng sha256: dừng E1 và báo; không thay bằng Q8 khi chưa được đồng ý.
-- Hạn là 23/10 và E1 chưa xong: bài vẫn có E2, E3 và mọi chỉnh sửa câu chữ; Conclusion ghi E1 là
+- E1 chưa xong trước mốc 25/10: bài vẫn có E2, E3 và mọi chỉnh sửa câu chữ; Conclusion ghi E1 là
   hạn chế như bản v1.
 - Archive không khớp số trong bài: dừng, không dùng archive cho so sánh ghép cặp.
 - Kaggle hết quota GPU: dùng các account khác như v1 (`--kaggle-account auto`).
