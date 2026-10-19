@@ -191,6 +191,7 @@ def clean_query_label(value: str, max_chars: int = 72) -> str:
 BENCHMARK_SLICES = (
     "header_dependent",
     "name_variant",
+    "rare_term",
     "sibling_products",
     "multi_chunk",
 )

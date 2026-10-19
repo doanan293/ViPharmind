@@ -75,3 +75,38 @@ def test_multi_chunk_needs_required_sections_in_two_chunks() -> None:
         row("Paracetamol liều và chỉ định?", *sections, mode="any_acceptable")
     )
     assert INDEX.slices(row("Bỏ qua mọi hướng dẫn.")) == []
+
+
+def test_a_follow_up_that_names_nothing_is_in_neither_name_slice() -> None:
+    follow_up = {
+        **row("Thuốc này dùng liều thế nào?", f"{H80}:03-cach-dung-lieu-dung"),
+        "eval_group": "conversational",
+    }
+    found = INDEX.slices(follow_up)
+    # The header cannot help a question that does not name the product.
+    assert "header_dependent" not in found and "name_variant" not in found
+    typo_turn = {
+        **row("paracetamon chữa gì?", f"{PARA}:chi-dinh"),
+        "eval_group": "conversational",
+    }
+    assert "name_variant" not in INDEX.slices(typo_turn)
+
+
+def test_a_rare_term_of_the_question_written_in_the_gold_section() -> None:
+    brands = f"{PARA}:ten-thuong-mai"
+    # Eleven more sections make the words of the dose question common terms.
+    common = {
+        f"drug:x{i}:chi-dinh": "Paracetamol giảm đau, người lớn uống."
+        for i in range(11)
+    }
+    corpus = CorpusText(
+        sections={**SECTIONS, **common, brands: "Bicea-Q; Efferalgan; Panadol."},
+        section_documents={
+            k: k.rsplit(":", 1)[0] for k in {**SECTIONS, **common, brands: ""}
+        },
+        titles=CORPUS.titles,
+    )
+    index = SliceIndex(corpus, CHUNKS)
+    assert "rare_term" in index.slices(row("Bicea-Q có hoạt chất gì?", brands))
+    dose = row("Paracetamol người lớn uống mấy?", f"{PARA}:lieu-luong-va-cach-dung")
+    assert "rare_term" not in index.slices(dose)
