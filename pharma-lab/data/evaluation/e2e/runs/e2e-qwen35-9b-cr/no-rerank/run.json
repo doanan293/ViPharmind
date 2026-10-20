@@ -1,0 +1,92 @@
+{
+  "budget": {
+    "deadline_seconds": 900.0,
+    "max_evidence_chars": 24000,
+    "max_llm_calls": 10,
+    "max_search_rounds": 3,
+    "max_tokens": 40000
+  },
+  "config": "no-rerank",
+  "created_at": "2026-10-20T04:34:51+00:00",
+  "git_commit": "cf2223d1b890e60dfcdd9e4f8b266159d5e805a2",
+  "golden_sha256": "8bdf0bee15e9719537b255cc9fda009b47923835d48821bf426b29117fd297d6",
+  "pipeline": {
+    "judge_refine": true,
+    "rephrase": true
+  },
+  "release_id": "c9a6028a-6b0e-44dc-abd7-3bb6261043bd",
+  "rerank": {
+    "max_candidates": 40,
+    "model": null,
+    "protocol": "none",
+    "top_n": 8
+  },
+  "retrieval": {
+    "candidate_k": 30,
+    "collections": [
+      "formulary"
+    ],
+    "embedding_model": "qwen3-embedding:4b-fp16",
+    "hydrate_window": 1,
+    "mode": "hybrid",
+    "prefetch_k": 50,
+    "qdrant_collection": "chunks_current",
+    "rrf_k": 2
+  },
+  "role_models": {
+    "answer": {
+      "extra_body": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "model": "qwen3.5:9b-q8_0",
+      "reasoning_effort": null
+    },
+    "guardrail": {
+      "extra_body": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "model": "qwen3.5:9b-q8_0",
+      "reasoning_effort": null
+    },
+    "judge": {
+      "extra_body": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "model": "qwen3.5:9b-q8_0",
+      "reasoning_effort": null
+    },
+    "refine": {
+      "extra_body": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "model": "qwen3.5:9b-q8_0",
+      "reasoning_effort": null
+    },
+    "rephrase": {
+      "extra_body": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "model": "qwen3.5:9b-q8_0",
+      "reasoning_effort": null
+    },
+    "summarizer": {
+      "extra_body": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "model": "qwen3.5:9b-q8_0",
+      "reasoning_effort": null
+    }
+  }
+}

@@ -195,7 +195,7 @@ def kernel_output_command(reference: str, path: Path) -> list[str]:
         str(path),
         "-o",
         "--file-pattern",
-        ".*(jsonl|json|zip|md|log)$",
+        ".*(jsonl|json|zip|tar|md|log)$",
     ]
 
 

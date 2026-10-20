@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import math
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -16,6 +16,7 @@ from pharma_agent.infrastructure.settings import Settings
 from pharma_lab.e2e.configs import (
     E2EConfig,
     pipeline_for,
+    pipeline_record,
     settings_for,
     uses_retrieval,
 )
@@ -94,6 +95,14 @@ def spread(items: Sequence[GoldenItem], limit: int | None) -> list[GoldenItem]:
     return list(items[::step])[:limit]
 
 
+def select_items(
+    items: Sequence[GoldenItem], *, limit: int | None, category: Category | None
+) -> list[GoldenItem]:
+    """The items of one category (all when None), then `limit` of them spread evenly."""
+    chosen = [item for item in items if category is None or item.category is category]
+    return spread(chosen, limit)
+
+
 @dataclass(frozen=True)
 class E2ERunRequest:
     run_root: Path
@@ -103,8 +112,11 @@ class E2ERunRequest:
     concurrency: int = 4
     retry_errors: bool = False
     limit: int | None = None
+    category: Category | None = None
     # Evaluation may wait longer than the production turn deadline; recorded in run.json.
     deadline_seconds: float | None = None
+    # The commit of a run made outside the checkout (a Kaggle kernel has no git).
+    commit: str | None = None
 
 
 def with_deadline(settings: Settings, seconds: float | None) -> Settings:
@@ -116,13 +128,21 @@ def with_deadline(settings: Settings, seconds: float | None) -> Settings:
     return settings.model_copy(update={"budget": budget})
 
 
+def release_probe(golden: Sequence[GoldenItem]) -> str:
+    """A question that reads the corpus, taken from the whole golden set so that a run
+    of one category without answerable items can still name its release."""
+    return next(
+        item.question for item in golden if item.category is Category.ANSWERABLE
+    )
+
+
 def config_dir(run_root: Path, config: E2EConfig | str) -> Path:
     return Path(run_root) / str(config)
 
 
 def run_e2e(request: E2ERunRequest) -> RunSummary:
     golden = load_golden(request.golden_path)
-    items = spread(golden, request.limit)
+    items = select_items(golden, limit=request.limit, category=request.category)
     settings = settings_for(
         Settings(_env_file=request.backend_env_file), request.config
     )
@@ -130,9 +150,7 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
     pipeline = pipeline_for(request.config)
     directory = config_dir(request.run_root, request.config)
     reconcile_golden(directory, request.golden_path, golden)
-    probe = next(
-        item.question for item in items if item.category is Category.ANSWERABLE
-    )
+    probe = release_probe(golden)
     app = build_application(settings)
     with asyncio.Runner() as runner:
         try:
@@ -148,10 +166,10 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
                     settings,
                     golden_sha256=sha256_file(request.golden_path),
                     config=str(request.config),
-                    pipeline=asdict(pipeline),
+                    pipeline=pipeline_record(pipeline),
                     release_id=release_id,
                 ),
-                commit=git_commit(Path(__file__).resolve().parent),
+                commit=request.commit or git_commit(Path(__file__).resolve().parent),
             )
             executor: TurnExecutor = (
                 BackendTurnExecutor(

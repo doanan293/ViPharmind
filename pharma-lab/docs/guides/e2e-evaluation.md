@@ -13,25 +13,7 @@ Harness gọi backend trong cùng tiến trình, như `pharma-lab retrieve`, v�
 
 **Endpoint LLM** là service `cli-proxy-api` của compose (`docker compose -f ../compose.yaml -f ../compose.gemini-proxy.yaml up -d cli-proxy-api` từ `pharma-lab/`, đăng nhập lưu trong volume `vipharmind_cli_proxy_auth`).
 
-**Reranker trên GPU.** Reranker trên CPU quá chậm cho E2E: trên laptop i5, 40 tài liệu mất khoảng 10 phút với model 4B. Vì vậy các cấu hình có rerank dùng reranker chạy trên GPU Kaggle, qua tunnel có API key.
-
-```bash
-uv run pharma-lab e2e rerank-server --model qwen3-reranker:4b-fp16 --hours 8 --kaggle-account auto
-```
-
-Lệnh này:
-- giữ một account và đẩy kernel `rerank-serve` lên (llama-server trên 2 T4 cộng tunnel cloudflared);
-- ghi `data/work/serve/<model>.env` khi tunnel đã sẵn sàng, và xóa file đó khi phiên kết thúc.
-
-Nếu máy tắt khi kernel vẫn chạy, nối lại mà không mất phiên GPU. Lệnh này lấy key từ source của kernel, lấy URL từ log, rồi ghi lại file env:
-
-```bash
-uv run pharma-lab e2e rerank-server --kaggle-account acc1 --attach OWNER/rerank-serve-XXXX
-```
-
-URL được đọc bằng `kaggle kernels logs -f`. Khi API log của Kaggle trục trặc, tiến trình này có thể treo mà không in gì; watcher mở lại nó nếu log im lặng quá 10 phút (kernel in dòng `alive` mỗi 5 phút). Muốn có URL ngay thì dùng lệnh `--attach` ở trên.
-
-Trong session chạy E2E, nạp file env trước (`set -a; . data/work/serve/qwen3_reranker_4b_fp16.env; set +a`).
+**Reranker và Kaggle.** Reranker trên CPU quá chậm cho E2E: trên laptop i5, 40 tài liệu mất khoảng 10 phút với model 4B. Kaggle không được dùng để phục vụ model ra ngoài (một account đã bị khóa vì notebook mở tunnel), nên cấu hình cần GPU chạy trọn trong một kernel Kaggle theo lô (xem *Chạy trên Kaggle* bên dưới). Setting Gemini có reranker không chạy được trong kernel, vì mỗi lượt vừa cần proxy Gemini ở máy vừa cần reranker trên GPU; các cấu hình Gemini chạy ở máy, không reranker (`no-rerank`, `no-guard-no-rerank`) hoặc với reranker local.
 
 **Endpoint LLM còn phục vụ judge**, mặc định `gpt-5-mini` với reasoning `medium`. Proxy antigravity không có model này. Run `e2e-gemini` chấm bằng `--judge-model gemini-3.1-flash-lite`: model này khác model trả lời (`gemini-3.8-flash-high`), nhanh (khoảng 3 giây mỗi lần gọi), và có quota lớn nhất trong các model đã thử.
 
@@ -52,21 +34,13 @@ echo "863a67e28486f4c3ad7a30c49614a398d5a07caf8d0067a018d0e5f0abf79f2d  ai-model
 
 Kích thước và sha256 của file F16 được ghi trong catalog (`qwen3.5:9b-f16`). So từng tensor với file BF16: 250/427 tensor được đổi (8,95 tỉ giá trị, trọng số lớn nhất 1,07), sai lệch tuyệt đối lớn nhất 3,0×10⁻⁸, 17.320 giá trị nhỏ hơn khoảng 3×10⁻⁸ bị làm tròn về 0; các tensor F32 giữ nguyên. Chạy thử bằng `server-b10920` trên CPU cho output JSON đúng schema và không sinh phần suy luận khi `enable_thinking` là `false`. Lần chạy stage đầu tiên tự đưa file lên dataset Kaggle `vector-cache-gguf-qwen3-5-9b-f16`. Bản llama.cpp trên Kaggle (b9637) đã hỗ trợ kiến trúc `qwen35`.
 
-*Phục vụ trên Kaggle.* Model 17,9 GB được chia đôi trên hai T4 (4 slot, mỗi slot 16.384 token). Hai GPU dành cho LLM, nên reranker chạy ở một kernel khác:
+*Chạy trên Kaggle.* Setting Qwen chạy trọn trong một kernel: Qwen3.5-9B Q8_0 trên GPU0, reranker Q8_0 và embedding F16 trên GPU1, Postgres và Qdrant trong kernel, harness như ở máy. Kernel chỉ bật internet để tải về, không mở cổng nào; câu trả lời được tải về thư mục run, còn judge và report chạy ở máy.
 
 ```bash
-uv run pharma-lab e2e llm-server --model qwen3.5:9b-f16 --hours 10 --kaggle-account auto
-uv run pharma-lab e2e rerank-server --model qwen3-reranker:4b-fp16 --hours 10 --kaggle-account auto
+uv run pharma-lab e2e run --backend kaggle --run e2e-qwen35-9b-cr --config no-rerank --config no-guard-no-rerank --category injection --category out_of_scope --category unanswerable --kaggle-account acc1
 ```
 
-`llm-server` ghi `data/work/serve/qwen3_5_9b_f16.env`: endpoint của cả sáu bước trỏ vào tunnel, `EXTRA_BODY` tắt chế độ suy luận mặc định của Qwen3.5, và timeout 600 giây. Trong tmux session của run, nạp cả hai file env rồi chạy thử `--limit 20` trước:
-
-```bash
-set -a; . data/work/serve/qwen3_5_9b_f16.env; . data/work/serve/qwen3_reranker_4b_fp16.env; set +a
-uv run pharma-lab e2e run --run e2e-qwen35-9b --config full --limit 20 --deadline-seconds 900
-```
-
-Biến môi trường được ưu tiên hơn `backend/.env`, nên các run khác không bị ảnh hưởng. `EXTRA_BODY` và tên model được ghi vào `run.json`.
+Một lệnh là một job, chạy gọn trong một phiên kernel (mặc định tối đa 3 giờ, khoảng nửa giờ cho cài đặt và nạp model). Lệnh tạo `data/work/e2e-kaggle/<run>/`: `e2e_job.json`, golden, `backend_requirements.txt` xuất từ `uv.lock`, và bản corpus chỉ giữ embedding `qwen3-embedding:4b-fp16`. Thư mục cấu hình đích đã có `answers.jsonl` thì lệnh từ chối; kernel chưa xong mọi câu thì lệnh báo lỗi và không ghi gì.
 
 *Qua API thay cho Kaggle.* Cùng model có trên DeepInfra (key `DEEPINFRA_API_KEY` trong `pharma-lab/.env`); khi đó đặt endpoint từng bước bằng tay:
 
@@ -82,16 +56,22 @@ done
 
 **Cấu hình ablation chỉ đặt được từ harness.** Backend không có biến môi trường nào để tắt bước của agent.
 
-| `--config` | Rephrase | Judge/refine | Reranker |
-| --- | --- | --- | --- |
-| `full` | bật | bật | bật |
-| `one-step` | tắt | tắt | bật |
-| `no-judge-refine` | bật | tắt | bật |
-| `no-rephrase` | tắt | bật | bật |
-| `no-rerank` | bật | bật | tắt |
-| `closed-book` | – | – | – |
+| `--config` | Guard | Rephrase | Judge/refine | Reranker |
+| --- | --- | --- | --- | --- |
+| `full` | bật | bật | bật | bật |
+| `one-step` | bật | tắt | tắt | bật |
+| `one-step-history` | bật | tắt | tắt | bật |
+| `no-judge-refine` | bật | bật | tắt | bật |
+| `no-rephrase` | bật | tắt | bật | bật |
+| `no-rerank` | bật | bật | bật | tắt |
+| `no-guard-no-rerank` | tắt | bật | bật | tắt |
+| `closed-book` | – | – | – | – |
 
 `one-step` là guard → search (câu hỏi gốc) → answer, dùng cùng retriever, prompt trả lời và ngân sách evidence như `full`.
+
+`one-step-history` là `one-step` nhưng query của lần search đầu và của rerank là các câu hỏi trước của người dùng nối với câu hiện tại (không gọi LLM để viết lại), nên so sánh được với rephrase trên câu hỏi hội thoại; prompt answer giữ nguyên. `--category multi_turn` của `e2e run` chỉ chạy nhóm 50 câu hội thoại của golden.
+
+`no-guard-no-rerank` là `no-rerank` bỏ bước guard: không regex, không lời gọi guardrail, mọi lượt đi tiếp vào rephrase và retrieval. So với `no-rerank` thì hai cấu hình chỉ khác ở guard, nên đo được phần từ chối và chặn injection mà guard đóng góp, mà không cần server reranker. Chạy trên các nhóm safety bằng `--category unanswerable`, `out_of_scope` và `injection`.
 
 `closed-book` là baseline LLM thuần: cùng model của vai trò answer, nhận lịch sử hội thoại và câu hỏi nhưng không có guard, retrieval hay tài liệu nào. Nó đo phần mà corpus và pipeline đóng góp. Judge chấm nội dung câu trả lời như mọi cấu hình khác; faithfulness và các metric trích dẫn không xác định được khi không có context nên để trống. Cấu hình này không gọi retrieval nên không cần reranker server.
 
@@ -134,7 +114,7 @@ uv run pharma-lab e2e report --run e2e-gemini
 
 **`--deadline-seconds S`** thay deadline của một lượt (mặc định lấy từ budget của backend, 90 giây). Dùng khi embedding/reranker chạy trên CPU hoặc endpoint LLM chậm; giá trị được ghi vào `run.json`, và latency báo cáo vẫn là thời gian thật.
 
-**`e2e judge`** ghi `judgments.jsonl` và `judge.json` (model judge). Chấm lại một cấu hình bằng judge khác cần `--force`.
+**`e2e judge`** ghi `judgments.jsonl` và `judge.json` (model judge). Chấm lại một cấu hình bằng judge khác cần `--force`. `--category` chỉ chấm các câu của một nhóm golden, kể cả các câu lỗi; dùng khi quota của judge không đủ cho cả cấu hình, để chấm trước nhóm cần nhất.
 
 **Chỉ số.** Tên và định nghĩa theo các bài gốc; metric in đậm là metric chính, có mặt trong `main.tex` và `ablation.tex`.
 
@@ -179,3 +159,17 @@ uv run pharma-lab e2e report --run e2e-gemini
 
 Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation`, `tab:e2e-calibration`) và tên metric/cấu hình dễ đọc, để copy thẳng vào `report/tables/` (xem `report/README.md`).
 - `errors.md` (20 câu tệ nhất của `full`, gắn nhãn lỗi retrieval / citation / answer).
+
+**Citation recall mất ở đâu.** Judge chỉ lưu tỉ lệ câu được hỗ trợ của từng câu trả lời, nên citation recall được tách theo câu từ câu trả lời và đoạn trích:
+
+```bash
+uv run pharma-lab e2e citations --run e2e-gemini --config full
+```
+
+Lệnh ghi `reports/citations.json`: số câu nội dung và tỉ lệ của bốn loại (không trích dẫn, trích tới đoạn không có trong prompt, có trích dẫn nhưng không được hỗ trợ, được hỗ trợ), cùng trung bình citation recall theo câu trả lời, phải khớp `main.csv`.
+
+**Chấm lại phần trích dẫn.** Bộ đọc trích dẫn nhận cả dạng gộp `[1, 2]`; trước bản sửa nó bỏ sót dạng này, nên judge chưa từng chấm các câu đó. Lệnh sau chỉ chấm lại `citation_support` của các câu trả lời đã chấm, giữ mọi trường khác, ghi thêm một dòng mới cho mỗi item vào `judgments.jsonl`; judge phải là model trong `judge.json`:
+
+```bash
+uv run pharma-lab e2e rejudge-citations --run e2e-gemini --config full --judge-model gemini-3.1-flash-lite
+```

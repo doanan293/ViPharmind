@@ -25,8 +25,14 @@ from tests.e2e.factories import (
 
 from pharma_lab.e2e.configs import E2EConfig, pipeline_for
 from pharma_lab.e2e.executor import BackendTurnExecutor, conversation_for
-from pharma_lab.e2e.golden import GoldenItem
-from pharma_lab.e2e.harness import run_items, spread, with_deadline
+from pharma_lab.e2e.golden import Category, GoldenItem
+from pharma_lab.e2e.harness import (
+    release_probe,
+    run_items,
+    select_items,
+    spread,
+    with_deadline,
+)
 from pharma_lab.e2e.records import AnswerRecord, JsonlStore
 
 SECTION = "drug:paracetamol:lieu-dung"
@@ -214,6 +220,31 @@ async def test_run_items_resumes_and_retries_only_on_request(tmp_path: Path) -> 
     assert again.seen == ["e2e-mt-0002"]
     assert summary.errors == 0
     assert store.latest()["e2e-mt-0002"].status == "completed"
+
+
+def test_select_items_filters_a_category_before_spreading() -> None:
+    multi = [item(f"e2e-mt-{n:04d}") for n in range(1, 4)]
+    answerable = [
+        item(f"e2e-ans-{n:04d}").model_copy(update={"category": Category.ANSWERABLE})
+        for n in range(1, 3)
+    ]
+    golden = [*answerable, *multi]
+
+    assert select_items(golden, limit=None, category=None) == golden
+    assert select_items(golden, limit=None, category=Category.MULTI_TURN) == multi
+    chosen = select_items(golden, limit=2, category=Category.MULTI_TURN)
+    assert len(chosen) == 2
+    assert {i.category for i in chosen} == {Category.MULTI_TURN}
+    assert select_items(golden, limit=1, category=None) == golden[:1]
+
+
+def test_release_probe_comes_from_the_whole_golden_set() -> None:
+    multi = [item(f"e2e-mt-{n:04d}") for n in range(1, 3)]
+    answerable = item("e2e-ans-0001").model_copy(
+        update={"category": Category.ANSWERABLE}
+    )
+
+    assert release_probe([*multi, answerable]) == answerable.question
 
 
 def test_spread_takes_items_across_the_set() -> None:

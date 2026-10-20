@@ -6,13 +6,18 @@ from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.infrastructure.settings import Settings
 from tests.e2e.factories import ScriptedLlm
 
-from pharma_lab.e2e.golden import GoldenItem
+from pharma_lab.e2e.golden import Category, GoldenItem
 from pharma_lab.e2e.judging.ragas_scorer import (
     RagasScorer,
     RagasScores,
     build_ragas_scorer,
 )
-from pharma_lab.e2e.judging.service import judge_record, judge_records, pin_judge
+from pharma_lab.e2e.judging.service import (
+    judge_record,
+    judge_records,
+    pin_judge,
+    rejudge_citations,
+)
 from pharma_lab.e2e.judging.structured import (
     AbstentionJudgement,
     CitationCheck,
@@ -304,6 +309,30 @@ async def test_listed_items_are_judged_again(tmp_path: Path) -> None:
     assert len((tmp_path / "judgments.jsonl").read_text("utf-8").splitlines()) == 2
 
 
+async def test_a_category_limits_judging_to_its_items(tmp_path: Path) -> None:
+    answers = JsonlStore(tmp_path / "answers.jsonl", AnswerRecord)
+    judgments = JsonlStore(tmp_path / "judgments.jsonl", Judgement)
+    answers.append(answer("e2e-ans-0001"))
+    answers.append(
+        answer("e2e-inj-0001", answer_mode="blocked", answer_text="", citations=[])
+    )
+    items = {"e2e-ans-0001": grounded("e2e-ans-0001"), "e2e-inj-0001": injection()}
+
+    summary = await judge_records(
+        items,
+        answers,
+        judgments,
+        StructuredJudge(judge_for_grounded()),
+        FixedScorer(),
+        concurrency=1,
+        force=False,
+        category=Category.ANSWERABLE,
+    )
+
+    assert (summary.judged, summary.errors) == (1, 0)
+    assert set(judgments.latest()) == {"e2e-ans-0001"}
+
+
 async def test_contradicted_answers_get_a_harm_label() -> None:
     llm = ScriptedLlm()
     llm.script(
@@ -376,3 +405,77 @@ async def test_ragas_scorer_leaves_faithfulness_undefined_without_context() -> N
 
     assert scores == RagasScores(None, 0.5, 0.9)
     assert faithfulness.calls == []
+
+
+def graded(item_id: str, support: float | None) -> Judgement:
+    return Judgement(
+        item_id=item_id,
+        config="full",
+        category="answerable",
+        key_fact_verdicts=["supported"],
+        key_fact_recall=1.0,
+        contradiction=False,
+        citation_support=support,
+        faithfulness=0.8,
+    )
+
+
+async def test_citation_rejudge_replaces_only_the_citation_support(
+    tmp_path: Path,
+) -> None:
+    answers = JsonlStore(tmp_path / "answers.jsonl", AnswerRecord)
+    judgments = JsonlStore(tmp_path / "judgments.jsonl", Judgement)
+    answers.append(answer("e2e-ans-0001", answer_text="Tối đa 4 g mỗi ngày [1, 2]."))
+    judgments.append(graded("e2e-ans-0001", None))
+    llm = ScriptedLlm()
+    llm.script(
+        LlmRole.JUDGE,
+        CitationSupportJudgement(checks=[CitationCheck(sentence=1, supported=True)]),
+    )
+
+    summary = await rejudge_citations(
+        answers, judgments, StructuredJudge(llm), concurrency=1
+    )
+
+    latest = judgments.latest()["e2e-ans-0001"]
+    assert (summary.judged, summary.errors) == (1, 0)
+    assert latest.citation_support == 1.0
+    assert latest.model_copy(update={"citation_support": None}) == graded(
+        "e2e-ans-0001", None
+    )
+
+
+async def test_citation_rejudge_skips_answers_without_key_fact_verdicts(
+    tmp_path: Path,
+) -> None:
+    answers = JsonlStore(tmp_path / "answers.jsonl", AnswerRecord)
+    judgments = JsonlStore(tmp_path / "judgments.jsonl", Judgement)
+    answers.append(answer("e2e-ans-0001", answer_mode="abstain"))
+    judgments.append(
+        Judgement(item_id="e2e-ans-0001", config="full", category="answerable")
+    )
+
+    summary = await rejudge_citations(
+        answers, judgments, StructuredJudge(ScriptedLlm()), concurrency=1
+    )
+
+    assert summary.judged == 0
+    assert len((tmp_path / "judgments.jsonl").read_text("utf-8").splitlines()) == 1
+
+
+async def test_a_failed_citation_rejudge_keeps_the_previous_judgement(
+    tmp_path: Path,
+) -> None:
+    answers = JsonlStore(tmp_path / "answers.jsonl", AnswerRecord)
+    judgments = JsonlStore(tmp_path / "judgments.jsonl", Judgement)
+    answers.append(answer("e2e-ans-0001"))
+    judgments.append(graded("e2e-ans-0001", 0.5))
+    llm = ScriptedLlm()
+    llm.script(LlmRole.JUDGE, RuntimeError("quota"))
+
+    summary = await rejudge_citations(
+        answers, judgments, StructuredJudge(llm), concurrency=1
+    )
+
+    assert summary.errors == 1
+    assert judgments.latest()["e2e-ans-0001"] == graded("e2e-ans-0001", 0.5)

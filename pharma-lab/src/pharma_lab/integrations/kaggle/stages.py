@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol, cast
 
+from pharma_lab.integrations.kaggle.e2e_stage import E2ERunStage
 from pharma_lab.integrations.kaggle.models import (
     InputBundle,
     InputFile,
@@ -340,88 +341,11 @@ class BenchmarkStage:
         )
 
 
-SERVE_REPORT_FILENAME = "serve_report.jsonl"
-
-
-def _serve_api_key(stage: StageName, request_path: Path) -> str:
-    key_file = Path(request_path).with_suffix(".key")
-    if not key_file.is_file():
-        raise ValueError(f"{stage.value} needs its private key file: {key_file}")
-    key = key_file.read_text(encoding="utf-8").strip()
-    if not key:
-        raise ValueError(f"{stage.value} key file is empty: {key_file}")
-    return key
-
-
-@dataclass(frozen=True)
-class ModelServeStage:
-    """Serve a model through a tunnel until the session budget or `hours` ends.
-
-    The input is a small request file (hours, nonce); every request is a new job, so a
-    finished session is never mistaken for a reusable artifact. Input datasets are
-    public, so the API key comes from a private `<request>.key` file next to it and
-    only enters the private kernel's config. Rerankers use their benchmarked runtime
-    profile; chat models use the fixed layout of their catalog entry.
-    """
-
-    name: StageName
-    kind: ModelKind
-    contract_version: int = 1
-
-    def build_job(self, request: StageRequest) -> StageJob:
-        spec = require_model(request.model)
-        if spec.kind is not self.kind:
-            raise ValueError(
-                f"{self.name.value} requires a {self.kind.value} model: {request.model}"
-            )
-        input_bundle = InputBundle.create(
-            (InputFile.create("serve_request", request.input_path),)
-        )
-        if self.kind is ModelKind.CHAT and request.runtime_profile is None:
-            if spec.serve_runtime is None:
-                raise ValueError(f"{request.model} has no serve runtime")
-            profile = spec.serve_runtime
-        else:
-            profile = _required_runtime_profile(request)
-        identity = JobIdentity.create(
-            stage=self.name,
-            contract_version=self.contract_version,
-            model=request.model,
-            model_sha256=spec.sha256,
-            input_sha256=input_bundle.sha256,
-            runtime_parameters={"runtime_profile": profile.to_dict()},
-        )
-        output_dir = (
-            request.output_dir / self.name.value / spec.slug / identity.sha256[:12]
-        )
-        return StageJob(
-            self.name,
-            self.contract_version,
-            request.model,
-            identity,
-            input_bundle,
-            output_dir,
-            output_dir / SERVE_REPORT_FILENAME,
-            SERVE_REPORT_FILENAME,
-            1,
-            "pharma_lab.integrations.kaggle.workers.serve",
-            {
-                "model": request.model,
-                "runtime_overrides": profile.to_dict(),
-                "gguf_root": str(request.gguf_root),
-                "job_sha256": identity.sha256,
-                "enable_internet": True,
-                "api_key": _serve_api_key(self.name, request.input_path),
-            },
-        )
-
-
 _ADAPTERS: dict[StageName, StageAdapter] = {
     StageName.CORPUS_EMBED: CorpusEmbedStage(),
     StageName.QUERY_EMBED: QueryEmbedStage(),
     StageName.RERANK: RerankStage(),
-    StageName.RERANK_SERVE: ModelServeStage(StageName.RERANK_SERVE, ModelKind.RERANKER),
-    StageName.LLM_SERVE: ModelServeStage(StageName.LLM_SERVE, ModelKind.CHAT),
+    StageName.E2E_RUN: E2ERunStage(),
 }
 _ADAPTERS.update(
     {

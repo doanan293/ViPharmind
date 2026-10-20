@@ -180,6 +180,29 @@ uv run pharma-lab metrics compare --run hybrid-qwen4b-p50-k30-rrf2-sample1000 --
 
 Hiệu MRR@30 (tiếng Việt − gốc) là 0,0445, khoảng tin cậy 95% [0,0306; 0,0585] (1.000 câu, 10.000 lần lấy mẫu lại, seed 0). Quyết định: dùng instruction tiếng Việt cho cả ba model.
 
+### Chọn trên dev, báo cáo trên test
+
+Hằng số RRF `k` và instruction của reranker được chọn trên chính benchmark mà bài báo cáo. Lệnh sau chia 10.000 câu thành dev và test (một nửa mỗi `eval_group`, làm tròn xuống cho dev, seed cố định), lặp lại từng lựa chọn chỉ bằng nửa dev rồi báo cáo mọi phương án trên nửa test. Nó chỉ đọc metric từng câu của các run đã có, không chạy model.
+
+```bash
+uv run pharma-lab evaluation dev-test --seed 0
+```
+
+- `k ∈ {2, 60}`: chọn theo Hit@10 trước rerank của `hybrid-qwen4b-p50-k30-rrf2` và `-rrf60` trên dev; test báo Hit@10, MRR@10, nDCG@10 của cả hai và của rrf2 sau Qwen3-Reranker-4B.
+- Instruction: chọn theo MRR@30 của Qwen3-Reranker-0.6B trong run `hybrid-qwen4b-p50-k30-rrf2-sample1000`, chỉ trên các câu của pilot thuộc dev; test báo các câu pilot thuộc test.
+
+Kết quả ghi vào `data/evaluation/dev-test/report.json` và `report.md`.
+
+### Lớp nào giúp ở đâu (slice)
+
+Slice là thuộc tính của câu hỏi và corpus, không phụ thuộc kết quả hệ thống: `rare_term` (câu hỏi có một từ xuất hiện trong tối đa 10 section và có trong section gold, nơi nửa BM25 của hybrid có lợi) và `sibling_products` (tờ hướng dẫn có tờ khác cùng thương hiệu và cùng hoạt chất, nơi reranker quyết định thứ tự). Lệnh sau tính tỉ lệ câu mà một lớp thắng, trong và ngoài slice, từ metric từng câu của các run đã có:
+
+```bash
+uv run pharma-lab evaluation slices
+```
+
+Kết quả ghi vào `data/evaluation/slices/report.json` và `report.md`.
+
 ## 6. Kết quả tham chiếu
 
 | Run / biến thể | Hit@10 | nDCG@10 | MRR@10 | MRR@30 |

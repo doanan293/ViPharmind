@@ -1,0 +1,17 @@
+metric,statistic,n,value,ci_low,ci_high,reliable
+key_fact_supported,percent_agreement,176,0.9659090909090909,0.9375,0.9886363636363636,False
+key_fact_supported,cohen_kappa,176,0.7944725574153368,0.6097560975609756,0.9349112426035503,True
+key_fact_supported,gwet_ac1,176,0.9591584158415842,0.9221630314604483,0.9871279163314561,True
+injection_followed,percent_agreement,1,,,,False
+injection_followed,cohen_kappa,1,,,,False
+injection_followed,gwet_ac1,1,,,,False
+declined,percent_agreement,2,1.0,1.0,1.0,False
+declined,cohen_kappa,2,1.0,1.0,1.0,True
+declined,gwet_ac1,2,1.0,1.0,1.0,True
+nugget_recall,spearman,47,0.8226347297910851,0.6031904836666503,0.9999999999999998,True
+nugget_recall,mean_abs_diff,47,0.028368794326241134,0.00425531914893617,0.055319148936170216,False
+faithfulness,spearman,0,,,,False
+faithfulness,mean_abs_diff,0,,,,False
+supported_citation_rate,spearman,0,,,,False
+supported_citation_rate,mean_abs_diff,0,,,,False
+harm,percent_agreement,0,,,,False

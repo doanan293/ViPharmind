@@ -160,6 +160,7 @@ def test_write_report_builds_every_table(tmp_path: Path) -> None:
         "calibration.csv",
         "calibration.tex",
         "errors.md",
+        "group_ablation.csv",
         "main.csv",
         "main.tex",
         "provenance.json",
@@ -207,6 +208,56 @@ def test_write_report_builds_every_table(tmp_path: Path) -> None:
     assert errors[4].startswith("| e2e-ans-0004 | answerable | 0.00 | -- |")
     assert "| retrieval |" in next(line for line in errors if "e2e-ans-0000" in line)
     assert "Câu 4 / liều?" in errors[4]
+
+
+def test_group_ablation_compares_each_group_on_its_own_items(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(6)}
+    write_config(tmp_path, "full", [1.0, 1.0, 0.5, 1.0, 0.0, 1.0])
+    write_config(tmp_path, "one-step", [0.5, 0.5, 0.5, 0.5, 0.0, 0.5])
+
+    write_report(tmp_path, items)
+
+    table = rows(tmp_path / "reports" / "group_ablation.csv")
+    formulary = next(
+        r
+        for r in table
+        if r["group"] == "formulary"
+        and r["metric"] == "nugget_recall"
+        and r["config"] == "one-step"
+    )
+    assert formulary["group_type"] == "eval_group"
+    assert formulary["n"] == "3"
+    assert float(formulary["full_mean"]) == pytest.approx(1.0)
+    assert float(formulary["config_mean"]) == pytest.approx(0.5)
+    assert float(formulary["p_holm"]) == pytest.approx(float(formulary["p_value"]))
+    assert all(r["config"] != "full" for r in table)
+
+
+def test_group_ablation_splits_items_by_the_first_judge_decision(
+    tmp_path: Path,
+) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(6)}
+    write_config(tmp_path, "full", [1.0] * 6)
+    write_config(tmp_path, "no-judge-refine", [1.0, 0.0, 1.0, 0.0, 1.0, 0.0])
+    answers = JsonlStore(tmp_path / "full" / "answers.jsonl", AnswerRecord)
+    for n in range(6):
+        outcomes = ["search_more", "answer"] if n % 2 else ["answer"]
+        answers.append(
+            answer(n, "full").model_copy(update={"judge_outcomes": outcomes})
+        )
+
+    write_report(tmp_path, items)
+
+    table = rows(tmp_path / "reports" / "group_ablation.csv")
+    split = {
+        r["group"]: r
+        for r in table
+        if r["group_type"] == "first_judgement" and r["metric"] == "nugget_recall"
+    }
+    assert set(split) == {"sufficient", "more_evidence"}
+    assert float(split["sufficient"]["config_mean"]) == pytest.approx(1.0)
+    assert float(split["more_evidence"]["config_mean"]) == pytest.approx(0.0)
+    assert split["more_evidence"]["n"] == "3"
 
 
 def test_report_needs_judged_answers(tmp_path: Path) -> None:

@@ -22,6 +22,8 @@ class TurnDeps:
 class PipelineOptions:
     """Steps of the agent loop. Only the evaluation harness turns any of them off."""
 
+    # Off skips the guard step and lets every turn through (an ablation of the guard).
+    guard: bool = True
     rephrase: bool = True
     judge_refine: bool = True
     # The first search uses the earlier user questions plus this one (a baseline without rephrase).

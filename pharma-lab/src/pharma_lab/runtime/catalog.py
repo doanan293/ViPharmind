@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -88,7 +89,7 @@ class ModelSpec:
     rerank_search_space: RuntimeSearchSpace | None = None
     local_rerank_search_space: RuntimeSearchSpace | None = None
     embedding_search_space: EmbeddingRuntimeSearchSpaces | None = None
-    # Chat models are only served, so their server layout is fixed instead of benchmarked.
+    # Chat models run inside one e2e kernel with a fixed server layout instead of a benchmarked one.
     serve_runtime: RuntimeCandidate | None = None
 
     @property
@@ -102,9 +103,9 @@ class ModelSpec:
 
     @property
     def gguf_dataset_slug(self) -> str:
-        return "vector-cache-gguf-" + self.canonical_filename.removesuffix(
-            ".gguf"
-        ).replace(".", "-")
+        # Kaggle slugs allow letters, digits and "-" only, so "q8_0" becomes "q8-0".
+        stem = self.canonical_filename.removesuffix(".gguf").casefold()
+        return "vector-cache-gguf-" + re.sub(r"[^a-z0-9]+", "-", stem).strip("-")
 
 
 def _embedding(
@@ -285,6 +286,16 @@ RERANKER_MODELS = {
         ModelTopology.REPLICATED_2X1,
         levels=SMALL_RERANK_LEVELS,
     ),
+    # Q8_0 with the same Vietnamese medical instruction, published on Kaggle; used by the
+    # camera-ready runs, which re-run every compared configuration with it.
+    "qwen3-reranker:4b-q8_0": _reranker(
+        "qwen3-reranker:4b-q8_0",
+        "qwen3-reranker-4b-q8_0-vimed.gguf",
+        4_279_678_912,
+        "424c3a97b813b53760ffce9fe266fc85cc092c215a5adfef543200f7bde5e526",
+        ModelTopology.REPLICATED_2X1,
+        levels=SMALL_RERANK_LEVELS,
+    ),
     "qwen3-reranker:8b-fp16": _reranker(
         "qwen3-reranker:8b-fp16",
         "qwen3-reranker-8b-f16-vimed.gguf",
@@ -316,6 +327,25 @@ CHAT_MODELS = {
         canonical_filename="qwen3.5-9b-f16.gguf",
         byte_size=17_920_697_312,
         sha256="863a67e28486f4c3ad7a30c49614a398d5a07caf8d0067a018d0e5f0abf79f2d",
+        topology=ModelTopology.SHARDED_1X2,
+        kaggle_parallel=1,
+        kaggle_request_batch_size=1,
+        serve_runtime=RuntimeCandidate(
+            server_slots=4,
+            concurrency=4,
+            request_batch_size=1,
+            context_per_slot=16384,
+            logical_batch_size=2048,
+            physical_batch_size=512,
+        ),
+    ),
+    # Q8_0 of the same model, served like the F16 file; used by the camera-ready runs.
+    "qwen3.5:9b-q8_0": ModelSpec(
+        name="qwen3.5:9b-q8_0",
+        kind=ModelKind.CHAT,
+        canonical_filename="qwen3.5-9b-q8_0.gguf",
+        byte_size=9_527_502_048,
+        sha256="809626574d0cb43d4becfa56169980da2bb448f2299270f7be443cb89d0a6ae4",
         topology=ModelTopology.SHARDED_1X2,
         kaggle_parallel=1,
         kaggle_request_batch_size=1,

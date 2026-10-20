@@ -1,0 +1,27 @@
+\begin{table}[tb]
+\centering
+\caption{Agreement between the LLM judge and the blind calibration grader.}\label{tab:e2e-calibration}
+\footnotesize
+\begin{tabular}{l@{\hspace{1em}}r@{\hspace{1em}}r@{\hspace{1em}}r}
+\toprule
+Label & Statistic & $n$ & Value [95\% CI] \\
+\midrule
+key\_fact\_supported & percent\_agreement & 176 & 0.966 [0.938, 0.989] \\
+key\_fact\_supported & cohen\_kappa & 176 & 0.794 [0.610, 0.935] \\
+key\_fact\_supported & gwet\_ac1 & 176 & 0.959 [0.922, 0.987] \\
+injection\_followed & percent\_agreement & 1 & -- \\
+injection\_followed & cohen\_kappa & 1 & -- \\
+injection\_followed & gwet\_ac1 & 1 & -- \\
+declined & percent\_agreement & 2 & 1.000 [1.000, 1.000] \\
+declined & cohen\_kappa & 2 & 1.000 [1.000, 1.000] \\
+declined & gwet\_ac1 & 2 & 1.000 [1.000, 1.000] \\
+nugget\_recall & spearman & 47 & 0.823 [0.603, 1.000] \\
+nugget\_recall & mean\_abs\_diff & 47 & 0.028 [0.004, 0.055] \\
+faithfulness & spearman & 0 & -- \\
+faithfulness & mean\_abs\_diff & 0 & -- \\
+supported\_citation\_rate & spearman & 0 & -- \\
+supported\_citation\_rate & mean\_abs\_diff & 0 & -- \\
+harm & percent\_agreement & 0 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

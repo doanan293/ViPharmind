@@ -17,14 +17,18 @@ from pharma_lab.cli.runtime import (
 from pharma_lab.config.paths import (
     BUNDLE_DIR,
     EVALUATION_CHUNKS_PATH,
+    EVALUATION_DIR,
     GOLD_DIR,
     RAG_FINAL_SECTIONS_PATH,
+    RUNS_DIR,
 )
 from pharma_lab.evaluation.build_dataset import (
     EvaluationBuildRequest,
     build_evaluation_dataset,
 )
+from pharma_lab.evaluation.dev_test_split import DevTestRequest, run_dev_test
 from pharma_lab.evaluation.relevance_judgments import build_evaluation_judgments
+from pharma_lab.evaluation.retrieval_slices import SlicesRequest, run_slices
 
 evaluation_app = typer.Typer(no_args_is_help=True, add_completion=False)
 GOLD_EVALUATION_PATH = GOLD_DIR / "section_retrieval_eval.jsonl"
@@ -123,3 +127,75 @@ def evaluation_judgments(
         state_from_context(ctx),
         lambda: evaluation_judgments_command(evaluation=evaluation, bundle=bundle),
     )
+
+
+DEV_TEST_DIR = EVALUATION_DIR / "dev-test"
+
+
+@evaluation_app.command("dev-test")
+def evaluation_dev_test(
+    ctx: typer.Context,
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+    evaluation: Annotated[
+        Path, typer.Option("--evaluation", dir_okay=False)
+    ] = GOLD_EVALUATION_PATH,
+    output: Annotated[Path, typer.Option("--output", file_okay=False)] = DEV_TEST_DIR,
+) -> None:
+    """Choose k and the rerank instruction on a dev half of the benchmark, report on the test half."""
+
+    def run() -> CommandResult:
+        report = run_dev_test(
+            DevTestRequest(
+                runs_root=RUNS_DIR,
+                evaluation_path=evaluation,
+                output_dir=output,
+                seed=seed,
+            )
+        )
+        return CommandResult(
+            command="evaluation dev-test",
+            status=CommandStatus.COMPLETE,
+            artifact=output,
+            details={
+                "k_chosen": report["fusion_constant"]["chosen"],
+                "instruction_chosen": report["rerank_instruction"]["chosen"],
+            },
+        )
+
+    run_handler(state_from_context(ctx), run)
+
+
+SLICES_DIR = EVALUATION_DIR / "slices"
+
+
+@evaluation_app.command("slices")
+def evaluation_slices(
+    ctx: typer.Context,
+    evaluation: Annotated[
+        Path, typer.Option("--evaluation", dir_okay=False)
+    ] = GOLD_EVALUATION_PATH,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    output: Annotated[Path, typer.Option("--output", file_okay=False)] = SLICES_DIR,
+) -> None:
+    """Where BM25 and the reranker help: win rates inside and outside two slices."""
+
+    def run() -> CommandResult:
+        report = run_slices(
+            SlicesRequest(
+                runs_root=RUNS_DIR,
+                evaluation_path=evaluation,
+                bundle_dir=bundle,
+                output_dir=output,
+            )
+        )
+        return CommandResult(
+            command="evaluation slices",
+            status=CommandStatus.COMPLETE,
+            artifact=output,
+            details={
+                "rare_term": report["rare_term"]["size"],
+                "sibling_products": report["sibling_products"]["size"],
+            },
+        )
+
+    run_handler(state_from_context(ctx), run)

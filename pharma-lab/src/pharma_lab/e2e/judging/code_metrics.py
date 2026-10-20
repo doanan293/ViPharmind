@@ -9,7 +9,8 @@ from pharma_lab.e2e.golden import Category, ExpectedBehavior, GoldenItem
 from pharma_lab.e2e.records import AnswerRecord
 
 _BLOCK = re.compile(r"^\[(\d+)\] ", re.MULTILINE)
-_CITATION = re.compile(r"\[(\d+)\]")
+# A citation marker: "[1]" or a grouped "[1, 2]".
+_CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+|\n+")
 
 
@@ -104,7 +105,13 @@ def cited_sentences(answer_text: str) -> list[tuple[str, list[int]]]:
     units: list[tuple[str, list[int]]] = []
     for sentence in _SENTENCE_END.split(answer_text):
         sentence = sentence.strip()
-        numbers = list(dict.fromkeys(int(n) for n in _CITATION.findall(sentence)))
+        numbers = list(
+            dict.fromkeys(
+                int(n)
+                for group in _CITATION.findall(sentence)
+                for n in group.split(",")
+            )
+        )
         if numbers:
             units.append((sentence, numbers))
     return units

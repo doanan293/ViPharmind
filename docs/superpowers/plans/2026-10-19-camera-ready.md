@@ -228,3 +228,27 @@ Trên test, report ghi cho cả hai option của từng quyết định: `hit@10
 - [ ] **Step 5:** Lưu data của run mới: `uv run pharma-lab data push --dataset vipharmind-camera-ready-data --message "camera-ready runs"` (dataset riêng tư mới, không thêm version vào `vipharmind-data`).
 - [ ] **Step 6:** Trả môi trường: `docker compose -p vipharmind-v1 stop`; `mv pharma-lab/data pharma-lab/data.v1 && mv pharma-lab/data.v2 pharma-lab/data` chỉ khi tác giả chuyển lại sang `v2.0.0`; `docker start vipharmind-eval-postgres-1 vipharmind-eval-qdrant-1` cùng lúc.
 - [ ] **Step 7:** Commit, merge `camera-ready` vào `dev` rồi `main` sau khi tác giả duyệt PDF.
+
+### Task 13: E4, slice retrieval (`rare_term`, `sibling_products`)
+
+Spec §2 E4. Thứ tự: sau Task 7, trước Task 10 (số dùng trong bài).
+
+**Files:**
+- Create: `pharma-lab/src/pharma_lab/evaluation/retrieval_slices.py`
+- Modify: `pharma-lab/src/pharma_lab/cli/commands/evaluation.py` (lệnh `slices`)
+- Modify: `pharma-lab/docs/guides/evaluation.md` (mục ngắn)
+- Test: `pharma-lab/tests/evaluation/test_retrieval_slices.py`
+
+**Interfaces:**
+- Consumes: `CorpusText`, `load_corpus_text` (`e2e/corpus_text.py`), `load_query_metric` (`metric_comparison.py`).
+- Produces:
+  - `rare_terms(rows: Sequence[Mapping], corpus: CorpusText, *, max_sections: int = 10) -> set[str]`: query id của câu có một từ (≥ 4 ký tự, bắt đầu bằng chữ cái, so sánh sau NFC + casefold) xuất hiện trong tối đa `max_sections` section của corpus và có trong section gold.
+  - `sibling_products(rows, corpus) -> set[str]`: query id của câu có gold là một tờ hướng dẫn thuộc một họ ≥ 2 tờ cùng (hoạt chất, từ đầu của `brand_name(title)`); hoạt chất là các chuyên luận được nêu trong 600 ký tự từ chữ "thành phần" (không phân biệt hoa thường), cắt trước "tá dược". `brand_name` và `MonographNames` chép từ `pharma_lab/e2e/golden_generate.py` của nhánh `v2.0.0` vào module này.
+  - `win_rate(better: Mapping[str, float], worse: Mapping[str, float], ids: Collection[str]) -> float`: tỉ lệ id mà `better > worse`.
+  - CLI `pharma-lab evaluation slices` ghi `data/evaluation/slices/report.json` và `report.md`: kích thước slice; với `rare_term`: win rate BM25 so với dense và hybrid rrf2 so với dense ở Hit@10, trong và ngoài slice; với `sibling_products`: win rate rerank 4B so với hybrid rrf2 ở Hit@5 và top-1 (`mrr == 1`), trong và ngoài slice, và ngoài slice chỉ tính câu leaflet.
+
+- [ ] **Step 1: Test** `test_rare_terms_need_a_word_rare_in_the_corpus_and_present_in_the_gold`, `test_sibling_products_group_leaflets_by_brand_and_actives` (hai tờ cùng thương hiệu và hoạt chất → cả hai vào slice; khác hoạt chất → không), `test_win_rate_counts_strict_wins_on_the_given_ids`.
+- [ ] **Step 2:** `uv run pytest tests/evaluation/test_retrieval_slices.py -q` → FAIL.
+- [ ] **Step 3:** Cài đặt module và lệnh.
+- [ ] **Step 4:** Test, ruff, pyrefly → PASS; chạy `uv run pharma-lab evaluation slices`; số phải khớp lần thử (rare_term 3.657 câu, 2,2× và 2,5×; sibling 846 câu, Hit@5 1,4×).
+- [ ] **Step 5:** Commit code và `data/evaluation/slices/report.{json,md}`. Message `feat(pharma-lab): retrieval slices that show where BM25 and the reranker help`.
