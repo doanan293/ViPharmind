@@ -1,0 +1,26 @@
+{
+  "config": "full",
+  "items": 469,
+  "sentences": 13604,
+  "mean_item_recall": 0.4645929353282511,
+  "uncited": {
+    "sentences": 6807,
+    "share": 0.5003675389591297
+  },
+  "uncited_lead_in": {
+    "sentences": 2207,
+    "share": 0.16223169655983535
+  },
+  "dangling": {
+    "sentences": 0,
+    "share": 0.0
+  },
+  "unsupported": {
+    "sentences": 595,
+    "share": 0.04373713613643046
+  },
+  "supported": {
+    "sentences": 6236,
+    "share": 0.4583945898265216
+  }
+}

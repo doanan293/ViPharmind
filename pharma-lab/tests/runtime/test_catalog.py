@@ -61,3 +61,37 @@ def test_the_open_weight_chat_model_is_served_sharded_with_a_fixed_runtime() -> 
     assert spec.serve_runtime is not None
     assert spec.serve_runtime.context_per_slot >= 16384
     assert spec.rerank_search_space is None and spec.vector_dimension is None
+
+
+def test_q8_models_point_at_the_published_kaggle_datasets() -> None:
+    reranker = require_model("qwen3-reranker:4b-q8_0")
+    chat = require_model("qwen3.5:9b-q8_0")
+
+    assert reranker.kind is ModelKind.RERANKER
+    assert (reranker.canonical_filename, reranker.byte_size, reranker.sha256) == (
+        "qwen3-reranker-4b-q8_0-vimed.gguf",
+        4_279_678_912,
+        "424c3a97b813b53760ffce9fe266fc85cc092c215a5adfef543200f7bde5e526",
+    )
+    # Kaggle slugs allow letters, digits and "-" only.
+    assert (
+        reranker.gguf_dataset_slug == "vector-cache-gguf-qwen3-reranker-4b-q8-0-vimed"
+    )
+    assert chat.kind is ModelKind.CHAT
+    assert chat.topology is ModelTopology.SHARDED_1X2
+    assert (chat.canonical_filename, chat.byte_size, chat.sha256) == (
+        "qwen3.5-9b-q8_0.gguf",
+        9_527_502_048,
+        "809626574d0cb43d4becfa56169980da2bb448f2299270f7be443cb89d0a6ae4",
+    )
+    assert chat.gguf_dataset_slug == "vector-cache-gguf-qwen3-5-9b-q8-0"
+    assert chat.serve_runtime == require_model(CHAT_MODEL).serve_runtime
+
+
+def test_slugs_of_the_v1_models_do_not_change() -> None:
+    assert require_model("qwen3-embedding:4b-fp16").gguf_dataset_slug == (
+        "vector-cache-gguf-qwen3-embedding-4b-fp16"
+    )
+    assert require_model("qwen3-reranker:4b-fp16").gguf_dataset_slug == (
+        "vector-cache-gguf-qwen3-reranker-4b-f16-vimed"
+    )

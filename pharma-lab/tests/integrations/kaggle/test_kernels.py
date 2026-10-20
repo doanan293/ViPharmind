@@ -1,4 +1,6 @@
 import json
+import zipfile
+from dataclasses import replace
 from pathlib import Path
 
 from tests.integrations.kaggle.factories import (
@@ -22,7 +24,7 @@ from pharma_lab.integrations.kaggle.stages import RerankStage
 def test_kernel_output_downloads_diagnostic_sidecars(tmp_path):
     command = kernel_output_command("owner/kernel", tmp_path)
 
-    assert command[-1] == r".*(jsonl|json|zip|md|log)$"
+    assert command[-1] == r".*(jsonl|json|zip|tar|md|log)$"
 
 
 def test_prepare_bundle_serializes_mounted_input_descriptors(tmp_path):
@@ -155,3 +157,67 @@ def test_discover_reports_absent_when_the_kernel_is_confirmed_missing(tmp_path):
     assert state.presence is KernelPresence.ABSENT
     assert state.reference == service.reference(job)
     assert fake.checked == [service.reference(job)]
+
+
+def _bundle_names(tmp_path: Path, *, bundle_backend: bool) -> set[str]:
+    lab = tmp_path / "lab"
+    (lab / "pharma_lab").mkdir(parents=True)
+    (lab / "pharma_lab/__init__.py").write_text("", encoding="utf-8")
+    backend = tmp_path / "backend"
+    migrations = backend / "pharma_agent/migrations"
+    migrations.mkdir(parents=True)
+    (backend / "pharma_agent/__init__.py").write_text("", encoding="utf-8")
+    (migrations / "script.py.mako").write_text("", encoding="utf-8")
+    (backend / "pharma_agent/__pycache__").mkdir()
+    (backend / "pharma_agent/__pycache__/x.pyc").write_bytes(b"")
+    candidates = tmp_path / "candidates.jsonl"
+    candidates.write_text(
+        json.dumps(
+            {
+                "query_id": "q1",
+                "query": "q",
+                "candidates": [{"chunk_id": "c1", "document_text": "t"}],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "manifest.json").write_text("{}\n", encoding="utf-8")
+    job = RerankStage().build_job(
+        stage_request(
+            StageName.RERANK,
+            "qwen3-reranker:0.6b-fp16",
+            candidates,
+            runtime_profile=rerank_runtime_profile(),
+        )
+    )
+    job = replace(
+        job, worker_config=job.worker_config | {"bundle_backend": bundle_backend}
+    )
+    bundle = PipelineKernelService(
+        service=UnusedKernelService(),
+        owner="owner",
+        source_root=lab,
+        backend_source_root=backend,
+    ).prepare_bundle(
+        job,
+        root=tmp_path / "bundle",
+        dataset_references=[],
+        checkpoint_reference=None,
+        total_budget_seconds=60,
+    )
+    with zipfile.ZipFile(bundle / "source_bundle.zip") as archive:
+        return set(archive.namelist())
+
+
+def test_bundle_carries_the_backend_only_when_the_job_asks(tmp_path):
+    with_backend = _bundle_names(tmp_path / "a", bundle_backend=True)
+    without = _bundle_names(tmp_path / "b", bundle_backend=False)
+
+    assert {
+        "pharma_lab/__init__.py",
+        "pharma_agent/__init__.py",
+        "pharma_agent/migrations/script.py.mako",
+    } <= with_backend
+    assert not any("__pycache__" in name for name in with_backend)
+    assert without == {"pharma_lab/__init__.py"}

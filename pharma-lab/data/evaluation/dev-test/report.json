@@ -1,0 +1,73 @@
+{
+  "counts": {
+    "chunk_risk": {
+      "dev": 500,
+      "test": 500
+    },
+    "formulary": {
+      "dev": 2500,
+      "test": 2500
+    },
+    "leaflet": {
+      "dev": 1250,
+      "test": 1250
+    },
+    "multi_intent": {
+      "dev": 250,
+      "test": 250
+    },
+    "noisy_confuser": {
+      "dev": 250,
+      "test": 250
+    },
+    "patient_natural": {
+      "dev": 250,
+      "test": 250
+    }
+  },
+  "fusion_constant": {
+    "chosen": "rrf2",
+    "dev_means": {
+      "rrf2": 0.9564,
+      "rrf60": 0.9368
+    },
+    "dev_size": 5000,
+    "metric": "hit@10",
+    "test": {
+      "rrf2": {
+        "hit@10": 0.9614,
+        "mrr@10": 0.7350039682539683,
+        "ndcg@10": 0.7878078452724576
+      },
+      "rrf60": {
+        "hit@10": 0.938,
+        "mrr@10": 0.6952507936507937,
+        "ndcg@10": 0.7482646147039969
+      }
+    },
+    "test_size": 5000
+  },
+  "rerank_instruction": {
+    "chosen": "with",
+    "dev_means": {
+      "with": 0.8117303282165488,
+      "without": 0.7659395355113706
+    },
+    "dev_size": 508,
+    "metric": "mrr",
+    "test_means": {
+      "with": 0.8037444027054104,
+      "without": 0.7606110350849711
+    },
+    "test_size": 492
+  },
+  "rerank_rrf2": {
+    "test": {
+      "hit@10": 0.9754,
+      "mrr@10": 0.8327885714285714,
+      "ndcg@10": 0.8637932316481938
+    },
+    "test_size": 5000
+  },
+  "seed": 0
+}

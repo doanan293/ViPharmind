@@ -70,14 +70,46 @@ benchmark (`sample_seed` 0), không tách rời.
 
 ### E3. Citation recall
 
-- Đầu vào: `judgments.jsonl` và `answers.jsonl` của `full`, cả hai setting.
-- Tách các câu văn không được hỗ trợ thành: câu không có trích dẫn; câu có trích dẫn nhưng đoạn được
-  trích không hỗ trợ, chia tiếp theo việc claim có được evidence trong prompt hỗ trợ hay không (trích
-  sai đoạn so với nội dung ngoài evidence).
-- Mẫu tay: khoảng 40 câu không được hỗ trợ, rút ngẫu nhiên có seed, xuất ra file để tác giả gán một
-  loại lỗi theo bảng loại cố định (ví dụ câu dẫn dắt hoặc tổng hợp không cần trích, trích sai đoạn
-  liền kề, nội dung suy diễn, judge sai). Bảng loại được chốt trong plan trước khi gán.
-- Kết quả: phân bố theo từng loại cho mỗi setting.
+- Bỏ mẫu gán nhãn tay (quyết định của tác giả, 2026-10-19).
+- Phát hiện bug: bộ đọc trích dẫn bỏ sót dạng gộp `[1, 2]`, nên các câu đó bị tính là không trích dẫn và judge chưa chấm. Sửa bộ đọc, chấm lại riêng `citation_support` bằng judge cũ cho các cấu hình có citation recall trong Table 3 và 4 (Gemini `full`, `one-step`, `no-judge-refine`, `no-rephrase`, `no-rerank`; Qwen `full`, `one-step`).
+- Trong bài chỉ đổi dòng citation recall của Table 3 và 4 cùng các câu nhắc tới nó; mọi dòng khác giữ nguyên. Thêm 2–3 câu: tỉ lệ câu thiếu là câu không trích dẫn so với trích sai, và tỉ lệ câu có trích dẫn được hỗ trợ, tính bằng `e2e citations` sau khi chấm lại.
+
+### E4. Lớp nào giúp ở đâu (slice retrieval)
+
+Trả lời R1 và R2 ("bỏ reranker không đổi e2e", ablation chưa rõ). Slice là thuộc tính của câu hỏi
+và corpus, không phụ thuộc kết quả hệ thống nào; định nghĩa lấy từ eval data v3 (nhánh `v2.0.0`).
+
+- `rare_term`: câu hỏi chứa một từ có trong tối đa 10 section của corpus và có trong section gold
+  đúng như viết. Lớp kỳ vọng: nửa BM25 của hybrid.
+- `sibling_products`: có tờ hướng dẫn khác cùng từ thương hiệu và cùng hoạt chất. Trên v1 mỗi tờ
+  hướng dẫn là một section, nên hoạt chất đọc từ đoạn "Thành phần" trong văn bản của tờ đó
+  (tối đa 600 ký tự, cắt ở "tá dược"). Lớp kỳ vọng: reranker.
+- Đo trên metric từng câu đã có (không chạy model): tỉ lệ câu mà lớp đó thắng (Hit@10 cho BM25 so
+  với dense và hybrid so với dense; Hit@5 và top-1 cho rerank 4B so với hybrid) trong slice so với
+  ngoài slice.
+- Kết quả thử trên v1: `rare_term` 3.657 câu, 2,2× (BM25 hơn dense) và 2,5× (hybrid hơn dense);
+  `sibling_products` 846 câu, 1,4× ở Hit@5 (2,0× trong các câu leaflet), 1,2–1,5× ở top-1.
+- Không dùng: `name_variant` (v1 chỉ 27 câu), `header_dependent` (v1 không có index bỏ enrichment
+  để so), slice ở mức e2e (quá ít item mỗi slice). Hai điểm đầu vào Limitations.
+- Bài: 2–3 câu trong Results/Discussion và một câu Limitations; không thêm bảng.
+
+### E5. Judge–refine tác dụng ở đâu (chia theo quyết định đầu của judge)
+
+Trả lời R1 và R2 ("judge–refine lợi ít, tốn khoảng 40% token"). Trong `full`, judge quyết định ngay
+sau lần search đầu; lần search đó giống hệt ở `no-judge-refine` (cùng rephrase, cùng retrieval), nên
+có thể chia item theo quyết định này mà không thiên về cấu hình nào.
+
+- Nhóm `sufficient`: judge trả `answer` ngay; nhóm `more_evidence`: judge yêu cầu tìm thêm.
+- `report.py` thêm `group_type = first_judgement` vào `group_ablation.csv` (paired sign-flip, Holm).
+- Số trên run Gemini: 295 item `sufficient`, truthfulness 0,893 so với 0,880 khi bỏ vòng lặp
+  (p = 0,53), chỉ thêm một lời gọi; 185 item `more_evidence`, 0,886 so với 0,822 (p = 0,035), thêm
+  khoảng 4,8 lời gọi và 6,6k token. Trong `more_evidence`, lợi dồn vào câu kiểu bệnh nhân (54 item,
+  1,000 so với 0,694); câu nhiều ý thì kém đi (23 item, 0,630 so với 0,783), bài nêu cả hai chiều.
+- Bài: một đoạn trong Results e2e và câu mở của Discussion về judge–refine; không thêm bảng.
+
+Không chạy ablation bỏ header enrichment: không reviewer nào yêu cầu; R2 chỉ lo enrichment và
+câu hỏi dùng chung mapping (tính vòng tròn), nên một ablation như vậy chỉ khuếch đại đúng nỗi lo đó.
+Điểm này trả lời bằng Limitations.
 
 ## 3. Môi trường, code và data
 

@@ -32,7 +32,7 @@ from pharma_agent.domain.agent.schemas import (
     RephraseResult,
 )
 from pharma_agent.domain.conversation.context import query_with_history
-from pharma_agent.domain.guardrail.models import VerdictSource
+from pharma_agent.domain.guardrail.models import Verdict, VerdictSource
 from pharma_agent.domain.llm.models import LlmRole, LlmUsage
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.models import Query, QueryOrigin
@@ -77,6 +77,15 @@ async def guard_node(
 ) -> NodeUpdate:
     run, deps = state.run, runtime.context.deps
     _emit(ProgressEvent.phase(Phase.GUARDING))
+    if not runtime.context.pipeline.guard:
+        skipped = Verdict(
+            passed=True,
+            in_scope=True,
+            source=VerdictSource.SKIPPED,
+            reason="guard disabled",
+        )
+        run.record_guard(skipped, now=deps.clock.now(), llm_failed=False)
+        return {"run": run}
     outcome = await deps.guardrail.check(run.original_query)
     if outcome.verdict.source is VerdictSource.LLM:
         with suppress(BudgetExhausted):

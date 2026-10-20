@@ -16,11 +16,13 @@ from __future__ import annotations
 import csv
 import json
 import math
-from collections.abc import Callable, Mapping, Sequence
+import statistics
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+from pharma_agent.domain.agent.schemas import JudgeOutcome
 
 from pharma_lab.e2e.calibration import AGREEMENT_FILE, PPI_FILE, calibration_dir
 from pharma_lab.e2e.configs import E2EConfig
@@ -147,6 +149,8 @@ def _cited_source(index: int) -> Callable[[ItemView], float | None]:
 def _alce(view: ItemView) -> float | None:
     if view.answer.answer_mode != "grounded" or view.judgement.key_fact_recall is None:
         return None
+    if view.judgement.citation_recall is not None:
+        return view.judgement.citation_recall
     return alce_citation_recall(
         view.answer.answer_text,
         view.answer.context_text,
@@ -229,14 +233,21 @@ METRIC_LABELS: Mapping[str, str] = {
 CONFIG_LABELS: Mapping[str, str] = {
     E2EConfig.FULL.value: "Full agent",
     E2EConfig.ONE_STEP.value: "One-step RAG",
+    E2EConfig.ONE_STEP_HISTORY.value: "Concat RAG",
     E2EConfig.NO_JUDGE_REFINE.value: "w/o judge--refine",
     E2EConfig.NO_REPHRASE.value: "w/o rephrase",
     E2EConfig.NO_RERANK.value: "w/o rerank",
+    E2EConfig.NO_GUARD_NO_RERANK.value: "w/o guard and rerank",
     E2EConfig.CLOSED_BOOK.value: "Closed-book LLM",
 }
 # The LNCS text block is 12.2 cm wide: the main table compares the two systems,
 # and the ablation table carries the other configurations as paired deltas.
-PAPER_MAIN_CONFIGS: tuple[str, ...] = (E2EConfig.FULL.value, E2EConfig.ONE_STEP.value)
+PAPER_MAIN_CONFIGS: tuple[str, ...] = (
+    E2EConfig.FULL.value,
+    E2EConfig.ONE_STEP.value,
+    E2EConfig.ONE_STEP_HISTORY.value,
+    E2EConfig.CLOSED_BOOK.value,
+)
 
 
 def summarise(metric: Metric, values: Sequence[float]) -> Summary:
@@ -495,6 +506,33 @@ def _ablation_tables(
     return [ablation_csv, ablation_tex]
 
 
+def _item_groups(
+    items: Mapping[str, GoldenItem],
+    keys: Iterable[str],
+    full_answers: Mapping[str, AnswerRecord] | None = None,
+) -> dict[tuple[str, str], set[str]]:
+    """Item keys by (group type, group): the category, and the eval group of
+    single-turn answerable questions (multi-turn items borrow their follow-up row's
+    group, so they are kept out of the eval-group breakdown).
+
+    With the full agent's answers, items are also split by the judge's first
+    decision: whether the first search was enough to answer. That search is the
+    same in every configuration that rephrases, so the split shows where the
+    judge--refine loop acts."""
+    groups: dict[tuple[str, str], set[str]] = {}
+    for key in keys:
+        item = items[key]
+        groups.setdefault(("category", item.category.value), set()).add(key)
+        if item.category is Category.ANSWERABLE and item.eval_group:
+            groups.setdefault(("eval_group", item.eval_group), set()).add(key)
+        record = full_answers.get(key) if full_answers is not None else None
+        if record is not None and record.judge_outcomes:
+            first = record.judge_outcomes[0]
+            name = "sufficient" if first == JudgeOutcome.ANSWER else "more_evidence"
+            groups.setdefault(("first_judgement", name), set()).add(key)
+    return groups
+
+
 def _group_table(
     directory: Path,
     configs: Sequence[str],
@@ -504,23 +542,11 @@ def _group_table(
 ) -> Path:
     rows: list[list[object]] = []
     for config in configs:
+        groups = _item_groups(items, loaded[config][1])
         for kind in ("category", "eval_group"):
-            groups: dict[str, set[str]] = {}
-            for key in loaded[config][1]:
-                item = items[key]
-                if kind == "category":
-                    name = item.category.value
-                else:
-                    # Multi-turn items borrow their follow-up row's group; keep the
-                    # eval-group breakdown to single-turn answerable questions.
-                    name = (
-                        item.eval_group
-                        if item.category is Category.ANSWERABLE
-                        else None
-                    )
-                if name:
-                    groups.setdefault(name, set()).add(key)
-            for name, keys in sorted(groups.items()):
+            for (group_kind, name), keys in sorted(groups.items()):
+                if group_kind != kind:
+                    continue
                 for metric in METRICS:
                     selected = [
                         v for k, v in values[config][metric.name].items() if k in keys
@@ -543,6 +569,72 @@ def _group_table(
     _write_csv(
         path,
         ["config", "group_type", "group", "metric", "n", "mean", "ci_low", "ci_high"],
+        rows,
+    )
+    return path
+
+
+def _group_ablation(
+    directory: Path,
+    configs: Sequence[str],
+    items: Mapping[str, GoldenItem],
+    loaded: Mapping[str, tuple[dict[str, AnswerRecord], dict[str, Judgement]]],
+    values: Mapping[str, dict[str, Values]],
+) -> Path:
+    """Each configuration against the full agent within each group: the means on the
+    items both judged, a paired sign-flip test, and Holm across configurations."""
+    full = values[E2EConfig.FULL.value]
+    others = [config for config in configs if config != E2EConfig.FULL.value]
+    rows: list[list[object]] = []
+    full_answers, full_judgments = loaded[E2EConfig.FULL.value]
+    groups = _item_groups(items, full_judgments, full_answers)
+    for (kind, name), keys in sorted(groups.items()):
+        for metric in METRICS:
+            entries = []
+            for config in others:
+                shared = sorted(
+                    keys & set(full[metric.name]) & set(values[config][metric.name])
+                )
+                if not shared:
+                    continue
+                test = paired_test(
+                    [
+                        values[config][metric.name][k] - full[metric.name][k]
+                        for k in shared
+                    ]
+                )
+                entries.append((config, shared, test))
+            adjusted = holm([test.p_value for _, _, test in entries])
+            for (config, shared, test), p_holm in zip(entries, adjusted, strict=True):
+                rows.append(
+                    [
+                        kind,
+                        name,
+                        metric.name,
+                        config,
+                        len(shared),
+                        statistics.fmean(full[metric.name][k] for k in shared),
+                        statistics.fmean(
+                            values[config][metric.name][k] for k in shared
+                        ),
+                        test.p_value,
+                        p_holm,
+                    ]
+                )
+    path = directory / "group_ablation.csv"
+    _write_csv(
+        path,
+        [
+            "group_type",
+            "group",
+            "metric",
+            "config",
+            "n",
+            "full_mean",
+            "config_mean",
+            "p_value",
+            "p_holm",
+        ],
         rows,
     )
     return path
@@ -701,6 +793,8 @@ def write_report(
     if E2EConfig.FULL.value in values:
         written += _ablation_tables(directory, configs, values)
     written.append(_group_table(directory, configs, items, loaded, values))
+    if E2EConfig.FULL.value in values:
+        written.append(_group_ablation(directory, configs, items, loaded, values))
     written += _calibration_tables(directory, run_root)
     if E2EConfig.FULL.value in loaded:
         answers, judgments = loaded[E2EConfig.FULL.value]

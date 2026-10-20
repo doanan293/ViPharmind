@@ -8,7 +8,13 @@ from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.infrastructure.settings import Settings
 from tests.e2e.factories import ScriptedLlm
 
-from pharma_lab.e2e.configs import E2EConfig, pipeline_for, settings_for
+from pharma_lab.config.paths import PROJECT_ROOT
+from pharma_lab.e2e.configs import (
+    E2EConfig,
+    pipeline_for,
+    pipeline_record,
+    settings_for,
+)
 from pharma_lab.e2e.recording_llm import RecordingLlm
 from pharma_lab.e2e.records import AnswerRecord, JsonlStore, TokenUsage
 from pharma_lab.e2e.run_identity import (
@@ -41,6 +47,40 @@ def test_configs_map_to_pipelines_and_settings() -> None:
     assert not full.langfuse.enabled
     assert base.langfuse.enabled
     assert base.retrieval.rerank.protocol == "native_rerank"
+
+
+def test_one_step_history_searches_the_earlier_questions_without_judging() -> None:
+    assert pipeline_for(E2EConfig.ONE_STEP_HISTORY) == PipelineOptions(
+        rephrase=False, judge_refine=False, history_query=True
+    )
+
+
+def test_pipeline_record_of_a_v1_config_is_the_recorded_v1_identity() -> None:
+    run = PROJECT_ROOT / "data/evaluation/e2e/runs/e2e-gemini/full/run.json"
+    recorded = json.loads(run.read_text("utf-8"))["pipeline"]
+
+    assert pipeline_record(pipeline_for(E2EConfig.FULL)) == recorded
+    assert "history_query" not in pipeline_record(pipeline_for(E2EConfig.ONE_STEP))
+
+
+def test_pipeline_record_names_the_history_query_when_it_is_on() -> None:
+    record = pipeline_record(pipeline_for(E2EConfig.ONE_STEP_HISTORY))
+
+    assert record == {"rephrase": False, "judge_refine": False, "history_query": True}
+
+
+def test_no_guard_no_rerank_drops_the_guard_from_the_no_rerank_agent() -> None:
+    config = E2EConfig.NO_GUARD_NO_RERANK
+    options = pipeline_for(config)
+
+    assert options == PipelineOptions(guard=False)
+    assert pipeline_record(options) == {
+        "rephrase": True,
+        "judge_refine": True,
+        "guard": False,
+    }
+    assert settings_for(base_settings(), config).retrieval.rerank.protocol == "none"
+    assert "guard" not in pipeline_record(pipeline_for(E2EConfig.ONE_STEP_HISTORY))
 
 
 def test_store_keeps_the_last_record_per_item(tmp_path: Path) -> None:
