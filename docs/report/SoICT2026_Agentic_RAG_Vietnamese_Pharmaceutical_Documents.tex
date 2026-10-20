@@ -14,6 +14,7 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{xcolor}
+\usepackage{marvosym}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,fit,calc}
 \usepackage{pgfplots}
@@ -22,6 +23,7 @@
 \definecolor{cbclosed}{HTML}{D98C3A}
 \definecolor{cbone}{HTML}{4F8FCF}
 \definecolor{cbfull}{HTML}{1D4F91}
+\definecolor{cbhist}{HTML}{9CC3E6}
 \usepackage{enumitem}
 \setlist[itemize]{nosep, leftmargin=*, topsep=2pt, partopsep=0pt}
 \setlist[enumerate]{nosep, leftmargin=*, topsep=2pt, partopsep=0pt}
@@ -45,7 +47,7 @@
 \begin{document}
 \title{Agentic Retrieval-Augmented Generation for Vietnamese Pharmaceutical Documents}
 \titlerunning{Agentic RAG for Vietnamese Pharmaceutical Documents}
-\author{Van-An Doan \and Quoc-Tuan Nguyen}
+\author{Van-An Doan\textsuperscript{(\Letter)} \and Quoc-Tuan Nguyen\textsuperscript{(\Letter)}}
 \authorrunning{V.-A. Doan and Q.-T. Nguyen}
 \institute{School of Information and Communication Technology,\\
 Hanoi University of Science and Technology, Hanoi, Vietnam\\
@@ -58,6 +60,10 @@ Hanoi University of Science and Technology, Hanoi, Vietnam\\
 \input{sections/methodology}
 \input{sections/results}
 \input{sections/conclusion}
+
+\begin{credits}
+\subsubsection{\ackname} This research is funded by Hanoi University of Science and Technology (HUST) under project number T2025-PC-019.
+\end{credits}
 
 \bibliographystyle{splncs04}
 \bibliography{references}
