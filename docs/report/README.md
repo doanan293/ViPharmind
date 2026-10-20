@@ -1,6 +1,6 @@
 # Paper SoICT 2026
 
-Paper tiếng Anh nộp SoICT 2026 (Springer CCIS, định dạng LNCS, tối đa 12 trang không tính references).
+Paper tiếng Anh nộp SoICT 2026 (Springer CCIS, định dạng LNCS, bản camera-ready 12–15 trang).
 
 ## Template
 

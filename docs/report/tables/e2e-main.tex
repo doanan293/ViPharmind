@@ -1,16 +1,16 @@
 \begin{table}[tb]
 \centering
 \caption{End-to-end results on the 500-item golden set. The PPI row gives nugget recall corrected with blind calibration labels. An asterisk marks a difference from the full agent of the same setting at Holm-adjusted $p<0.05$.}\label{tab:e2e-main}
-\footnotesize
-\setlength{\tabcolsep}{1.3pt}
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
 \begin{tabular}{lrrrrrrrr}
 \toprule
  & \multicolumn{4}{c}{Gemini 3.8 Flash} & \multicolumn{4}{c}{Qwen3.5-9B} \\
 \cmidrule(lr){2-5}\cmidrule(lr){6-9}
-Metric & Full & One-step & Concat & \shortstack[r]{Closed-\\book} & Full & One-step & Concat & \shortstack[r]{Closed-\\book} \\
+Metric & \colhead{Full\\agent} & \colhead{One-step\\RAG} & \colhead{Concat\\RAG} & \colhead{Closed-\\book} & \colhead{Full\\agent} & \colhead{One-step\\RAG} & \colhead{Concat\\RAG} & \colhead{Closed-\\book} \\
 \midrule
-Truthfulness $\uparrow$ & 0.923 & 0.816$^{*}$ & 0.863 & 0.268$^{*}$ & 0.913 & 0.792$^{*}$ & 0.777$^{*}$ & $-$0.060$^{*}$ \\
-Perfect $\uparrow$ & 0.882 & 0.772$^{*}$ & 0.802 & 0.183$^{*}$ & 0.870 & 0.752$^{*}$ & 0.708$^{*}$ & 0.050$^{*}$ \\
+Truthfulness $\uparrow$ & 0.923 & 0.816$^{*}$ & 0.863$^{*}$ & 0.268$^{*}$ & 0.913 & 0.792$^{*}$ & 0.777$^{*}$ & $-$0.060$^{*}$ \\
+Perfect $\uparrow$ & 0.882 & 0.772$^{*}$ & 0.802$^{*}$ & 0.183$^{*}$ & 0.870 & 0.752$^{*}$ & 0.708$^{*}$ & 0.050$^{*}$ \\
 Missing $\downarrow$ & 0.006 & 0.105$^{*}$ & 0.015 & 0.098$^{*}$ & 0.008 & 0.112$^{*}$ & 0.035$^{*}$ & 0.252$^{*}$ \\
 Hallucination $\downarrow$ & 0.010 & 0.012 & 0.021 & 0.183$^{*}$ & 0.012 & 0.018 & 0.040$^{*}$ & 0.306$^{*}$ \\
 Nugget recall $\uparrow$ & 0.946 & 0.842$^{*}$ & 0.908$^{*}$ & 0.519$^{*}$ & 0.938 & 0.828$^{*}$ & 0.869$^{*}$ & 0.237$^{*}$ \\
