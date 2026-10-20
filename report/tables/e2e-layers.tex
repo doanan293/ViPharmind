@@ -1,0 +1,15 @@
+\begin{table}[tb]
+\centering
+\caption{Effect of each step of the Gemini agent on the questions it targets. $p$ is the Holm-adjusted paired randomization $p$-value. The guard row uses the agent without reranker.}\label{tab:e2e-layers}
+\footnotesize
+\begin{tabular}{l@{\hspace{0.8em}}l@{\hspace{0.8em}}r@{\hspace{0.8em}}l@{\hspace{0.8em}}r@{\hspace{0.8em}}r@{\hspace{0.8em}}r}
+\toprule
+Step & Targeted questions & Items & Metric & With & Without & $p$ \\
+\midrule
+Rephrase & Multi-turn follow-ups & 50 & Truthfulness & 0.920 & 0.020 & $<$0.001 \\
+Judge--refine & Patient phrasing & 70 & Truthfulness & 1.000 & 0.657 & $<$0.001 \\
+Reranker & Single-chunk answers & 70 & Truthfulness & 0.771 & 0.607 & 0.056 \\
+Guard & Out-of-scope requests & 10 & Redirect & 10/10 & 0/10 & 0.002 \\
+\bottomrule
+\end{tabular}
+\end{table}
