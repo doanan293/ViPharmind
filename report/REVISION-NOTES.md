@@ -27,6 +27,7 @@ nguyên như bản đã review; mọi phân tích mới truy được về file 
 - Table 5 dòng Guard dùng p Holm 0,014 như các dòng khác (trước ghi p thô 0,002).
 - Disclosure of Interests theo hướng dẫn Springer CCIS; copyright consent ký tay nộp riêng (trang camera-ready SoICT).
 - Abstract camera-ready chép sang `abstract.txt` để cập nhật EasyChair.
+- Code của bài cố định ở tag `v1.1.0` (footnote GitHub trỏ `tree/v1.1.0`); dữ liệu các run camera-ready công khai ở Kaggle `vipharma-rag` version 3.
 - Giữ Table 1 (thống kê corpus) và Fig. 2 (biểu đồ chi phí); bài vẫn vừa 15 trang.
 
 ## Gợi ý cho slide
