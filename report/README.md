@@ -32,15 +32,23 @@ Hook `report-build` trong `.pre-commit-config.yaml` ở gốc repo chạy `latex
 
 ## Overleaf
 
-Nén đúng các file nguồn rồi tải lên bằng "New Project → Upload Project":
+`package.sh` build lại bài rồi nén đúng các file nguồn (danh sách file chỉ khai báo ở script này) thành `SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.zip`, tải lên bằng "New Project → Upload Project":
 
 ```bash
-cd report && zip -r SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.zip \
-  SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.tex \
-  llncs.cls splncs04.bst references.bib sections tables figures && cd ..
+cd report && ./package.sh overleaf && cd ..
 ```
 
 Overleaf biên dịch ngay với compiler mặc định (pdfLaTeX) và tự chạy BibTeX. Main document được nhận tự động vì chỉ có một file `.tex` ở gốc.
+
+## Camera-ready
+
+`report/` là nguồn duy nhất của bài; không giữ bản sao nguồn nào khác. `submission/` (không vào git) chỉ chứa những thứ không sinh ra được từ nguồn: email hướng dẫn của BTC, form Licence to Publish, bản scan đã ký và `Corresponding_Author.txt`. Bản scan đặt ở `submission/LTP_signed.pdf`; nếu chưa có, script vẫn tạo ZIP nhưng cảnh báo rằng phải thêm bản scan vào ZIP trước khi nộp:
+
+```bash
+cd report && ./package.sh camera-ready && cd ..
+```
+
+Script build lại bài, dựng thư mục `Source/` trong một thư mục tạm, rồi nén `Source/`, `Corresponding_Author.txt` và `LTP_signed.pdf` thành `submission/SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents_camera_ready.zip` (File B). File A là `SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.pdf` ở gốc `report/`.
 
 ## Bảng end-to-end
 
