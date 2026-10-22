@@ -1,0 +1,25 @@
+{
+  "artifact_type": "retrieval_candidates",
+  "created_at": "2026-10-17T20:30:24.306485+00:00",
+  "data_filename": "candidates.jsonl",
+  "data_sha256": "47f8a1ba0a676d90b56be8a18ac422eda7024eff39e28c6c75b67811d2dae262",
+  "identity": {
+    "candidate_k": 20,
+    "chunker_version": "chunker-v2",
+    "collection_name": "eval_qwen3_embedding_4b_q8_0",
+    "embedding_model": "qwen3-embedding:4b-q8_0",
+    "evaluation_path": "evaluation/gold-conversational/section_retrieval_eval.jsonl",
+    "evaluation_sha256": "e77952423002c98aefd407fa36f78baa18177be9a76c46086b8700df19db168b",
+    "limit": null,
+    "pair_count": 30000,
+    "prefetch_k": 50,
+    "query_embeddings_sha256": "e1e5f774125bcfacf9a0b2e35c6f222d28e9d579a5ae86cbcc3e3a92066877d1",
+    "release_id": "a1b56105-9611-4eef-b5de-f62191ac46f2",
+    "retriever": "hybrid",
+    "rrf_k": 2,
+    "sample": null,
+    "sample_seed": null
+  },
+  "record_count": 1500,
+  "schema_version": 1
+}

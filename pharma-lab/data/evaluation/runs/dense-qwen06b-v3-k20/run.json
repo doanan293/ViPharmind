@@ -1,0 +1,22 @@
+{
+  "candidates_dir": null,
+  "identity": {
+    "candidate_k": 20,
+    "chunker_version": "chunker-v2",
+    "collection_name": "eval_qwen3_embedding_0_6b_q8_0",
+    "embedding_model": "qwen3-embedding:0.6b-q8_0",
+    "evaluation_path": "evaluation/gold/section_retrieval_eval.jsonl",
+    "evaluation_sha256": "070bbe39fca5fd02371d1b7de19e16f1ea3e4180fe48e73ad2e9976760f57deb",
+    "limit": null,
+    "prefetch_k": null,
+    "query_embeddings_sha256": "90accfccb3155be1549f793c02bdb2a6c45da629f081ee2f6932e28501b13307",
+    "release_id": "d687f532-3f50-4652-a9ff-bff8d6657dcd",
+    "retriever": "dense",
+    "rrf_k": 2,
+    "sample": null,
+    "sample_seed": null
+  },
+  "origin": "backend",
+  "rerank_variants": {},
+  "schema_version": 3
+}

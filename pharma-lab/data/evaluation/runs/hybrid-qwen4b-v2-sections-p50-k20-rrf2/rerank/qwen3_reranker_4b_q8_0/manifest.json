@@ -1,0 +1,21 @@
+{
+  "artifact_type": "rerank_score_cache",
+  "complete": 200000,
+  "created_at": "2026-10-17T13:14:29.480798+00:00",
+  "data_filename": "rerank_scores.jsonl",
+  "data_sha256": "fe0c5d742e7f6af3377c9f3358edab2d8c47674877c28ee385ee3e2d8d45af8b",
+  "identity": {
+    "candidate_data_sha256": "8384257b63455de8462e25487034eb7beaf336c7a73fe5b771258723a9284669",
+    "contract_version": 1,
+    "model_sha256": "424c3a97b813b53760ffce9fe266fc85cc092c215a5adfef543200f7bde5e526",
+    "pair_count": 200000,
+    "protocol": "native_rerank",
+    "request_contract_sha256": "95b81f733a6695906ec4b9c0a30ab9588dc1f43bd9e64e45800101c87ee0eb48",
+    "reranker": "qwen3-reranker:4b-q8_0",
+    "variant_sha256": "84e7cf6a6018251bc53aa520eddde76f5d8786d3c1135f51881509a68ee3fe29"
+  },
+  "missing": 0,
+  "record_count": 200000,
+  "schema_version": 1,
+  "total": 200000
+}
