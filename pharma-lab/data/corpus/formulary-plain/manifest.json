@@ -1,0 +1,57 @@
+{
+  "schema_version": "knowledge-bundle/v1",
+  "collection": {
+    "key": "formulary_plain",
+    "title": "Formulary without chunk enrichment"
+  },
+  "generator": {
+    "name": "pharma-lab",
+    "version": "0.4.0",
+    "build_id": "4e6b6018af25a482"
+  },
+  "source_digests": {
+    "source_pdf_sha256": "2aa81c846a5e760f82658c46816ab63174204a7d95b3e2755b6565288e53d0d1",
+    "leaflet_source_manifest_sha256": "fd109094bf619f792e49a3d71e53114a7218cd0d53257cccf21e4511371c66ea",
+    "leaflet_source_file_count": "2434",
+    "curated_curated_tables_sha256": "818c7828f24180445571d72fe0a5f51d2e374a25c4998827f8a4e16dd0fbde41",
+    "curated_glossary_sha256": "efb491df91f68fd8fd9f4a0c836b06211758de703ba0f7cddbfc39c415b6f2ff",
+    "curated_mappings_sha256": "967ae7e6a3b572f07b6bb625acecabe2c7e4091cef638857cb6fa8e405b98ab9",
+    "curated_table_overrides_sha256": "6c3b043b9f3dd1d17107bea9b33c62d58c454c50a779632963f8d6daf6089474"
+  },
+  "document_count": 3120,
+  "section_count": 34552,
+  "files": {
+    "documents.jsonl": {
+      "sha256": "27565698b3d4852c243583752b3e6d91cccda2a33d102fbcf6bffe4c517c20a2",
+      "bytes": 778280
+    },
+    "sections.jsonl": {
+      "sha256": "42d76cbf662628370d6b384ec79dbc356565af69c850ba0bb140f2e9bc93755e",
+      "bytes": 66441705
+    },
+    "glossary.json": {
+      "sha256": "bcedbf996455ddde29070de1b4151d911c452a8d2a12309e056f31d0636091f6",
+      "bytes": 22283
+    },
+    "colloquial_mappings.json": {
+      "sha256": "22afc235c6f37e0dfb536abb6d0b900d122317ee066065c778bef00ed0dbafd9",
+      "bytes": 2734642
+    },
+    "embeddings/qwen3_embedding_4b_q8_0.jsonl": {
+      "sha256": "ec4cfe07b1fe09fb2b3e73031bc180b4e1a20b1968cbfbf45b645df262223e18",
+      "bytes": 179613693
+    }
+  },
+  "embeddings": [
+    {
+      "model": "qwen3-embedding:4b-q8_0",
+      "dims": 2560,
+      "file": "embeddings/qwen3_embedding_4b_q8_0.jsonl"
+    }
+  ],
+  "chunking": {
+    "target_chars": 4200,
+    "max_chars": 5600,
+    "enrichment": false
+  }
+}

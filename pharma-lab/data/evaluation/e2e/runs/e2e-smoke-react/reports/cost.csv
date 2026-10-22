@@ -1,0 +1,11 @@
+config,metric,n,mean,ci_low,ci_high
+react,usd_per_turn,1,0.0005207499999999999,0.0005207499999999999,0.0005207499999999999
+react,usd_per_1000_turns,1,0.5207499999999999,0.5207499999999999,0.5207499999999999
+react,cost_of_pass,1,nan,,
+react,llm_usd_per_turn,1,0.0005207499999999999,0.0005207499999999999,0.0005207499999999999
+react,retrieval_usd_per_turn,1,0.0,0.0,0.0
+react,llm_seconds_per_turn,1,5.605,5.605,5.605
+react,retrieval_seconds_per_turn,1,0.0,0.0,0.0
+react,decision_seconds_per_turn,1,1.06,1.06,1.06
+react,latency_p50,1,5.625,,
+react,latency_p95,1,5.625,,
