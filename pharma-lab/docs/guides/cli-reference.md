@@ -122,7 +122,7 @@ Stage production tự benchmark một lần nếu chưa có profile hợp lệ v
 
 ## Archive dữ liệu
 
-Mọi file dưới `data/` mà Git bỏ qua (trừ `data/work/`) được lưu trong dataset Kaggle private `<owner>/seed-pipeline-data`, `<owner>` là username của profile `--kaggle-account`. `push` đóng gói thành các phần `seed-pipeline-data.tar.zst.part-NNNN` (tối đa 1.900 MiB mỗi phần) cùng `archive-manifest.json` ghi sha256 từng phần và từng file, dựng ở `data/work/archive/`, rồi tạo dataset hoặc version mới.
+Mọi file dưới `data/` mà Git bỏ qua (trừ `data/work/`) được lưu trong dataset Kaggle private `<owner>/vipharmind-data-v1`, `<owner>` là username của profile `--kaggle-account`. `push` đóng gói thành các phần `vipharmind-data-v1.tar.zst.part-NNNN` (tối đa 1.900 MiB mỗi phần) cùng `archive-manifest.json` ghi sha256 từng phần và từng file, dựng ở `data/work/archive/`, rồi tạo dataset hoặc version mới.
 
 ```bash
 uv run pharma-lab data push --kaggle-account acc1 --message "Rebuild evaluation runs"
@@ -131,7 +131,7 @@ uv run pharma-lab data pull --kaggle-account acc1
 
 `push` thay toàn bộ archive, nên lệnh dừng và liệt kê các file có trong archive hiện tại mà `data/` đang thiếu; chạy `pull` trước, hoặc thêm `--allow-removal` khi muốn bỏ hẳn các file đó khỏi archive.
 
-`--dataset SLUG` (cả `push` và `pull`) chọn dataset khác `seed-pipeline-data`, ví dụ `--dataset vipharmind-data`; tên các phần lấy từ manifest nên archive đẩy dưới tên dataset khác vẫn đọc được.
+`--dataset SLUG` (cả `push` và `pull`) chọn dataset khác `vipharmind-data-v1`, ví dụ `--dataset vipharmind-data`; tên các phần lấy từ manifest nên archive đẩy dưới tên dataset khác vẫn đọc được.
 
 `pull` tải lại các phần còn thiếu hoặc lệch checksum, kiểm sha256 từng phần và từng file, bỏ qua file đã giống hệt. File đang có mà khác archive thì lệnh dừng và liệt kê; thêm `--force` để ghi đè.
 

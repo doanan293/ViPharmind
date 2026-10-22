@@ -70,7 +70,7 @@ def test_push_then_pull_restores_the_ignored_files(tmp_path: Path) -> None:
     )
 
     assert (pushed.reference, pushed.version, pushed.file_count) == (
-        "owner/seed-pipeline-data",
+        "owner/vipharmind-data-v1",
         1,
         len(FILES),
     )
@@ -161,5 +161,5 @@ def test_push_and_pull_use_the_named_dataset(tmp_path: Path) -> None:
     assert pushed.reference == pulled.reference == "owner/vipharmind-data"
     assert any("owner/vipharmind-data" in " ".join(call) for call in kaggle.calls)
     assert not any(
-        "owner/seed-pipeline-data" in " ".join(call) for call in kaggle.calls
+        "owner/vipharmind-data-v1" in " ".join(call) for call in kaggle.calls
     )
