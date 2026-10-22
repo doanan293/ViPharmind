@@ -41,12 +41,24 @@ def list_archive_files(project_root: Path) -> list[str]:
         capture_output=True,
     ).stdout
     files: list[str] = []
+    links: list[str] = []
     for item in output.split(b"\0"):
         if not item:
             continue
         relative = item.decode("utf-8").removeprefix("data/")
-        if not relative.startswith("work/"):
+        if relative.startswith("work/"):
+            continue
+        if (Path(project_root) / "data" / relative).is_symlink():
+            links.append(relative)
+        else:
             files.append(safe_data_path(relative))
+    if links:
+        # The archive holds real files only: a link would restore as a dangling path
+        # or point outside data/; copy its target in place instead.
+        listed = "\n".join(f"  {path}" for path in sorted(links))
+        raise ArchiveError(
+            f"data/ holds symbolic links; replace them with copies:\n{listed}"
+        )
     return sorted(files)
 
 
