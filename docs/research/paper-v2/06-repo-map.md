@@ -1,5 +1,9 @@
 # ViPharmind repo map for the planned experiments
 
+> Snapshot of `ef81c47` (v1). Since v2.0.0 the `pharma-lab e2e rerank-server`, `embed-server` and `llm-server`
+> commands described below no longer exist: Kaggle never serves a model out of a kernel (an account was banned for
+> it). Run on Kaggle with `pharma-lab e2e run --backend kaggle`, where every model stays on localhost in the kernel.
+
 Repo root: `/home/andv/personal/vipharmind` (branch `dev`, clean at HEAD `ef81c47`).
 Three parts matter here: `backend/` (package `pharma_agent`, the agent), `pharma-lab/`
 (package `pharma_lab`, corpus + retrieval benchmark + E2E harness), `report/` (the
