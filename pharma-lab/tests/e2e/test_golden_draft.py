@@ -4,7 +4,7 @@ from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.llm.port import LlmError
 from tests.e2e.factories import ScriptedLlm
 
-from pharma_lab.e2e.corpus_text import CorpusText
+from pharma_lab.bundle.corpus_text import CorpusText
 from pharma_lab.e2e.golden import Category, ExpectedBehavior
 from pharma_lab.e2e.golden_draft import (
     MULTI_TURN,

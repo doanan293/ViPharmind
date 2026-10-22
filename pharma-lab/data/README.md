@@ -28,6 +28,19 @@ without `--version`). Each version pairs with a git tag:
 | ---: | --- | --- |
 | 1 | `v1.0.0` | SoICT 2026 submission: corpus, 10,000-question benchmark, golden set, all retrieval and end-to-end runs (former `seed-pipeline-data` version 8, its earlier versions squashed) |
 
+### Frozen datasets of the paper
+
+The SoICT 2026 camera-ready paper cites its code at tag `v1.1.0` and its data on Kaggle
+without a version number, so a new version of these datasets would change what the paper
+shows. They are never pushed to again (`data push` refuses them); v2 work uses
+`vipharmind-data`, and a public v2 release gets a new dataset.
+
+| Dataset | Visibility | Frozen at |
+| --- | --- | --- |
+| `vipharma-rag` | public, cited by the paper | version 3 |
+| `seed-pipeline-data` | private, v1 archive | latest version |
+| `vipharmind-camera-ready-data` | private, camera-ready runs | its first push from the `camera-ready` branch |
+
 ## What Git tracks
 
 Git keeps only small files that are maintained by hand or quoted in the thesis report:

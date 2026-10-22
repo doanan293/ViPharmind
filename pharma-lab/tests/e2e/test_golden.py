@@ -8,10 +8,10 @@ from pharma_agent.domain.corpus.bundle import read_bundle
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
+from pharma_lab.bundle.corpus_text import CorpusText, chunk_texts, load_corpus_text
 from pharma_lab.bundle.export import ExportRequest, export_bundle
 from pharma_lab.cli.app import app
 from pharma_lab.e2e.conversational import PHENOMENA
-from pharma_lab.e2e.corpus_text import CorpusText, chunk_texts, load_corpus_text
 from pharma_lab.e2e.golden import (
     ANSWERABLE_GROUP_QUOTAS,
     EVAL_GROUPS,

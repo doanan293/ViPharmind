@@ -94,7 +94,7 @@ class ModelSpec:
     rerank_search_space: RuntimeSearchSpace | None = None
     local_rerank_search_space: RuntimeSearchSpace | None = None
     embedding_search_space: EmbeddingRuntimeSearchSpaces | None = None
-    # Chat models are only served, so their server layout is fixed instead of benchmarked.
+    # Chat models run inside one e2e kernel with a fixed server layout instead of a benchmarked one.
     serve_runtime: RuntimeCandidate | None = None
 
     @property

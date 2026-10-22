@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from pharma_lab.e2e.corpus_text import CorpusText, section_slug
+from pharma_lab.bundle.corpus_text import CorpusText, section_slug
 from pharma_lab.evaluation.retrieval_metrics import (
     evidence_units,
     expected_section_ids,

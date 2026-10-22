@@ -11,20 +11,22 @@
   title style={font=\scriptsize, yshift=-1.5ex},
   ymajorgrids, grid style={gray!25}, axis line style={gray!60},
   tick pos=left,
-  every axis plot/.append style={draw=none, bar width=4.2pt},
-  legend style={font=\scriptsize, draw=none, fill=none, at={(1.08,-0.36)}, anchor=north, legend columns=3, column sep=6pt},
+  every axis plot/.append style={draw=none, bar width=3.4pt},
+  legend style={font=\scriptsize, draw=none, fill=none, at={(1.08,-0.36)}, anchor=north, legend columns=4, column sep=6pt},
 ]
 \nextgroupplot[title={Gemini 3.8 Flash}, ylabel={Nugget recall}]
 \addplot[fill=cbclosed] coordinates {(Single-turn,0.529) (Multi-turn,0.433) (Noisy,0.433)};
 \addplot[fill=cbone] coordinates {(Single-turn,0.925) (Multi-turn,0.040) (Noisy,0.865)};
+\addplot[fill=cbhist] coordinates {(Single-turn,0.914) (Multi-turn,0.860) (Noisy,0.855)};
 \addplot[fill=cbfull] coordinates {(Single-turn,0.945) (Multi-turn,0.955) (Noisy,0.942)};
-\legend{Closed-book LLM, One-step RAG, Full agent}
+\legend{Closed-book, One-step RAG, Concat RAG, Full agent}
 \nextgroupplot[title={Qwen3.5-9B}, yticklabels={}]
 \addplot[fill=cbclosed] coordinates {(Single-turn,0.234) (Multi-turn,0.261) (Noisy,0.248)};
 \addplot[fill=cbone] coordinates {(Single-turn,0.908) (Multi-turn,0.089) (Noisy,0.805)};
+\addplot[fill=cbhist] coordinates {(Single-turn,0.874) (Multi-turn,0.830) (Noisy,0.761)};
 \addplot[fill=cbfull] coordinates {(Single-turn,0.938) (Multi-turn,0.948) (Noisy,0.912)};
 \end{groupplot}
 \end{tikzpicture}
-\caption{Nugget recall by question type. Single-turn covers the 420 answerable questions, multi-turn the 50 follow-ups that name the drug only by a pronoun, and noisy the 70 questions with misspellings or look-alike names.}
+\caption{Nugget recall by question type. Single-turn covers the 420 answerable questions, multi-turn the 50 follow-ups that name the drug only by a pronoun, and noisy the 70 questions with missing diacritics or look-alike drug names.}
 \label{fig:groups}
 \end{figure}

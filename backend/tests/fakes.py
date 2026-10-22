@@ -192,9 +192,11 @@ class FakeRetriever:
 class FakeReranker:
     def __init__(self) -> None:
         self.received: list[list[uuid.UUID]] = []
+        self.queries: list[str] = []
 
     async def rerank(self, query: str, hits: Sequence[Hit], top_n: int) -> list[Hit]:
         self.received.append([h.chunk_version_id for h in hits])
+        self.queries.append(query)
         ordered = sorted(hits, key=lambda h: h.fusion_score, reverse=True)[:top_n]
         return [
             h.model_copy(update={"rerank_score": round(1.0 - i * 0.1, 2)})

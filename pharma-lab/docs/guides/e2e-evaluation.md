@@ -9,38 +9,20 @@ Harness gọi backend trong cùng tiến trình, như `pharma-lab retrieve`, v�
 **Cần sẵn sàng:**
 - Postgres và Qdrant đã import và publish release. Alias `chunks_current` trỏ vào collection của `qwen3-embedding:4b-q8_0`.
 - Endpoint LLM trong `PHARMA_LLM__*`. Model của từng role lấy từ `.env` và được ghi vào `run.json`.
-- Embedding (`PHARMA_RETRIEVAL__EMBEDDING__*`) và reranker (`PHARMA_RETRIEVAL__RERANK__*`) của tầng agent, mỗi model một kernel Kaggle trên một tài khoản riêng (`e2e embed-server`, `e2e rerank-server`). Cặp model được chọn từ bảng retrieval v2 sau khi pha D xong (quy tắc ở plan pha 0, Task 11 bước 0), không cố định trước. Bản CPU qua `compose.local-models.yaml` chỉ dùng để demo.
+- Embedding (`PHARMA_RETRIEVAL__EMBEDDING__*`) và reranker (`PHARMA_RETRIEVAL__RERANK__*`) của tầng agent, chạy ở máy, hoặc trong kernel Kaggle của `e2e run --backend kaggle` (không phục vụ model từ Kaggle ra ngoài). Cặp model được chọn từ bảng retrieval v2 sau khi pha D xong (quy tắc ở plan pha 0, Task 11 bước 0), không cố định trước. Bản CPU qua `compose.local-models.yaml` chỉ dùng để demo.
 
 **Đường gọi model của bài (spec v2 §2.1b).** Reasoning tắt hoặc ở mức thấp nhất; giá dùng để tính chi phí là giá niêm yết trong `pharma_lab/e2e/pricing.py`.
 
 | Model | Cách gọi | Thinking | Giá (USD / 1M vào / ra) |
 | --- | --- | --- | --- |
-| Qwen3.5-9B | `e2e llm-server --model qwen3.5:9b-q8_0` (2 T4, acc1) | `enable_thinking: false` | 0,10 / 0,15 (OpenRouter) |
+| Qwen3.5-9B | `e2e run --backend kaggle` (trong kernel), hoặc OpenRouter | `enable_thinking: false` | 0,10 / 0,15 (OpenRouter) |
 | Gemini 3.8 Flash | proxy, `gemini-3.8-flash-high` | `thinkingLevel: low` trong `config.yaml` | 0,75 / 3,75 |
 | Claude Opus 5.5 | proxy, `claude-opus-5-5`, `PHARMA_LLM__ROLES__<ROLE>__REASONING_EFFORT=minimal` | adaptive, minimal; report ghi số token reasoning đo được | 4 / 20 |
 | gemini-3.1-flash-lite (judge) | proxy | `--judge-reasoning` | 0,25 / 1,50 |
 
 **Endpoint LLM** là service `cli-proxy-api` của compose (`docker compose -f ../compose.yaml -f ../compose.llm-proxy.yaml up -d cli-proxy-api` từ `pharma-lab/`, đăng nhập lưu trong volume `vipharmind_cli_proxy_auth`).
 
-**Reranker trên GPU.** Reranker trên CPU quá chậm cho E2E: trên laptop i5, 40 tài liệu mất khoảng 10 phút với model 4B. Vì vậy các cấu hình có rerank dùng reranker chạy trên GPU Kaggle, qua tunnel có API key.
-
-```bash
-uv run pharma-lab e2e rerank-server --model qwen3-reranker:4b-q8_0 --hours 8 --kaggle-account auto
-```
-
-Lệnh này:
-- giữ một account và đẩy kernel `rerank-serve` lên (llama-server trên 2 T4 cộng tunnel cloudflared);
-- ghi `data/work/serve/<model>.env` khi tunnel đã sẵn sàng, và xóa file đó khi phiên kết thúc.
-
-Nếu máy tắt khi kernel vẫn chạy, nối lại mà không mất phiên GPU. Lệnh này lấy key từ source của kernel, lấy URL từ log, rồi ghi lại file env:
-
-```bash
-uv run pharma-lab e2e rerank-server --kaggle-account acc1 --attach OWNER/rerank-serve-XXXX
-```
-
-URL được đọc bằng `kaggle kernels logs -f`. Khi API log của Kaggle trục trặc, tiến trình này có thể treo mà không in gì; watcher mở lại nó nếu log im lặng quá 10 phút (kernel in dòng `alive` mỗi 5 phút). Muốn có URL ngay thì dùng lệnh `--attach` ở trên.
-
-Trong session chạy E2E, nạp file env trước (`set -a; . data/work/serve/qwen3_reranker_4b_q8_0.env; set +a`).
+**Reranker và Kaggle.** Reranker trên CPU quá chậm cho E2E: trên laptop i5, 40 tài liệu mất khoảng 10 phút với model 4B. Kaggle không được dùng để phục vụ model ra ngoài (một account đã bị khóa vì notebook mở tunnel), nên cấu hình cần GPU chạy trọn trong một kernel Kaggle theo lô (xem *Chạy trên Kaggle* bên dưới). Setting Gemini có reranker không chạy được trong kernel, vì mỗi lượt vừa cần proxy Gemini ở máy vừa cần reranker trên GPU; các cấu hình Gemini chạy ở máy, không reranker (`no-rerank`, `no-guard-no-rerank`) hoặc với reranker local.
 
 **Endpoint LLM còn phục vụ judge**, mặc định `gpt-5-mini` với reasoning `medium`. Proxy antigravity không có model này. Run `e2e-gemini` chấm bằng `--judge-model gemini-3.1-flash-lite`: model này khác model trả lời (`gemini-3.8-flash-high`), nhanh (khoảng 3 giây mỗi lần gọi), và có quota lớn nhất trong các model đã thử.
 
@@ -48,21 +30,13 @@ Trong session chạy E2E, nạp file env trước (`set -a; . data/work/serve/qw
 
 *File GGUF.* Model là bản Q8_0 Unsloth công bố (`qwen3.5:9b-q8_0`, 9,5 GB), tải theo commit và kiểm sha256 cùng các model khác ([Đánh giá retrieval](evaluation.md), mục "File GGUF"). Template chat trong file nhận `chat_template_kwargs.enable_thinking: false`. Lần chạy stage đầu tiên tự đưa file lên dataset Kaggle `vector-cache-gguf-qwen3-5-9b-q8-0`. Bản llama.cpp trên Kaggle (b9637) đã hỗ trợ kiến trúc `qwen35`.
 
-*Phục vụ trên Kaggle.* Mỗi T4 chạy một bản model (4 slot, mỗi slot 32.768 token), proxy round-robin trong kernel chia request cho hai bản, nên kernel nhận 8 request cùng lúc; `pharma-lab e2e run` mặc định `--concurrency 8` cho khớp. Reranker và embedding chạy ở kernel riêng trên tài khoản khác, song song với LLM:
+*Chạy trên Kaggle.* Setting Qwen chạy trọn trong một kernel: Qwen3.5-9B Q8_0 trên GPU0, reranker Q8_0 trên GPU1, embedding Q8_0 trên CPU, Postgres và Qdrant trong kernel, harness như ở máy. Kernel chỉ bật internet để tải về, không mở cổng nào; câu trả lời được tải về thư mục run, còn judge và report chạy ở máy.
 
 ```bash
-uv run pharma-lab e2e llm-server --model qwen3.5:9b-q8_0 --hours 10 --kaggle-account auto
-uv run pharma-lab e2e rerank-server --model qwen3-reranker:4b-q8_0 --hours 10 --kaggle-account auto
+uv run pharma-lab e2e run --backend kaggle --run e2e-qwen35-9b-cr --config no-rerank --config no-guard-no-rerank --category injection --category out_of_scope --category unanswerable --kaggle-account acc1
 ```
 
-`llm-server` ghi `data/work/serve/qwen3_5_9b_q8_0.env`: endpoint của cả sáu bước trỏ vào tunnel, `EXTRA_BODY` tắt chế độ suy luận mặc định của Qwen3.5, và timeout 600 giây. Trong tmux session của run, nạp cả hai file env rồi chạy thử `--limit 20` trước:
-
-```bash
-set -a; . data/work/serve/qwen3_5_9b_q8_0.env; . data/work/serve/qwen3_reranker_4b_q8_0.env; set +a
-uv run pharma-lab e2e run --run e2e-qwen35-9b --config full --limit 20 --deadline-seconds 900
-```
-
-Biến môi trường được ưu tiên hơn `backend/.env`, nên các run khác không bị ảnh hưởng. `EXTRA_BODY` và tên model được ghi vào `run.json`.
+Một lệnh là một job, chạy gọn trong một phiên kernel (mặc định tối đa 3 giờ, khoảng nửa giờ cho cài đặt và nạp model). Lệnh tạo `data/work/e2e-kaggle/<run>/`: `e2e_job.json`, golden, `backend_requirements.txt` xuất từ `uv.lock`, và bản corpus chỉ giữ embedding `qwen3-embedding:4b-q8_0`. Thư mục cấu hình đích đã có `answers.jsonl` thì lệnh từ chối; kernel chưa xong mọi câu thì lệnh báo lỗi và không ghi gì.
 
 *Qua API thay cho Kaggle.* Cùng model có trên OpenRouter (key `OPENROUTER_API_KEY` trong `pharma-lab/.env`); khi đó đặt endpoint từng bước bằng tay:
 
@@ -78,21 +52,27 @@ done
 
 **Cấu hình ablation chỉ đặt được từ harness.** Backend không có biến môi trường nào để tắt bước của agent.
 
-| `--config` | Rephrase | Judge/refine | Reranker |
-| --- | --- | --- | --- |
-| `full` | bật | bật | bật |
-| `one-step` | tắt | tắt | bật |
-| `no-judge-refine` | bật | tắt | bật |
-| `no-rephrase` | tắt | bật | bật |
-| `no-rerank` | bật | bật | tắt |
-| `no-guard` | bật | bật | bật, không guard |
-| `bm25`, `dense`, `hybrid-k60` | bật | bật | bật; retriever BM25, dense, hoặc hybrid RRF k=60 |
-| `closed-book` | – | – | – |
-| `react` | – | – | bật; agent ReAct thay pipeline (mục "Agent ReAct") |
+| `--config` | Guard | Rephrase | Judge/refine | Reranker |
+| --- | --- | --- | --- | --- |
+| `full` | bật | bật | bật | bật |
+| `one-step` | bật | tắt | tắt | bật |
+| `one-step-history` | bật | tắt | tắt | bật |
+| `no-judge-refine` | bật | bật | tắt | bật |
+| `no-rephrase` | bật | tắt | bật | bật |
+| `no-rerank` | bật | bật | bật | tắt |
+| `no-guard-no-rerank` | tắt | bật | bật | tắt |
+| `no-guard` | tắt | bật | bật | bật |
+| `bm25`, `dense`, `hybrid-k60` | bật | bật | bật | bật; retriever BM25, dense, hoặc hybrid RRF k=60 |
+| `closed-book` | – | – | – | – |
+| `react` | bật | – | – | bật; agent ReAct thay pipeline (mục "Agent ReAct") |
 
-**`--pipeline-option key=value`** (lặp được) ghi đè một trường của `PipelineOptions` cho cấu hình đó, ví dụ `--config full --pipeline-option guard=false`. Giá trị được kiểm theo kiểu của trường (`true`/`false`, số, `none`); khoá lạ bị từ chối trước khi chạy câu nào. Thư mục cấu hình thành `full+guard=false`, `run.json` ghi các giá trị, và `e2e report` đưa các thư mục này vào `ablation.csv` so với `full`. `e2e judge --config` nhận đúng tên thư mục đó.
+**`--pipeline-option key=value`** (lặp được) ghi đè một trường của `PipelineOptions` cho cấu hình đó, ví dụ `--config full --pipeline-option guard=false`. Giá trị được kiểm theo kiểu của trường (`true`/`false`, số, `none`); khoá lạ bị từ chối trước khi chạy câu nào. Thư mục cấu hình thành `full+guard=false`, `run.json` ghi các giá trị, và `e2e report` đưa các thư mục này vào `ablation.csv` so với `full`. `e2e judge --config` nhận đúng tên thư mục đó. Lệnh `--backend kaggle` chưa nhận `--pipeline-option`.
 
 `one-step` là guard → search (câu hỏi gốc) → answer, dùng cùng retriever, prompt trả lời và ngân sách evidence như `full`.
+
+`one-step-history` là `one-step` nhưng query của lần search đầu và của rerank là các câu hỏi trước của người dùng nối với câu hiện tại (không gọi LLM để viết lại), nên so sánh được với rephrase trên câu hỏi hội thoại; prompt answer giữ nguyên. `--category multi_turn` của `e2e run` chỉ chạy nhóm 50 câu hội thoại của golden.
+
+`no-guard-no-rerank` là `no-rerank` bỏ bước guard: không regex, không lời gọi guardrail, mọi lượt đi tiếp vào rephrase và retrieval. So với `no-rerank` thì hai cấu hình chỉ khác ở guard, nên đo được phần từ chối và chặn injection mà guard đóng góp, mà không cần server reranker. Chạy trên các nhóm safety bằng `--category unanswerable`, `out_of_scope` và `injection`.
 
 `closed-book` là baseline LLM thuần: cùng model của vai trò answer, nhận lịch sử hội thoại và câu hỏi nhưng không có guard, retrieval hay tài liệu nào. Nó đo phần mà corpus và pipeline đóng góp. Judge chấm nội dung câu trả lời như mọi cấu hình khác; faithfulness và các metric trích dẫn không xác định được khi không có context nên để trống. Cấu hình này không gọi retrieval nên không cần reranker server.
 
@@ -135,7 +115,7 @@ uv run pharma-lab e2e report --run e2e-gemini
 
 **`--deadline-seconds S`** thay deadline của một lượt (mặc định lấy từ budget của backend, 90 giây). Dùng khi embedding/reranker chạy trên CPU hoặc endpoint LLM chậm; giá trị được ghi vào `run.json`, và latency báo cáo vẫn là thời gian thật.
 
-**`e2e judge`** ghi `judgments.jsonl` và `judge.json` (model, `reasoning_effort` và endpoint của judge). `--judge-reasoning none|low|medium` đặt reasoning của judge (mặc định `none`; v1 chấm ở `medium`). Độ khớp của judge với người chấm được đo bằng hiệu chuẩn dược sĩ trên chính các run v2. Chấm lại một cấu hình bằng judge khác hoặc mức reasoning khác cần `--force`.
+**`e2e judge`** ghi `judgments.jsonl` và `judge.json` (model, `reasoning_effort` và endpoint của judge). `--judge-reasoning none|low|medium` đặt reasoning của judge (mặc định `none`; v1 chấm ở `medium`). Độ khớp của judge với người chấm được đo bằng hiệu chuẩn dược sĩ trên chính các run v2. Chấm lại một cấu hình bằng judge khác hoặc mức reasoning khác cần `--force`. `--category` chỉ chấm các câu của một nhóm golden, kể cả các câu lỗi; dùng khi quota của judge không đủ cho cả cấu hình, để chấm trước nhóm cần nhất.
 
 **Chỉ số.** Tên và định nghĩa theo các bài gốc; metric in đậm là metric chính, có mặt trong `main.tex` và `ablation.tex`.
 
@@ -186,7 +166,7 @@ Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation
 
 ## 4. Độ trễ, chi phí và so sánh hai run
 
-**Giao thức đo độ trễ (spec v2 §2.5).** Run lấy chất lượng có thể chạy `--concurrency 4` hoặc 8, nhưng mọi số giây trong bài lấy từ một run riêng chạy `--concurrency 1` trên cùng máy và cùng endpoint, đặt tên `<run>-c1`. `e2e report --run <run> --latency-run <run>-c1` thay mọi cột độ trễ bằng số của run concurrency 1; cấu hình nào thiếu trong run đó thì lệnh dừng. `provenance.json` ghi `latency_run`, `run.json` ghi `concurrency` của lần chạy đầu. Chỉ so độ trễ giữa các kiến trúc trên cùng một model, không xếp hạng độ trễ giữa các model (Qwen chạy trên Kaggle qua tunnel, Gemini và Opus qua proxy).
+**Giao thức đo độ trễ (spec v2 §2.5).** Run lấy chất lượng có thể chạy `--concurrency 4` hoặc 8, nhưng mọi số giây trong bài lấy từ một run riêng chạy `--concurrency 1` trên cùng máy và cùng endpoint, đặt tên `<run>-c1`. `e2e report --run <run> --latency-run <run>-c1` thay mọi cột độ trễ bằng số của run concurrency 1; cấu hình nào thiếu trong run đó thì lệnh dừng. `provenance.json` ghi `latency_run`, `run.json` ghi `concurrency` của lần chạy đầu. Chỉ so độ trễ giữa các kiến trúc trên cùng một model, không xếp hạng độ trễ giữa các model (Qwen chạy trong kernel Kaggle hoặc qua OpenRouter, Gemini và Opus qua proxy).
 
 **Bảng giá.** `pharma_lab/e2e/pricing.py` ghi giá niêm yết mỗi triệu token kèm nguồn và ngày đọc. Model không có giá thì `e2e report` dừng với `UnpricedModel` chứ không tính bằng 0. OpenRouter chưa công bố giá embedding và reranker trong danh sách model (kiểm ngày 2026-10-16); các mục đó đang mang giá đầu vào của Qwen3.5-9B làm cận trên, và giá thật của cặp model agent dùng phải được điền trước khi báo cáo.
 
@@ -209,7 +189,7 @@ uv run pharma-lab e2e compare --run-a e2e-v2-gemini --run-b e2e-v2-qwen9b --conf
 
 Mỗi câu ghi `react` trong `answers.jsonl` (`rounds`, `tool_calls`, `malformed_calls`, `duplicate_calls`, `round_cap_hit`, `budget_forced`, `budget_hits`, `answered_without_search`); các lần gọi công cụ của cùng một phản hồi chạy song song và gộp thành một round trong `rounds` và một bước `search` trong `steps` (giây của round là giây của lần tìm chậm nhất, số cặp rerank là tổng), mỗi phản hồi của model là một bước `agent`. Nhờ vậy `gold_coverage_round1`, `rescued_rate` và thời gian retrieval mang cùng nghĩa với pipeline. Lượt gọi công cụ nhưng mọi tham số đều hỏng không tính là "không tìm". Một lần tìm lỗi (retrieval sập) làm câu đó thành `degraded: search`, chạy lại được bằng `--retry-errors`, ở cả pipeline lẫn ReAct. `e2e report` thêm các metric `react_*` vào `main.csv` và ghi `reports/react_failures.csv`: mỗi cấu hình có bản ghi ReAct một dòng, với số vòng và số lần gọi trung bình cùng tỉ lệ chạm giới hạn vòng, bị ngân sách buộc trả lời sớm, tham số hỏng, truy vấn trùng, chạm ngân sách evidence, không tìm, và câu `grounded` không trích dẫn (khoảng Wilson).
 
-Chỉ so ReAct với `full` của cùng model, trên cùng run. Ví dụ ma trận C (spec v2 §4.C), sau khi đặt biến môi trường của model như ở mục 1 (vai trò `AGENT` nằm trong vòng lặp; Qwen trên llama.cpp cần `--jinja`, worker `llm-serve` đã bật):
+Chỉ so ReAct với `full` của cùng model, trên cùng run. Ví dụ ma trận C (spec v2 §4.C), sau khi đặt biến môi trường của model như ở mục 1 (vai trò `AGENT` nằm trong vòng lặp; Qwen trên llama.cpp cần `--jinja`, server chat trong kernel `e2e-run` đã bật):
 
 ```bash
 for M in qwen9b gemini opus; do
@@ -258,3 +238,17 @@ uv run pharma-lab e2e run --run <RUN> --config full \
 Khoá hợp lệ trong `thresholds` là `block`, `review`, `scope` và `asks`; khoá khác làm agent dừng khi khởi động, nên viết sai tên không âm thầm rơi về mặc định. `extra_body` của vai `systemone` chỉ được đọc để lấy ngưỡng, không gửi đi. Nếu `e2e decision-probe` đo hơn 24.000 token cho 60.000 ký tự, đặt thêm `PHARMA_BUDGET__MAX_EVIDENCE_CHARS=<recommended_max_evidence_chars>`.
 
 Khi judge chạy trên decision model mà kết luận guard không đến từ decision model (cấu hình `no-guard`, guard thất bại và cho qua, regex, hoặc guard là LLM), judge tự hỏi các câu `asks_<intent>` một lần ở vòng judge đầu tiên của lượt, với state của guard và ngưỡng `asks`, rồi mới hỏi `covers_<intent>` cho các intent được chọn. Lệnh gọi này được tính vào ngân sách; nếu nó lỗi thì judge chạy với danh sách intent rỗng, lượt vẫn tiếp tục. Trong `answers.jsonl` nó là một dòng `decisions` với vai `judge` (nó chạy trên cổng của vai judge nên cũng tính chi phí theo model của judge, không lẫn vào dòng `guardrail`), đứng trước dòng `judge` của cùng vòng. Refine kiểu `template` khi judge không để lại khoảng trống nào (`sufficient_overall` dưới τ nhưng mọi `covers_` đạt) tìm theo các intent đã hỏi, intent phủ kém nhất trước; không có intent nào thì tìm "<chủ thể> thông tin chung".
+
+**Citation recall mất ở đâu.** Judge chỉ lưu tỉ lệ câu được hỗ trợ của từng câu trả lời, nên citation recall được tách theo câu từ câu trả lời và đoạn trích:
+
+```bash
+uv run pharma-lab e2e citations --run e2e-gemini --config full
+```
+
+Lệnh ghi `reports/citations.json`: số câu nội dung và tỉ lệ của bốn loại (không trích dẫn, trích tới đoạn không có trong prompt, có trích dẫn nhưng không được hỗ trợ, được hỗ trợ), cùng trung bình citation recall theo câu trả lời, phải khớp `main.csv`.
+
+**Chấm lại phần trích dẫn.** Bộ đọc trích dẫn nhận cả dạng gộp `[1, 2]`; trước bản sửa nó bỏ sót dạng này, nên judge chưa từng chấm các câu đó. Lệnh sau chỉ chấm lại `citation_support` của các câu trả lời đã chấm, giữ mọi trường khác, ghi thêm một dòng mới cho mỗi item vào `judgments.jsonl`; judge phải là model trong `judge.json`:
+
+```bash
+uv run pharma-lab e2e rejudge-citations --run e2e-gemini --config full --judge-model gemini-3.1-flash-lite
+```

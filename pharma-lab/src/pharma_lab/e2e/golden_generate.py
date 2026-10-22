@@ -22,7 +22,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 
-from pharma_lab.e2e.corpus_text import CorpusText, null_statement, section_slug
+from pharma_lab.bundle.corpus_text import CorpusText, null_statement, section_slug
 
 # Monograph section slugs and the leaflet slugs that hold the same information.
 INTERACTIONS = "tuong-tac-thuoc"

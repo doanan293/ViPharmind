@@ -1,5 +1,5 @@
+from pharma_lab.bundle.corpus_text import CorpusText, null_statement
 from pharma_lab.e2e.benchmark_repair import repair_rows
-from pharma_lab.e2e.corpus_text import CorpusText, null_statement
 
 LONG = " ".join(["chữ"] * 20)
 AMOX, PAN = "drug:amoxicilin", "leaflet:t:tamiflu-75"

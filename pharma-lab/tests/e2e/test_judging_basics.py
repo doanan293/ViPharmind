@@ -114,6 +114,16 @@ def test_context_blocks_and_cited_sentences() -> None:
     ]
 
 
+def test_grouped_citations_are_read_as_citations() -> None:
+    answer = "Dị ứng: ban da, mày đay [1, 2].\nTối đa 4 g mỗi ngày [3,1]."
+
+    assert cited_sentences(answer) == [
+        ("Dị ứng: ban da, mày đay [1, 2].", [1, 2]),
+        ("Tối đa 4 g mỗi ngày [3,1].", [3, 1]),
+    ]
+    assert content_sentences("Dùng [1, 2] lần.") == []
+
+
 async def test_key_fact_verdicts_default_to_missing() -> None:
     llm = ScriptedLlm()
     llm.script(

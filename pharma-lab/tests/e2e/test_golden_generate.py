@@ -4,9 +4,9 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from pharma_lab.bundle.corpus_text import CorpusText
 from pharma_lab.cli.app import app
 from pharma_lab.cli.commands import e2e as e2e_commands
-from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden_generate import (
     GLOSSARY_TERM_SHARE,
     MonographNames,

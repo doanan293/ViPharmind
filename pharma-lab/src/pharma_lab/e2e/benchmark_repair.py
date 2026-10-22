@@ -16,7 +16,7 @@ import unicodedata
 from collections import Counter
 from collections.abc import Mapping, Sequence
 
-from pharma_lab.e2e.corpus_text import (
+from pharma_lab.bundle.corpus_text import (
     CorpusText,
     normalize_space,
     null_statement,

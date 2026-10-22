@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from pharma_lab.e2e.corpus_text import CorpusText
+from pharma_lab.bundle.corpus_text import CorpusText
 from pharma_lab.e2e.golden import EVAL_GROUPS
 from pharma_lab.e2e.sampling import (
     replacement_candidates,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import os
 from pathlib import Path
 
@@ -35,6 +36,13 @@ PROJECT_ROOT = resolve_workspace_root()
 # The importable source tree, which differs from PROJECT_ROOT/src when the data
 # workspace is another checkout (PHARMA_LAB_ROOT).
 SOURCE_ROOT = Path(__file__).resolve().parents[2]
+# The directory that holds the installed backend package, bundled into e2e kernels.
+_BACKEND_SPEC = importlib.util.find_spec("pharma_agent")
+BACKEND_SOURCE_ROOT = (
+    Path(_BACKEND_SPEC.origin).resolve().parents[1]
+    if _BACKEND_SPEC is not None and _BACKEND_SPEC.origin is not None
+    else None
+)
 DATA_DIR = PROJECT_ROOT / "data"
 
 SOURCES_DIR = DATA_DIR / "sources"

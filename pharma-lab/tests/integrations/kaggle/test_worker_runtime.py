@@ -662,3 +662,75 @@ def test_worker_deadline_honours_an_explicit_margin():
     config = {"budget_seconds": 3_600, "budget_margin_seconds": 60}
 
     assert worker_deadline(config, clock=lambda: 0.0) == 3_540
+
+
+def _start_one_server(monkeypatch, tmp_path, extra_config):
+    from pharma_lab.integrations.kaggle.workers import runtime
+    from pharma_lab.runtime import client
+
+    for name in ("qwen3.5-9b-q8_0.gguf", "qwen3-reranker-4b-q8_0.gguf"):
+        (tmp_path / name).touch()
+    (tmp_path / "runtime_manifest.json").write_text("{}\n", encoding="utf-8")
+    launched = []
+
+    class RunningProcess:
+        def __init__(self, command, env):
+            launched.append((command, env))
+            self.stdout = io.BytesIO(b"")
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            pass
+
+        def wait(self, timeout=None):
+            return 0
+
+    monkeypatch.setattr(runtime, "materialize_runtime", lambda *_args: tmp_path)
+    monkeypatch.setattr(
+        runtime.subprocess,
+        "Popen",
+        lambda command, **kwargs: RunningProcess(command, kwargs["env"]),
+    )
+    monkeypatch.setattr(client.LlamaCppClient, "health", lambda _self: None)
+    config = {
+        "model": "qwen3.5:9b-q8_0",
+        "kaggle_input_root": str(tmp_path),
+        "runtime_overrides": {
+            "server_slots": 4,
+            "context_per_slot": 16384,
+            "logical_batch_size": 2048,
+            "physical_batch_size": 512,
+        },
+        "output_dir": str(tmp_path / "output"),
+    } | extra_config
+    with managed_model_servers(config) as servers:
+        return servers, launched
+
+
+def test_model_filename_picks_one_gguf_among_several(monkeypatch, tmp_path):
+    _, launched = _start_one_server(
+        monkeypatch,
+        tmp_path,
+        {"model_filename": "qwen3.5-9b-q8_0.gguf", "visible_devices": "0"},
+    )
+
+    command = launched[0][0]
+    assert command[command.index("--model") + 1].endswith("qwen3.5-9b-q8_0.gguf")
+
+
+def test_visible_devices_overrides_the_layout(monkeypatch, tmp_path):
+    servers, launched = _start_one_server(
+        monkeypatch,
+        tmp_path,
+        {
+            "model_filename": "qwen3.5-9b-q8_0.gguf",
+            "visible_devices": "1",
+            "server_port": 11440,
+        },
+    )
+
+    assert [server.base_url for server in servers] == ["http://127.0.0.1:11440"]
+    assert len(launched) == 1
+    assert launched[0][1]["CUDA_VISIBLE_DEVICES"] == "1"

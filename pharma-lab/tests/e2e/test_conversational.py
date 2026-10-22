@@ -1,5 +1,6 @@
 import random
 
+from pharma_lab.bundle.corpus_text import CorpusText
 from pharma_lab.e2e.conversational import (
     PHENOMENA,
     Item,
@@ -10,7 +11,6 @@ from pharma_lab.e2e.conversational import (
     single_ingredient_leaflets,
     strip_diacritics,
 )
-from pharma_lab.e2e.corpus_text import CorpusText
 
 LONG = " ".join(["chữ"] * 30)
 PARA, WARF, LEAF = "drug:paracetamol", "drug:warfarin", "leaflet:t:panadol"

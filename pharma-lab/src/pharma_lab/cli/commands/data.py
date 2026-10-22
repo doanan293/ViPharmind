@@ -12,7 +12,7 @@ from pharma_lab.cli.runtime import (
     state_from_context,
 )
 from pharma_lab.config.paths import PROJECT_ROOT
-from pharma_lab.data_archive.service import pull_data, push_data
+from pharma_lab.data_archive.service import DATASET_SLUG, pull_data, push_data
 from pharma_lab.integrations.kaggle.dataset_service import DatasetService
 from pharma_lab.integrations.kaggle.service import resolve_execution_context
 
@@ -33,6 +33,9 @@ def push(
     kaggle_account: Annotated[str | None, typer.Option("--kaggle-account")] = None,
     message: Annotated[str, typer.Option("--message")] = "Update pharma-lab data",
     allow_removal: Annotated[bool, typer.Option("--allow-removal")] = False,
+    dataset_slug: Annotated[
+        str, typer.Option("--dataset", help="Kaggle dataset slug of the archive")
+    ] = DATASET_SLUG,
 ) -> None:
     def run() -> CommandResult:
         result = push_data(
@@ -41,6 +44,7 @@ def push(
             message=message,
             now=datetime.now(UTC),
             allow_removal=allow_removal,
+            slug=dataset_slug,
         )
         return CommandResult(
             "data push",
@@ -68,6 +72,9 @@ def pull(
             "--version", min=1, help="Kaggle dataset version; latest if omitted."
         ),
     ] = None,
+    dataset_slug: Annotated[
+        str, typer.Option("--dataset", help="Kaggle dataset slug of the archive")
+    ] = DATASET_SLUG,
 ) -> None:
     def run() -> CommandResult:
         result = pull_data(
@@ -75,6 +82,7 @@ def pull(
             dataset=_dataset(kaggle_account),
             force=force,
             version=version,
+            slug=dataset_slug,
         )
         return CommandResult(
             "data pull",

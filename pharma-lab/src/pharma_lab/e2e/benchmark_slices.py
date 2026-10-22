@@ -29,7 +29,7 @@ import unicodedata
 from collections import defaultdict
 from collections.abc import Mapping
 
-from pharma_lab.e2e.corpus_text import CorpusText, section_slug
+from pharma_lab.bundle.corpus_text import CorpusText, section_slug
 from pharma_lab.e2e.golden_generate import (
     COMPOSITION,
     MonographNames,

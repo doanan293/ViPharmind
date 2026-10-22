@@ -14,6 +14,7 @@ from pharma_lab.integrations.kaggle.dataset_service import (
     DatasetService,
 )
 from pharma_lab.integrations.kaggle.model_artifacts import (
+    CanonicalModelArtifact,
     resolve_publishable_artifact,
     stage_model_dataset,
 )
@@ -157,6 +158,23 @@ class DependencyService:
         return actions
 
 
+def _model_dataset(
+    model: CanonicalModelArtifact, name: str, kind: str, owner: str
+) -> DesiredDataset:
+    def materialize(root: Path) -> Path:
+        return stage_model_dataset(model, root, owner)
+
+    return DesiredDataset(
+        kind,
+        f"{owner}/{model.dataset_slug}",
+        f"Kaggle Pipeline Model {name}"[:50],
+        model.sha256,
+        "model_manifest.json",
+        True,
+        materialize,
+    )
+
+
 def default_desired_datasets(
     job: StageJob, owners: OwnerConfiguration, workspace: Path
 ) -> Sequence[DesiredDataset]:
@@ -164,12 +182,23 @@ def default_desired_datasets(
     gguf_root_value = job.worker_config.get("gguf_root")
     if not isinstance(gguf_root_value, str) or not gguf_root_value:
         raise ValueError("stage job is missing gguf_root for model reconciliation")
-    model = resolve_publishable_artifact(Path(gguf_root_value), job.model)
     model_owner = owners.runtime or owners.execution
-    model_ref = f"{model_owner}/{model.dataset_slug}"
-
-    def materialize_model(root: Path) -> Path:
-        return stage_model_dataset(model, root, model_owner)
+    # A kernel that runs several models (e2e) lists them; the others run job.model.
+    raw_models = job.worker_config.get("models")
+    names = (
+        [str(name) for name in raw_models]
+        if isinstance(raw_models, list)
+        else [job.model]
+    )
+    model_datasets = [
+        _model_dataset(
+            resolve_publishable_artifact(Path(gguf_root_value), name),
+            name,
+            "model" if index == 0 else f"model-{index}",
+            model_owner,
+        )
+        for index, name in enumerate(names)
+    ]
 
     input_digest = job.input_bundle.sha256
     input_slug = input_dataset_slug(job)
@@ -206,15 +235,7 @@ def default_desired_datasets(
         return target
 
     return (
-        DesiredDataset(
-            "model",
-            model_ref,
-            f"Kaggle Pipeline Model {job.model}"[:50],
-            model.sha256,
-            "model_manifest.json",
-            True,
-            materialize_model,
-        ),
+        *model_datasets,
         DesiredDataset(
             "input",
             input_ref,

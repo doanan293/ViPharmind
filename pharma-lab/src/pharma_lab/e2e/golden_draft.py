@@ -26,7 +26,7 @@ from pharma_agent.domain.llm.models import ChatMessage, LlmRole, system, user
 from pharma_agent.domain.llm.port import LlmError, LlmPort
 from pydantic import BaseModel, Field
 
-from pharma_lab.e2e.corpus_text import CorpusText
+from pharma_lab.bundle.corpus_text import CorpusText
 from pharma_lab.e2e.golden import (
     ANSWERABLE_GROUP_QUOTAS,
     EVAL_GROUPS,
