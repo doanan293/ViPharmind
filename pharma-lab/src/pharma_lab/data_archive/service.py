@@ -25,7 +25,7 @@ from pharma_lab.integrations.kaggle.dataset_service import (
 from pharma_lab.integrations.kaggle.job_lock import kaggle_job_lock
 
 # Kept from the project's former name: renaming the Kaggle dataset would mean re-uploading it.
-DATASET_SLUG = "seed-pipeline-data"
+DATASET_SLUG = "vipharmind-data-v1"
 DATASET_TITLE = "Seed pipeline data"
 
 
