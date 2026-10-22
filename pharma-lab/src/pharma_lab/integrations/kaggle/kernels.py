@@ -41,10 +41,19 @@ class KernelOperations(Protocol):
 
 
 class PipelineKernelService:
-    def __init__(self, service: KernelOperations, *, owner: str, source_root: Path):
+    def __init__(
+        self,
+        service: KernelOperations,
+        *,
+        owner: str,
+        source_root: Path,
+        backend_source_root: Path | None = None,
+    ):
         self.service = service
         self.owner = owner
         self.source_root = Path(source_root)
+        # The backend package, bundled only for jobs that run the agent (e2e).
+        self.backend_source_root = backend_source_root
 
     def prepare_bundle(
         self,
@@ -98,17 +107,26 @@ class PipelineKernelService:
         (bundle / "stage_config.json").write_text(
             json.dumps(config, indent=2), encoding="utf-8"
         )
-        source_b64 = self._build_source_b64()
+        source_b64 = self._build_source_b64(
+            include_backend=bool(job.worker_config.get("bundle_backend", False))
+        )
         (bundle / "source_bundle.zip").write_bytes(base64.b64decode(source_b64))
         runner = f"""import base64, json, os, runpy, sys\nfrom pathlib import Path\nSOURCE_B64 = {source_b64!r}\nsource = Path('/tmp/source_bundle.zip')\nsource.write_bytes(base64.b64decode(SOURCE_B64))\nsys.path.insert(0, str(source))\nconfig = Path('/tmp/stage_config.json')\nconfig.write_text({json.dumps(json.dumps(config))}, encoding='utf-8')\nos.environ['KAGGLE_PIPELINE_CONFIG'] = str(config)\nrunpy.run_module({job.worker_module!r}, run_name='__main__')\n"""
         (bundle / "runner.py").write_text(runner, encoding="utf-8")
         return bundle
 
-    def _build_source_b64(self) -> str:
+    def _build_source_b64(self, *, include_backend: bool = False) -> str:
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
             for path in sorted(self.source_root.rglob("*.py")):
                 archive.write(path, arcname=str(path.relative_to(self.source_root)))
+            if include_backend:
+                if self.backend_source_root is None:
+                    raise ValueError("this job needs the backend source root")
+                root = Path(self.backend_source_root)
+                for path in sorted(root.rglob("*")):
+                    if path.is_file() and "__pycache__" not in path.parts:
+                        archive.write(path, arcname=str(path.relative_to(root)))
         return base64.b64encode(buffer.getvalue()).decode("ascii")
 
     def reference(self, job: StageJob) -> str:

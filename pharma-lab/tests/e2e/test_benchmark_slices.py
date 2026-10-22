@@ -1,5 +1,5 @@
+from pharma_lab.bundle.corpus_text import CorpusText
 from pharma_lab.e2e.benchmark_slices import SliceIndex
-from pharma_lab.e2e.corpus_text import CorpusText
 
 PARA = "drug:paracetamol"
 H80, H150, PAN = (

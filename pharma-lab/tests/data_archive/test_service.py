@@ -8,7 +8,7 @@ import pytest
 from tests.data_archive.archive_project import FILES, make_project
 
 from pharma_lab.data_archive.manifest import ARCHIVE_MANIFEST_NAME, ArchiveError
-from pharma_lab.data_archive.service import pull_data, push_data
+from pharma_lab.data_archive.service import FROZEN_DATASETS, pull_data, push_data
 from pharma_lab.integrations.kaggle.dataset_service import DatasetService
 from pharma_lab.integrations.kaggle.errors import KaggleCommandError
 
@@ -197,3 +197,43 @@ def test_pull_restores_an_earlier_version(tmp_path: Path) -> None:
     pull_data(project_root=clone, dataset=dataset, force=False, version=1)
 
     assert (clone / "data" / changed).read_bytes() == first[changed]
+
+
+def test_push_and_pull_use_the_named_dataset(tmp_path: Path) -> None:
+    kaggle = FakeKaggle(tmp_path / "remote")
+    dataset = DatasetService(kaggle, "owner")
+    source = make_project(tmp_path / "source")
+
+    pushed = push_data(
+        project_root=source,
+        dataset=dataset,
+        message="Named",
+        now=NOW,
+        slug="vipharmind-v2-scratch",
+    )
+    clone = make_project(tmp_path / "clone", with_data=False)
+    pulled = pull_data(
+        project_root=clone, dataset=dataset, force=False, slug="vipharmind-v2-scratch"
+    )
+
+    assert pushed.reference == pulled.reference == "owner/vipharmind-v2-scratch"
+    assert any("owner/vipharmind-v2-scratch" in " ".join(call) for call in kaggle.calls)
+    assert not any("owner/vipharmind-data" in " ".join(call) for call in kaggle.calls)
+
+
+@pytest.mark.parametrize("slug", sorted(FROZEN_DATASETS))
+def test_push_refuses_a_dataset_of_the_published_paper(
+    tmp_path: Path, slug: str
+) -> None:
+    kaggle = FakeKaggle(tmp_path / "remote")
+
+    with pytest.raises(ArchiveError, match="frozen"):
+        push_data(
+            project_root=make_project(tmp_path / "source"),
+            dataset=DatasetService(kaggle, "owner"),
+            message="v2",
+            now=NOW,
+            slug=slug,
+        )
+
+    assert kaggle.calls == []

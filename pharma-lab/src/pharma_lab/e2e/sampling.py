@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from pharma_lab.e2e.corpus_text import CorpusText
+from pharma_lab.bundle.corpus_text import CorpusText
 from pharma_lab.e2e.golden import EVAL_GROUPS, ID_PREFIX, Category
 from pharma_lab.evaluation.backend_retrieval import sample_quotas
 

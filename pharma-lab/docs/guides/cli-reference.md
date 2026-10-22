@@ -32,9 +32,7 @@ pharma-lab e2e decision-probe [--chars N] [--bundle DIR]
 pharma-lab e2e decision-set build|guard-draft|score
 pharma-lab e2e report --run NAME [--latency-run NAME]
 pharma-lab e2e compare --run-a NAME --run-b NAME [--config CONFIG_DIR] [--config-b CONFIG_DIR]
-pharma-lab e2e rerank-server --model MODEL --hours H --kaggle-account accN|auto
-pharma-lab e2e embed-server --model MODEL --hours H --kaggle-account accN|auto
-pharma-lab e2e llm-server --model MODEL --hours H --kaggle-account accN|auto
+pharma-lab e2e run --backend kaggle --run NAME --config CONFIG [--config ...] [--category CATEGORY ...] [--kaggle-account accN]
 ```
 
 Global `--json` in envelope máy đọc được, `--debug` bật traceback. `uv run pharma-lab COMMAND --help` cho default thực tế.
@@ -138,6 +136,8 @@ uv run pharma-lab data pull --kaggle-account acc1
 
 `push` thay toàn bộ archive, nên lệnh dừng và liệt kê các file có trong archive hiện tại mà `data/` đang thiếu; chạy `pull` trước, hoặc thêm `--allow-removal` khi muốn bỏ hẳn các file đó khỏi archive.
 
+`--dataset SLUG` (cả `push` và `pull`) chọn dataset khác `seed-pipeline-data`, ví dụ `--dataset vipharmind-data`; tên các phần lấy từ manifest nên archive đẩy dưới tên dataset khác vẫn đọc được.
+
 `pull` tải lại các phần còn thiếu hoặc lệch checksum, kiểm sha256 từng phần và từng file, bỏ qua file đã giống hệt. File đang có mà khác archive thì lệnh dừng và liệt kê; thêm `--force` để ghi đè.
 
 ## Exit codes
@@ -173,6 +173,3 @@ Chi tiết trong [e2e-evaluation.md](e2e-evaluation.md).
 | `pharma-lab e2e decision-set score [--repeats 3]` | Chấm decision model trên tập giữ riêng, ghi từng lệnh gọi vào `decisions.jsonl` (chạy lại thì tiếp tục) và `jev.json` với AUROC, ECE, Brier, `tau`, `block`, `review` |
 | `pharma-lab e2e report --run NAME [--latency-run NAME]` | Ghi bảng CSV/LaTeX (cả `cost.csv\|tex`) và phân tích lỗi vào `runs/<run>/reports/`; `--latency-run` lấy mọi số độ trễ từ run concurrency 1 |
 | `pharma-lab e2e compare --run-a NAME --run-b NAME [--config CONFIG_DIR] [--config-b CONFIG_DIR]` | So một cấu hình giữa hai run (hoặc hai cấu hình với `--config-b`) trên item chung (sign-flip ghép cặp, Holm); ghi `runs/<B>/reports/compare-<A>-<config>.csv\|tex` |
-| `pharma-lab e2e rerank-server [--model MODEL] [--hours H] [--kaggle-account accN\|auto]` | Phục vụ reranker từ GPU Kaggle qua tunnel cloudflared có API key; ghi `data/work/serve/<model>.env` để các lượt `e2e run` dùng |
-| `pharma-lab e2e embed-server --model MODEL [--hours H] [--kaggle-account accN\|auto] [--attach OWNER/SLUG]` | Phục vụ model embedding truy vấn của agent từ GPU Kaggle qua tunnel; file env trỏ `PHARMA_RETRIEVAL__EMBEDDING__*` vào tunnel |
-| `pharma-lab e2e llm-server [--model MODEL] [--hours H] [--kaggle-account accN\|auto] [--attach OWNER/SLUG]` | Phục vụ model chat open-weight (mặc định `qwen3.5:9b-q8_0`, chia trên hai T4) qua tunnel; file env trỏ mọi bước của pipeline vào tunnel |

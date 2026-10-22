@@ -27,6 +27,11 @@ from pharma_lab.integrations.kaggle.job_lock import kaggle_job_lock
 # Each push is a Kaggle dataset version; data/README.md maps git tags to version numbers.
 DATASET_SLUG = "vipharmind-data"
 DATASET_TITLE = "ViPharmind data archive"
+# Datasets of the published SoICT 2026 paper (code tag v1.1.0): a new version would change
+# what the paper's unversioned link shows, so no branch ever pushes to them.
+FROZEN_DATASETS = frozenset(
+    {"vipharma-rag", "seed-pipeline-data", "vipharmind-camera-ready-data"}
+)
 
 
 @dataclass(frozen=True)
@@ -51,9 +56,9 @@ def archive_dir(project_root: Path) -> Path:
 
 
 def _archived_files_missing_locally(
-    dataset: DatasetService, staging: Path, local_files: list[str]
+    dataset: DatasetService, staging: Path, local_files: list[str], slug: str
 ) -> list[str]:
-    reference = f"{dataset.owner}/{DATASET_SLUG}"
+    reference = f"{dataset.owner}/{slug}"
     state = dataset.inspect_state(reference, active_owner=dataset.owner)
     if state.presence is not DatasetPresence.EXISTS:
         return []
@@ -72,7 +77,12 @@ def push_data(
     now: datetime,
     part_size: int = PART_SIZE_BYTES,
     allow_removal: bool = False,
+    slug: str = DATASET_SLUG,
 ) -> PushResult:
+    if slug in FROZEN_DATASETS:
+        raise ArchiveError(
+            f"{slug} is a frozen dataset of the published paper; push to another one"
+        )
     staging = archive_dir(project_root)
     with kaggle_job_lock(staging):
         if staging.exists():
@@ -82,7 +92,9 @@ def push_data(
         if not allow_removal:
             # A push replaces the whole archive, so a trimmed data/ would silently
             # drop results that exist only on Kaggle.
-            missing = _archived_files_missing_locally(dataset, staging, local_files)
+            missing = _archived_files_missing_locally(
+                dataset, staging, local_files, slug
+            )
             if missing:
                 listed = "\n".join(f"  {path}" for path in missing)
                 raise ArchiveError(
@@ -101,9 +113,7 @@ def push_data(
             git_commit=git_head(project_root),
         )
         write_archive_manifest(staging / ARCHIVE_MANIFEST_NAME, manifest)
-        prepared = dataset.ensure_dataset(
-            DATASET_SLUG, DATASET_TITLE, staging, message=message
-        )
+        prepared = dataset.ensure_dataset(slug, DATASET_TITLE, staging, message=message)
     return PushResult(
         prepared.reference,
         prepared.expected_version,
@@ -118,10 +128,11 @@ def pull_data(
     dataset: DatasetService,
     force: bool,
     version: int | None = None,
+    slug: str = DATASET_SLUG,
 ) -> PullResult:
     """Restore data/ from the latest archive version, or from `version`."""
     staging = archive_dir(project_root)
-    reference = f"{dataset.owner}/{DATASET_SLUG}"
+    reference = f"{dataset.owner}/{slug}"
     with kaggle_job_lock(staging):
         dataset.require_ready(reference, "`pharma-lab data push`")
         manifest = read_archive_manifest(

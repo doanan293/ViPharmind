@@ -36,6 +36,8 @@ class PipelineOptions:
     rephrase: bool = True
     judge_refine: bool = True
     guard: bool = True
+    # The first search uses the earlier user questions plus this one (a baseline without rephrase).
+    history_query: bool = False
     # Refinement by confidence (spec v2 §2.3): None keeps the judge's categorical decision;
     # otherwise search more only while the judge's confidence is below the threshold.
     refine_threshold: float | None = None

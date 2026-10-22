@@ -18,9 +18,9 @@ import hashlib
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 
+from pharma_lab.bundle.corpus_text import CorpusText
 from pharma_lab.e2e.benchmark_slices import SliceIndex
 from pharma_lab.e2e.conversational import build_conversational
-from pharma_lab.e2e.corpus_text import CorpusText
 from pharma_lab.e2e.golden_generate import (
     benchmark_row,
     colloquial_benchmark,

@@ -114,6 +114,31 @@ def test_corpus_embed_input_is_a_pipeline_input_like_every_stage(tmp_path):
     assert dependencies.input_dataset_slug(job).startswith("pipeline-input-")
 
 
+def test_a_job_with_several_models_gets_one_model_dataset_each(tmp_path, monkeypatch):
+    job, _, _ = _job(tmp_path)
+    models = ["qwen3.5:9b-q8_0", "qwen3-reranker:4b-q8_0", "qwen3-embedding:4b-q8_0"]
+    job = replace(job, worker_config=job.worker_config | {"models": models})
+    monkeypatch.setattr(
+        dependencies,
+        "resolve_publishable_artifact",
+        lambda _root, model: SimpleNamespace(
+            dataset_slug=f"slug-{model}", sha256=f"sha-{model}"
+        ),
+    )
+
+    desired = dependencies.default_desired_datasets(job, owners("acc"), tmp_path)
+
+    assert [item.resource_kind for item in desired] == [
+        "model",
+        "model-1",
+        "model-2",
+        "input",
+    ]
+    assert [item.reference for item in desired[:3]] == [
+        f"acc/slug-{model}" for model in models
+    ]
+
+
 class UnusedRunner:
     def run(
         self,

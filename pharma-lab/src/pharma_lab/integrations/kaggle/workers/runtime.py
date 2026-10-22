@@ -20,7 +20,7 @@ from pharma_lab.integrations.kaggle.models import (
     Completion,
     JobIdentity,
 )
-from pharma_lab.integrations.kaggle.workers.topology import SERVER_LAYOUTS
+from pharma_lab.integrations.kaggle.workers.topology import SERVER_LAYOUTS, ServerLayout
 from pharma_lab.runtime.catalog import (
     ModelKind,
     ModelSpec,
@@ -432,7 +432,8 @@ def managed_model_servers(
     """
     spec = require_model(str(config["model"]))
     input_root = Path(config.get("kaggle_input_root", "/kaggle/input"))
-    model_path = find_unique(input_root, "*.gguf")
+    # A kernel that runs several models names the file of each one.
+    model_path = find_unique(input_root, str(config.get("model_filename", "*.gguf")))
     runtime_manifest = find_unique(input_root, "runtime_manifest.json")
     if model_path is None or runtime_manifest is None:
         raise RuntimeError("Kaggle input is missing GGUF model or runtime manifest")
@@ -452,7 +453,9 @@ def managed_model_servers(
     if not isinstance(raw_overrides, dict):
         raise ValueError("runtime_overrides is required")
     runtime_overrides = {str(key): int(value) for key, value in raw_overrides.items()}
-    for index, layout in enumerate(SERVER_LAYOUTS):
+    devices = config.get("visible_devices")
+    layouts = (ServerLayout(str(devices)),) if devices is not None else SERVER_LAYOUTS
+    for index, layout in enumerate(layouts):
         port = base_port + index
         command = build_server_command(
             binary=binary,

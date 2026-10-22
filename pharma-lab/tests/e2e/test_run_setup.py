@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,7 @@ from pharma_lab.e2e.configs import (
     graph_for,
     parse_pipeline_options,
     pipeline_for,
+    pipeline_record,
     settings_for,
 )
 from pharma_lab.e2e.harness import DecisionVersionGuard
@@ -53,6 +55,39 @@ def test_configs_map_to_pipelines_and_settings() -> None:
     assert not full.langfuse.enabled
     assert base.langfuse.enabled
     assert base.retrieval.rerank.protocol == "native_rerank"
+
+
+def test_one_step_history_searches_the_earlier_questions_without_judging() -> None:
+    assert pipeline_for(E2EConfig.ONE_STEP_HISTORY) == PipelineOptions(
+        rephrase=False, judge_refine=False, history_query=True
+    )
+
+
+def test_pipeline_record_leaves_out_history_query_while_it_is_off() -> None:
+    record = pipeline_record(pipeline_for(E2EConfig.FULL))
+
+    assert "history_query" not in record
+    assert record == {
+        name: value
+        for name, value in asdict(PipelineOptions()).items()
+        if name != "history_query"
+    }
+
+
+def test_pipeline_record_names_the_history_query_when_it_is_on() -> None:
+    record = pipeline_record(pipeline_for(E2EConfig.ONE_STEP_HISTORY))
+
+    assert record["history_query"] is True
+    assert (record["rephrase"], record["judge_refine"]) == (False, False)
+
+
+def test_no_guard_no_rerank_drops_the_guard_from_the_no_rerank_agent() -> None:
+    config = E2EConfig.NO_GUARD_NO_RERANK
+    options = pipeline_for(config)
+
+    assert options == PipelineOptions(guard=False)
+    assert pipeline_record(options)["guard"] is False
+    assert settings_for(base_settings(), config).retrieval.rerank.protocol == "none"
 
 
 def test_store_keeps_the_last_record_per_item(tmp_path: Path) -> None:

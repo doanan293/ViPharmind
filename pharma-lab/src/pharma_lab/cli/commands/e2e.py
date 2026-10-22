@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections import Counter
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -14,6 +15,12 @@ from pharma_agent.infrastructure.settings import Settings
 from pydantic import TypeAdapter
 
 from pharma_lab.artifacts.manifest import sha256_file
+from pharma_lab.bundle.corpus_text import (
+    chunk_texts,
+    corpus_text,
+    load_corpus_text,
+    section_chunks,
+)
 from pharma_lab.cli.runtime import (
     CommandResult,
     CommandStatus,
@@ -36,14 +43,9 @@ from pharma_lab.e2e.calibration import (
     refresh_calibration,
     score_calibration,
 )
+from pharma_lab.e2e.citation_analysis import REPORT_FILE, write_citation_report
 from pharma_lab.e2e.compare import SIGNIFICANCE, compare_runs
 from pharma_lab.e2e.configs import E2EConfig, config_label
-from pharma_lab.e2e.corpus_text import (
-    chunk_texts,
-    corpus_text,
-    load_corpus_text,
-    section_chunks,
-)
 from pharma_lab.e2e.decision_calibration import (
     build_judge_set,
     draft_guard_set,
@@ -91,13 +93,17 @@ from pharma_lab.e2e.golden_draft import (
 )
 from pharma_lab.e2e.golden_generate import generate
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
-from pharma_lab.e2e.judging.service import JudgeRequest, run_judge
+from pharma_lab.e2e.judging.service import (
+    JudgeRequest,
+    run_citation_rejudge,
+    run_judge,
+)
 from pharma_lab.e2e.judging.structured import (
     DEFAULT_JUDGE_REASONING,
     JUDGE_MODEL,
     judge_llm,
 )
-from pharma_lab.e2e.model_server import attach_model, env_path, serve_model
+from pharma_lab.e2e.kaggle_run import KaggleE2ERequest, run_on_kaggle
 from pharma_lab.e2e.one_round import load_one_round
 from pharma_lab.e2e.report import write_report
 from pharma_lab.e2e.sampling import (
@@ -535,17 +541,32 @@ def golden_build(
     run_handler(state_from_context(ctx), handler)
 
 
+class RunBackend(StrEnum):
+    LOCAL = "local"
+    KAGGLE = "kaggle"
+
+
 @e2e_app.command("run")
 def run(
     ctx: typer.Context,
     run_name: Annotated[str, typer.Option("--run")],
-    config: Annotated[E2EConfig, typer.Option("--config")],
+    config: Annotated[
+        list[E2EConfig],
+        typer.Option("--config", help="Repeatable with --backend kaggle"),
+    ],
     golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
     limit: Annotated[
         int | None,
         typer.Option("--limit", min=1, help="Only N items spread across the set"),
     ] = None,
     concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 8,
+    category: Annotated[
+        list[Category] | None,
+        typer.Option(
+            "--category",
+            help="Only the items of this golden category; repeatable with kaggle",
+        ),
+    ] = None,
     retry_errors: Annotated[bool, typer.Option("--retry-errors")] = False,
     deadline_seconds: Annotated[
         float | None,
@@ -564,16 +585,55 @@ def run(
     backend_env_file: Annotated[
         Path, typer.Option("--backend-env-file", dir_okay=False)
     ] = BACKEND_ENV_FILE,
+    backend: Annotated[
+        RunBackend,
+        typer.Option(
+            "--backend",
+            help="kaggle runs the Qwen setting inside one Kaggle kernel",
+        ),
+    ] = RunBackend.LOCAL,
+    kaggle_account: Annotated[
+        str | None, typer.Option("--kaggle-account", help="Default: .env account")
+    ] = None,
 ) -> None:
     """Answer the golden set with one configuration; re-run to resume."""
+    categories = list(category or [])
+    if backend is RunBackend.KAGGLE:
+        if pipeline_option:
+            raise typer.BadParameter("--pipeline-option is not sent to a Kaggle run")
+        kaggle_request = KaggleE2ERequest(
+            run_name=run_name,
+            configs=tuple(config),
+            categories=tuple(categories or list(Category)),
+            golden_path=golden,
+            kaggle_account=kaggle_account,
+            deadline_seconds=deadline_seconds or 900.0,
+        )
+
+        def kaggle_handler() -> CommandResult:
+            written = run_on_kaggle(kaggle_request)
+            return CommandResult(
+                "e2e run",
+                CommandStatus.COMPLETE,
+                e2e_run_dir(run_name),
+                {"files": ",".join(str(path) for path in written)},
+            )
+
+        run_handler(state_from_context(ctx), kaggle_handler)
+        return
+    if len(config) != 1 or len(categories) > 1:
+        raise typer.BadParameter(
+            "a local run takes one --config and at most one --category"
+        )
     request = E2ERunRequest(
         run_root=e2e_run_dir(run_name),
-        config=config,
+        config=config[0],
         golden_path=golden,
         backend_env_file=backend_env_file,
         concurrency=concurrency,
         retry_errors=retry_errors,
         limit=limit,
+        category=categories[0] if categories else None,
         deadline_seconds=deadline_seconds,
         pipeline_options=tuple(pipeline_option or ()),
     )
@@ -583,7 +643,7 @@ def run(
         return CommandResult(
             "e2e run",
             CommandStatus.INCOMPLETE if summary.errors else CommandStatus.COMPLETE,
-            request.run_root / config_label(config, request.pipeline_options),
+            request.run_root / config_label(config[0], request.pipeline_options),
             {"items": summary.total, "ran": summary.ran, "errors": summary.errors},
         )
 
@@ -620,6 +680,10 @@ def judge(
         str,
         typer.Option("--items", help="Comma-separated item ids to judge again"),
     ] = "",
+    category: Annotated[
+        Category | None,
+        typer.Option("--category", help="Only the items of one golden category"),
+    ] = None,
     backend_env_file: Annotated[
         Path, typer.Option("--backend-env-file", dir_okay=False)
     ] = BACKEND_ENV_FILE,
@@ -635,6 +699,7 @@ def judge(
         judge_model=judge_model,
         judge_reasoning=TypeAdapter(ReasoningEffort).validate_python(judge_reasoning),
         only=frozenset(key.strip() for key in items.split(",") if key.strip()),
+        category=category,
     )
 
     def handler() -> CommandResult:
@@ -963,108 +1028,68 @@ def decision_set_score(
     run_handler(state_from_context(ctx), handler)
 
 
-def _serve(
+@e2e_app.command("citations")
+def citations(
     ctx: typer.Context,
-    command: str,
-    *,
-    model: str,
-    hours: float,
-    kaggle_account: str | None,
-    attach: str | None,
+    run_name: Annotated[str, typer.Option("--run")],
+    config: Annotated[E2EConfig, typer.Option("--config")] = E2EConfig.FULL,
 ) -> None:
+    """Where citation recall is lost: uncited, dangling, unsupported, supported."""
+    run_dir = e2e_run_dir(run_name)
+
     def handler() -> CommandResult:
-        target = env_path(model)
-        typer.echo(f"env file (while serving): {target}")
-
-        def log(line: str) -> None:
-            typer.echo(f"[{command}] {line}")
-
-        if attach is not None:
-            if kaggle_account is None or kaggle_account == "auto":
-                raise ValueError("--attach needs the owning --kaggle-account accN")
-            attach_model(
-                model=model, reference=attach, kaggle_account=kaggle_account, log=log
-            )
-        else:
-            serve_model(
-                model=model, hours=hours, kaggle_account=kaggle_account, log=log
-            )
-        return CommandResult(f"e2e {command}", CommandStatus.COMPLETE, target)
+        report = write_citation_report(run_dir / str(config), run_dir / "reports")
+        return CommandResult(
+            "e2e citations",
+            CommandStatus.COMPLETE,
+            run_dir / "reports" / REPORT_FILE,
+            {"items": report["items"], "sentences": report["sentences"]},
+        )
 
     run_handler(state_from_context(ctx), handler)
 
 
-HoursOption = Annotated[float, typer.Option("--hours", min=0.1, max=11.0)]
-AccountOption = Annotated[
-    str | None, typer.Option("--kaggle-account", help="accN or auto")
-]
-
-
-def _attach_option(stage: str) -> object:
-    return typer.Option(
-        "--attach",
-        help=f"OWNER/SLUG of a running {stage} kernel to reuse "
-        "(with --kaggle-account accN)",
-    )
-
-
-@e2e_app.command("rerank-server")
-def rerank_server(
+@e2e_app.command("rejudge-citations")
+def rejudge_citations(
     ctx: typer.Context,
-    model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
-    hours: HoursOption = 8.0,
-    kaggle_account: AccountOption = "auto",
-    attach: Annotated[str | None, _attach_option("rerank-serve")] = None,
-) -> None:
-    """Serve the reranker from a Kaggle GPU; E2E runs source the printed env file."""
-    _serve(
-        ctx,
-        "rerank-server",
-        model=model,
-        hours=hours,
-        kaggle_account=kaggle_account,
-        attach=attach,
-    )
-
-
-@e2e_app.command("embed-server")
-def embed_server(
-    ctx: typer.Context,
-    model: Annotated[
+    run_name: Annotated[str, typer.Option("--run")],
+    config: Annotated[E2EConfig, typer.Option("--config")],
+    concurrency: Annotated[int, typer.Option("--concurrency", min=1)] = 4,
+    judge_model: Annotated[
         str,
         typer.Option(
-            "--model", help="The agent's embedding model, e.g. qwen3-embedding:8b-q8_0"
+            "--judge-model", help="Must be the model the configuration was judged with"
         ),
-    ],
-    hours: HoursOption = 8.0,
-    kaggle_account: AccountOption = "auto",
-    attach: Annotated[str | None, _attach_option("embed-serve")] = None,
+    ] = JUDGE_MODEL,
+    judge_reasoning: Annotated[
+        str,
+        typer.Option(
+            "--judge-reasoning",
+            help="Must be the reasoning the configuration was judged at",
+        ),
+    ] = DEFAULT_JUDGE_REASONING or "medium",
+    backend_env_file: Annotated[
+        Path, typer.Option("--backend-env-file", dir_okay=False)
+    ] = BACKEND_ENV_FILE,
 ) -> None:
-    """Serve the query embedding model from a Kaggle GPU; E2E runs source the env file."""
-    _serve(
-        ctx,
-        "embed-server",
-        model=model,
-        hours=hours,
-        kaggle_account=kaggle_account,
-        attach=attach,
+    """Judge citation support again (after a citation-parser fix); other fields stay."""
+    request = JudgeRequest(
+        run_root=e2e_run_dir(run_name),
+        config=config,
+        golden_path=GOLDEN_E2E_PATH,
+        backend_env_file=backend_env_file,
+        concurrency=concurrency,
+        judge_model=judge_model,
+        judge_reasoning=TypeAdapter(ReasoningEffort).validate_python(judge_reasoning),
     )
 
+    def handler() -> CommandResult:
+        summary = run_citation_rejudge(request)
+        return CommandResult(
+            "e2e rejudge-citations",
+            CommandStatus.INCOMPLETE if summary.errors else CommandStatus.COMPLETE,
+            request.run_root / str(config),
+            {"judged": summary.judged, "errors": summary.errors},
+        )
 
-@e2e_app.command("llm-server")
-def llm_server(
-    ctx: typer.Context,
-    model: Annotated[str, typer.Option("--model")] = "qwen3.5:9b-q8_0",
-    hours: HoursOption = 8.0,
-    kaggle_account: AccountOption = "auto",
-    attach: Annotated[str | None, _attach_option("llm-serve")] = None,
-) -> None:
-    """Serve an open-weight chat model from two Kaggle T4s for every pipeline role."""
-    _serve(
-        ctx,
-        "llm-server",
-        model=model,
-        hours=hours,
-        kaggle_account=kaggle_account,
-        attach=attach,
-    )
+    run_handler(state_from_context(ctx), handler)

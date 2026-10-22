@@ -107,7 +107,7 @@ def test_evaluation_judgments_rebuild_only_the_judgments(tmp_path, monkeypatch):
 def test_evaluation_assemble_writes_the_benchmark_and_its_judgments(
     tmp_path, monkeypatch
 ):
-    from pharma_lab.e2e.corpus_text import CorpusText
+    from pharma_lab.bundle.corpus_text import CorpusText
 
     source = tmp_path / "rule-built.jsonl"
     output = tmp_path / "gold.jsonl"

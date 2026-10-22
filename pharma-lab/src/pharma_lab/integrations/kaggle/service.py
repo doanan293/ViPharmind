@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pharma_lab.config.environment import PROJECT_ENV_FILE, load_project_env
-from pharma_lab.config.paths import GGUF_ROOT, SOURCE_ROOT
+from pharma_lab.config.paths import BACKEND_SOURCE_ROOT, GGUF_ROOT, SOURCE_ROOT
 from pharma_lab.hashing import canonical_sha256
 from pharma_lab.integrations.kaggle.api import (
     KaggleCommandRunner,
@@ -157,6 +157,7 @@ def active_kernel_profile(
             KernelService(context.runner, context.owners.execution),
             owner=context.owners.execution,
             source_root=SOURCE_ROOT,
+            backend_source_root=BACKEND_SOURCE_ROOT,
         )
         state = kernels.discover(job)
         if state.presence is KernelPresence.EXISTS and state.status in {
@@ -209,6 +210,7 @@ def make_orchestrator(
         KernelService(runner, owners.execution),
         owner=owners.execution,
         source_root=SOURCE_ROOT,
+        backend_source_root=BACKEND_SOURCE_ROOT,
     )
     checkpoints = CheckpointService(datasets, owners.checkpoint)
     inheritance = None

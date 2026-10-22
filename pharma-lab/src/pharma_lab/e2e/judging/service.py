@@ -128,6 +128,8 @@ class JudgeRequest:
     judge_reasoning: ReasoningEffort = DEFAULT_JUDGE_REASONING
     # Items to judge again even when they already have a judgement.
     only: frozenset[str] = frozenset()
+    # Only the items of this golden category (all when None).
+    category: Category | None = None
 
 
 def pin_judge(
@@ -169,7 +171,9 @@ async def judge_records(
     concurrency: int,
     force: bool,
     only: frozenset[str] = frozenset(),
+    category: Category | None = None,
 ) -> JudgeSummary:
+    """Judge new, failed and listed answers; with a category, only that category's."""
     records = answers.latest()
     retryable = sorted(k for k, record in records.items() if record.retryable)
     if retryable:
@@ -181,15 +185,20 @@ async def judge_records(
     if unknown:
         raise ValueError(f"answers for items outside the golden set: {unknown[:3]}")
     done = judgments.latest()
+    in_scope = {
+        key: record
+        for key, record in records.items()
+        if category is None or items[key].category is category
+    }
     pending = [
         record
-        for key, record in sorted(records.items())
+        for key, record in sorted(in_scope.items())
         if force or key in only or key not in done or done[key].error is not None
     ]
     pending_keys = {record.item_id for record in pending}
     backfill = [
         (items[key], records[key], done[key])
-        for key in sorted(records)
+        for key in sorted(in_scope)
         if key not in pending_keys and record_needs_harm(done.get(key))
     ]
     semaphore = asyncio.Semaphore(concurrency)
@@ -223,9 +232,75 @@ async def judge_records(
     )
     final = judgments.latest()
     return JudgeSummary(
-        total=len(records),
+        total=len(in_scope),
         judged=len(pending) + len(backfill),
-        errors=sum(1 for judgement in final.values() if judgement.error is not None),
+        errors=sum(
+            1
+            for key, judgement in final.items()
+            if key in in_scope and judgement.error is not None
+        ),
+    )
+
+
+async def rejudge_citations(
+    answers: JsonlStore[AnswerRecord],
+    judgments: JsonlStore[Judgement],
+    judge: StructuredJudge,
+    *,
+    concurrency: int,
+) -> JudgeSummary:
+    """Judge citation support again for every graded grounded answer, keeping every
+    other field; an item whose call fails keeps its previous judgement."""
+    records = answers.latest()
+    pending = [
+        (records[key], judged)
+        for key, judged in sorted(judgments.latest().items())
+        if key in records
+        and judged.error is None
+        and judged.key_fact_verdicts is not None
+        and records[key].answer_mode == ExpectedBehavior.GROUNDED.value
+    ]
+    semaphore = asyncio.Semaphore(concurrency)
+    lock = asyncio.Lock()
+    failed = 0
+
+    async def one(record: AnswerRecord, judged: Judgement) -> None:
+        nonlocal failed
+        async with semaphore:
+            try:
+                support = await judge.citation_support(
+                    record.answer_text, record.context_text
+                )
+            except Exception:  # keep the previous judgement; a re-run retries it
+                failed += 1
+                return
+        async with lock:
+            judgments.append(judged.model_copy(update={"citation_support": support}))
+
+    await asyncio.gather(*(one(record, judged) for record, judged in pending))
+    return JudgeSummary(total=len(records), judged=len(pending) - failed, errors=failed)
+
+
+def run_citation_rejudge(request: JudgeRequest) -> JudgeSummary:
+    """Re-run only the citation-support judgement of one configuration."""
+    directory = config_dir(request.run_root, request.config)
+    settings = Settings(_env_file=request.backend_env_file)
+    pin_judge(
+        directory,
+        model=request.judge_model,
+        reasoning=request.judge_reasoning,
+        base_url=settings.llm.default.base_url or "",
+        force=False,
+    )
+    return asyncio.run(
+        rejudge_citations(
+            JsonlStore(directory / ANSWERS_FILE, AnswerRecord),
+            JsonlStore(directory / JUDGMENTS_FILE, Judgement),
+            StructuredJudge(
+                judge_llm(settings, request.judge_model, request.judge_reasoning)
+            ),
+            concurrency=request.concurrency,
+        )
     )
 
 
@@ -259,5 +334,6 @@ def run_judge(request: JudgeRequest) -> JudgeSummary:
             concurrency=request.concurrency,
             force=request.force,
             only=request.only,
+            category=request.category,
         )
     )

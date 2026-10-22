@@ -104,12 +104,8 @@ class StageName(StrEnum):
     RERANK_BENCHMARK = "rerank-benchmark"
     QUERY_EMBED_BENCHMARK = "query-embed-benchmark"
     CORPUS_EMBED_BENCHMARK = "corpus-embed-benchmark"
-    # A reranker served over a tunnel for a bounded time (E2E evaluation).
-    RERANK_SERVE = "rerank-serve"
-    # A chat model served the same way, for E2E runs with an open-weight LLM.
-    LLM_SERVE = "llm-serve"
-    # The query embedding model of the agent, served the same way (spec v2 §2.1b).
-    EMBED_SERVE = "embed-serve"
+    # The agent and its models run inside one kernel (e2e evaluation).
+    E2E_RUN = "e2e-run"
 
 
 class KernelPresence(StrEnum):
