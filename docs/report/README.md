@@ -42,13 +42,14 @@ Overleaf biên dịch ngay với compiler mặc định (pdfLaTeX) và tự ch�
 
 ## Camera-ready
 
-`report/` là nguồn duy nhất của bài; không giữ bản sao nguồn nào khác. `submission/` (không vào git) chỉ chứa những thứ không sinh ra được từ nguồn: email hướng dẫn của BTC, form Licence to Publish, bản scan đã ký và `Corresponding_Author.txt`. Bản scan đặt ở `submission/LTP_signed.pdf`; nếu chưa có, script vẫn tạo ZIP nhưng cảnh báo rằng phải thêm bản scan vào ZIP trước khi nộp:
+`report/` là nguồn duy nhất của bài; không giữ bản sao nguồn nào khác. `submission/` (không vào git) chỉ chứa những thứ không sinh ra được từ nguồn: email hướng dẫn của BTC, form Licence to Publish, bản scan đã ký và `Corresponding_Author.txt`. Bản scan là file PDF duy nhất trong `submission/` có tên chứa `signed` (không phân biệt hoa thường, ví dụ `LTP_signed.pdf` hay `LTP_signed_scan.pdf`; tên chứa `unsigned` không được tính). Trong ZIP nó luôn có tên `LTP_signed.pdf`:
 
 ```bash
-cd report && ./package.sh camera-ready && cd ..
+cd report && ./package.sh camera-ready && cd ..          # chưa có bản scan: vẫn tạo ZIP, kèm cảnh báo
+cd report && ./package.sh camera-ready --final && cd ..  # bản nộp: dừng nếu thiếu bản scan
 ```
 
-Script build lại bài, dựng thư mục `Source/` trong một thư mục tạm, rồi nén `Source/`, `Corresponding_Author.txt` và `LTP_signed.pdf` thành `submission/SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents_camera_ready.zip` (File B). File A là `SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.pdf` ở gốc `report/`.
+Script build lại bài, dựng thư mục `Source/` trong một thư mục tạm, rồi nén `Source/`, `Corresponding_Author.txt` và bản scan thành `submission/SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents_camera_ready.zip` (File B). Nó dừng khi có hai file `signed` để không nộp nhầm. File A là `SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.pdf` ở gốc `report/`.
 
 ## Bảng end-to-end
 
