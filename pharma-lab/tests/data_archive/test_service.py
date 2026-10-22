@@ -8,7 +8,12 @@ import pytest
 from tests.data_archive.archive_project import FILES, make_project
 
 from pharma_lab.data_archive.manifest import ARCHIVE_MANIFEST_NAME, ArchiveError
-from pharma_lab.data_archive.service import FROZEN_DATASETS, pull_data, push_data
+from pharma_lab.data_archive.service import (
+    DATASET_SLUG,
+    FROZEN_DATASETS,
+    pull_data,
+    push_data,
+)
 from pharma_lab.integrations.kaggle.dataset_service import DatasetService
 from pharma_lab.integrations.kaggle.errors import KaggleCommandError
 
@@ -70,7 +75,7 @@ def test_push_then_pull_restores_the_ignored_files(tmp_path: Path) -> None:
     )
 
     assert (pushed.reference, pushed.version, pushed.file_count) == (
-        "owner/vipharmind-data",
+        "owner/vipharmind-data-v2",
         1,
         len(FILES),
     )
@@ -165,7 +170,7 @@ class VersionedFakeKaggle(FakeKaggle):
         return destination / filename
 
 
-def test_the_archive_lives_in_the_vipharmind_data_dataset(tmp_path: Path) -> None:
+def test_the_archive_lives_in_the_vipharmind_data_v2_dataset(tmp_path: Path) -> None:
     kaggle = FakeKaggle(tmp_path / "remote")
     pushed = push_data(
         project_root=make_project(tmp_path / "source"),
@@ -173,9 +178,9 @@ def test_the_archive_lives_in_the_vipharmind_data_dataset(tmp_path: Path) -> Non
         message="First",
         now=NOW,
     )
-    assert pushed.reference == "owner/vipharmind-data"
+    assert pushed.reference == "owner/vipharmind-data-v2"
     assert all(
-        path.name.startswith("vipharmind-data.tar.zst.part-")
+        path.name.startswith("vipharmind-data-v2.tar.zst.part-")
         for path in kaggle.remote.iterdir()
         if "part-" in path.name
     )
@@ -218,7 +223,7 @@ def test_push_and_pull_use_the_named_dataset(tmp_path: Path) -> None:
 
     assert pushed.reference == pulled.reference == "owner/vipharmind-v2-scratch"
     assert any("owner/vipharmind-v2-scratch" in " ".join(call) for call in kaggle.calls)
-    assert not any("owner/vipharmind-data" in " ".join(call) for call in kaggle.calls)
+    assert not any(f"owner/{DATASET_SLUG}" in " ".join(call) for call in kaggle.calls)
 
 
 @pytest.mark.parametrize("slug", sorted(FROZEN_DATASETS))

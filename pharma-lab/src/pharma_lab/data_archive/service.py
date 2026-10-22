@@ -24,14 +24,13 @@ from pharma_lab.integrations.kaggle.dataset_service import (
 )
 from pharma_lab.integrations.kaggle.job_lock import kaggle_job_lock
 
-# Each push is a Kaggle dataset version; data/README.md maps git tags to version numbers.
-DATASET_SLUG = "vipharmind-data"
-DATASET_TITLE = "ViPharmind data archive"
-# Datasets of the published SoICT 2026 paper (code tag v1.1.0): a new version would change
-# what the paper's unversioned link shows, so no branch ever pushes to them.
-FROZEN_DATASETS = frozenset(
-    {"vipharma-rag", "seed-pipeline-data", "vipharmind-camera-ready-data"}
-)
+# One private archive per major version (Kaggle versions are linear, with no branches);
+# each push is a dataset version, and data/README.md maps git tags to version numbers.
+DATASET_SLUG = "vipharmind-data-v2"
+DATASET_TITLE = "ViPharmind data archive v2"
+# The v1 line ended with the SoICT 2026 camera-ready (tag v1.1.0): its public dataset is
+# linked from the paper without a version, and its private archive is closed.
+FROZEN_DATASETS = frozenset({"vipharma-rag", "vipharmind-data-v1", "vipharmind-data"})
 
 
 @dataclass(frozen=True)

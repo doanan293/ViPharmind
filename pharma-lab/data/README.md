@@ -20,26 +20,28 @@ data/
 
 ## Archive versions
 
-`pharma-lab data push` creates a new version of the private Kaggle dataset
-`<owner>/vipharmind-data`; `pharma-lab data pull --version N` restores version N (the latest
-without `--version`). Each version pairs with a git tag:
+Kaggle numbers dataset versions 1, 2, 3… with no branches or tags, so each major version
+of the code has its own private dataset, and each push is one dataset version whose
+message names the git tag. `pharma-lab data push` writes to `<owner>/vipharmind-data-v2`;
+`pharma-lab data pull --dataset SLUG --version N` restores any of them (the latest version
+of `vipharmind-data-v2` without options).
 
-| Kaggle version | Git tag | Content |
-| ---: | --- | --- |
-| 1 | `v1.0.0` | SoICT 2026 submission: corpus, 10,000-question benchmark, golden set, all retrieval and end-to-end runs (former `seed-pipeline-data` version 8, its earlier versions squashed) |
+| Dataset | Kaggle version | Git tag | Content |
+| --- | ---: | --- | --- |
+| `vipharmind-data-v1` | 1 | `v1.0.0` | SoICT 2026 submission: corpus, 10,000-question benchmark, golden set, all retrieval and end-to-end runs (archived 2026-09-23 at `bc6df6f`) |
+| `vipharmind-data-v1` | 2 | `v1.1.0` | Camera-ready: version 1 plus the camera-ready runs, citation re-judgments, dev/test split and slices (packed at `camera-ready` `611ed08`: tag `v1.1.0` plus the dataset rename and the symbolic-link fix, which do not touch the report; 2,629 files) |
+| `vipharmind-data-v2` | 1… | `v2.x` | v2 work, one version per tag |
 
-### Frozen datasets of the paper
+### Closed datasets
 
-The SoICT 2026 camera-ready paper cites its code at tag `v1.1.0` and its data on Kaggle
-without a version number, so a new version of these datasets would change what the paper
-shows. They are never pushed to again (`data push` refuses them); v2 work uses
-`vipharmind-data`, and a public v2 release gets a new dataset.
+The v1 line ended with the camera-ready paper, which cites its code at tag `v1.1.0` and
+its data on Kaggle without a version number. `data push` refuses these datasets:
 
-| Dataset | Visibility | Frozen at |
+| Dataset | Visibility | State |
 | --- | --- | --- |
-| `vipharma-rag` | public, cited by the paper | version 3 |
-| `seed-pipeline-data` | private, v1 archive | latest version |
-| `vipharmind-camera-ready-data` | private, camera-ready runs | its first push from the `camera-ready` branch |
+| `vipharma-rag` | public, cited by the paper | frozen at version 3 (`v1.1.0`); a public v2 release gets a new dataset |
+| `vipharmind-data-v1` | private | frozen at version 2 |
+| `vipharmind-data` | private | legacy name of `vipharmind-data-v1` version 1 |
 
 ## What Git tracks
 
@@ -52,7 +54,7 @@ Git keeps only small files that are maintained by hand or quoted in the thesis r
 Everything else under `data/`, except `work/`, lives in a private Kaggle dataset and is stored and restored with `pharma-lab data push` and `pharma-lab data pull`, which check the sha256 of every part and every file:
 
 ```bash
-uv run pharma-lab data push --kaggle-account acc1 --message "Rebuild evaluation runs"
+uv run pharma-lab data push --kaggle-account acc1 --message "v2.1.0: rebuild evaluation runs"
 uv run pharma-lab data pull --kaggle-account acc1
 ```
 

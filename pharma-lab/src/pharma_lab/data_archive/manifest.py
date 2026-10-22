@@ -8,7 +8,7 @@ from typing import Any
 
 ARCHIVE_SCHEMA = "seed-data-archive-v1"
 ARCHIVE_MANIFEST_NAME = "archive-manifest.json"
-PART_PREFIX = "vipharmind-data.tar.zst.part-"
+PART_PREFIX = "vipharmind-data-v2.tar.zst.part-"
 # Any dataset slug: an archive pushed under another dataset name keeps its own part names.
 _PART_NAME = re.compile(r"[a-z0-9][a-z0-9-]*\.tar\.zst\.part-\d{4}")
 

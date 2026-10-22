@@ -32,7 +32,7 @@ def test_push_forwards_account_and_message(
 
     def fake_push(**kwargs):
         captured.update(kwargs)
-        return PushResult("owner/vipharmind-data", 2, 10, 1)
+        return PushResult("owner/vipharmind-data-v2", 2, 10, 1)
 
     monkeypatch.setattr(data_command, "push_data", fake_push)
 
@@ -46,7 +46,7 @@ def test_push_forwards_account_and_message(
     assert captured["message"] == "Refresh"
     assert captured["allow_removal"] is False
     assert captured["dataset"].owner == "owner"
-    assert json.loads(result.stdout)["details"]["dataset"] == "owner/vipharmind-data"
+    assert json.loads(result.stdout)["details"]["dataset"] == "owner/vipharmind-data-v2"
 
 
 def test_push_forwards_allow_removal(
@@ -56,7 +56,7 @@ def test_push_forwards_allow_removal(
 
     def fake_push(**kwargs):
         captured.update(kwargs)
-        return PushResult("owner/vipharmind-data", 2, 10, 1)
+        return PushResult("owner/vipharmind-data-v2", 2, 10, 1)
 
     monkeypatch.setattr(data_command, "push_data", fake_push)
 
@@ -73,7 +73,7 @@ def test_pull_forwards_force(
 
     def fake_pull(**kwargs):
         captured.update(kwargs)
-        return PullResult("owner/vipharmind-data", 10, 3, 7, 1)
+        return PullResult("owner/vipharmind-data-v2", 10, 3, 7, 1)
 
     monkeypatch.setattr(data_command, "pull_data", fake_pull)
 
