@@ -22,6 +22,14 @@ def test_only_ignored_files_outside_work_are_archived(tmp_path: Path) -> None:
     assert list_archive_files(root) == sorted(FILES)
 
 
+def test_symbolic_links_in_data_are_refused(tmp_path: Path) -> None:
+    root = make_project(tmp_path)
+    (root / "data" / "cache" / "linked").symlink_to(root / "data" / "cache")
+
+    with pytest.raises(ArchiveError, match="cache/linked"):
+        list_archive_files(root)
+
+
 def test_pack_splits_the_stream_into_numbered_parts(tmp_path: Path) -> None:
     root = make_project(tmp_path / "project")
 
@@ -87,7 +95,7 @@ def test_manifest_accepts_the_part_names_of_a_renamed_dataset(tmp_path: Path) ->
         "2026-10-14T00:00:00+00:00",
         "c" * 40,
         (ArchiveFile("cache/a.jsonl", 3, "a" * 64),),
-        (ArchivePart("vipharmind-data.tar.zst.part-0001", 10, "b" * 64),),
+        (ArchivePart("vipharmind-data-v2.tar.zst.part-0001", 10, "b" * 64),),
     )
     path = tmp_path / "archive-manifest.json"
     write_archive_manifest(path, manifest)
