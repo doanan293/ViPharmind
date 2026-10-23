@@ -392,6 +392,15 @@ def running_proxy(
     try:
         binary = fetch(work / "bin")
         names = install_credentials(mounted, work / "auth")
+        if not names:
+            seen = (
+                sorted(path.name for path in mounted.parent.iterdir())
+                if mounted.parent.is_dir()
+                else []
+            )
+            raise RuntimeError(
+                f"no credential file under {mounted}; the input directory holds {seen}"
+            )
         template = mounted / CONFIG_NAME
         proxy_config = write_proxy_config(
             template if template.is_file() else None,

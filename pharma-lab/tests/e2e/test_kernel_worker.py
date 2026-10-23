@@ -404,3 +404,21 @@ def test_the_layout_of_the_job_is_recorded_with_the_software(tmp_path):
 
     assert job_software(config, {"layout": "A"})["layout"] == "A"
     assert job_software(config, {})["layout"] == "A"  # jobs from before layouts
+
+
+def test_running_proxy_fails_loudly_when_no_credential_is_mounted(tmp_path):
+    root = tmp_path / "input"
+    (root / "pipeline-static-abc").mkdir(parents=True)
+    (root / "pipeline-cred-x").mkdir()
+    (root / "pipeline-cred-x" / "dependency_manifest.json").write_text("{}")
+
+    with (
+        pytest.raises(RuntimeError, match=r"no credential file.*pipeline-static-abc"),
+        running_proxy(
+            {"kaggle_input_root": str(root), "credentials_slug": "pipeline-cred-x"},
+            fetch=lambda directory: directory / "cli-proxy-api",
+            start=lambda *_a, **_k: FakeProxy(),
+            work_root=tmp_path,
+        ),
+    ):
+        pass
