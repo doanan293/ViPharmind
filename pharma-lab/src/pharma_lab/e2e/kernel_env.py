@@ -8,22 +8,11 @@ from __future__ import annotations
 
 import json
 
-LLM_MODEL = "qwen3.5:9b-q8_0"
+from pharma_lab.e2e.llm_presets import PRESETS, LlmPreset, RoleEndpoint
+
 RERANK_MODEL = "qwen3-reranker:4b-q8_0"
 EMBEDDING_MODEL = "qwen3-embedding:4b-q8_0"
 EMBEDDING_DIMENSION = 2560
-# Every role of the agent (LlmRole names); a test keeps the two in step.
-LLM_ROLES = (
-    "GUARDRAIL",
-    "REPHRASE",
-    "JUDGE",
-    "REFINE",
-    "ANSWER",
-    "SUMMARIZER",
-    "AGENT",
-)
-# Qwen3.5 thinks by default; the pipeline wants one structured decision per call.
-CHAT_EXTRA_BODY = {"chat_template_kwargs": {"enable_thinking": False}}
 # A 9B model on a T4 generates a long answer in well over the backend's 60 s default.
 CHAT_TIMEOUT_SECONDS = 600
 
@@ -35,12 +24,10 @@ def kernel_backend_env(
     embedding_port: int,
     postgres_dsn: str,
     qdrant_url: str,
+    preset: LlmPreset = PRESETS["qwen"],
 ) -> dict[str, str]:
     values = {
         "PHARMA_LLM__TIMEOUT_SECONDS": str(CHAT_TIMEOUT_SECONDS),
-        "PHARMA_LLM__DEFAULT__BASE_URL": f"http://127.0.0.1:{llm_port}/v1",
-        "PHARMA_LLM__DEFAULT__API_KEY": "kernel",
-        "PHARMA_LLM__DEFAULT__MODEL": LLM_MODEL,
         "PHARMA_RETRIEVAL__RERANK__PROTOCOL": "native_rerank",
         "PHARMA_RETRIEVAL__RERANK__BASE_URL": f"http://127.0.0.1:{rerank_port}",
         "PHARMA_RETRIEVAL__RERANK__API_KEY": "kernel",
@@ -53,12 +40,27 @@ def kernel_backend_env(
         "PHARMA_POSTGRES__DSN": postgres_dsn,
         "PHARMA_QDRANT__URL": qdrant_url,
     }
-    for role in LLM_ROLES:
-        prefix = f"PHARMA_LLM__ROLES__{role}__"
-        values |= {
-            prefix + "BASE_URL": f"http://127.0.0.1:{llm_port}/v1",
-            prefix + "API_KEY": "kernel",
-            prefix + "MODEL": LLM_MODEL,
-            prefix + "EXTRA_BODY": json.dumps(CHAT_EXTRA_BODY),
-        }
+    local = f"http://127.0.0.1:{llm_port}/v1"
+    default = preset.roles["ANSWER"]
+    # The default carries only the connection; every role sets its own body and effort.
+    values |= {
+        key: value
+        for key, value in _endpoint_env("PHARMA_LLM__DEFAULT__", default, local).items()
+        if key.rsplit("__", 1)[1] in ("BASE_URL", "API_KEY", "MODEL")
+    }
+    for role, endpoint in preset.roles.items():
+        values |= _endpoint_env(f"PHARMA_LLM__ROLES__{role}__", endpoint, local)
+    return values
+
+
+def _endpoint_env(prefix: str, endpoint: RoleEndpoint, local: str) -> dict[str, str]:
+    values = {
+        prefix + "BASE_URL": endpoint.base_url or local,
+        prefix + "API_KEY": endpoint.api_key,
+        prefix + "MODEL": endpoint.model,
+    }
+    if endpoint.extra_body:
+        values[prefix + "EXTRA_BODY"] = json.dumps(endpoint.extra_body)
+    if endpoint.reasoning_effort:
+        values[prefix + "REASONING_EFFORT"] = endpoint.reasoning_effort
     return values

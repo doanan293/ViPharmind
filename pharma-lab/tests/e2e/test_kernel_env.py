@@ -2,7 +2,8 @@ import json
 
 from pharma_agent.domain.llm.models import LlmRole
 
-from pharma_lab.e2e.kernel_env import LLM_ROLES, kernel_backend_env
+from pharma_lab.e2e.kernel_env import kernel_backend_env
+from pharma_lab.e2e.llm_presets import LLM_ROLES
 
 
 def env() -> dict[str, str]:
