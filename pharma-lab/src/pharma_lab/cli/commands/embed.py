@@ -43,7 +43,27 @@ def embed_queries(
     request_timeout_seconds: Annotated[
         float, typer.Option("--request-timeout-seconds")
     ] = 900.0,
-    kaggle_account: Annotated[str | None, typer.Option("--kaggle-account")] = None,
+    kaggle_account: Annotated[
+        str | None,
+        typer.Option(
+            "--kaggle-account",
+            help="Kaggle: accN, a comma list (acc1,acc3) or auto (default: every account)",
+        ),
+    ] = None,
+    parallel: Annotated[
+        int | None,
+        typer.Option(
+            "--parallel",
+            min=1,
+            help="Kaggle shards at once (default: two sessions per account)",
+        ),
+    ] = None,
+    drain: Annotated[
+        bool,
+        typer.Option(
+            "--drain", help="Kaggle: let running kernels finish, start no new one"
+        ),
+    ] = False,
 ) -> None:
     require_model(model)
     resolved_output = output_dir or query_embedding_cache_path(model)
@@ -60,6 +80,8 @@ def embed_queries(
                     budget_seconds=budget_seconds,
                     request_timeout_seconds=request_timeout_seconds,
                     kaggle_account=kaggle_account,
+                    parallel=parallel,
+                    drain=drain,
                 )
             )
         ),

@@ -40,3 +40,37 @@ def test_query_embedding_passes_kaggle_account_to_request(monkeypatch):
 
     assert result.exit_code == 0
     assert captured["request"].kaggle_account == "acc3"
+
+
+def test_query_embedding_passes_parallel_and_drain(monkeypatch):
+    captured = {}
+
+    class FakeBackend:
+        def run(self, request):
+            captured["request"] = request
+            return SimpleNamespace(
+                cache_path=Path("cache.jsonl"),
+                subset_sha256=None,
+                actions=(),
+                incomplete=False,
+            )
+
+    monkeypatch.setattr(embed_command, "query_backend", lambda _backend: FakeBackend())
+    result = runner.invoke(
+        app,
+        [
+            "embed",
+            "queries",
+            "--backend",
+            "kaggle",
+            "--kaggle-account",
+            "acc1,acc3",
+            "--parallel",
+            "3",
+            "--drain",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["request"].kaggle_account == "acc1,acc3"
+    assert (captured["request"].parallel, captured["request"].drain) == (3, True)

@@ -124,18 +124,3 @@ def wait_for_kaggle_account(
                 log(f"account={profile} is held by another local job; waiting")
                 wait(ACCOUNT_POLL_SECONDS)
         yield profile
-
-
-@contextmanager
-def hold_pinned_account(kaggle_account: str | None) -> Generator[None, None, None]:
-    """Hold the account a command is pinned to (`--kaggle-account accN`) for its whole run.
-
-    Commands that pick an account per session (`auto`) or run on the default
-    credentials lock nothing here.
-    """
-    profile = (kaggle_account or "").strip()
-    if not profile or profile.casefold() == "auto":
-        yield
-        return
-    with wait_for_kaggle_account(profile):
-        yield

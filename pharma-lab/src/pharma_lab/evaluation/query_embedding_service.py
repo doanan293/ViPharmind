@@ -1,25 +1,28 @@
 from __future__ import annotations
 
 import json
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from pharma_lab.cache.jsonl_records import merge_records
 from pharma_lab.config.paths import (
     GGUF_ROOT,
     LOCAL_MODELS_COMPOSE_FILES,
     WORK_DIR,
 )
+from pharma_lab.embeddings.shards import SECONDS_PER_TEXT, seconds_per_character
 from pharma_lab.evaluation.preload_query_embeddings import preload_embeddings
 from pharma_lab.evaluation.query_embedding_cache import QueryEmbeddingCache
-from pharma_lab.hashing import query_hash
-from pharma_lab.integrations.kaggle.job_lock import (
-    hold_pinned_account,
-    kaggle_cache_lock,
-    kaggle_job_lock,
+from pharma_lab.evaluation.query_embedding_shards import (
+    SETUP_SECONDS,
+    QueryEmbeddingShardAdapter,
+    query_keys,
+    read_query_rows,
 )
+from pharma_lab.integrations.kaggle.job_lock import kaggle_job_lock
+from pharma_lab.integrations.kaggle.shards import WorkUnit
 from pharma_lab.runtime.catalog import ModelKind, require_model
 from pharma_lab.runtime.client import LlamaCppClient
 from pharma_lab.runtime.compose import LlamaCppComposeManager, resolve_server
@@ -37,6 +40,9 @@ class QueryEmbeddingRequest:
     benchmark: bool = False
     benchmark_items: int = 512
     kaggle_account: str | None = None
+    # Kaggle shards at once (default: two sessions per account) and finish-then-stop.
+    parallel: int | None = None
+    drain: bool = False
 
 
 @dataclass(frozen=True)
@@ -47,6 +53,7 @@ class QueryEmbeddingStageResult:
     incomplete: bool = False
     benchmark_report: Path | None = None
     benchmark_levels: int = 0
+    quota: tuple[str, ...] = ()
 
 
 class QueryEmbeddingBackend(Protocol):
@@ -86,9 +93,9 @@ class LocalQueryEmbeddingBackend:
             vector_dim=spec.vector_dimension or 0,
             model_sha256=spec.sha256,
         )
-        rows = _read_query_rows(request.evaluation_path)
+        rows = read_query_rows(request.evaluation_path)
         if request.force:
-            cache.replace_keys(_query_keys(rows, request.model))
+            cache.replace_keys(query_keys(rows, request.model))
         preload_embeddings(
             eval_path=request.evaluation_path,
             model_name=request.model,
@@ -130,28 +137,32 @@ class KaggleQueryEmbeddingBackend:
     def _run_kaggle_orchestrator(
         request: QueryEmbeddingRequest,
     ) -> QueryEmbeddingStageResult:
-        with (
-            kaggle_job_lock(request.output_dir),
-            hold_pinned_account(request.kaggle_account),
-        ):
+        with kaggle_job_lock(request.output_dir):
             return KaggleQueryEmbeddingBackend._run_kaggle_unlocked(request)
 
     @staticmethod
     def _run_kaggle_unlocked(
         request: QueryEmbeddingRequest,
     ) -> QueryEmbeddingStageResult:
-        from pharma_lab.integrations.kaggle.models import StageName
-        from pharma_lab.integrations.kaggle.service import run_kaggle_stage
-
-        spec = require_model(request.model)
         from pharma_lab.integrations.kaggle.auto_profile import (
             ensure_runtime_profile,
         )
-
-        remote_dir = (
-            WORK_DIR / "kaggle-query-embeddings" / require_model(request.model).slug
+        from pharma_lab.integrations.kaggle.job_registry import JobRegistry
+        from pharma_lab.integrations.kaggle.models import StageName
+        from pharma_lab.integrations.kaggle.scheduler import (
+            SchedulerSettings,
+            run_shards,
+            shard_margin_seconds,
         )
-        rows = _read_query_rows(request.evaluation_path)
+        from pharma_lab.integrations.kaggle.service import (
+            resolve_session_contexts,
+            run_kaggle_stage,
+        )
+        from pharma_lab.integrations.kaggle.shards import plan_shards
+
+        spec = require_model(request.model)
+        work_dir = WORK_DIR / "kaggle-query-embeddings" / spec.slug
+        rows = read_query_rows(request.evaluation_path)
         cached = QueryEmbeddingCache(
             request.output_dir,
             vector_dim=spec.vector_dimension,
@@ -180,7 +191,6 @@ class KaggleQueryEmbeddingBackend:
             "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in missing),
             encoding="utf-8",
         )
-
         resolution = ensure_runtime_profile(
             workload="query-embed",
             benchmark_stage=StageName.QUERY_EMBED_BENCHMARK.value,
@@ -196,42 +206,65 @@ class KaggleQueryEmbeddingBackend:
             return QueryEmbeddingStageResult(
                 None, None, (f"profile={resolution.action}",), incomplete=True
             )
-        result = run_kaggle_stage(
-            stage=StageName.QUERY_EMBED,
-            model=request.model,
-            input_path=input_path,
-            output_dir=remote_dir,
-            gguf_root=GGUF_ROOT,
-            force=request.force,
-            check_only=request.dry_run,
-            budget_seconds=request.budget_seconds,
-            runtime_profile=resolution.profile.selected,
-            kaggle_account=request.kaggle_account,
+        selected = resolution.profile.selected
+        contexts = resolve_session_contexts(request.kaggle_account or "auto")
+        margin = shard_margin_seconds(request.budget_seconds)
+        per_character = seconds_per_character(
+            selected.to_dict(), resolution.profile.measurements
         )
-        if result.artifact_path is None:
+        if request.dry_run:
+            # Planned from the same costs the adapter uses, without clearing anything.
+            units = [
+                WorkUnit(
+                    str(row["query_id"]),
+                    SECONDS_PER_TEXT + len(str(row.get("query") or "")) * per_character,
+                )
+                for row in missing
+            ]
+            shards = plan_shards(
+                units,
+                setup_seconds=SETUP_SECONDS,
+                budget_seconds=request.budget_seconds,
+                margin_seconds=margin,
+                slots=2 * len(contexts),
+            )
+            hours = (
+                sum(unit.seconds for unit in units) + len(shards) * SETUP_SECONDS
+            ) / 3600
             return QueryEmbeddingStageResult(
                 None,
                 None,
-                tuple(action.reason for action in result.actions),
-                incomplete=not result.completion.is_complete,
-            )
-        spec = require_model(request.model)
-        remote = QueryEmbeddingCache(
-            result.artifact_path,
-            vector_dim=spec.vector_dimension,
-            model_sha256=spec.sha256,
-        )
-        with kaggle_cache_lock(request.output_dir):
-            merge_records(
-                request.output_dir,
-                remote.record_metadata.values(),
-                key=lambda record: (
-                    str(record["model"]),
-                    str(record["query_id"]),
-                    str(record["query_hash"]),
+                (
+                    f"missing_queries={len(units)}",
+                    f"planned_shards={len(shards)}",
+                    f"estimated_gpu_hours={hours:.1f}",
                 ),
-                equivalent=lambda left, right: left["embedding"] == right["embedding"],
+                incomplete=True,
             )
+        adapter = QueryEmbeddingShardAdapter(
+            model=request.model,
+            evaluation_path=request.evaluation_path,
+            cache_path=request.output_dir,
+            work_dir=work_dir,
+            remote_dir=work_dir,
+            stage_runner=run_kaggle_stage,
+            runtime_profile=selected,
+            seconds_per_character=per_character,
+            force=request.force,
+        )
+        report = run_shards(
+            adapter,
+            contexts,
+            JobRegistry(work_dir / "jobs.json"),
+            SchedulerSettings(
+                parallel=request.parallel or 2 * len(contexts),
+                budget_seconds=request.budget_seconds,
+                margin_seconds=margin,
+                max_sessions=None,
+                drain=request.drain,
+            ),
+            log=lambda line: print(line, file=sys.stderr, flush=True),
+        )
         local = QueryEmbeddingCache(
             request.output_dir,
             vector_dim=spec.vector_dimension,
@@ -241,26 +274,11 @@ class KaggleQueryEmbeddingBackend:
         return QueryEmbeddingStageResult(
             request.output_dir,
             subset.sha256,
-            tuple(action.reason for action in result.actions),
+            (
+                f"missing_queries={subset.missing}",
+                f"sessions={report.shards_run}",
+                f"stop={report.stop.value}",
+            ),
             incomplete=not subset.is_complete,
+            quota=report.quota_table,
         )
-
-
-def _read_query_rows(path: Path) -> list[dict]:
-    rows = []
-    with Path(path).open(encoding="utf-8") as handle:
-        for line in handle:
-            if line.strip():
-                rows.append(json.loads(line))
-    return rows
-
-
-def _query_keys(rows: list[dict], model: str) -> set[tuple[str, str, str]]:
-    return {
-        (
-            model,
-            str(row.get("query_id") or ""),
-            query_hash(str(row.get("query") or "")),
-        )
-        for row in rows
-    }
