@@ -363,4 +363,19 @@ Chạy bằng acc1, acc2, acc3; mỗi kernel dùng khoảng 0,4 đến 0,6 giờ
 
 Lỗi chỉ lộ ra ở job thật, đã sửa kèm test: (1) lượt chạy thứ hai của harness trong cùng kernel từ chối `run.json` có khối `software`; (2) Qdrant trong kernel lắng nghe `0.0.0.0` (nay `127.0.0.1`); (3) file credential xuất từ volume Docker thuộc `root` nên chính lệnh không đọc được; (4) bản phát hành proxy đặt tên chương trình `cli-proxy-api`, không phải `CLIProxyAPI`; (5) dataset credential không bị xoá khi Ctrl-C được bấm hai lần (nay xoá bỏ qua SIGINT); (6) 8 request cùng lúc làm Gemini trả 429 `model_cooldown` cho nửa số câu, nay trần là 4 (Opus 2); (7) thư mục credential trong kernel chứa nhầm `dependency_manifest.json`; (8) `merged` đếm dòng lỗi thay vì câu xong.
 
-Chưa thử trên Kaggle thật: hai kernel chạy song song trên nhiều account, `rerank`, embedding corpus và truy vấn qua scheduler mới, Claude/Opus qua proxy, `--judge` cùng kernel.
+
+
+### Vòng nghiệm thu thứ hai (cùng ngày)
+
+| Việc | Kết quả |
+| --- | --- |
+| Nhiều account song song (`closed-book`, 300 câu đề nghị, 3 account, `--parallel 3`) | Đạt. Cắt thành 3 shard (84, 83, 83 câu), mỗi shard một account, chạy cùng lúc; kết quả 250 câu, 250 dòng khác nhau, cả 250 `completed`. |
+| `--judge` cùng kernel | Cơ chế đạt (chấm ngay khi mỗi shard về, lỗi của judge không chặn việc gộp). Chấm gần như toàn lỗi vì judge mặc định `gpt-5-mini` không có trên proxy cục bộ: thêm `--judge-model` và `--judge-reasoning` cho `e2e run`. |
+| `rerank` qua scheduler (0,6B, 20 truy vấn, 177 cặp thiếu, 2 account cho phép) | Đạt. 1 shard, 400/400 cặp, biến thể được ghi, `stop=complete`, khoảng 6,5 phút. |
+| Embedding truy vấn (0,6B, 40 truy vấn) | Đạt. 1 shard, 40/40. Lần đầu lỗi: `--kaggle-account acc1,acc2` bị truyền nguyên chuỗi vào bước chọn profile; đã sửa cho cả embedding corpus. |
+| Embedding corpus (0,6B, 13.408 văn bản, 3 account) | Đạt. 3 shard 4.469 đến 4.470 văn bản, 13.408/13.408 vector, `stop=complete`; so với cache cũ cosine ≥ 0,9995. |
+| Claude/Opus qua proxy (10 câu, một file credential) | Proxy trong kernel đọc credential Claude, nhận ra nhà cung cấp `claude` và gửi yêu cầu lên Anthropic. Anthropic trả 429 `rate_limit_error` (chờ 12 giờ 17 phút); gọi từ máy cũng bị y như vậy, nên là hạn mức của tài khoản, không phải lỗi cơ chế. Chưa có câu trả lời đầy đủ của Opus. Một lần chạy trước đó thấy 0 file credential trong kernel (mount dataset mới tạo, không lặp lại); nay kernel báo lỗi to và kể tên thư mục nó thấy. Dataset credential được xoá sạch sau cả hai lần. |
+
+Lỗi thêm tìm ra ở vòng này (đã sửa, có test): hạn mức Gemini 8 request quá cao (nay 4, Opus 2); thư mục credential trong kernel chứa nhầm `dependency_manifest.json`; `merged` đếm dòng lỗi thay vì câu xong; file credential xuất từ volume Docker thuộc `root`; tên nhị phân proxy là `cli-proxy-api`; xoá credential bị cắt ngang khi Ctrl-C hai lần; `--judge` thiếu lựa chọn model; danh sách account bị truyền nguyên chuỗi vào bước profile runtime ở embedding.
+
+Còn chưa thử: câu trả lời đầy đủ của Opus (chờ hạn mức Claude); `--judge` với model judge chạy được.
