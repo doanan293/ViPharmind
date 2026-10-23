@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import shutil
 import tempfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
+from pharma_lab import hashing
 from pharma_lab.integrations.kaggle.artifacts import sha256_file
 from pharma_lab.integrations.kaggle.config import OwnerConfiguration
 from pharma_lab.integrations.kaggle.dataset_service import (
@@ -20,6 +21,7 @@ from pharma_lab.integrations.kaggle.model_artifacts import (
 )
 from pharma_lab.integrations.kaggle.models import (
     ActionVerb,
+    InputFile,
     ReconcileAction,
     StageJob,
 )
@@ -30,12 +32,50 @@ DesiredBuilder = Callable[
 ]
 
 
+def static_keys(job: StageJob) -> frozenset[str]:
+    """Input files that do not depend on the job (an e2e run's corpus and golden set)
+    and so live in one dataset that every shard of the run mounts."""
+    raw = job.worker_config.get("static_input_keys")
+    return frozenset(str(key) for key in raw) if isinstance(raw, list) else frozenset()
+
+
+def _static_files(job: StageJob) -> tuple[InputFile, ...]:
+    keys = static_keys(job)
+    return tuple(item for item in job.input_bundle.files if item.key in keys)
+
+
+def _dynamic_files(job: StageJob) -> tuple[InputFile, ...]:
+    keys = static_keys(job)
+    return tuple(item for item in job.input_bundle.files if item.key not in keys)
+
+
+def _static_fingerprint(job: StageJob) -> str:
+    return hashing.canonical_sha256(
+        {
+            "schema_version": 1,
+            "files": {item.key: item.descriptor() for item in _static_files(job)},
+        }
+    )
+
+
 def input_dataset_slug(job: StageJob) -> str:
     return f"pipeline-input-{job.identity.sha256[:16]}"
 
 
-def kaggle_input_root(job: StageJob) -> Path:
-    return Path("/kaggle/input") / input_dataset_slug(job)
+def static_dataset_slug(job: StageJob) -> str:
+    """Depends only on the content of the static files, never on the job."""
+    return f"pipeline-static-{_static_fingerprint(job)[:16]}"
+
+
+def kaggle_input_roots(job: StageJob) -> Mapping[str, Path]:
+    """Where each input file is mounted in the kernel."""
+    keys = static_keys(job)
+    root = Path("/kaggle/input")
+    return {
+        item.key: root
+        / (static_dataset_slug(job) if item.key in keys else input_dataset_slug(job))
+        for item in job.input_bundle.files
+    }
 
 
 class DependencyService:
@@ -200,16 +240,53 @@ def default_desired_datasets(
         for index, name in enumerate(names)
     ]
 
-    input_digest = job.input_bundle.sha256
-    input_slug = input_dataset_slug(job)
     # Inputs hold evaluation questions and corpus text, so they stay private with the
     # account that runs the kernel; a session on another account uploads its own copy.
-    input_ref = f"{owners.execution}/{input_slug}"
+    inputs = [
+        _input_dataset(
+            "input",
+            f"{owners.execution}/{input_dataset_slug(job)}",
+            f"Kaggle Pipeline Input {job.stage.value}",
+            job.input_bundle.sha256
+            if not static_keys(job)
+            else _dynamic_fingerprint(job),
+            _dynamic_files(job),
+        )
+    ]
+    if static_keys(job):
+        inputs.insert(
+            0,
+            _input_dataset(
+                "static",
+                f"{owners.execution}/{static_dataset_slug(job)}",
+                f"Kaggle Pipeline Static {job.stage.value}",
+                _static_fingerprint(job),
+                _static_files(job),
+            ),
+        )
+    return (*model_datasets, *inputs)
 
-    def materialize_input(root: Path) -> Path:
+
+def _dynamic_fingerprint(job: StageJob) -> str:
+    return hashing.canonical_sha256(
+        {
+            "schema_version": 1,
+            "files": {item.key: item.descriptor() for item in _dynamic_files(job)},
+        }
+    )
+
+
+def _input_dataset(
+    kind: str,
+    reference: str,
+    title: str,
+    fingerprint: str,
+    files: Sequence[InputFile],
+) -> DesiredDataset:
+    def materialize(root: Path) -> Path:
         target = Path(root)
         target.mkdir(parents=True, exist_ok=True)
-        for input_file in job.input_bundle.files:
+        for input_file in files:
             actual_digest = sha256_file(input_file.source_path)
             if actual_digest != input_file.sha256:
                 raise ValueError(
@@ -221,9 +298,9 @@ def default_desired_datasets(
             json.dumps(
                 {
                     "schema_version": 2,
-                    "resource_kind": "input",
-                    "fingerprint": input_digest,
-                    "files": job.input_bundle.descriptors(),
+                    "resource_kind": kind,
+                    "fingerprint": fingerprint,
+                    "files": {item.key: item.descriptor() for item in files},
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -234,15 +311,12 @@ def default_desired_datasets(
         )
         return target
 
-    return (
-        *model_datasets,
-        DesiredDataset(
-            "input",
-            input_ref,
-            f"Kaggle Pipeline Input {job.stage.value}"[:50],
-            input_digest,
-            "dependency_manifest.json",
-            False,
-            materialize_input,
-        ),
+    return DesiredDataset(
+        kind,
+        reference,
+        title[:50],
+        fingerprint,
+        "dependency_manifest.json",
+        False,
+        materialize,
     )

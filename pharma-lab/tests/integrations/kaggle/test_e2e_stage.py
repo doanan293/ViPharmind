@@ -97,3 +97,16 @@ def test_the_e2e_job_runs_its_own_llm(tmp_path):
                 runtime_profile=rerank_runtime_profile(RERANKER),
             )
         )
+
+
+def test_golden_requirements_and_corpus_are_static_and_the_job_is_not(tmp_path):
+    job = build(tmp_path, ["no-rerank"])
+    static = set(json.loads(json.dumps(job.worker_config))["static_input_keys"])
+
+    assert static == {
+        "golden",
+        "requirements",
+        "corpus/manifest.json",
+        "corpus/embeddings/qwen3_embedding_4b_fp16.jsonl",
+    }
+    assert "job" not in static

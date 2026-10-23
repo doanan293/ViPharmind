@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Protocol
 
 from pharma_lab.integrations.kaggle.api import kernel_metadata
-from pharma_lab.integrations.kaggle.dependencies import kaggle_input_root
+from pharma_lab.integrations.kaggle.dependencies import kaggle_input_roots
 from pharma_lab.integrations.kaggle.errors import KaggleRemoteStateError
 from pharma_lab.integrations.kaggle.models import (
     KernelPresence,
@@ -95,10 +95,10 @@ class PipelineKernelService:
             }.get(job.stage.value)
             if checkpoint_filename is not None:
                 config["checkpoint_filename"] = checkpoint_filename
-        mounted_root = kaggle_input_root(job)
+        mounted_roots = kaggle_input_roots(job)
         config["input_files"] = {
             key: {
-                "path": str(mounted_root / descriptor["filename"]),
+                "path": str(mounted_roots[key] / descriptor["filename"]),
                 "filename": descriptor["filename"],
                 "sha256": descriptor["sha256"],
             }

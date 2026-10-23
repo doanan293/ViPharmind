@@ -62,6 +62,28 @@ def test_restore_inputs_rebuilds_the_job_directory(tmp_path):
     )
 
 
+def test_worker_restores_files_from_both_roots(tmp_path):
+    static, dynamic = tmp_path / "pipeline-static-x", tmp_path / "pipeline-input-y"
+    static.mkdir()
+    dynamic.mkdir()
+    (static / "corpus__manifest.json").write_text("corpus", encoding="utf-8")
+    (static / "golden_e2e.jsonl").write_text("golden", encoding="utf-8")
+    (dynamic / "e2e_job.json").write_text("job", encoding="utf-8")
+    config = {
+        "input_files": {
+            "corpus/manifest.json": descriptor(static / "corpus__manifest.json"),
+            "golden": descriptor(static / "golden_e2e.jsonl"),
+            "job": descriptor(dynamic / "e2e_job.json"),
+        }
+    }
+
+    job_dir = restore_inputs(config, tmp_path / "job")
+
+    assert (job_dir / "corpus/manifest.json").read_text(encoding="utf-8") == "corpus"
+    assert (job_dir / "golden_e2e.jsonl").read_text(encoding="utf-8") == "golden"
+    assert (job_dir / "e2e_job.json").read_text(encoding="utf-8") == "job"
+
+
 def write_answers(directory: Path, statuses: list[tuple[str, str]]) -> None:
     directory.mkdir(parents=True)
     (directory / "answers.jsonl").write_text(

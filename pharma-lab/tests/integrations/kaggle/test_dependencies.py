@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from tests.integrations.kaggle.factories import (
+    job_identity,
     owners,
     rerank_runtime_profile,
     stage_job,
@@ -18,7 +19,13 @@ from pharma_lab.integrations.kaggle.dataset_service import (
     DatasetService,
     PreparedDataset,
 )
-from pharma_lab.integrations.kaggle.models import ActionVerb, StageJob, StageName
+from pharma_lab.integrations.kaggle.models import (
+    ActionVerb,
+    InputBundle,
+    InputFile,
+    StageJob,
+    StageName,
+)
 from pharma_lab.integrations.kaggle.reconcile import DesiredDataset
 from pharma_lab.integrations.kaggle.stages import RerankStage
 
@@ -253,3 +260,122 @@ def test_missing_dataset_without_an_owning_profile_fails_before_upload(
             check_only=False,
         )
     assert kaggle.created == []
+
+
+def _two_shards(tmp_path: Path):
+    """Two jobs of one run: the same corpus (static), a different job file (dynamic)."""
+    jobs = []
+    for index, name in enumerate(("a", "b")):
+        root = tmp_path / name
+        root.mkdir()
+        corpus = root / "corpus.json"
+        corpus.write_text('{"chunks": 3}\n', encoding="utf-8")
+        shard = root / "job.json"
+        shard.write_text(json.dumps({"items": [index]}) + "\n", encoding="utf-8")
+        bundle = InputBundle.create(
+            (InputFile.create("corpus", corpus), InputFile.create("job", shard))
+        )
+        base = stage_job(root, stage=StageName.E2E_RUN)
+        jobs.append(
+            replace(
+                base,
+                input_bundle=bundle,
+                identity=job_identity(
+                    StageName.E2E_RUN, base.model, input_sha256=bundle.sha256
+                ),
+                worker_config={
+                    "gguf_root": str(tmp_path),
+                    "static_input_keys": ["corpus"],
+                },
+            )
+        )
+    return jobs
+
+
+def _patch_model(monkeypatch) -> None:
+    monkeypatch.setattr(
+        dependencies,
+        "resolve_publishable_artifact",
+        lambda *_args: SimpleNamespace(dataset_slug="model", sha256="model-sha"),
+    )
+
+
+def test_two_shards_of_one_run_share_the_static_dataset(tmp_path, monkeypatch):
+    _patch_model(monkeypatch)
+    first, second = _two_shards(tmp_path)
+
+    one = {
+        i.resource_kind: i
+        for i in dependencies.default_desired_datasets(first, owners("acc"), tmp_path)
+    }
+    two = {
+        i.resource_kind: i
+        for i in dependencies.default_desired_datasets(second, owners("acc"), tmp_path)
+    }
+
+    assert one["static"].reference == two["static"].reference
+    assert one["static"].reference.startswith("acc/pipeline-static-")
+    assert one["input"].reference != two["input"].reference
+
+
+def test_static_dataset_changes_when_the_corpus_changes(tmp_path, monkeypatch):
+    _patch_model(monkeypatch)
+    first, _ = _two_shards(tmp_path)
+    before = dependencies.static_dataset_slug(first)
+    source = first.input_bundle.file("corpus").source_path
+    source.write_text('{"chunks": 4}\n', encoding="utf-8")
+    rebuilt = replace(
+        first,
+        input_bundle=InputBundle.create(
+            (InputFile.create("corpus", source), first.input_bundle.file("job"))
+        ),
+    )
+
+    assert dependencies.static_dataset_slug(rebuilt) != before
+
+
+def test_static_dataset_is_private_and_holds_only_static_files(tmp_path, monkeypatch):
+    _patch_model(monkeypatch)
+    first, _ = _two_shards(tmp_path)
+    desired = {
+        i.resource_kind: i
+        for i in dependencies.default_desired_datasets(first, owners("acc"), tmp_path)
+    }
+
+    static = desired["static"].materialize(tmp_path / "static")
+    dynamic = desired["input"].materialize(tmp_path / "dynamic")
+
+    assert desired["static"].public is False
+    assert sorted(p.name for p in static.iterdir()) == [
+        "corpus.json",
+        "dependency_manifest.json",
+    ]
+    assert sorted(p.name for p in dynamic.iterdir()) == [
+        "dependency_manifest.json",
+        "job.json",
+    ]
+
+
+def test_input_roots_map_each_file_to_its_dataset(tmp_path):
+    first, _ = _two_shards(tmp_path)
+
+    roots = dependencies.kaggle_input_roots(first)
+
+    assert roots["corpus"] == Path("/kaggle/input") / dependencies.static_dataset_slug(
+        first
+    )
+    assert roots["job"] == Path("/kaggle/input") / dependencies.input_dataset_slug(
+        first
+    )
+
+
+def test_existing_stages_still_get_one_input_dataset(tmp_path, monkeypatch):
+    _patch_model(monkeypatch)
+    job, _, _ = _job(tmp_path)
+
+    desired = dependencies.default_desired_datasets(job, owners("acc"), tmp_path)
+
+    assert [i.resource_kind for i in desired] == ["model", "input"]
+    assert set(dependencies.kaggle_input_roots(job).values()) == {
+        Path("/kaggle/input") / dependencies.input_dataset_slug(job)
+    }

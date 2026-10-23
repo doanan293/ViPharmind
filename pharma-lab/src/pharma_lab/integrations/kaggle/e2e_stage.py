@@ -113,6 +113,10 @@ class E2ERunStage:
                 *_corpus_files(directory / CORPUS_DIR),
             )
         )
+        # Everything but the job file is the same for every shard of a run.
+        static_keys: list[JSONValue] = [
+            item.key for item in input_bundle.files if item.key != "job"
+        ]
         models = [E2E_MODELS.llm, E2E_MODELS.reranker, E2E_MODELS.embedding]
         servers: list[JSONValue] = [
             _server(E2E_MODELS.llm, LLM_PORT, "0", llm_runtime),
@@ -148,6 +152,7 @@ class E2ERunStage:
                 "servers": servers,
                 "gguf_root": str(request.gguf_root),
                 "job_sha256": identity.sha256,
+                "static_input_keys": static_keys,
                 "bundle_backend": True,
                 "enable_internet": True,
                 "qdrant_version": QDRANT_VERSION,

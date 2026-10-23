@@ -10,7 +10,7 @@ from tests.integrations.kaggle.factories import (
 )
 
 from pharma_lab.integrations.kaggle.api import kernel_output_command
-from pharma_lab.integrations.kaggle.dependencies import input_dataset_slug
+from pharma_lab.integrations.kaggle.dependencies import kaggle_input_roots
 from pharma_lab.integrations.kaggle.kernels import PipelineKernelService
 from pharma_lab.integrations.kaggle.models import (
     KernelPresence,
@@ -63,11 +63,11 @@ def test_prepare_bundle_serializes_mounted_input_descriptors(tmp_path):
     )
     config = json.loads((bundle / "stage_config.json").read_text(encoding="utf-8"))
     metadata = json.loads((bundle / "kernel-metadata.json").read_text(encoding="utf-8"))
-    mounted_root = Path("/kaggle/input") / input_dataset_slug(job)
+    mounted_roots = kaggle_input_roots(job)
 
     assert config["input_files"] == {
         key: {
-            "path": str(mounted_root / descriptor["filename"]),
+            "path": str(mounted_roots[key] / descriptor["filename"]),
             "filename": descriptor["filename"],
             "sha256": descriptor["sha256"],
         }
