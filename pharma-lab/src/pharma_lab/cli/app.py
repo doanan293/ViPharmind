@@ -9,6 +9,7 @@ from pharma_lab.cli.commands.doctor import doctor
 from pharma_lab.cli.commands.e2e import e2e_app
 from pharma_lab.cli.commands.embed import embed_app
 from pharma_lab.cli.commands.evaluation import evaluation_app
+from pharma_lab.cli.commands.kaggle import kaggle_app
 from pharma_lab.cli.commands.metrics import metrics_app
 from pharma_lab.cli.commands.rerank import rerank
 from pharma_lab.cli.commands.retrieve import retrieve
@@ -52,6 +53,7 @@ app.command("retrieve")(retrieve)
 app.command("rerank")(rerank)
 app.add_typer(metrics_app, name="metrics")
 app.add_typer(e2e_app, name="e2e")
+app.add_typer(kaggle_app, name="kaggle")
 
 
 def main() -> None:
