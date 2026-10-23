@@ -306,11 +306,11 @@ lại dễ, đổi account dễ; sửa toàn bộ trong một lượt.
 
 **Hoãn theo người dùng:** khoá API trực tiếp (Jev qua OpenRouter, Gemini/Anthropic không qua proxy).
 
-**Cần người dùng chọn khi bật `--with-proxy-credentials`:** những file nào được đưa lên Kaggle. Danh sách
-hiện có: ba file Antigravity (hai gmail cá nhân, một email công ty), một file Claude và một file Codex
-đều của email công ty `sun-asterisk.com`, trong đó file Codex ghi "enterprise ... usage-based" (tính phí theo
-mức dùng của tổ chức). Claude Opus 5.5 chỉ có qua file Claude của email công ty. Thiết kế không tự chọn
-thay người dùng.
+**Đã chốt (2026-10-23):** người dùng cho phép đưa **mọi** file credential trong volume proxy lên Kaggle,
+gồm cả credential của email công ty `sun-asterisk.com` (Antigravity, Claude, và Codex ghi "enterprise ...
+usage-based"). Mình đã nêu rủi ro (quy định của công ty, chi phí theo mức dùng của tổ chức, lộ thì tổ
+chức chịu); người dùng vẫn đồng ý. Thiết kế giữ nguyên các biện pháp ở §4.8: cờ bật theo từng lần chạy,
+in danh sách file, dataset private xoá sau khi thu kết quả, trần độ song song theo nhà cung cấp.
 
 **Mặc định (đổi được):** lượt đo độ trễ concurrency 1 dùng lát 100 câu `spread` mỗi cấu hình.
 
