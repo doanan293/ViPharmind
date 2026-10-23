@@ -52,8 +52,8 @@ def rerank(
         typer.Option(
             "--kaggle-account",
             help=(
-                "Kaggle account profile accN, or 'auto' to choose the account "
-                "with the most GPU quota before every session."
+                "Kaggle account profile accN, a comma list (acc1,acc3), or 'auto' "
+                "for every account: each shard goes to the one with the most quota."
             ),
         ),
     ] = None,
@@ -66,6 +66,21 @@ def rerank(
             "or out of quota).",
         ),
     ] = None,
+    parallel: Annotated[
+        int | None,
+        typer.Option(
+            "--parallel",
+            min=1,
+            help="Kaggle shards at once (default: two sessions per account).",
+        ),
+    ] = None,
+    drain: Annotated[
+        bool,
+        typer.Option(
+            "--drain",
+            help="Kaggle: let running kernels finish, start no new one.",
+        ),
+    ] = False,
     recover_kernel: Annotated[
         str | None,
         typer.Option(
@@ -89,6 +104,8 @@ def rerank(
         kaggle_account=kaggle_account,
         max_runs=max_runs,
         recover_kernel=recover_kernel,
+        parallel=parallel,
+        drain=drain,
     )
     run_handler(state_from_context(ctx), lambda: _logged(backend, request, adapter.run))
 

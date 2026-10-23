@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import shutil
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,11 +24,11 @@ from pharma_lab.evaluation.rerank_artifacts import (
     finalize_run_rerank_bundle,
     load_registered_rerank_bundle,
 )
-from pharma_lab.evaluation.rerank_cache_checkpoint import RerankCacheCheckpoint
 from pharma_lab.evaluation.rerank_log import open_rerank_log
 from pharma_lab.evaluation.rerank_score_cache import (
     RerankScoreCache,
 )
+from pharma_lab.evaluation.rerank_shards import RerankShardAdapter, seconds_per_pair
 from pharma_lab.evaluation.rerankers import LlamaCppReranker, Reranker
 from pharma_lab.evaluation.retrieval_candidate_artifact import (
     CandidateArtifactReader,
@@ -47,6 +46,7 @@ from pharma_lab.integrations.kaggle.job_lock import (
     kaggle_cache_lock,
     kaggle_job_lock,
 )
+from pharma_lab.integrations.kaggle.job_registry import JobRegistry
 from pharma_lab.runtime.catalog import ModelKind, ModelSpec, require_model
 from pharma_lab.runtime.client import LlamaCppClient
 from pharma_lab.runtime.compose import LlamaCppComposeManager, reranker_environment
@@ -64,6 +64,9 @@ class RerankRequest:
     kaggle_account: str | None = None
     max_runs: int | None = None
     recover_kernel: str | None = None
+    # Shards running at once (default: two per account) and finish-then-stop.
+    parallel: int | None = None
+    drain: bool = False
 
 
 @dataclass(frozen=True)
@@ -76,16 +79,6 @@ class RerankStageResult:
     benchmark_report: Path | None = None
     benchmark_levels: int = 0
     quota: tuple[str, ...] = ()
-
-
-def _cleanup_completed_stage_artifact(artifact_path: Path, staging_root: Path) -> None:
-    root = Path(staging_root).resolve()
-    artifact_dir = Path(artifact_path).resolve().parent
-    if artifact_dir == root or not artifact_dir.is_relative_to(root):
-        raise ValueError(
-            f"completed artifact is outside Kaggle rerank staging root: {artifact_dir}"
-        )
-    shutil.rmtree(artifact_dir)
 
 
 def _rerank_record_key(record: Mapping[str, object]) -> tuple[str, ...]:
@@ -538,23 +531,24 @@ class KaggleRerankBackend:
             ensure_runtime_profile,
         )
         from pharma_lab.integrations.kaggle.models import (
-            CloudArtifact,
             PipelineResult,
-            StageJob,
             StageName,
         )
+        from pharma_lab.integrations.kaggle.scheduler import (
+            SchedulerSettings,
+            run_shards,
+            shard_margin_seconds,
+        )
         from pharma_lab.integrations.kaggle.service import (
-            active_kernel_profile,
             resolve_session_contexts,
             run_kaggle_stage,
             runtime_manifest_sha256,
         )
         from pharma_lab.integrations.kaggle.sessions import (
             QuotaExhausted,
-            ReservedAccount,
             reserve_session_account_waiting,
-            run_account_sessions,
         )
+        from pharma_lab.integrations.kaggle.shards import plan_shards
 
         spec = require_model(request.model)
         if spec.kind is not ModelKind.RERANKER:
@@ -681,11 +675,9 @@ class KaggleRerankBackend:
         runtime_profile = resolution.profile.selected
         remote_dir = WORK_DIR / "kaggle-rerank-scores" / spec.slug
 
-        def merge_artifact(_job: StageJob, artifact: CloudArtifact) -> None:
+        def merge_scores(path: Path) -> None:
             remote = RerankScoreCache(
-                artifact.data_path,
-                model_sha256=spec.sha256,
-                request_contract_sha256=contract,
+                path, model_sha256=spec.sha256, request_contract_sha256=contract
             )
             with kaggle_cache_lock(cache_path):
                 _merge_remote_rerank_scores(
@@ -696,78 +688,81 @@ class KaggleRerankBackend:
                 )
             merged = local_subset()
             log(
-                f"merged artifact pairs={artifact.completion.complete}/"
-                f"{artifact.completion.total}; local cache pairs="
+                f"merged artifact pairs={len(remote.records)}; local cache pairs="
                 f"{merged.complete}/{merged.total}"
             )
 
-        checkpoint_source = RerankCacheCheckpoint(cache_path)
-
-        def run_session(reserved: ReservedAccount, index: int) -> PipelineResult:
-            return run_kaggle_stage(
-                stage=StageName.RERANK,
-                model=request.model,
-                input_path=candidates,
-                output_dir=remote_dir,
-                gguf_root=GGUF_ROOT,
-                force=request.force and index == 1,
-                resume_remote=not request.force,
-                check_only=request.dry_run,
-                max_runs=1,
-                budget_seconds=reserved.budget_seconds,
-                runtime_profile=runtime_profile,
-                kaggle_account=reserved.profile,
-                artifact_sink=merge_artifact,
-                local_checkpoint=checkpoint_source,
-            )
-
-        preferred = (
-            None
-            if request.dry_run or request.force
-            else active_kernel_profile(
-                contexts,
-                stage=StageName.RERANK,
-                model=request.model,
-                input_path=candidates,
-                output_dir=remote_dir,
-                gguf_root=GGUF_ROOT,
-                runtime_profile=runtime_profile,
-            )
+        adapter = RerankShardAdapter(
+            model=request.model,
+            candidates=candidates,
+            cache_path=cache_path,
+            work_dir=WORK_DIR / "kaggle-rerank-shards" / spec.slug,
+            remote_dir=remote_dir,
+            stage_runner=run_kaggle_stage,
+            runtime_profile=runtime_profile,
+            seconds_per_pair=seconds_per_pair(
+                runtime_profile.to_dict(), resolution.profile.measurements
+            ),
+            merge_scores=merge_scores,
+            force=request.force,
         )
-        outcome = run_account_sessions(
+        margin = shard_margin_seconds(request.budget_seconds)
+        if request.dry_run:
+            units = adapter.missing()
+            shards = plan_shards(
+                units,
+                setup_seconds=adapter.setup_seconds(),
+                budget_seconds=request.budget_seconds,
+                margin_seconds=margin,
+                slots=2 * len(contexts),
+            )
+            hours = (
+                sum(unit.seconds for unit in units)
+                + len(shards) * adapter.setup_seconds()
+            ) / 3600
+            return RerankStageResult(
+                None,
+                identity.sha256,
+                None,
+                (
+                    missing_pairs,
+                    target,
+                    f"planned_shards={len(shards)}",
+                    f"estimated_gpu_hours={hours:.1f}",
+                ),
+                incomplete=True,
+            )
+        report = run_shards(
+            adapter,
             contexts,
-            run_session,
-            requested_budget_seconds=request.budget_seconds,
-            max_sessions=request.max_runs,
-            check_only=request.dry_run,
+            JobRegistry(WORK_DIR / "kaggle-rerank-shards" / spec.slug / "jobs.json"),
+            SchedulerSettings(
+                parallel=request.parallel or 2 * len(contexts),
+                budget_seconds=request.budget_seconds,
+                margin_seconds=margin,
+                max_sessions=request.max_runs,
+                drain=request.drain,
+            ),
             log=log,
-            preferred_profile=preferred,
         )
         subset = local_subset()
         actions = (
             f"missing_pairs={subset.missing}",
             target,
-            f"sessions={outcome.sessions}",
-            f"stop={outcome.stop_reason.value}",
-            *(
-                f"{action.verb.value} {action.resource_kind} "
-                f"{action.reference}: {action.reason}"
-                for action in (outcome.result.actions if outcome.result else ())
-            ),
+            f"sessions={report.shards_run}",
+            f"stop={report.stop.value}",
         )
-        if request.dry_run or not subset.is_complete:
+        if not subset.is_complete:
             return RerankStageResult(
                 None,
                 identity.sha256,
                 None,
                 actions,
                 incomplete=True,
-                quota=outcome.quota_table,
+                quota=report.quota_table,
             )
         result = _finalize_variant(
             request, workspace, candidate_bundle, cache_path, identity, subset, actions
         )
-        if outcome.result is not None and outcome.result.artifact_path is not None:
-            _cleanup_completed_stage_artifact(outcome.result.artifact_path, remote_dir)
         log(f"kaggle complete variant={result.artifact_dir}")
         return result

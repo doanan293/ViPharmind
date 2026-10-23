@@ -55,10 +55,23 @@ class TwoCandidateRetriever:
         ]
 
 
-def _create_run(tmp_path: Path, retriever: object, candidate_k: int) -> Path:
+def _query_text(query: str, queries: tuple[str, ...]) -> str:
+    return "test query" if len(queries) == 1 else f"test query {query}"
+
+
+def _create_run(
+    tmp_path: Path,
+    retriever: object,
+    candidate_k: int,
+    queries: tuple[str, ...] = ("query-1",),
+) -> Path:
     evaluation_path = tmp_path / "evaluation.jsonl"
     evaluation_path.write_text(
-        '{"query_id":"query-1","query":"test query","relevant_section_ids":["section-1"]}\n',
+        "".join(
+            f'{{"query_id":"{query}","query":"{_query_text(query, queries)}",'
+            '"relevant_section_ids":["section-1"]}\n'
+            for query in queries
+        ),
         encoding="utf-8",
     )
     write_judgments(
@@ -79,7 +92,7 @@ def _create_run(tmp_path: Path, retriever: object, candidate_k: int) -> Path:
     root = tmp_path / "run"
     workspace = RunWorkspace.open_or_create(root, identity)
     artifact = build_candidate_artifact(
-        rows=[{"query_id": "query-1", "query": "test query"}],
+        rows=[{"query_id": q, "query": _query_text(q, queries)} for q in queries],
         retriever=retriever,
         output_path=root / "candidates" / "candidates.jsonl",
         identity={"evaluation_sha256": identity.evaluation_sha256},
@@ -92,6 +105,13 @@ def _create_run(tmp_path: Path, retriever: object, candidate_k: int) -> Path:
 @pytest.fixture
 def complete_run(tmp_path: Path) -> Path:
     return _create_run(tmp_path, OneCandidateRetriever(), 1)
+
+
+@pytest.fixture
+def three_query_run(tmp_path: Path) -> Path:
+    return _create_run(
+        tmp_path, OneCandidateRetriever(), 1, ("query-1", "query-2", "query-3")
+    )
 
 
 @pytest.fixture

@@ -134,6 +134,41 @@ def test_rerank_passes_auto_account_and_max_runs(
     assert captured["request"].max_runs == 4
 
 
+def test_rerank_passes_parallel_and_drain(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict = {}
+    monkeypatch.setattr(
+        rerank_command, "KaggleRerankBackend", fake_backend(captured, incomplete=True)
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "rerank",
+            "--run",
+            "experiment",
+            "--backend",
+            "kaggle",
+            "--kaggle-account",
+            "acc1,acc3",
+            "--parallel",
+            "3",
+            "--drain",
+        ],
+    )
+
+    assert result.exit_code == 3
+    assert captured["request"].kaggle_account == "acc1,acc3"
+    assert (captured["request"].parallel, captured["request"].drain) == (3, True)
+
+
+def test_rerank_rejects_zero_parallel() -> None:
+    result = runner.invoke(
+        app, ["rerank", "--run", "experiment", "--backend", "kaggle", "--parallel", "0"]
+    )
+
+    assert result.exit_code == 2
+
+
 def test_rerank_rejects_zero_max_runs() -> None:
     result = runner.invoke(
         app, ["rerank", "--run", "experiment", "--backend", "kaggle", "--max-runs", "0"]

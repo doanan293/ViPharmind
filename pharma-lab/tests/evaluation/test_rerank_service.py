@@ -3,7 +3,7 @@ import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -21,7 +21,6 @@ from pharma_lab.evaluation.rerank_service import (
     KaggleRerankBackend,
     LocalRerankBackend,
     RerankRequest,
-    _cleanup_completed_stage_artifact,
 )
 from pharma_lab.evaluation.run_workspace import load_run_record
 from pharma_lab.integrations.kaggle import auto_profile, kernel_service, sessions
@@ -138,7 +137,7 @@ def kaggle_sessions(monkeypatch, tmp_path) -> dict[str, float]:
         auto_profile,
         "ensure_runtime_profile",
         lambda **_kwargs: SimpleNamespace(
-            profile=SimpleNamespace(selected=selected), action="reuse"
+            profile=SimpleNamespace(selected=selected, measurements=()), action="reuse"
         ),
     )
     monkeypatch.setattr(sessions, "read_account_quota", read_quota)
@@ -344,35 +343,6 @@ def test_kaggle_rerank_serializes_same_model_across_runs(tmp_path, monkeypatch):
         assert first.result(timeout=2) == "first"
 
 
-def test_completed_stage_cleanup_removes_only_job_directory(tmp_path):
-    root = tmp_path / "kaggle-rerank-scores" / "model"
-    job = root / "rerank" / "model" / "job-a"
-    sibling = root / "rerank" / "model" / "job-b"
-    artifact = job / "rerank_scores.jsonl"
-    artifact.parent.mkdir(parents=True)
-    artifact.write_text("score\n", encoding="utf-8")
-    sibling.mkdir(parents=True)
-    (sibling / "keep.jsonl").write_text("keep\n", encoding="utf-8")
-
-    _cleanup_completed_stage_artifact(artifact, root)
-
-    assert not job.exists()
-    assert (sibling / "keep.jsonl").is_file()
-    assert root.is_dir()
-
-
-def test_completed_stage_cleanup_rejects_artifact_outside_staging_root(tmp_path):
-    root = tmp_path / "expected"
-    artifact = tmp_path / "outside" / "rerank_scores.jsonl"
-    artifact.parent.mkdir(parents=True)
-    artifact.write_text("score\n", encoding="utf-8")
-
-    with pytest.raises(ValueError, match="outside Kaggle rerank staging root"):
-        _cleanup_completed_stage_artifact(artifact, root)
-
-    assert artifact.is_file()
-
-
 def test_local_dry_run_reports_target_and_missing_pairs(complete_run):
     result = fake_local_backend().run(
         request(complete_run, "qwen3-reranker:0.6b-q8_0", dry_run=True)
@@ -569,8 +539,8 @@ def test_kaggle_rerank_merges_session_scores_and_registers_the_variant(
     assert "stop=complete" in result.actions
     log = rerank_log_path(MODEL).read_text(encoding="utf-8")
     assert "quota account=acc1 remaining=27.58h" in log
-    assert "session=1 start account=acc2" in log
-    assert "merged artifact pairs=1/1" in log
+    assert "1 units, starting" in log
+    assert "merged artifact pairs=1;" in log
 
 
 def test_kaggle_rerank_stops_with_a_quota_table_when_no_account_has_an_hour(
@@ -600,10 +570,13 @@ def test_kaggle_rerank_stops_with_a_quota_table_when_no_account_has_an_hour(
 def test_kaggle_rerank_attaches_to_the_account_already_running_the_kernel(
     complete_run, complete_rerank_cache, kaggle_sessions, monkeypatch, tmp_path
 ):
-    accounts: list[str] = []
+    from pharma_lab.integrations.kaggle.job_registry import JobRegistry, ShardRecord
+    from pharma_lab.integrations.kaggle.shards import shard_id_of
+
+    accounts: list[tuple[str, bool]] = []
 
     def fake_stage(**kwargs):
-        accounts.append(kwargs["kaggle_account"])
+        accounts.append((kwargs["kaggle_account"], kwargs["resume_remote"]))
         kwargs["artifact_sink"](
             stage_job(tmp_path / "job"), _scores_artifact(complete_rerank_cache)
         )
@@ -611,10 +584,23 @@ def test_kaggle_rerank_attaches_to_the_account_already_running_the_kernel(
             completion=Completion(1, 1, 0), actions=(), artifact_path=None
         )
 
-    monkeypatch.setattr(
-        kaggle_service, "active_kernel_profile", lambda *_args, **_kwargs: "acc1"
-    )
     monkeypatch.setattr(kaggle_service, "run_kaggle_stage", fake_stage)
+    JobRegistry(
+        tmp_path
+        / "work"
+        / "kaggle-rerank-shards"
+        / "qwen3_reranker_0_6b_q8_0"
+        / "jobs.json"
+    ).register(
+        ShardRecord(
+            shard_id_of(["query-1"]),
+            "rerank",
+            "acc1",
+            ("query-1",),
+            datetime.now(UTC).isoformat(),
+            21_600,
+        )
+    )
 
     KaggleRerankBackend().run(
         replace(
@@ -622,20 +608,16 @@ def test_kaggle_rerank_attaches_to_the_account_already_running_the_kernel(
         )
     )
 
-    assert accounts == ["acc1"]
+    assert accounts == [("acc1", True)]
 
 
-def test_forced_kaggle_rerank_forces_only_the_first_session(
+def test_forced_kaggle_rerank_starts_clean_and_does_not_force_the_stage(
     complete_run, complete_rerank_cache, kaggle_sessions, monkeypatch, tmp_path
 ):
     calls: list[tuple[bool, bool]] = []
 
     def fake_stage(**kwargs):
         calls.append((kwargs["force"], kwargs["resume_remote"]))
-        if len(calls) == 1:
-            return SimpleNamespace(
-                completion=Completion(1, 0, 1), actions=(), artifact_path=None
-            )
         kwargs["artifact_sink"](
             stage_job(tmp_path / "job"), _scores_artifact(complete_rerank_cache)
         )
@@ -653,8 +635,117 @@ def test_forced_kaggle_rerank_forces_only_the_first_session(
         )
     )
 
-    assert calls == [(True, False), (False, False)]
+    assert calls == [(False, False)]
     assert not result.incomplete
+
+
+def test_kaggle_rerank_dry_run_plans_shards_without_touching_kaggle(
+    complete_run, kaggle_sessions, monkeypatch
+):
+    def no_session(**_kwargs):
+        raise AssertionError("a dry run starts no Kaggle session")
+
+    monkeypatch.setattr(kaggle_service, "run_kaggle_stage", no_session)
+
+    result = KaggleRerankBackend().run(
+        replace(
+            request(complete_run, MODEL, dry_run=True),
+            kaggle_account="auto",
+            budget_seconds=21_600,
+        )
+    )
+
+    assert result.incomplete
+    assert "missing_pairs=1" in result.actions
+    assert any(action.startswith("planned_shards=1") for action in result.actions)
+
+
+def test_kaggle_rerank_runs_shards_on_two_accounts_and_registers_the_variant(
+    three_query_run, kaggle_sessions, monkeypatch, tmp_path
+):
+    from pharma_lab.evaluation.retrieval_candidate_artifact import (
+        CandidateArtifactReader,
+    )
+    from pharma_lab.evaluation.retrieval_types import RetrievalCandidate
+
+    spec = require_model(MODEL)
+    assert spec.rerank_contract is not None
+    # A pair takes 5,000 s, so three queries do not fit one session usefully.
+    assert spec.rerank_search_space is not None
+    selected = spec.rerank_search_space.candidates[0]
+    monkeypatch.setattr(
+        auto_profile,
+        "ensure_runtime_profile",
+        lambda **_kwargs: SimpleNamespace(
+            profile=SimpleNamespace(
+                selected=selected,
+                measurements=(
+                    {
+                        "candidate": selected.to_dict(),
+                        "status": "ok",
+                        "items": 1,
+                        "elapsed_seconds": 5000.0,
+                    },
+                ),
+            ),
+            action="reuse",
+        ),
+    )
+    calls: list[tuple[str, list[str]]] = []
+    lock = threading.Lock()
+
+    def fake_stage(**kwargs):
+        subset = Path(kwargs["input_path"])
+        remote = RerankScoreCache(
+            tmp_path / f"remote-{subset.parent.name}.jsonl",
+            model_sha256=spec.sha256,
+            request_contract_sha256=spec.rerank_contract.sha256,
+        )
+        queries = []
+        for row in CandidateArtifactReader.from_data_path(subset):
+            queries.append(row["query_id"])
+            for item in row["candidates"]:
+                remote.set(
+                    MODEL,
+                    {"query_id": row["query_id"], "query": row["query"]},
+                    RetrievalCandidate(
+                        chunk_id=item["chunk_id"],
+                        score=float(item["retrieval_score"]),
+                        rank=int(item["retrieval_rank"]),
+                        source=str(item["source"]),
+                        payload=dict(item["payload"]),
+                        document_text=str(item["document_text"]),
+                        document_hash=str(item["document_hash"]),
+                    ),
+                    0.5,
+                )
+        with lock:
+            calls.append((kwargs["kaggle_account"], queries))
+        kwargs["artifact_sink"](stage_job(tmp_path / "job"), _scores_artifact(remote))
+        return SimpleNamespace(
+            completion=Completion(1, 1, 0), actions=(), artifact_path=None
+        )
+
+    monkeypatch.setattr(kaggle_service, "run_kaggle_stage", fake_stage)
+
+    result = KaggleRerankBackend().run(
+        replace(
+            request(three_query_run, MODEL),
+            kaggle_account="auto",
+            budget_seconds=21_600,
+        )
+    )
+
+    assert not result.incomplete
+    assert sorted(query for _, queries in calls for query in queries) == [
+        "query-1",
+        "query-2",
+        "query-3",
+    ]
+    assert {account for account, _ in calls} == {"acc1", "acc2"}
+    assert (
+        result.artifact_dir == three_query_run / "rerank" / "qwen3_reranker_0_6b_q8_0"
+    )
 
 
 def test_kaggle_rerank_finalizes_a_complete_local_cache_without_kaggle(

@@ -20,12 +20,9 @@ from pharma_lab.integrations.kaggle.scheduler import (
     SchedulerSettings,
     SchedulerStop,
     run_shards,
+    shard_margin_seconds,
 )
 from pharma_lab.integrations.kaggle.service import KaggleExecutionContext
-from pharma_lab.integrations.kaggle.workers.runtime import (
-    WORKER_MARGIN_FLOOR_SECONDS,
-    WORKER_MARGIN_FRACTION,
-)
 
 EXIT_DONE = 0
 EXIT_PAUSED = 10
@@ -77,12 +74,6 @@ class RunStatus:
     gpu_hours_needed: float
 
 
-def margin_seconds(budget_seconds: int) -> int:
-    return int(
-        max(WORKER_MARGIN_FLOOR_SECONDS, budget_seconds * WORKER_MARGIN_FRACTION)
-    )
-
-
 def registry_for(work_dir: Path) -> JobRegistry:
     return JobRegistry(work_dir / JOBS_FILE)
 
@@ -112,7 +103,7 @@ def launch(
     settings = SchedulerSettings(
         parallel=options.parallel or 2 * len(contexts),
         budget_seconds=options.budget_seconds,
-        margin_seconds=margin_seconds(options.budget_seconds),
+        margin_seconds=shard_margin_seconds(options.budget_seconds),
         max_sessions=options.max_sessions,
         drain=options.drain,
     )

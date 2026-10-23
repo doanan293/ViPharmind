@@ -14,7 +14,6 @@ from pharma_lab.e2e.kaggle_launch import (
     LaunchOptions,
     exit_code_for,
     launch,
-    margin_seconds,
     registry_for,
     run_status,
 )
@@ -23,6 +22,7 @@ from pharma_lab.integrations.kaggle.scheduler import (
     SchedulerReport,
     SchedulerSettings,
     SchedulerStop,
+    shard_margin_seconds,
 )
 
 OPTIONS = LaunchOptions(None, None, 10_800, None, False)
@@ -111,8 +111,8 @@ def test_paused_wins_over_stuck() -> None:
 
 
 def test_shard_margin_follows_the_worker_deadline() -> None:
-    assert margin_seconds(10_800) == 900
-    assert margin_seconds(36_000) == 1800
+    assert shard_margin_seconds(10_800) == 900
+    assert shard_margin_seconds(36_000) == 1800
 
 
 def test_status_lists_live_shards_and_work_left(tmp_path: Path) -> None:

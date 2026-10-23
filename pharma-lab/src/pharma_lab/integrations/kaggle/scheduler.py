@@ -34,11 +34,23 @@ from pharma_lab.integrations.kaggle.sessions import (
     reserve_session_account,
 )
 from pharma_lab.integrations.kaggle.shards import Shard, WorkUnit, plan_shards
+from pharma_lab.integrations.kaggle.workers.runtime import (
+    WORKER_MARGIN_FLOOR_SECONDS,
+    WORKER_MARGIN_FRACTION,
+)
 
 # Kaggle batch sessions end well before this; older registry entries are dead.
 STALE_AFTER_SECONDS = 13 * 3600
 # Two completed-nothing sessions of one shard, or two failures, mean it will not progress.
 ATTEMPTS_BEFORE_STUCK = 2
+
+
+def shard_margin_seconds(budget_seconds: int) -> int:
+    """Time a shard leaves unused at the end of a session: the kernel's own deadline
+    margin (it stops starting work that long before the session ends)."""
+    return int(
+        max(WORKER_MARGIN_FLOOR_SECONDS, budget_seconds * WORKER_MARGIN_FRACTION)
+    )
 
 
 class ShardAdapter(Protocol):
