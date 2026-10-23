@@ -203,31 +203,41 @@ pharma-lab e2e status --run e2e-v2-qwen9b
 `e2e report --latency-run` đang đọc. Chất lượng không lấy từ lượt đo. Chạy một lượt đo nhiều shard hay
 nhiều bố cục là sai thiết kế nên planner từ chối.
 
-### 4.8 Model thương mại và decision model (qua proxy hoặc API)
+### 4.8 Model thương mại: `cli-proxy-api` chạy **trong kernel**
 
-Hai cách một vai trò (guard, judge, rephrase, answer...) gọi model, chọn theo từng run:
+Không hạn chế thí nghiệm: Gemini 3.8 Flash, Claude Opus 5.5 và judge `gemini-3.1-flash-lite` chạy trong
+kernel cùng reranker GPU và embedding, chia shard như Qwen. Cách làm (người dùng đồng ý đưa file
+credential của proxy lên Kaggle, 2026-10-23):
 
-1. **Qwen cục bộ trong kernel** (mặc định, cách đã mô tả ở trên): `kernel_env` đặt mọi vai, kể cả
-   `AGENT`, trỏ vào llama-server trên `127.0.0.1` của chính kernel.
-2. **Model thương mại (Gemini 3.8 Flash, Claude Opus 5.5, judge gemini-3.1-flash-lite) và decision
-   model Jev.** Hiện chỉ gọi được qua `cli-proxy-api` (Docker, `127.0.0.1:8317`) vì credential OAuth
-   nằm ở volume cục bộ, nên kernel Kaggle **không với tới** (không tunnel). Vì vậy chạy ở máy:
-   - Dùng cùng bộ lập kế hoạch, gộp và `status` như chế độ Kaggle, nhưng **bộ thực thi là local**
-     (`--backend local`): shard chạy bằng harness trên máy, độ song song do `--concurrency` và giới hạn
-     của proxy. Dừng và nối lại như nhau (trạng thái là `answers.jsonl`). Không có khái niệm account Kaggle.
-   - Phần cần GPU của các run này (rerank) trên máy chỉ có CPU, chậm (khoảng 10 phút cho 40 tài liệu với
-     model 4B trên laptop i5, theo `docs/guides/e2e-evaluation.md`). Vì vậy các run Gemini và Opus mặc định
-     dùng nhóm không rerank (`no-rerank`, `no-guard-no-rerank`) trừ khi người dùng chọn cách khác.
-   - Judge đánh giá (`gemini-3.1-flash-lite`) luôn chạy ở máy và chạy song song với kernel, không tốn quota.
-3. **Khi người dùng cung cấp khoá API** (Gemini, Anthropic, OpenRouter cho Jev; người dùng đã nói sẽ
-   cung cấp sau): job mang `base_url` và khoá cho từng vai trong một dataset **private** của account chạy,
-   kernel gọi thẳng nhà cung cấp (kết nối đi ra, không cổng nào mở). Khi đó các run thương mại cũng
-   chạy trong kernel với reranker GPU, chia shard như Qwen. **Thiết kế chừa chỗ nhưng lần này không làm:**
-   `kernel_env` nhận bản đồ vai trò → điểm cuối; chưa có cờ, chưa có xử lý khoá.
-   Trước khi có khoá, lệnh dừng với thông báo rõ nếu môi trường local khai báo vai `systemone` (Jev)
-   cho chế độ kernel, thay vì chạy âm thầm với model khác.
+- **Worker dựng proxy trong kernel:** tải bản `CLIProxyAPI_8.0.28_linux_amd64.tar.gz` (đã có trên
+  GitHub releases, 23 MB; kết nối đi ra) và kiểm checksum; ghi `config.yaml` từ
+  `devops/cli-proxy-api/config.yaml` với `host: 127.0.0.1` và `auth-dir` trỏ vào thư mục tạm quyền
+  `0700`; chép các file credential vào đó (quyền `0600`); chạy ở `127.0.0.1:8317`. Harness dùng đúng các
+  biến môi trường như ở máy (`http://127.0.0.1:8317/v1`, khoá cục bộ `proxypal-local`, id model như
+  `gemini-3.8-flash-high`, `claude-opus-5-5`), nên không đổi mã agent. Proxy chỉ nghe localhost và chỉ
+  gọi ra nhà cung cấp.
+- **Credential đi bằng một dataset private riêng cho lượt chạy**, tạo ở account chạy shard, **xoá sau
+  khi thu kết quả** (và quét xoá dataset sót lại khi `status` hoặc lần chạy sau thấy). Không bao giờ
+  public (có test khẳng định `public=False`). Nguồn là volume `vipharmind_cli_proxy_auth` hoặc một thư mục
+  ngoài repo; file credential **không bao giờ** vào `data/`, git, archive của `data push` hay log (test
+  khẳng định `list_archive_files` và log không chứa chúng; log che nội dung).
+- **Chỉ đi khi người dùng bật rõ từng lần chạy:** cờ `--with-proxy-credentials` (mặc định tắt), lệnh in
+  ra tên file và loại (`antigravity`, `claude`, `codex`) sẽ được tải lên và chỉ tải đúng những file cần
+  cho các model của run (`--proxy-credential FILE` để chọn).
+- **Giới hạn tốc độ theo nhà cung cấp:** các gói thuê bao có hạn mức, mà shard song song nhân số request.
+  Có trần độ song song riêng cho từng nhà cung cấp (Claude thấp nhất) và backoff khi proxy trả
+  `quota-exceeded`/`auth_unavailable`; run bị gián đoạn vẫn nối lại được vì trạng thái ở máy.
+- **Làm tươi token:** kernel dùng *bản sao* credential; token làm tươi trong kernel không chép ngược về.
+  Nếu nhà cung cấp xoay vòng refresh token, bản sao có thể làm bản cục bộ hết hiệu lực: kiểm bằng một job
+  ngắn trước khi chạy thật, và giữ bản sao lưu volume.
+- **Độ trễ** của model thương mại đo từ datacenter của Kaggle, không phải từ Việt Nam; bài ghi rõ và chỉ
+  so giữa các kiến trúc trên cùng một model (spec v2 §2.5).
+- **Decision model Jev** (OpenRouter) khác proxy: cần khoá API riêng, người dùng cung cấp sau. Thiết kế
+  chừa chỗ: `kernel_env` nhận bản đồ vai trò → điểm cuối. Trước khi có khoá, nếu môi trường local khai
+  báo vai `systemone`, lệnh dừng với thông báo rõ thay vì chạy âm thầm với model khác.
+- Chạy ở máy (`--backend local`) vẫn dùng được cho model qua proxy, cùng bộ lập kế hoạch và `status`.
 
-(Proxy round-robin của bố cục B ở §4.2 là một thứ khác: nó chỉ nằm trong kernel, nghe `127.0.0.1`.)
+(Proxy round-robin của bố cục B ở §4.2 là thứ khác: chỉ nằm trong kernel, nghe `127.0.0.1`.)
 
 ### 4.9 Lớp điều phối chung cho mọi bước Kaggle
 
@@ -264,7 +274,7 @@ chia shard song song, `status`.
 ## 6. Ngoài phạm vi
 
 Tunnel, mở cổng hay phục vụ model ra ngoài kernel; resume *bên trong* một kernel; chia một câu hỏi
-giữa nhiều kernel; xử lý khoá API (OpenRouter, Gemini, Anthropic): người dùng cung cấp sau, thiết kế chỉ chừa chỗ (§4.8); tự động hoá judge và báo cáo; đổi hạ tầng rerank, embed hiện có;
+giữa nhiều kernel; khoá API trực tiếp (OpenRouter cho Jev, Gemini, Anthropic): người dùng cung cấp sau, thiết kế chỉ chừa chỗ (§4.8). Credential của proxy thì **trong phạm vi**; tự động hoá judge và báo cáo; đổi hạ tầng rerank, embed hiện có;
 đụng `camera-ready`, `main`, tag `v1.1.0` hay dataset của bài.
 
 ## 7. Kiểm thử và tiêu chí chấp nhận
@@ -294,13 +304,15 @@ Tên và vị trí module mới, định dạng `jobs.json`, thuật toán chia 
 **Của người dùng (đã chốt):** chạy trong kernel, không tunnel; ba mục tiêu: nhanh nhất, dừng và nối
 lại dễ, đổi account dễ; sửa toàn bộ trong một lượt.
 
-**Hoãn theo người dùng:** mọi vấn đề khoá API (Jev trong kernel, Gemini và Anthropic gọi thẳng từ
-kernel); người dùng sẽ cung cấp sau.
+**Hoãn theo người dùng:** khoá API trực tiếp (Jev qua OpenRouter, Gemini/Anthropic không qua proxy).
 
-**Còn mở, có mặc định (không chặn kế hoạch):**
-- Các run Gemini và Opus chạy ở máy theo nhóm không rerank (§4.8) cho đến khi có khoá. Người dùng có thể
-  chọn khác (ví dụ chờ khoá để rerank trong kernel).
-- Lượt đo độ trễ concurrency 1 (§4.7) dùng lát 100 câu `spread` mỗi cấu hình.
+**Cần người dùng chọn khi bật `--with-proxy-credentials`:** những file nào được đưa lên Kaggle. Danh sách
+hiện có: ba file Antigravity (hai gmail cá nhân, một email công ty), một file Claude và một file Codex
+đều của email công ty `sun-asterisk.com`, trong đó file Codex ghi "enterprise ... usage-based" (tính phí theo
+mức dùng của tổ chức). Claude Opus 5.5 chỉ có qua file Claude của email công ty. Thiết kế không tự chọn
+thay người dùng.
+
+**Mặc định (đổi được):** lượt đo độ trễ concurrency 1 dùng lát 100 câu `spread` mỗi cấu hình.
 
 **Của mình (có thể đổi):**
 - Mỗi account một shard một lúc theo mặc định.
