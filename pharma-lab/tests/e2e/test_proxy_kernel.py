@@ -105,7 +105,12 @@ def test_credentials_are_copied_with_private_modes(tmp_path: Path) -> None:
 def make_release(tmp_path: Path) -> tuple[Path, str]:
     archive = tmp_path / "release.tar.gz"
     with tarfile.open(archive, "w:gz") as tar:
-        for name, payload in (("CLIProxyAPI", b"#!/bin/sh\n"), ("README.md", b"hi")):
+        for name, payload in (
+            ("cli-proxy-api", b"#!/bin/sh\n"),
+            ("LICENSE", b"mit"),
+            ("README.md", b"hi"),
+            ("config.example.yaml", b"host: x"),
+        ):
             info = tarfile.TarInfo(name)
             info.size = len(payload)
             tar.addfile(info, io.BytesIO(payload))
@@ -119,9 +124,9 @@ def test_fetch_proxy_verifies_the_checksum_and_extracts_the_binary(
 
     binary = fetch_proxy(tmp_path / "bin", url=archive.as_uri(), sha256=digest)
 
-    assert binary.name == "CLIProxyAPI"
+    assert binary.name == "cli-proxy-api"
     assert os.access(binary, os.X_OK)
-    assert sorted(p.name for p in (tmp_path / "bin").iterdir()) == ["CLIProxyAPI"]
+    assert sorted(p.name for p in (tmp_path / "bin").iterdir()) == ["cli-proxy-api"]
 
 
 def test_fetch_proxy_refuses_a_different_archive(tmp_path: Path) -> None:
@@ -129,7 +134,7 @@ def test_fetch_proxy_refuses_a_different_archive(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="checksum"):
         fetch_proxy(tmp_path / "bin", url=archive.as_uri(), sha256="0" * 64)
-    assert not (tmp_path / "bin" / "CLIProxyAPI").exists()
+    assert not (tmp_path / "bin" / "cli-proxy-api").exists()
 
 
 @contextmanager
@@ -182,7 +187,7 @@ def test_start_proxy_waits_for_models_endpoint(tmp_path: Path) -> None:
 
     with models_server(ready_after=2) as port:
         start_proxy(
-            tmp_path / "CLIProxyAPI",
+            tmp_path / "cli-proxy-api",
             tmp_path / "config.yaml",
             port=port,
             wait_seconds=10,
@@ -192,7 +197,7 @@ def test_start_proxy_waits_for_models_endpoint(tmp_path: Path) -> None:
         )
 
     assert launched == [
-        [str(tmp_path / "CLIProxyAPI"), "-config", str(tmp_path / "config.yaml")]
+        [str(tmp_path / "cli-proxy-api"), "-config", str(tmp_path / "config.yaml")]
     ]
     assert not process.terminated
 

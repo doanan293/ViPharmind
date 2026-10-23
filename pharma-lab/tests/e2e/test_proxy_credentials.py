@@ -214,3 +214,19 @@ def test_a_deleter_that_raises_something_unexpected_does_not_hide_the_leftovers(
 
     loud = [line for line in said if "STILL ON KAGGLE" in line]
     assert len(loud) == 2
+
+
+def test_a_second_ctrl_c_cannot_interrupt_the_deletion(source: Path) -> None:
+    import signal
+
+    seen: list[object] = []
+    before = signal.getsignal(signal.SIGINT)
+
+    def deleter(profile: str, reference: str) -> None:
+        seen.append(signal.getsignal(signal.SIGINT))
+
+    with dataset(source, deleter) as credentials:
+        credentials.used("acc1", "user1/pipeline-cred-x")
+
+    assert seen == [signal.SIG_IGN]
+    assert signal.getsignal(signal.SIGINT) == before

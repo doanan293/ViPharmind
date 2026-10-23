@@ -26,7 +26,8 @@ PROXY_VERSION = "8.0.28"
 # From the release's checksums.txt (and GitHub's asset digest, which agree).
 PROXY_SHA256 = "1644171946913c858842081053abb6f67234bb41ce2691602bf834361293c17f"
 PROXY_PORT = 8317
-PROXY_BINARY = "CLIProxyAPI"
+# The member of the release archive that is the program (checked against the real v8.0.28).
+PROXY_BINARY = "cli-proxy-api"
 CONFIG_NAME = "proxy-config.yaml"
 RELEASES = "https://github.com/router-for-me/CLIProxyAPI/releases/download"
 # Top-level settings the kernel decides itself, whatever the template says: where to

@@ -13,8 +13,10 @@ import hashlib
 import json
 import os
 import shutil
+import signal
 import subprocess
 import tempfile
+import threading
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -173,8 +175,17 @@ class CredentialDataset:
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        for profile, reference in self._used:
-            self._delete(profile, reference)
+        # A second Ctrl-C must not cut the deletion short and leave credentials behind.
+        main = threading.current_thread() is threading.main_thread()
+        previous = signal.signal(signal.SIGINT, signal.SIG_IGN) if main else None
+        try:
+            if self._used:
+                self._say("deleting the credential datasets from Kaggle, please wait")
+            for profile, reference in self._used:
+                self._delete(profile, reference)
+        finally:
+            if previous is not None:
+                signal.signal(signal.SIGINT, previous)
         if self._staging is not None:
             shutil.rmtree(self._staging, ignore_errors=True)
             self._staging = None
