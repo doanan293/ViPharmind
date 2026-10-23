@@ -259,6 +259,7 @@ def test_credential_session_lists_uploads_and_deletes_the_dataset(
     (auth / "claude-a.json").write_text('{"type": "claude", "t": "SECRET"}')
     (auth / "codex-b.json").write_text('{"type": "codex"}')
     deleted: list[tuple[str, str]] = []
+    monkeypatch.setattr(e2e_command, "credential_datasets", lambda _context: [])
     monkeypatch.setattr(
         kaggle_service, "resolve_session_contexts", lambda _a: contexts("acc1")
     )
@@ -462,3 +463,57 @@ def test_kaggle_adapter_hands_on_merged_to_the_adapter(monkeypatch, tmp_path):
     e2e_command.kaggle_adapter(plan, budget_seconds=3600, on_merged=notify)
 
     assert captured["on_merged"] is notify
+
+
+def test_a_dataset_left_by_a_killed_run_is_removed_before_the_new_upload(
+    tmp_path, monkeypatch, capsys
+):
+    from tests.e2e.test_kaggle_shards import FULL
+    from tests.integrations.kaggle.test_scheduler import contexts
+
+    import pharma_lab.integrations.kaggle.service as kaggle_service
+    from pharma_lab.e2e.kaggle_shards import make_plan
+    from pharma_lab.e2e.llm_presets import PRESETS
+    from pharma_lab.integrations.kaggle.dataset_service import DatasetService
+
+    auth = tmp_path / "auth"
+    auth.mkdir()
+    (auth / "claude-a.json").write_text('{"type": "claude"}')
+    deleted: list[str] = []
+    monkeypatch.setattr(
+        kaggle_service, "resolve_session_contexts", lambda _a: contexts("acc1")
+    )
+    monkeypatch.setattr(
+        DatasetService, "delete_dataset", lambda self, ref: deleted.append(ref)
+    )
+    plan = make_plan(
+        run_name="r1",
+        entries=[FULL],
+        golden_path=tmp_path / "g",
+        categories=None,
+        limit=None,
+        llm=PRESETS["opus"],
+    )
+    seen: dict[str, str] = {}
+
+    def listing(context):
+        # The dataset this run would create is already on the account.
+        return [seen["own"]] if "own" in seen else []
+
+    monkeypatch.setattr(e2e_command, "credential_datasets", listing)
+    original = e2e_command.CredentialDataset.slug
+
+    def slug(self, profile):
+        value = original(self, profile)
+        seen["own"] = f"user-{profile}/{value}"
+        return value
+
+    monkeypatch.setattr(e2e_command.CredentialDataset, "slug", slug)
+    # first call primes the name, second finds it
+    with e2e_command.credential_session(
+        plan, names=(), source=auth, kaggle_account=None
+    ) as credentials:
+        assert credentials is not None
+        credentials.slug("acc1")
+
+    assert deleted.count(seen["own"]) >= 1

@@ -17,6 +17,7 @@ from pharma_lab.cli.runtime import (
 )
 from pharma_lab.config.paths import WORK_DIR
 from pharma_lab.integrations.kaggle.api import dataset_list_mine_command
+from pharma_lab.integrations.kaggle.dataset_service import DatasetService
 from pharma_lab.integrations.kaggle.job_registry import JobRegistry, ShardRecord
 from pharma_lab.integrations.kaggle.parsers import parse_dataset_references
 from pharma_lab.integrations.kaggle.quota import read_account_quota
@@ -51,11 +52,8 @@ def live_shards(work_dir: Path) -> list[ShardRecord]:
     ]
 
 
-def _age(record: ShardRecord, now: datetime) -> str:
-    minutes = int(
-        (now - datetime.fromisoformat(record.submitted_at)).total_seconds() / 60
-    )
-    return f"{minutes // 60}h{minutes % 60:02d}m"
+def _age_minutes(record: ShardRecord, now: datetime) -> int:
+    return int((now - datetime.fromisoformat(record.submitted_at)).total_seconds() / 60)
 
 
 def _quota_line(context: KaggleExecutionContext) -> str:
@@ -93,6 +91,14 @@ def status(
         str | None,
         typer.Option("--kaggle-account", help="auto (default), accN or acc1,acc3"),
     ] = None,
+    delete_leftover_credentials: Annotated[
+        bool,
+        typer.Option(
+            "--delete-leftover-credentials",
+            help="Delete the pipeline-cred-* datasets left on the accounts "
+            "(refused while an e2e shard is still running)",
+        ),
+    ] = False,
 ) -> None:
     """Live kernels by step and account, GPU quota, and credential datasets left behind."""
 
@@ -104,20 +110,24 @@ def status(
             groups[(record.stage, record.profile)].append(record)
         for (stage, profile), records in sorted(groups.items()):
             units = sum(len(record.unit_keys) for record in records)
-            oldest = max(_age(record, now) for record in records)
+            minutes = max(_age_minutes(record, now) for record in records)
+            oldest = f"{minutes // 60}h{minutes % 60:02d}m"
             details[f"live.{stage}.{profile}"] = (
                 f"{len(records)} kernels, {units} units, oldest {oldest}"
             )
         if not groups:
             details["live"] = "none"
         leftovers: list[str] = []
+        by_reference: dict[str, KaggleExecutionContext] = {}
         for context in resolve_session_contexts(kaggle_account or "auto"):
             if context.profile is None:
                 continue
             name = context.profile.name
             details[f"quota.{name}"] = _quota_line(context)
             try:
-                leftovers += credential_datasets(context)
+                found = credential_datasets(context)
+                leftovers += found
+                by_reference.update(dict.fromkeys(found, context))
             except (OSError, RuntimeError, ValueError) as error:
                 details[f"credential_check.{name}"] = f"unavailable: {error}"
         details["credential_datasets"] = leftovers
@@ -126,6 +136,19 @@ def status(
                 "; ".join(f"kaggle datasets delete {ref}" for ref in leftovers)
                 + " (not while a run that uses them is still going)"
             )
+        if delete_leftover_credentials:
+            deleted: list[str] = []
+            if any(stage == "e2e-run" for stage, _ in groups):
+                details["delete_refused"] = (
+                    "an e2e shard is still running and may use these datasets"
+                )
+            else:
+                for reference, context in by_reference.items():
+                    DatasetService(
+                        context.runner, context.owners.execution
+                    ).delete_dataset(reference)
+                    deleted.append(reference)
+            details["deleted_credential_datasets"] = deleted
         return CommandResult("kaggle status", CommandStatus.COMPLETE, None, details)
 
     run_handler(state_from_context(ctx), handler)

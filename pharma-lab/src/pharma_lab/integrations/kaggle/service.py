@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,8 +34,6 @@ from pharma_lab.integrations.kaggle.dependencies import (
 from pharma_lab.integrations.kaggle.kernel_service import KernelService
 from pharma_lab.integrations.kaggle.kernels import PipelineKernelService
 from pharma_lab.integrations.kaggle.models import (
-    KernelPresence,
-    KernelStatus,
     PipelineResult,
     StageName,
     StageRequest,
@@ -149,52 +146,6 @@ def resolve_session_contexts(
             "in pharma-lab/.env"
         )
     return contexts
-
-
-def active_kernel_profile(
-    contexts: Sequence[KaggleExecutionContext],
-    *,
-    stage: StageName,
-    model: str,
-    input_path: Path,
-    output_dir: Path,
-    gguf_root: Path = GGUF_ROOT,
-    runtime_profile: RuntimeCandidate | None = None,
-) -> str | None:
-    """Profile whose account already queues or runs this job's kernel, if any.
-
-    A command restarted after a crash or reboot attaches to that kernel instead of
-    starting a duplicate on the account with the most quota.
-    """
-    profiled = [context for context in contexts if context.profile is not None]
-    if not profiled:
-        return None
-    job = get_stage_adapter(stage).build_job(
-        StageRequest(
-            stage,
-            model,
-            Path(input_path),
-            Path(output_dir),
-            Path(gguf_root),
-            profiled[0].owners,
-            runtime_profile=runtime_profile,
-        )
-    )
-    for context in profiled:
-        assert context.profile is not None
-        kernels = PipelineKernelService(
-            KernelService(context.runner, context.owners.execution),
-            owner=context.owners.execution,
-            source_root=SOURCE_ROOT,
-            backend_source_root=BACKEND_SOURCE_ROOT,
-        )
-        state = kernels.discover(job)
-        if state.presence is KernelPresence.EXISTS and state.status in {
-            KernelStatus.QUEUED,
-            KernelStatus.RUNNING,
-        }:
-            return context.profile.name
-    return None
 
 
 def owner_configuration(

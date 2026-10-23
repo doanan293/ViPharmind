@@ -34,7 +34,7 @@ pharma-lab e2e report --run NAME [--latency-run NAME]
 pharma-lab e2e compare --run-a NAME --run-b NAME [--config CONFIG_DIR] [--config-b CONFIG_DIR]
 pharma-lab e2e run --backend kaggle --run NAME --config CONFIG [--config ...] [--category CATEGORY ...] [--pipeline-option KEY=VALUE ...] [--llm qwen|gemini|opus] [--kaggle-account auto|accN[,accM]] [--parallel N] [--budget-seconds S] [--max-sessions K] [--drain] [--retry-stuck] [--judge] [--latency] [--with-proxy-credentials [--proxy-credential FILE ...] [--proxy-credentials-dir DIR]]
 pharma-lab e2e status --run NAME --config CONFIG [--config ...] [--category CATEGORY ...] [--limit N]
-pharma-lab kaggle status [--kaggle-account auto|accN[,accM]]
+pharma-lab kaggle status [--kaggle-account auto|accN[,accM]] [--delete-leftover-credentials]
 ```
 
 Global `--json` in envelope máy đọc được, `--debug` bật traceback. `uv run pharma-lab COMMAND --help` cho default thực tế.

@@ -492,3 +492,45 @@ def test_the_same_failure_from_two_kernels_counts_twice_but_one_kernel_once(
 
     assert len((run_root / "full" / ANSWERS_FILE).read_text().splitlines()) == 2
     assert [p.item_id for p in report.stuck] == ["a"]  # the same error twice
+
+
+def test_two_first_shards_arriving_together_are_both_checked(tmp_path: Path) -> None:
+    import threading
+
+    run_root = tmp_path / "run"
+    results: list[object] = []
+    archives = [
+        shard_archive(tmp_path, [done("a")], name="a.tar"),
+        shard_archive(
+            tmp_path,
+            [done("b")],
+            identity=run_json(golden_sha256="other" + "0" * 59),
+            name="b.tar",
+        ),
+    ]
+
+    def merge(archive: Path) -> None:
+        try:
+            results.append(merge_shard(archive, run_root, ["full"]))
+        except ValueError as error:
+            results.append(error)
+
+    threads = [threading.Thread(target=merge, args=(a,)) for a in archives]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    # Whichever came second is judged against the first: never both accepted.
+    assert sum(isinstance(r, ValueError) for r in results) == 1
+    answers = (run_root / "full" / ANSWERS_FILE).read_text().splitlines()
+    assert len(answers) == 1  # the refused shard wrote nothing
+
+
+def test_a_tar_without_run_json_is_refused_once_the_run_has_one(tmp_path: Path) -> None:
+    run_root = tmp_path / "run"
+    merge_shard(shard_archive(tmp_path, [done("a")], name="a.tar"), run_root, ["full"])
+    bare = tar_of(tmp_path / "bare.tar", {f"full/{ANSWERS_FILE}": lines(done("b"))})
+
+    with pytest.raises(ValueError, match=r"run\.json"):
+        merge_shard(bare, run_root, ["full"])

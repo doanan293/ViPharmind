@@ -14,6 +14,7 @@ import os
 import tarfile
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -107,25 +108,38 @@ def merge_shard(
     configuration in it passes the identity and software checks."""
     payload = _read_archive(archive, labels)
     warnings: list[str] = []
-    for label in labels:
-        incoming = payload.get(f"{label}/{RUN_FILE}")
-        stored_path = run_root / label / RUN_FILE
-        if incoming is None or not stored_path.is_file():
-            continue
-        warnings += _check_identity(
-            label,
-            json.loads(stored_path.read_text(encoding="utf-8")),
-            json.loads(incoming),
-            software_check=software_check,
-        )
     appended = skipped = truncated = 0
-    for label in labels:
-        answers = payload.get(f"{label}/{ANSWERS_FILE}")
-        run_raw = payload.get(f"{label}/{RUN_FILE}")
-        if answers is None and run_raw is None:
-            continue
-        path = run_root / label / ANSWERS_FILE
-        with kaggle_cache_lock(path, lock_root=lock_root):
+    # Every label is locked before any is checked, so two shards arriving together are
+    # judged one after the other against whatever the first one left.
+    with ExitStack() as stack:
+        for label in sorted(labels):
+            stack.enter_context(
+                kaggle_cache_lock(run_root / label / ANSWERS_FILE, lock_root=lock_root)
+            )
+        for label in labels:
+            incoming = payload.get(f"{label}/{RUN_FILE}")
+            stored_path = run_root / label / RUN_FILE
+            if incoming is None:
+                if stored_path.is_file() and f"{label}/{ANSWERS_FILE}" in payload:
+                    raise ValueError(
+                        f"{label}: the shard carries answers but no run.json, so it "
+                        "cannot be checked against the run"
+                    )
+                continue
+            if not stored_path.is_file():
+                continue
+            warnings += _check_identity(
+                label,
+                json.loads(stored_path.read_text(encoding="utf-8")),
+                json.loads(incoming),
+                software_check=software_check,
+            )
+        for label in labels:
+            answers = payload.get(f"{label}/{ANSWERS_FILE}")
+            run_raw = payload.get(f"{label}/{RUN_FILE}")
+            if answers is None and run_raw is None:
+                continue
+            path = run_root / label / ANSWERS_FILE
             if run_raw is not None and not (run_root / label / RUN_FILE).is_file():
                 _write_bytes(run_root / label / RUN_FILE, run_raw)
             if answers is not None:
@@ -262,6 +276,8 @@ def _append_new(path: Path, raw: bytes) -> tuple[int, int, int]:
         needs_newline = path.is_file() and not path.read_bytes().endswith(b"\n")
         with path.open("a", encoding="utf-8") as handle:
             handle.write(("\n" if needs_newline else "") + "\n".join(fresh) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
     return len(fresh), skipped, unreadable
 
 

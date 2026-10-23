@@ -165,3 +165,75 @@ def test_status_never_prints_credential_contents(work, monkeypatch) -> None:
     result = invoke()
 
     assert "token" not in result.output.lower()
+
+
+def test_the_oldest_kernel_is_the_longest_running_not_the_largest_string(
+    work, monkeypatch
+) -> None:
+    registry = JobRegistry(work / "e2e-kaggle" / "r1" / "jobs.json")
+    for shard, hours in (("a", 9), ("b", 10)):
+        registry.register(
+            ShardRecord(
+                shard,
+                "e2e-run",
+                "acc1",
+                ("u",),
+                (NOW - timedelta(hours=hours, minutes=30)).isoformat(),
+                10_800,
+            )
+        )
+    wire(monkeypatch, {"acc1": Listing([])}, {"acc1": 20.0})
+
+    details = json.loads(invoke().output)["details"]
+
+    assert "oldest 10h30m" in details["live.e2e-run.acc1"]
+
+
+def test_status_can_delete_the_leftover_credential_datasets(work, monkeypatch) -> None:
+    from pharma_lab.integrations.kaggle.dataset_service import DatasetService
+
+    deleted: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        DatasetService,
+        "delete_dataset",
+        lambda self, reference: deleted.append((self.owner, reference)),
+    )
+    wire(
+        monkeypatch,
+        {"acc1": Listing(["user-acc1/pipeline-cred-abc"]), "acc2": Listing([])},
+        {"acc1": 20.0, "acc2": 20.0},
+    )
+
+    result = invoke("--delete-leftover-credentials")
+
+    assert result.exit_code == 0, result.output
+    assert deleted == [("user-acc1", "user-acc1/pipeline-cred-abc")]
+    details = json.loads(result.output)["details"]
+    assert details["deleted_credential_datasets"] == ["user-acc1/pipeline-cred-abc"]
+
+
+def test_leftovers_are_kept_while_a_run_may_still_be_using_them(
+    work, monkeypatch
+) -> None:
+    from pharma_lab.integrations.kaggle.dataset_service import DatasetService
+
+    monkeypatch.setattr(
+        DatasetService,
+        "delete_dataset",
+        lambda self, reference: pytest.fail("a live run may need this dataset"),
+    )
+    JobRegistry(work / "e2e-kaggle" / "r1" / "jobs.json").register(
+        record("a", "e2e-run", "acc1")
+    )
+    wire(
+        monkeypatch,
+        {"acc1": Listing(["user-acc1/pipeline-cred-abc"])},
+        {"acc1": 20.0},
+    )
+
+    result = invoke("--delete-leftover-credentials")
+
+    assert result.exit_code == 0, result.output
+    details = json.loads(result.output)["details"]
+    assert details["deleted_credential_datasets"] == []
+    assert "still running" in details["delete_refused"]

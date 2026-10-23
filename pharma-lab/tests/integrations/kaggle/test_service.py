@@ -1,4 +1,3 @@
-import json
 import os
 from pathlib import Path
 
@@ -15,9 +14,6 @@ from pharma_lab.integrations.kaggle.dataset_service import DatasetService
 from pharma_lab.integrations.kaggle.dependencies import DependencyService
 from pharma_lab.integrations.kaggle.models import (
     CloudArtifact,
-    KernelPresence,
-    KernelRemoteState,
-    KernelStatus,
     StageJob,
     StageName,
 )
@@ -327,56 +323,6 @@ def test_session_contexts_require_account_profiles(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match="need account profiles"):
         resolve_session_contexts(None, env_file=env_file)
-
-
-def test_active_kernel_profile_finds_the_account_running_the_job(tmp_path, monkeypatch):
-    env_file = _write_profiles(tmp_path)
-    _clear_kaggle_environment(monkeypatch)
-    contexts = resolve_profile_execution_contexts(env_file=env_file)
-    candidates = tmp_path / "candidates.jsonl"
-    candidates.write_text(
-        json.dumps(
-            {
-                "query_id": "q1",
-                "query": "query",
-                "candidates": [{"chunk_id": "c1", "document_text": "text"}],
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "manifest.json").write_text("{}\n", encoding="utf-8")
-    inspected: list[str] = []
-
-    class FakeKernelService:
-        def __init__(self, runner, owner):
-            self.owner = owner
-
-        def inspect_state(self, reference):
-            inspected.append(reference)
-            status = (
-                KernelStatus.RUNNING
-                if self.owner == "secondary-user"
-                else KernelStatus.COMPLETE
-            )
-            return KernelRemoteState(reference, KernelPresence.EXISTS, status)
-
-    monkeypatch.setattr(kaggle_service, "KernelService", FakeKernelService)
-
-    profile = kaggle_service.active_kernel_profile(
-        contexts,
-        stage=StageName.RERANK,
-        model=MODEL,
-        input_path=candidates,
-        output_dir=tmp_path / "output",
-        runtime_profile=rerank_runtime_profile(MODEL),
-    )
-
-    assert profile == "acc2"
-    assert [reference.split("/")[0] for reference in inspected] == [
-        "primary-user",
-        "secondary-user",
-    ]
 
 
 def _write_three_profiles(tmp_path: Path) -> Path:

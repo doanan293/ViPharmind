@@ -71,9 +71,7 @@ def test_two_registries_see_each_others_records(tmp_path: Path) -> None:
 
 def test_records_keep_their_fields_through_the_file(tmp_path: Path) -> None:
     jobs = registry(tmp_path)
-    original = ShardRecord(
-        "s9", "rerank", "acc2", ("q1", "q2"), NOW.isoformat(), 5400, "user/kernel-x"
-    )
+    original = ShardRecord("s9", "rerank", "acc2", ("q1", "q2"), NOW.isoformat(), 5400)
 
     jobs.register(original)
 

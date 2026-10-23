@@ -395,3 +395,12 @@ def test_running_proxy_needs_the_credential_dataset(tmp_path):
         running_proxy({}, work_root=tmp_path),
     ):
         pass
+
+
+def test_the_layout_of_the_job_is_recorded_with_the_software(tmp_path):
+    from pharma_lab.e2e.kernel_worker import job_software
+
+    config = {"models": [], "kaggle_input_root": str(tmp_path)}
+
+    assert job_software(config, {"layout": "A"})["layout"] == "A"
+    assert job_software(config, {})["layout"] == "A"  # jobs from before layouts

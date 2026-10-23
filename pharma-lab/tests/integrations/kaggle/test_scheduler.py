@@ -431,3 +431,12 @@ def test_kaggles_capacity_error_moves_the_shard_to_another_account(
 
     assert report.stop is SchedulerStop.COMPLETE
     assert adapter.calls[0].profile != adapter.calls[1].profile
+
+
+def test_only_a_real_429_is_a_rate_limit() -> None:
+    from pharma_lab.integrations.kaggle.scheduler import _rate_limited
+
+    assert _rate_limited(RuntimeError("HTTP 429 Too Many Requests"))
+    assert _rate_limited(RuntimeError("too many requests"))
+    assert not _rate_limited(RuntimeError("wrote 14290 bytes in 4290 ms"))
+    assert not _rate_limited(RuntimeError("item e2e-ans-04291 failed"))

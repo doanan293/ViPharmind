@@ -161,3 +161,45 @@ def test_no_account_flag_means_every_account(tmp_path: Path) -> None:
     )
 
     assert asked == ["auto"]
+
+
+def test_a_latency_slice_that_needs_two_sessions_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from pharma_lab.e2e import kaggle_shards
+
+    monkeypatch.setattr(kaggle_shards, "DEFAULT_TURN_SECONDS", 12_000.0)
+    subject = adapter(tmp_path, latency=True)
+
+    with pytest.raises(ValueError, match="one session"):
+        launch(
+            subject,
+            OPTIONS,
+            resolve_contexts=no_contexts,
+            registry=registry_for(tmp_path),
+            scheduler=Scheduler(SchedulerStop.COMPLETE),
+        )
+
+
+def test_a_commercial_preset_caps_the_requests_in_flight(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    from pharma_lab.e2e.llm_presets import PRESETS
+
+    subject = adapter(tmp_path)
+    capped = replace(subject.plan, llm=PRESETS["opus"], concurrency=2)
+    subject.plan = capped
+    scheduler = Scheduler(SchedulerStop.COMPLETE)
+
+    launch(
+        subject,
+        OPTIONS,
+        resolve_contexts=lambda _account: contexts("acc1", "acc2", "acc3"),
+        registry=registry_for(tmp_path),
+        scheduler=scheduler,
+    )
+
+    assert scheduler.settings is not None
+    cap = PRESETS["opus"].max_in_flight
+    assert cap is not None
+    assert scheduler.settings.parallel * capped.concurrency <= cap

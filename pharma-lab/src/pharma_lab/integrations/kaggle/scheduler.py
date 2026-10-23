@@ -10,6 +10,7 @@ shards, which attaches to the running kernels, and plans the rest.
 from __future__ import annotations
 
 import queue
+import re
 import threading
 import time
 from collections import Counter, deque
@@ -406,4 +407,6 @@ class _Scheduler:
 
 def _rate_limited(error: Exception) -> bool:
     text = str(error).casefold()
-    return "429" in text or "too many requests" in text
+    return (
+        re.search(r"(?<!\d)429(?!\d)", text) is not None or "too many requests" in text
+    )

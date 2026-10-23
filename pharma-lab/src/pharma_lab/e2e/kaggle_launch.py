@@ -27,6 +27,7 @@ from pharma_lab.integrations.kaggle.scheduler import (
     shard_margin_seconds,
 )
 from pharma_lab.integrations.kaggle.service import KaggleExecutionContext
+from pharma_lab.integrations.kaggle.shards import plan_shards
 
 EXIT_DONE = 0
 EXIT_PAUSED = 10
@@ -104,9 +105,16 @@ def launch(
     if not adapter.missing():
         stuck = len(adapter.report().stuck)
         return LaunchOutcome(exit_code_for(None, stuck), None, 0, 0, 0, stuck)
+    plan = adapter.plan
+    if plan.latency:
+        _require_one_session(adapter, options)
     contexts = resolve_contexts(options.kaggle_account or "auto")
+    parallel = options.parallel or 2 * len(contexts)
+    if plan.llm.max_in_flight is not None:
+        # The subscription allows this many requests at once over all kernels.
+        parallel = min(parallel, max(1, plan.llm.max_in_flight // plan.concurrency))
     settings = SchedulerSettings(
-        parallel=options.parallel or 2 * len(contexts),
+        parallel=parallel,
         budget_seconds=options.budget_seconds,
         margin_seconds=shard_margin_seconds(options.budget_seconds),
         max_sessions=options.max_sessions,
@@ -123,6 +131,22 @@ def launch(
         stuck,
         report.quota_table,
     )
+
+
+def _require_one_session(adapter: E2EShardAdapter, options: LaunchOptions) -> None:
+    """A latency run is one kernel: a slice that needs two would mix two machines."""
+    shards = plan_shards(
+        adapter.missing(),
+        setup_seconds=adapter.setup_seconds(),
+        budget_seconds=options.budget_seconds,
+        margin_seconds=shard_margin_seconds(options.budget_seconds),
+        slots=1,
+    )
+    if len(shards) > 1:
+        raise ValueError(
+            f"--latency measures in one session but this slice needs {len(shards)}: "
+            "lower --limit"
+        )
 
 
 def run_status(adapter: E2EShardAdapter, registry: JobRegistry) -> RunStatus:

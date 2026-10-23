@@ -121,6 +121,8 @@ def make_plan(
                 f"got {len(entries)}: run them one after another"
             )
         run_name, concurrency = f"{run_name}{LATENCY_SUFFIX}", 1
+    if llm.max_in_flight is not None:
+        concurrency = min(concurrency, llm.max_in_flight)
     return E2EPlan(
         run_name,
         tuple(entries),
@@ -379,6 +381,7 @@ class E2EShardAdapter:
         job = {
             "run": self.plan.run_name,
             "llm": self.plan.llm.name,
+            "layout": LAYOUT_A,
             "concurrency": self.plan.concurrency,
             "shards": entries,
             "deadline_seconds": self.plan.deadline_seconds,

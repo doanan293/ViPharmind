@@ -24,6 +24,7 @@ from pharma_lab.bundle.corpus_text import (
     load_corpus_text,
     section_chunks,
 )
+from pharma_lab.cli.commands.kaggle import credential_datasets
 from pharma_lab.cli.runtime import (
     CommandResult,
     CommandStatus,
@@ -685,7 +686,7 @@ def credential_session(
             )
 
         def delete(profile: str, reference: str) -> None:
-            for context in resolve_session_contexts(kaggle_account):
+            for context in resolve_session_contexts(kaggle_account or "auto"):
                 if context.profile is not None and context.profile.name == profile:
                     DatasetService(
                         context.runner, context.owners.execution
@@ -701,6 +702,23 @@ def credential_session(
             deleter=delete,
             say=lambda line: typer.echo(line, err=True),
         ) as dataset:
+            # A command killed hard leaves its dataset behind; the name is the same on
+            # the next run, so remove it before a new one is uploaded.
+            for context in resolve_session_contexts(kaggle_account or "auto"):
+                if context.profile is None:
+                    continue
+                name = context.profile.name
+                reference = f"{context.owners.execution}/{dataset.slug(name)}"
+                try:
+                    left = reference in credential_datasets(context)
+                except (OSError, RuntimeError, ValueError):
+                    continue  # unreachable account: nothing to sweep, nothing lost
+                if left:
+                    typer.echo(
+                        f"removing a credential dataset left by an earlier run: {reference}",
+                        err=True,
+                    )
+                    delete(name, reference)
             yield dataset
 
 

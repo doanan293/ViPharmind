@@ -48,6 +48,9 @@ class LlmPreset:
     needs_proxy: bool
     # Credential types the proxy needs, e.g. {"antigravity"}; empty when none.
     providers: frozenset[str]
+    # Requests a subscription lets us keep in flight at once, over every kernel of a
+    # run (the Claude plan allows the fewest); None for the kernel's own server.
+    max_in_flight: int | None = None
 
 
 def _every_role(endpoint: RoleEndpoint) -> Mapping[str, RoleEndpoint]:
@@ -73,6 +76,7 @@ PRESETS: Mapping[str, LlmPreset] = MappingProxyType(
             ),
             needs_proxy=True,
             providers=frozenset({"antigravity"}),
+            max_in_flight=8,
         ),
         "opus": LlmPreset(
             "opus",
@@ -86,6 +90,7 @@ PRESETS: Mapping[str, LlmPreset] = MappingProxyType(
             ),
             needs_proxy=True,
             providers=frozenset({"claude"}),
+            max_in_flight=4,
         ),
     }
 )

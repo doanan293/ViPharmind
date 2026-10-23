@@ -131,9 +131,6 @@ def kaggle_sessions(monkeypatch, tmp_path) -> dict[str, float]:
         kaggle_service, "runtime_manifest_sha256", lambda *_args, **_kwargs: "c" * 64
     )
     monkeypatch.setattr(
-        kaggle_service, "active_kernel_profile", lambda *_args, **_kwargs: None
-    )
-    monkeypatch.setattr(
         auto_profile,
         "ensure_runtime_profile",
         lambda **_kwargs: SimpleNamespace(

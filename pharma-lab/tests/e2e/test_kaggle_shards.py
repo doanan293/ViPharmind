@@ -485,3 +485,13 @@ def test_the_commit_is_not_part_of_the_job_file_so_a_commit_keeps_the_kernel(
 
     assert jobs[0][0] == jobs[1][0]
     assert [meta["commit"] for _, meta in jobs] == ["aaa1111", "bbb2222"]
+
+
+def test_the_job_names_its_server_layout(tmp_path: Path) -> None:
+    runner = Runner(tmp_path)
+    subject = adapter(tmp_path, runner)
+
+    subject.run_shard(shard_of([key("full", ITEMS[0])]), reserved())
+
+    job = json.loads(Path(runner.calls[0]["input_path"]).read_text())
+    assert job["layout"] == "A"

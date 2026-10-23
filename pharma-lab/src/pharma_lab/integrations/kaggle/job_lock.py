@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import os
-import time
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from contextlib import AbstractContextManager, ExitStack, contextmanager
 from pathlib import Path
 
@@ -99,28 +98,3 @@ def _account_lock(profile: str, lock_path: Path) -> Generator[str, None, None]:
 
 # How long a command sleeps before trying again for an account another local job holds.
 ACCOUNT_POLL_SECONDS = 60
-
-
-@contextmanager
-def wait_for_kaggle_account(
-    profile: str,
-    *,
-    lock_root: Path | None = None,
-    wait: Callable[[float], None] = time.sleep,
-    log: Callable[[str], None] = print,
-) -> Generator[str, None, None]:
-    """Hold the session lock of one Kaggle account, waiting while another local job has it.
-
-    Commands pinned to one account (`--kaggle-account accN`) use it, so a GPU job never
-    shares an account with another job started from this machine and never fails just
-    because the account is busy for a while.
-    """
-    with ExitStack() as stack:
-        while True:
-            try:
-                stack.enter_context(kaggle_account_lock(profile, lock_root=lock_root))
-                break
-            except KaggleAccountBusy:
-                log(f"account={profile} is held by another local job; waiting")
-                wait(ACCOUNT_POLL_SECONDS)
-        yield profile

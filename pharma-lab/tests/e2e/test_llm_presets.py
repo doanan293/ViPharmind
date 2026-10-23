@@ -85,3 +85,10 @@ def test_qwen_needs_no_proxy() -> None:
 def test_unknown_preset_lists_the_valid_names() -> None:
     with pytest.raises(ValueError, match=r"gemini, opus, qwen"):
         preset_named("gpt")
+
+
+def test_only_the_subscription_presets_have_a_request_ceiling() -> None:
+    assert PRESETS["qwen"].max_in_flight is None
+    gemini, opus = PRESETS["gemini"].max_in_flight, PRESETS["opus"].max_in_flight
+    assert gemini is not None and opus is not None
+    assert opus < gemini  # Claude has the lowest allowance

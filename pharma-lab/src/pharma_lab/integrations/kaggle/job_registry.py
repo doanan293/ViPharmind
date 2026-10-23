@@ -28,7 +28,6 @@ class ShardRecord:
     unit_keys: tuple[str, ...]
     submitted_at: str
     budget_seconds: int
-    kernel_reference: str | None = None
 
 
 def sibling_registry_paths(work_root: Path) -> list[Path]:
@@ -134,7 +133,6 @@ class JobRegistry:
                     unit_keys=tuple(str(key) for key in item["unit_keys"]),
                     submitted_at=str(item["submitted_at"]),
                     budget_seconds=int(item["budget_seconds"]),
-                    kernel_reference=item.get("kernel_reference"),
                 )
                 for item in payload["shards"]
             ]

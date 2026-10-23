@@ -169,15 +169,6 @@ def leaflet_categories_for_text(text: str) -> list[str]:
     return [fallback] if fallback else ["brand_product"]
 
 
-def leaflet_label_for_category(text: str, category: str) -> str:
-    if category == "brand_product":
-        return ""
-    for heading in markdown_headings(text):
-        if leaflet_category_for_heading(heading) == category:
-            return clean_query_label(heading)
-    return chunk_context_label({"chunk_text": text})
-
-
 def section_label(section: dict) -> str:
     title = normalize_spaces(section.get("title", ""))
     section_name = normalize_spaces(section.get("section", ""))
@@ -869,15 +860,6 @@ def chunk_identifier(chunk: dict) -> str:
 def chunk_body_text(chunk: dict) -> str:
     body = str(chunk.get("chunk_text") or "").strip()
     return body
-
-
-def build_chunks_by_id(chunks: list[dict]) -> dict[str, dict]:
-    indexed = {}
-    for chunk in chunks:
-        identifier = chunk_identifier(chunk)
-        if identifier:
-            indexed[identifier] = chunk
-    return indexed
 
 
 def spread_items[T](items: list[T], slots: int) -> list[T]:

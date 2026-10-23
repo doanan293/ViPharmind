@@ -353,6 +353,11 @@ def _server_config(server: Mapping, config: Mapping) -> dict:
     }
 
 
+def job_software(config: Mapping, job: Mapping) -> dict[str, object]:
+    """What produced the answers, plus the server layout the job asked for."""
+    return software_info(config) | {"layout": job.get("layout", "A")}
+
+
 def llm_preset_of(job: Mapping) -> LlmPreset:
     """The LLM preset a job asks for; jobs written before presets run Qwen."""
     return preset_named(str(job.get("llm", "qwen")))
@@ -411,7 +416,7 @@ def run_e2e_worker(config: dict) -> CloudArtifact:
         stop_at=stop_at_from_config(config),
         session=uuid.uuid4().hex,
         commit=config.get("commit") or job.get("commit"),
-        software=software_info(config),
+        software=job_software(config, job),
     )
     job_path.write_text(json.dumps(job, indent=2) + "\n", encoding="utf-8")
     source = work / "source"
