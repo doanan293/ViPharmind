@@ -52,3 +52,12 @@ def test_every_model_server_binds_to_localhost() -> None:
 
     assert hosts, "no llama-server command found: the check would pass vacuously"
     assert all(set(values) == {"127.0.0.1"} for values in hosts.values())
+
+
+def test_qdrant_in_the_kernel_listens_on_localhost_only() -> None:
+    from pharma_lab.e2e.kernel_worker import qdrant_environment
+
+    environment = qdrant_environment(Path("/tmp/qdrant-storage"))
+
+    assert environment["QDRANT__SERVICE__HOST"] == "127.0.0.1"
+    assert environment["QDRANT__STORAGE__STORAGE_PATH"] == "/tmp/qdrant-storage"

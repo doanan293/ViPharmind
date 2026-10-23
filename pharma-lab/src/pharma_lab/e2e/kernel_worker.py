@@ -314,6 +314,14 @@ def start_postgres() -> None:
         _run(["su", "postgres", "-c", f'psql -c "{sql}"'])
 
 
+def qdrant_environment(storage: Path) -> dict[str, str]:
+    """Qdrant defaults to every interface; in a kernel it must answer on localhost only."""
+    return {
+        "QDRANT__STORAGE__STORAGE_PATH": str(storage),
+        "QDRANT__SERVICE__HOST": "127.0.0.1",
+    }
+
+
 def start_qdrant(version: str, work: Path) -> subprocess.Popen:
     work.mkdir(parents=True, exist_ok=True)
     archive = work / "qdrant.tar.gz"
@@ -323,7 +331,7 @@ def start_qdrant(version: str, work: Path) -> subprocess.Popen:
     process = subprocess.Popen(
         [str(work / "qdrant")],
         cwd=work,
-        env=os.environ | {"QDRANT__STORAGE__STORAGE_PATH": str(work / "storage")},
+        env=os.environ | qdrant_environment(work / "storage"),
     )
     _wait_http(f"{QDRANT_URL}/readyz", 120)
     return process
