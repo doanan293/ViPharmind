@@ -147,6 +147,14 @@ def prepare_job(request: KaggleE2ERequest, directory: Path) -> Path:
                 "configs": [config.value for config in request.configs],
                 "categories": [category.value for category in request.categories],
                 "item_ids": items,
+                "shards": [
+                    {
+                        "config": config.value,
+                        "pipeline_options": [],
+                        "item_ids": items,
+                    }
+                    for config in request.configs
+                ],
                 "deadline_seconds": request.deadline_seconds,
                 "commit": git_commit(Path(__file__).resolve().parent),
             },

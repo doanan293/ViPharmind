@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import json
 import math
-from collections.abc import Sequence
-from dataclasses import dataclass
+import time
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -92,10 +93,14 @@ async def run_items(
     concurrency: int,
     retry_errors: bool,
     decision_guard: DecisionVersionGuard | None = None,
+    stop_at: float | None = None,
+    clock: Callable[[], float] = time.time,
 ) -> RunSummary:
     """Answer every item without a final record; errors rerun only on request.
 
-    Answers superseded by a revised golden item always run again.
+    Answers superseded by a revised golden item always run again. From `stop_at` (a
+    `clock()` reading) no new item starts; the ones already running finish and the rest
+    stay unanswered, so a session with a deadline ends on its own.
     """
     if concurrency < 1:
         raise ValueError("--concurrency must be >= 1")
@@ -110,11 +115,14 @@ async def run_items(
     semaphore = asyncio.Semaphore(concurrency)
     lock = asyncio.Lock()
     stopped: list[ValueError] = []
+    started = 0
 
     async def answer(item: GoldenItem) -> None:
+        nonlocal started
         async with semaphore:
-            if stopped:
+            if stopped or (stop_at is not None and clock() >= stop_at):
                 return
+            started += 1
             try:
                 record = await executor.execute(item)
             except Exception as error:  # a failed item must not stop the run
@@ -135,7 +143,7 @@ async def run_items(
     errors = sum(
         1 for item in items if item.item_id in final and final[item.item_id].retryable
     )
-    return RunSummary(total=len(items), ran=len(pending), errors=errors)
+    return RunSummary(total=len(items), ran=started, errors=errors)
 
 
 def spread(items: Sequence[GoldenItem], limit: int | None) -> list[GoldenItem]:
@@ -172,6 +180,37 @@ class E2ERunRequest:
     pipeline_options: tuple[str, ...] = ()
     # The commit of a run made outside the checkout (a Kaggle kernel has no git).
     commit: str | None = None
+    # Only these golden items (a shard); limit and category then do not apply.
+    only_ids: frozenset[str] | None = None
+    # No new item starts after this `time.time()` reading (the session deadline).
+    stop_at: float | None = None
+    # Versions of what produced the answers, recorded in run.json (kernel runs).
+    software: Mapping[str, object] = field(default_factory=dict)
+
+
+def requested_items(
+    golden: Sequence[GoldenItem],
+    *,
+    only_ids: frozenset[str] | None,
+    limit: int | None,
+    category: Category | None,
+) -> list[GoldenItem]:
+    """The items of a run: a shard's own ids, or the category and limit selection."""
+    if only_ids is None:
+        return select_items(golden, limit=limit, category=category)
+    unknown = sorted(only_ids - {item.item_id for item in golden})
+    if unknown:
+        raise ValueError(f"not golden items: {', '.join(unknown)}")
+    return [item for item in golden if item.item_id in only_ids]
+
+
+def run_extra(concurrency: int, software: Mapping[str, object]) -> dict[str, object]:
+    """What run.json records besides the identity; `software` only when given, so runs
+    made before it existed keep the same file."""
+    extra: dict[str, object] = {"concurrency": concurrency}
+    if software:
+        extra["software"] = dict(software)
+    return extra
 
 
 def with_deadline(settings: Settings, seconds: float | None) -> Settings:
@@ -197,7 +236,12 @@ def config_dir(run_root: Path, config: E2EConfig | str) -> Path:
 
 def run_e2e(request: E2ERunRequest) -> RunSummary:
     golden = load_golden(request.golden_path)
-    items = select_items(golden, limit=request.limit, category=request.category)
+    items = requested_items(
+        golden,
+        only_ids=request.only_ids,
+        limit=request.limit,
+        category=request.category,
+    )
     settings = settings_for(
         Settings(_env_file=request.backend_env_file), request.config
     )
@@ -228,7 +272,7 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
                     release_id=release_id,
                 ),
                 commit=request.commit or git_commit(Path(__file__).resolve().parent),
-                extra={"concurrency": request.concurrency},
+                extra=run_extra(request.concurrency, request.software),
             )
             executor: TurnExecutor = (
                 BackendTurnExecutor(
@@ -254,6 +298,7 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
                     concurrency=request.concurrency,
                     retry_errors=request.retry_errors,
                     decision_guard=DecisionVersionGuard(directory),
+                    stop_at=request.stop_at,
                 )
             )
         finally:

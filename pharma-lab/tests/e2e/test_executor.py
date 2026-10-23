@@ -523,3 +523,27 @@ def test_a_failed_search_is_a_degraded_step() -> None:
         Action(kind=ActionKind.SEARCH, at=at, outcome="error", reason="qdrant down"),
     ]
     assert degraded_steps(entries) == ["search"]
+
+
+async def test_run_items_stops_starting_new_items_after_stop_at(
+    tmp_path: Path,
+) -> None:
+    items = [item(f"e2e-mt-{n:04d}") for n in range(1, 6)]
+    store = JsonlStore(tmp_path / "answers.jsonl", AnswerRecord)
+    executor = CountingExecutor(failing=set())
+    times = iter([0.0, 0.0, 20.0, 20.0, 20.0, 20.0])
+
+    summary = await run_items(
+        items,
+        executor,
+        store,
+        config="full",
+        concurrency=1,
+        retry_errors=False,
+        stop_at=10.0,
+        clock=lambda: next(times),
+    )
+
+    assert executor.seen == ["e2e-mt-0001", "e2e-mt-0002"]
+    assert (summary.total, summary.ran, summary.errors) == (5, 2, 0)
+    assert sorted(store.latest()) == executor.seen
