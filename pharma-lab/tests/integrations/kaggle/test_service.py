@@ -377,3 +377,53 @@ def test_active_kernel_profile_finds_the_account_running_the_job(tmp_path, monke
         "primary-user",
         "secondary-user",
     ]
+
+
+def _write_three_profiles(tmp_path: Path) -> Path:
+    env_file = _write_profiles(tmp_path)
+    with env_file.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "KAGGLE_ACC3_USERNAME=third-user\nKAGGLE_ACC3_API_TOKEN=third-token\n"
+        )
+    return env_file
+
+
+def test_session_contexts_for_a_list_select_exactly_those_profiles(
+    tmp_path, monkeypatch
+):
+    env_file = _write_three_profiles(tmp_path)
+    _clear_kaggle_environment(monkeypatch)
+
+    contexts = resolve_session_contexts("acc3, acc1", env_file=env_file)
+
+    assert [c.profile.name for c in contexts if c.profile] == ["acc1", "acc3"]
+
+
+def test_session_contexts_reject_an_unknown_profile_naming_the_available_ones(
+    tmp_path, monkeypatch
+):
+    env_file = _write_profiles(tmp_path)
+    _clear_kaggle_environment(monkeypatch)
+
+    with pytest.raises(ValueError, match="acc9") as caught:
+        resolve_session_contexts("acc1,acc9", env_file=env_file)
+
+    assert "acc1" in str(caught.value)
+
+
+def test_session_contexts_reject_duplicates_and_empty_names(tmp_path, monkeypatch):
+    env_file = _write_profiles(tmp_path)
+    _clear_kaggle_environment(monkeypatch)
+
+    with pytest.raises(ValueError, match="duplicate"):
+        resolve_session_contexts("acc1,acc1", env_file=env_file)
+    with pytest.raises(ValueError, match="empty"):
+        resolve_session_contexts("acc1,,acc2", env_file=env_file)
+
+
+def test_session_contexts_reject_auto_inside_a_list(tmp_path, monkeypatch):
+    env_file = _write_profiles(tmp_path)
+    _clear_kaggle_environment(monkeypatch)
+
+    with pytest.raises(ValueError, match="auto"):
+        resolve_session_contexts("auto,acc1", env_file=env_file)

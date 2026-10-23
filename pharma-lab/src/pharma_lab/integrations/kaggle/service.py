@@ -103,14 +103,43 @@ def resolve_profile_execution_contexts(
     return tuple(contexts)
 
 
+def _listed_accounts(value: str) -> list[str]:
+    """Profile names of a comma-separated `--kaggle-account`, in account order."""
+    names = [part.strip() for part in value.split(",")]
+    if any(not name for name in names):
+        raise ValueError(f"--kaggle-account {value!r} has an empty account name")
+    if any(name.casefold() == AUTO_ACCOUNT for name in names):
+        raise ValueError(
+            "--kaggle-account: 'auto' cannot be combined with account names"
+        )
+    if len(set(names)) != len(names):
+        raise ValueError(
+            f"--kaggle-account {value!r} lists an account twice (duplicate)"
+        )
+    return sorted(names, key=_account_number)
+
+
+def _account_number(name: str) -> tuple[int, str]:
+    digits = "".join(character for character in name if character.isdigit())
+    return (int(digits) if digits else 0, name)
+
+
 def resolve_session_contexts(
     kaggle_account: str | None,
     *,
     env_file: Path = DEFAULT_ENV_PATH,
 ) -> tuple[KaggleExecutionContext, ...]:
-    """Accounts a quota-aware session may use: every profile for `auto`, else one."""
+    """Accounts a quota-aware session may use.
+
+    `auto` is every profile; `acc1,acc3` is exactly those profiles (in account order);
+    one name is that account; `None` is the default account."""
     if kaggle_account is not None and kaggle_account.strip().casefold() == AUTO_ACCOUNT:
         contexts = resolve_profile_execution_contexts(env_file=env_file)
+    elif kaggle_account is not None and "," in kaggle_account:
+        contexts = tuple(
+            resolve_execution_context(name, env_file=env_file)
+            for name in _listed_accounts(kaggle_account)
+        )
     else:
         contexts = (resolve_execution_context(kaggle_account, env_file=env_file),)
     if not contexts or any(context.profile is None for context in contexts):
