@@ -348,3 +348,19 @@ in danh sách file, dataset private xoá sau khi thu kết quả, trần độ s
 - Lượt đo độ trễ concurrency 1 dùng lát 100 câu `spread` mỗi cấu hình.
 - Cờ `--with-proxy-credentials` bật theo từng lần chạy; dataset credential xoá sau khi thu kết quả.
 - `--judge` gối đầu là cờ tuỳ chọn.
+
+## Kết quả nghiệm thu (2026-10-23, job Kaggle thật)
+
+Chạy bằng acc1, acc2, acc3; mỗi kernel dùng khoảng 0,4 đến 0,6 giờ GPU.
+
+| Bước | Kết quả |
+| --- | --- |
+| 1. Dựng môi trường, 40 cặp (`full`, `no-rerank`, 20 câu) | Đạt. Dựng môi trường khoảng 8 phút (venv 5 s, Postgres 47 s, Qdrant 3 s, model server 157 đến 273 s, nhập corpus 220 s), không phải nửa giờ. `e2e status` báo 20/20 mỗi cấu hình. Kernel lần đầu lỗi ở lượt chạy thứ hai của harness (`run.json` có khối `software`), nhưng vẫn để lại 20/40 câu và lệnh gộp được: giả định "kernel lỗi vẫn giữ output" đúng. |
+| 2. Ép dừng theo hạn (100 câu, phiên 1 giờ) | Đạt. Kernel nhận 49 câu rồi ngừng nhận câu mới, lượt thử lại không chạy thêm, đóng gói sau 2.450 s; máy gộp 49/100 và scheduler tự lập shard mới cho đúng 51 câu còn lại. |
+| 3. Dừng bằng Ctrl-C và nối lại | Đạt. Chạy lại cùng lệnh báo "already runs this job's kernel; attaching", cùng shard, không đẩy kernel mới; kết quả cuối 100 dòng, 100 câu khác nhau, không câu nào chạy thừa; gộp được kết quả của hai kernel (hai `release_id` khác nhau). |
+| 4. Đổi account (acc3) với `--limit 130` | Đạt. Chỉ phần thiếu được giao cho acc3, acc3 tự upload input tĩnh của nó, mọi bản ghi cũ của acc1 còn nguyên. |
+| 5. Gemini qua proxy trong kernel (`--llm gemini --with-proxy-credentials`, 10 câu, một file credential) | Đạt. `cli-proxy-api` lên sau 2,6 s, 10 câu: 7 hoàn tất, 3 một phần. Dataset credential bị xoá khi lệnh kết thúc; credential cục bộ vẫn dùng được (39 model, gọi `gemini-3.8-flash-high` bình thường), nên không bị vô hiệu do xoay vòng token. |
+
+Lỗi chỉ lộ ra ở job thật, đã sửa kèm test: (1) lượt chạy thứ hai của harness trong cùng kernel từ chối `run.json` có khối `software`; (2) Qdrant trong kernel lắng nghe `0.0.0.0` (nay `127.0.0.1`); (3) file credential xuất từ volume Docker thuộc `root` nên chính lệnh không đọc được; (4) bản phát hành proxy đặt tên chương trình `cli-proxy-api`, không phải `CLIProxyAPI`; (5) dataset credential không bị xoá khi Ctrl-C được bấm hai lần (nay xoá bỏ qua SIGINT); (6) 8 request cùng lúc làm Gemini trả 429 `model_cooldown` cho nửa số câu, nay trần là 4 (Opus 2); (7) thư mục credential trong kernel chứa nhầm `dependency_manifest.json`; (8) `merged` đếm dòng lỗi thay vì câu xong.
+
+Chưa thử trên Kaggle thật: hai kernel chạy song song trên nhiều account, `rerank`, embedding corpus và truy vấn qua scheduler mới, Claude/Opus qua proxy, `--judge` cùng kernel.
