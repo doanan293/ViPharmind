@@ -148,6 +148,7 @@ from pharma_lab.e2e.sampling import (
 )
 from pharma_lab.evaluation.backend_retrieval import load_query_rows
 from pharma_lab.evaluation.relevance_judgments import judgments_path, load_judgments
+from pharma_lab.integrations.kaggle.job_lock import kaggle_job_lock
 from pharma_lab.integrations.kaggle.quota import AccountQuota
 from pharma_lab.integrations.kaggle.workspace import unwind_on_sigterm
 
@@ -609,6 +610,7 @@ def kaggle_adapter(
         build_static=lambda target: build_static_inputs(plan.golden_path, target),
         commit=git_commit(Path(__file__).resolve().parent),
         credentials=credentials,
+        on_merged=on_merged,
     )
 
 
@@ -896,6 +898,9 @@ def run(
 
             check_no_decision_roles(backend_env_file)
             with (
+                # One command per run: two would cut the same missing pairs into
+                # different shards and run them twice.
+                kaggle_job_lock(E2E_KAGGLE_WORK_DIR / plan.run_name),
                 unwind_on_sigterm(),
                 credential_session(
                     plan,

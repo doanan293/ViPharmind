@@ -25,6 +25,7 @@ from pharma_lab.integrations.kaggle.models import PipelineResult
 from pharma_lab.integrations.kaggle.service import KaggleExecutionContext
 from pharma_lab.integrations.kaggle.sessions import (
     ACCOUNT_WAIT_SECONDS,
+    SESSION_CAPACITY_MARKER,
     AccountLock,
     KaggleSessionCapacityReached,
     QuotaExhausted,
@@ -187,8 +188,9 @@ class _Scheduler:
         self.reservation_lock = threading.Lock()
 
     def run(self) -> SchedulerReport:
-        self._clear_stale()
+        # Orphans first: a kernel that ended long ago still holds output to download.
         self._queue_orphans()
+        self._clear_stale()
         while True:
             self._launch()
             if not self.live:
@@ -337,6 +339,8 @@ class _Scheduler:
             except KaggleSessionCapacityReached:
                 raise
             except Exception as error:
+                if SESSION_CAPACITY_MARKER in str(error).casefold():
+                    raise KaggleSessionCapacityReached(reserved.profile) from error
                 if not _rate_limited(error) or attempt >= self.settings.backoff_max:
                     raise
                 wait = self.settings.backoff_seconds * 2**attempt

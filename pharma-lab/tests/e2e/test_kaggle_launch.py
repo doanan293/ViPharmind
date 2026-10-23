@@ -142,3 +142,22 @@ def test_status_lists_live_shards_and_work_left(tmp_path: Path) -> None:
     assert (
         status.gpu_hours_needed > 0.5
     )  # the setup of one kernel alone is half an hour
+
+
+def test_no_account_flag_means_every_account(tmp_path: Path) -> None:
+    subject = adapter(tmp_path)
+    asked: list[str | None] = []
+
+    def resolve(account):
+        asked.append(account)
+        return contexts("acc1")
+
+    launch(
+        subject,
+        OPTIONS,
+        resolve_contexts=resolve,
+        registry=registry_for(tmp_path),
+        scheduler=Scheduler(SchedulerStop.COMPLETE),
+    )
+
+    assert asked == ["auto"]

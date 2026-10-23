@@ -137,10 +137,20 @@ class AnswerRecord(ItemRecord):
     react: ReactRecord | None = None
     error: str | None = None
     retryable: bool = False
+    # The kernel session that wrote a failure, so the same failure from two kernels is
+    # two failures and the same kernel's snapshots are one.
+    session: str | None = None
 
     @classmethod
-    def failed(cls, item_id: str, config: str, error: BaseException) -> AnswerRecord:
+    def failed(
+        cls,
+        item_id: str,
+        config: str,
+        error: BaseException,
+        session: str | None = None,
+    ) -> AnswerRecord:
         return cls(
+            session=session,
             item_id=item_id,
             config=config,
             status="error",

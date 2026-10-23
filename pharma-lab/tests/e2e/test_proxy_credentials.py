@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -90,7 +91,9 @@ class Deleter:
             raise RuntimeError("kaggle said no")
 
 
-def dataset(source: Path, deleter: Deleter, **kwargs) -> CredentialDataset:
+def dataset(
+    source: Path, deleter: Callable[[str, str], None], **kwargs
+) -> CredentialDataset:
     files = select_credentials(list_credentials(source), frozenset({"claude"}), ())
     return CredentialDataset(
         source,
@@ -165,3 +168,46 @@ def test_a_deletion_that_keeps_failing_is_reported_loudly(source: Path) -> None:
     assert loud
     assert "kaggle datasets delete user1/pipeline-cred-x" in loud[0]
     assert SECRET not in " ".join(said)
+
+
+def test_the_staged_proxy_config_drops_the_local_keys_and_management_secret(
+    source: Path, tmp_path: Path
+) -> None:
+    template = tmp_path / "config.yaml"
+    template.write_text(
+        'host: ""\napi-keys:\n  - "local-secret-key"\nremote-management:\n'
+        '  secret-key: "management-hash"\npayload:\n  keep: true\n',
+        encoding="utf-8",
+    )
+    files = select_credentials(list_credentials(source), frozenset({"claude"}), ())
+    credentials = CredentialDataset(
+        source,
+        files,
+        run_name="r1",
+        template=template,
+        deleter=Deleter(),
+        say=lambda _line: None,
+    )
+
+    with credentials:
+        staged = (credentials.stage_dir / "proxy-config.yaml").read_text()
+
+    assert "payload:" in staged and "keep: true" in staged
+    assert "local-secret-key" not in staged
+    assert "management-hash" not in staged
+
+
+def test_a_deleter_that_raises_something_unexpected_does_not_hide_the_leftovers(
+    source: Path,
+) -> None:
+    said: list[str] = []
+
+    def broken(profile: str, reference: str) -> None:
+        raise ValueError("no such account")
+
+    with dataset(source, broken, say=said.append, retry_pause=0.0) as credentials:
+        credentials.used("acc1", "user1/pipeline-cred-x")
+        credentials.used("acc2", "user2/pipeline-cred-y")
+
+    loud = [line for line in said if "STILL ON KAGGLE" in line]
+    assert len(loud) == 2

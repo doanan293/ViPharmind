@@ -173,7 +173,8 @@ def _state(history: Sequence[tuple[str, AnswerRecord]], *, retry_stuck: bool) ->
         return "missing"
     if last.status != "error" or not last.retryable:
         return "done"
-    errors = Counter(line for line, record in history if record.status == "error")
+    # By message, not by line: a failure repeated by another kernel differs in `session`.
+    errors = Counter(record.error for _, record in history if record.status == "error")
     failed_for_good = sum(errors.values()) >= MAX_FAILURES or max(errors.values()) >= 2
     if failed_for_good and not retry_stuck:
         return "stuck"
@@ -207,7 +208,8 @@ def _check_identity(
     *,
     software_check: bool,
 ) -> list[str]:
-    ignored = {*INFORMATIONAL, "software"}
+    # Every kernel imports the corpus into its own Postgres and so into its own release.
+    ignored = {*INFORMATIONAL, "software", "release_id"}
     left = {k: v for k, v in stored.items() if k not in ignored}
     right = {k: v for k, v in incoming.items() if k not in ignored}
     changed = sorted(k for k in set(left) | set(right) if left.get(k) != right.get(k))

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import threading
 from collections import defaultdict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -21,18 +22,22 @@ from pydantic import ValidationError
 
 from pharma_lab.e2e.configs import E2EConfig, config_label
 from pharma_lab.e2e.golden import Category, GoldenItem
+from pharma_lab.e2e.golden_changes import reconcile_golden
 from pharma_lab.e2e.llm_presets import LlmPreset
 from pharma_lab.e2e.records import ANSWERS_FILE, AnswerRecord
+from pharma_lab.e2e.run_identity import RUN_FILE
 from pharma_lab.e2e.work_state import (
     WorkReport,
     merge_shard,
     missing_pairs,
     select_universe,
 )
+from pharma_lab.integrations.kaggle.artifacts import sha256_file
 from pharma_lab.integrations.kaggle.e2e_stage import (
     CREDENTIALS_FILE,
     E2E_MODELS,
     JOB_FILE,
+    META_FILE,
 )
 from pharma_lab.integrations.kaggle.job_registry import ShardRecord
 from pharma_lab.integrations.kaggle.models import (
@@ -188,6 +193,9 @@ class E2EShardAdapter:
         self.plan = plan
         self.run_root = run_root
         self.work_dir = work_dir
+        self._golden = list(golden)
+        self._static_lock = threading.Lock()
+        self._reconciled = False
         self._universe = select_universe(
             golden, categories=plan.categories, limit=plan.limit
         )
@@ -215,7 +223,21 @@ class E2EShardAdapter:
             retry_stuck=self.plan.retry_stuck,
         )
 
+    def _reconcile_golden(self) -> None:
+        """Mark answers of revised golden items superseded, as the local harness does,
+        so they are answered again instead of staying done under the old question."""
+        if self._reconciled:
+            return
+        self._reconciled = True
+        if not self.plan.golden_path.is_file():
+            return
+        for label in self.plan.labels:
+            directory = self.run_root / label
+            if (directory / RUN_FILE).is_file():
+                reconcile_golden(directory, self.plan.golden_path, self._golden)
+
     def missing(self) -> Sequence[WorkUnit]:
+        self._reconcile_golden()
         estimates = turn_estimates(self.run_root, self.plan.labels, self._universe)
         category = {item.item_id: item.category for item in self._universe}
         return [
@@ -268,7 +290,13 @@ class E2EShardAdapter:
         return self._merged.pop(shard.shard_id, 0)
 
     def _merge(self, shard: Shard, archive: Path) -> None:
-        report = merge_shard(archive, self.run_root, self.plan.labels)
+        labels = sorted(
+            {
+                *self.plan.labels,
+                *(unit.key.partition(SEPARATOR)[0] for unit in shard.units),
+            }
+        )
+        report = merge_shard(archive, self.run_root, labels)
         self._merged[shard.shard_id] += report.appended
         for warning in report.warnings:
             self._log(f"warning: {warning}")
@@ -300,10 +328,34 @@ class E2EShardAdapter:
             encoding="utf-8",
         )
 
+    def _static_inputs(self) -> Path:
+        """The inputs every shard shares, built whole once per golden set.
+
+        Built beside the final name and moved into place, so a shard that starts while
+        another is building waits for the lock and a crash leaves no half-built tree."""
+        golden = self.plan.golden_path
+        key = sha256_file(golden)[:16] if golden.is_file() else "none"
+        static = self.work_dir / f"static-{key}"
+        with self._static_lock:
+            if not (static / COMPLETE_MARK).is_file():
+                partial = self.work_dir / f".static-{key}.partial"
+                shutil.rmtree(partial, ignore_errors=True)
+                shutil.rmtree(static, ignore_errors=True)
+                self._build_static(partial)
+                (partial / COMPLETE_MARK).write_text("ok\n", encoding="utf-8")
+                os.replace(partial, static)
+        return static
+
+    def _entry_for(self, label: str) -> Entry:
+        """The plan's entry, or one read back from a label a relaunched shard carries
+        (the command was narrowed since the shard was cut)."""
+        if label in self._entries:
+            return self._entries[label]
+        config, *options = label.split("+")
+        return Entry(E2EConfig(config), tuple(options))
+
     def _write_job(self, shard: Shard, directory: Path) -> Path:
-        static = self.work_dir / "static"
-        if not static.is_dir():
-            self._build_static(static)
+        static = self._static_inputs()
         directory.mkdir(parents=True, exist_ok=True)
         link_tree(static, directory)
         by_label: dict[str, list[str]] = defaultdict(list)
@@ -312,9 +364,15 @@ class E2EShardAdapter:
             by_label[label].append(item_id)
         entries = [
             {
-                "config": self._entries[label].config.value,
-                "pipeline_options": list(self._entries[label].pipeline_options),
-                "item_ids": sorted(ids, key=self._order.__getitem__),
+                "config": self._entry_for(label).config.value,
+                "pipeline_options": list(self._entry_for(label).pipeline_options),
+                "item_ids": sorted(
+                    ids,
+                    key=lambda item_id: (
+                        self._order.get(item_id, len(self._order)),
+                        item_id,
+                    ),
+                ),
             }
             for label, ids in sorted(by_label.items())
         ]
@@ -324,18 +382,26 @@ class E2EShardAdapter:
             "concurrency": self.plan.concurrency,
             "shards": entries,
             "deadline_seconds": self.plan.deadline_seconds,
-            "commit": self._commit,
         }
         path = directory / JOB_FILE
         path.write_text(
             json.dumps(job, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
+        # Beside the job, not in it: a commit must not rename the kernel of a shard.
+        (directory / META_FILE).write_text(
+            json.dumps({"commit": self._commit}) + "\n", encoding="utf-8"
+        )
         return path
+
+
+COMPLETE_MARK = ".complete"
 
 
 def link_tree(source: Path, target: Path) -> None:
     """Mirror `source` under `target` with hard links (copies across filesystems)."""
     for path in sorted(source.rglob("*")):
+        if path.name == COMPLETE_MARK:
+            continue
         destination = target / path.relative_to(source)
         if path.is_dir():
             destination.mkdir(parents=True, exist_ok=True)

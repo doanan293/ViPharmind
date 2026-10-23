@@ -890,3 +890,28 @@ def test_local_backend_rejects_kernel_recovery(complete_run):
         fake_local_backend().run(
             replace(request(complete_run, MODEL), recover_kernel=KERNEL)
         )
+
+
+def test_kaggle_rerank_without_an_account_flag_uses_every_account(
+    complete_run, kaggle_sessions, monkeypatch
+):
+    asked: list[str | None] = []
+
+    def resolve(account):
+        asked.append(account)
+        return _session_contexts("acc1", "acc2")
+
+    monkeypatch.setattr(kaggle_service, "resolve_session_contexts", resolve)
+    monkeypatch.setattr(
+        kaggle_service,
+        "run_kaggle_stage",
+        lambda **_kwargs: SimpleNamespace(
+            completion=Completion(1, 0, 1), actions=(), artifact_path=None
+        ),
+    )
+
+    KaggleRerankBackend().run(
+        replace(request(complete_run, MODEL, dry_run=True), budget_seconds=21_600)
+    )
+
+    assert asked == ["auto"]

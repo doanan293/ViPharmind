@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 import pharma_lab.cli.commands.kaggle as kaggle_command
 from pharma_lab.cli.app import app
+from pharma_lab.integrations.kaggle.api import KaggleCommandRunner
 from pharma_lab.integrations.kaggle.job_registry import JobRegistry, ShardRecord
 from pharma_lab.integrations.kaggle.quota import AccountQuota
 
@@ -18,10 +19,11 @@ runner = CliRunner()
 NOW = datetime.now(UTC)
 
 
-class Listing:
+class Listing(KaggleCommandRunner):
     """Fake Kaggle CLI: `datasets list --mine` answers with the account's datasets."""
 
     def __init__(self, refs: list[str], fail: bool = False) -> None:
+        super().__init__(environment={})
         self.refs = refs
         self.fail = fail
         self.calls: list[list[str]] = []
@@ -61,8 +63,8 @@ def wire(monkeypatch, listings: dict[str, Listing], quotas: dict[str, float | No
             tuple(quotas) if account in (None, "auto") else tuple(account.split(","))
         )
         return tuple(
-            replace(context, runner=listings[context.profile.name])  # type: ignore[union-attr]
-            for context in contexts(*names)
+            replace(context, runner=listings[name])
+            for name, context in zip(names, contexts(*names), strict=True)
         )
 
     def read_quota(context):

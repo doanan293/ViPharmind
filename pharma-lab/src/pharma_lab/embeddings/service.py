@@ -119,7 +119,7 @@ class KaggleTextEmbeddingBackend:
         from pharma_lab.integrations.kaggle.auto_profile import (
             ensure_runtime_profile,
         )
-        from pharma_lab.integrations.kaggle.job_registry import JobRegistry
+        from pharma_lab.integrations.kaggle.job_registry import shared_registry
         from pharma_lab.integrations.kaggle.models import StageName
         from pharma_lab.integrations.kaggle.scheduler import (
             SchedulerSettings,
@@ -200,7 +200,7 @@ class KaggleTextEmbeddingBackend:
         report = run_shards(
             adapter,
             contexts,
-            JobRegistry(work_dir / "jobs.json"),
+            shared_registry(work_dir / "jobs.json", WORK_DIR),
             SchedulerSettings(
                 parallel=request.parallel or 2 * len(contexts),
                 budget_seconds=request.budget_seconds,

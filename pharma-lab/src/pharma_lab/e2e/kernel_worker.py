@@ -17,6 +17,7 @@ import tarfile
 import tempfile
 import time
 import urllib.request
+import uuid
 import zipfile
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import ExitStack, contextmanager
@@ -408,6 +409,8 @@ def run_e2e_worker(config: dict) -> CloudArtifact:
     job.update(
         shards=entries,
         stop_at=stop_at_from_config(config),
+        session=uuid.uuid4().hex,
+        commit=config.get("commit") or job.get("commit"),
         software=software_info(config),
     )
     job_path.write_text(json.dumps(job, indent=2) + "\n", encoding="utf-8")

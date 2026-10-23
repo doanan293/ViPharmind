@@ -95,6 +95,7 @@ async def run_items(
     decision_guard: DecisionVersionGuard | None = None,
     stop_at: float | None = None,
     clock: Callable[[], float] = time.time,
+    session: str | None = None,
 ) -> RunSummary:
     """Answer every item without a final record; errors rerun only on request.
 
@@ -126,7 +127,7 @@ async def run_items(
             try:
                 record = await executor.execute(item)
             except Exception as error:  # a failed item must not stop the run
-                record = AnswerRecord.failed(item.item_id, config, error)
+                record = AnswerRecord.failed(item.item_id, config, error, session)
         async with lock:
             if decision_guard is not None:
                 try:
@@ -184,6 +185,8 @@ class E2ERunRequest:
     only_ids: frozenset[str] | None = None
     # No new item starts after this `time.time()` reading (the session deadline).
     stop_at: float | None = None
+    # Names the kernel session in the failures it records (kernel runs).
+    session: str | None = None
     # Versions of what produced the answers, recorded in run.json (kernel runs).
     software: Mapping[str, object] = field(default_factory=dict)
 
@@ -299,6 +302,7 @@ def run_e2e(request: E2ERunRequest) -> RunSummary:
                     retry_errors=request.retry_errors,
                     decision_guard=DecisionVersionGuard(directory),
                     stop_at=request.stop_at,
+                    session=request.session,
                 )
             )
         finally:

@@ -416,3 +416,49 @@ def test_judging_context_starts_and_stops_the_follower(tmp_path, monkeypatch):
         "notify:full",
         "stop:False",
     ]
+
+
+def test_a_second_command_on_the_same_run_is_refused(wired, monkeypatch, tmp_path):
+    from pharma_lab.config import paths
+    from pharma_lab.integrations.kaggle.job_lock import kaggle_job_lock
+
+    monkeypatch.setattr(paths, "LOCK_DIR", tmp_path / "locks")
+    launcher = Launcher(outcome(0, SchedulerStop.COMPLETE))
+    monkeypatch.setattr(e2e_command, "launch", launcher)
+
+    with kaggle_job_lock(wired["work"] / "r1"):
+        result = runner.invoke(app, BASE)
+
+    assert result.exit_code == 1
+    assert launcher.options is None  # nothing was scheduled
+
+
+def test_kaggle_adapter_hands_on_merged_to_the_adapter(monkeypatch, tmp_path):
+    from tests.e2e.test_kaggle_shards import FULL
+
+    from pharma_lab.e2e.kaggle_shards import make_plan
+    from pharma_lab.e2e.llm_presets import PRESETS
+
+    captured: dict[str, object] = {}
+
+    class Spy:
+        def __init__(self, *_args, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(e2e_command, "E2EShardAdapter", Spy)
+    monkeypatch.setattr(e2e_command, "load_golden", lambda _path: [])
+    plan = make_plan(
+        run_name="r1",
+        entries=[FULL],
+        golden_path=tmp_path / "g",
+        categories=None,
+        limit=None,
+        llm=PRESETS["qwen"],
+    )
+
+    def notify(labels):
+        return None
+
+    e2e_command.kaggle_adapter(plan, budget_seconds=3600, on_merged=notify)
+
+    assert captured["on_merged"] is notify

@@ -75,11 +75,15 @@ def adapter(
     latency=False,
     credentials=None,
     on_merged=None,
+    golden_items=None,
+    golden_path=None,
+    build_static=static_builder,
+    commit="abc1234",
 ) -> E2EShardAdapter:
     plan = make_plan(
         run_name="r1",
         entries=entries,
-        golden_path=tmp_path / "golden.jsonl",
+        golden_path=golden_path or tmp_path / "golden.jsonl",
         categories=categories,
         limit=limit,
         llm=PRESETS["qwen"],
@@ -87,7 +91,7 @@ def adapter(
     )
     return E2EShardAdapter(
         plan,
-        golden=ITEMS,
+        golden=golden_items or ITEMS,
         run_root=tmp_path / "runs" / plan.run_name,
         work_dir=tmp_path / "work",
         stage_runner=runner or Runner(tmp_path),
@@ -99,8 +103,8 @@ def adapter(
             logical_batch_size=4096,
             physical_batch_size=4096,
         ),
-        build_static=static_builder,
-        commit="abc1234",
+        build_static=build_static,
+        commit=commit,
         credentials=credentials,
         on_merged=on_merged,
     )
@@ -369,3 +373,115 @@ def test_merged_answers_notify_the_follower_with_the_shard_labels(
     subject.merge(shard, result)  # nothing new the second time
 
     assert notified == [["full"]]
+
+
+def test_parallel_shards_wait_for_one_whole_static_build(tmp_path: Path) -> None:
+    import threading
+
+    golden = tmp_path / "golden.jsonl"
+    golden.write_text("{}\n", encoding="utf-8")
+    builds: list[Path] = []
+    half_built = threading.Event()
+    seen: list[list[str]] = []
+
+    def slow_builder(root: Path) -> None:
+        builds.append(root)
+        root.mkdir(parents=True)
+        (root / "a.json").write_text("a", encoding="utf-8")
+        half_built.set()
+        threading.Event().wait(0.3)  # long enough for a second shard to look
+        (root / "b.json").write_text("b", encoding="utf-8")
+
+    runner = Runner(tmp_path)
+    subject = adapter(tmp_path, runner, golden_path=golden, build_static=slow_builder)
+
+    def shard(name: str) -> None:
+        unit = WorkUnit(key("full", ITEMS[0]), 1.0)
+        subject.run_shard(Shard(name, (unit,), ""), reserved())
+        directory = Path(runner.calls[-1]["input_path"]).parent
+        seen.append(sorted(p.name for p in directory.iterdir() if p.suffix == ".json"))
+
+    first = threading.Thread(target=shard, args=("s1",))
+    first.start()
+    half_built.wait(5)
+    second = threading.Thread(target=shard, args=("s2",))
+    second.start()
+    first.join()
+    second.join()
+
+    assert len(builds) == 1
+    assert all("a.json" in names and "b.json" in names for names in seen)
+
+
+def test_a_golden_change_builds_the_static_inputs_again(tmp_path: Path) -> None:
+    golden = tmp_path / "golden.jsonl"
+    golden.write_text("one\n", encoding="utf-8")
+    builds: list[Path] = []
+
+    def builder(root: Path) -> None:
+        builds.append(root)
+        static_builder(root)
+
+    subject = adapter(tmp_path, golden_path=golden, build_static=builder)
+    shard = shard_of([key("full", ITEMS[0])])
+
+    subject.run_shard(shard, reserved())
+    subject.run_shard(shard, reserved())
+    golden.write_text("two\n", encoding="utf-8")
+    subject.run_shard(shard, reserved())
+
+    assert len(builds) == 2
+
+
+def test_a_revised_golden_item_is_answered_again(tmp_path: Path) -> None:
+    from tests.e2e.test_golden_changes import item, make_run, revise, write_golden
+
+    golden = tmp_path / "golden_e2e.jsonl"
+    same = item("e2e-ans-0001", "Liều paracetamol?")
+    write_golden(golden, [same, item("e2e-ans-0002", "ten biet duoc nay la gi?")])
+    run_root = tmp_path / "runs" / "r1"
+    make_run(run_root / "full", golden, ["e2e-ans-0001", "e2e-ans-0002"])
+    revised = [same, item("e2e-ans-0002", "Conpac là biệt dược của hoạt chất nào?")]
+    revise(golden, revised)
+
+    subject = adapter(tmp_path, golden_items=revised, golden_path=golden)
+
+    assert {unit.key for unit in subject.missing()} == {f"full{SEPARATOR}e2e-ans-0002"}
+
+
+def test_an_orphan_shard_outside_the_narrowed_run_can_still_be_relaunched(
+    tmp_path: Path,
+) -> None:
+    runner = Runner(tmp_path)
+    subject = adapter(tmp_path, runner, limit=1)  # one item, one configuration
+    outside = [key("full+guard=false", ITEMS[3]), key("full", ITEMS[0])]
+
+    subject.run_shard(shard_of(outside), reserved())
+
+    job = json.loads(Path(runner.calls[0]["input_path"]).read_text())
+    assert [(e["config"], e["pipeline_options"]) for e in job["shards"]] == [
+        ("full", []),
+        ("full", ["guard=false"]),
+    ]
+
+
+def test_the_commit_is_not_part_of_the_job_file_so_a_commit_keeps_the_kernel(
+    tmp_path: Path,
+) -> None:
+    jobs = []
+    for commit in ("aaa1111", "bbb2222"):
+        root = tmp_path / commit
+        root.mkdir()
+        runner = Runner(root)
+        subject = adapter(root, runner, commit=commit)
+        subject.run_shard(shard_of([key("full", ITEMS[0])]), reserved())
+        directory = Path(runner.calls[0]["input_path"]).parent
+        jobs.append(
+            (
+                (directory / "e2e_job.json").read_bytes(),
+                json.loads((directory / "shard_meta.json").read_text()),
+            )
+        )
+
+    assert jobs[0][0] == jobs[1][0]
+    assert [meta["commit"] for _, meta in jobs] == ["aaa1111", "bbb2222"]

@@ -27,6 +27,8 @@ JOB_FILE = "e2e_job.json"
 # Written by the machine next to the job when the run uses cli-proxy-api credentials:
 # where they are staged, the dataset slug and a digest. Never the credentials themselves.
 CREDENTIALS_FILE = "proxy_credentials.json"
+# Facts about the shard that must not change its identity (the git commit).
+META_FILE = "shard_meta.json"
 GOLDEN_FILE = "golden_e2e.jsonl"
 REQUIREMENTS_FILE = "backend_requirements.txt"
 CORPUS_DIR = "corpus"
@@ -120,7 +122,7 @@ class E2ERunStage:
         static_keys: list[JSONValue] = [
             item.key for item in input_bundle.files if item.key != "job"
         ]
-        credentials = self._credentials(directory)
+        credentials = self._credentials(directory) | self._meta(directory)
         models = [E2E_MODELS.llm, E2E_MODELS.reranker, E2E_MODELS.embedding]
         servers: list[JSONValue] = [
             _server(E2E_MODELS.llm, LLM_PORT, "0", llm_runtime),
@@ -175,3 +177,11 @@ class E2ERunStage:
             "credentials_slug": str(raw["slug"]),
             "credentials_sha256": str(raw["sha256"]),
         }
+
+    @staticmethod
+    def _meta(directory: Path) -> dict[str, JSONValue]:
+        path = directory / META_FILE
+        if not path.is_file():
+            return {}
+        commit = json.loads(path.read_text(encoding="utf-8")).get("commit")
+        return {"commit": commit} if isinstance(commit, str) else {}

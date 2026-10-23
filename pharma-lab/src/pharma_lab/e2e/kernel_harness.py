@@ -38,6 +38,7 @@ def run_job(job_path: Path, golden_path: Path, run_root: Path) -> None:
                     pipeline_options=tuple(entry.get("pipeline_options", ())),
                     commit=job.get("commit"),
                     stop_at=job.get("stop_at"),
+                    session=job.get("session"),
                     software=job.get("software") or {},
                 )
             )

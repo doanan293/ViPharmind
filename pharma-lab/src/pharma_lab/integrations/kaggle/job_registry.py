@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 from collections import defaultdict
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -30,10 +31,37 @@ class ShardRecord:
     kernel_reference: str | None = None
 
 
+def sibling_registry_paths(work_root: Path) -> list[Path]:
+    """The shard registries of every step under `work_root` (e2e, rerank, embeddings)."""
+    return sorted(
+        [
+            *Path(work_root).glob("e2e-kaggle/*/jobs.json"),
+            *Path(work_root).glob("kaggle-*/*/jobs.json"),
+        ]
+    )
+
+
+def shared_registry(
+    path: Path, work_root: Path, *, lock_root: Path | None = None
+) -> JobRegistry:
+    """A registry whose committed quota also counts the other steps' running shards,
+    because an account's hours are shared by every command that runs on it."""
+    return JobRegistry(
+        path, lock_root=lock_root, peers=lambda: sibling_registry_paths(work_root)
+    )
+
+
 class JobRegistry:
-    def __init__(self, path: Path, *, lock_root: Path | None = None) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        lock_root: Path | None = None,
+        peers: Callable[[], Sequence[Path]] | None = None,
+    ) -> None:
         self.path = Path(path)
         self._lock_root = lock_root
+        self._peers = peers
 
     def register(self, record: ShardRecord) -> None:
         with self._locked():
@@ -54,7 +82,15 @@ class JobRegistry:
     def committed_seconds(self) -> dict[str, int]:
         """Budget already promised to running sessions, by account profile."""
         totals: dict[str, int] = defaultdict(int)
-        for record in self.live():
+        records = self.live()
+        if self._peers is not None:
+            own = self.path.resolve()
+            for other in self._peers():
+                if Path(other).resolve() != own:
+                    records += JobRegistry(
+                        Path(other), lock_root=self._lock_root
+                    ).live()
+        for record in records:
             totals[record.profile] += record.budget_seconds
         return dict(totals)
 

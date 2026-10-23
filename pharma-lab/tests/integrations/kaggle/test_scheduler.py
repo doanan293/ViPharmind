@@ -4,7 +4,7 @@ import threading
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from tests.integrations.kaggle.factories import owners, stage_job
@@ -396,3 +396,38 @@ def test_a_full_account_is_skipped_for_the_next_account(tmp_path: Path) -> None:
     assert report.stop is SchedulerStop.COMPLETE
     first, second = adapter.calls[0], adapter.calls[1]
     assert first.profile != second.profile
+
+
+def test_a_kernel_that_ended_long_ago_is_still_collected(tmp_path: Path) -> None:
+    registry = JobRegistry(tmp_path / "jobs.json", lock_root=tmp_path / "l")
+    old = NOW - timedelta(hours=20)
+    registry.register(
+        ShardRecord("orphan", "fake", "acc2", tuple(keys(3)), old.isoformat(), 7_200)
+    )
+    adapter = FakeAdapter(tmp_path, keys(3))
+
+    run(tmp_path, adapter, registry=registry)
+
+    [call] = [c for c in adapter.calls if c.shard_id == "orphan"]
+    assert call.profile == "acc2"  # its output is downloaded, not forgotten
+
+
+def test_kaggles_capacity_error_moves_the_shard_to_another_account(
+    tmp_path: Path,
+) -> None:
+    adapter = FakeAdapter(tmp_path, keys(3))
+    raised = {"done": False}
+
+    def push_rejected(shard: Shard, reserved: ReservedAccount) -> None:
+        if not raised["done"]:
+            raised["done"] = True
+            raise RuntimeError(
+                "Maximum batch GPU session count of 2 reached for this account"
+            )
+
+    adapter.before_return = push_rejected
+
+    report, _ = run(tmp_path, adapter, parallel=1)
+
+    assert report.stop is SchedulerStop.COMPLETE
+    assert adapter.calls[0].profile != adapter.calls[1].profile

@@ -147,3 +147,21 @@ def test_concurrent_registrations_do_not_lose_records(tmp_path: Path) -> None:
         r.shard_id for r in JobRegistry(path, lock_root=tmp_path / "locks").live()
     )
     assert ids == [f"s{i:02d}" for i in range(12)]
+
+
+def test_committed_seconds_counts_the_shards_of_every_step(tmp_path: Path) -> None:
+    from pharma_lab.integrations.kaggle.job_registry import (
+        shared_registry,
+        sibling_registry_paths,
+    )
+
+    root = tmp_path / "work"
+    rerank = shared_registry(root / "kaggle-rerank-shards" / "m" / "jobs.json", root)
+    e2e = shared_registry(root / "e2e-kaggle" / "r1" / "jobs.json", root)
+    rerank.register(record("a", profile="acc1", budget=3_600))
+    e2e.register(record("b", profile="acc1", budget=7_200))
+    e2e.register(record("c", profile="acc2", budget=1_800))
+
+    assert rerank.committed_seconds() == {"acc1": 10_800, "acc2": 1_800}
+    assert e2e.committed_seconds() == {"acc1": 10_800, "acc2": 1_800}
+    assert sorted(p.parent.name for p in sibling_registry_paths(root)) == ["m", "r1"]

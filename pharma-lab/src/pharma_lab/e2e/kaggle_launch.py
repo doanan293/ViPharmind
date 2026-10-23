@@ -14,7 +14,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pharma_lab.e2e.kaggle_shards import SETUP_SECONDS, E2EShardAdapter
-from pharma_lab.integrations.kaggle.job_registry import JobRegistry, ShardRecord
+from pharma_lab.integrations.kaggle.job_registry import (
+    JobRegistry,
+    ShardRecord,
+    shared_registry,
+)
 from pharma_lab.integrations.kaggle.scheduler import (
     SchedulerReport,
     SchedulerSettings,
@@ -75,7 +79,8 @@ class RunStatus:
 
 
 def registry_for(work_dir: Path) -> JobRegistry:
-    return JobRegistry(work_dir / JOBS_FILE)
+    # <work>/e2e-kaggle/<run>: the work root is two levels up.
+    return shared_registry(work_dir / JOBS_FILE, work_dir.parent.parent)
 
 
 def exit_code_for(stop: SchedulerStop | None, stuck: int) -> int:
@@ -99,7 +104,7 @@ def launch(
     if not adapter.missing():
         stuck = len(adapter.report().stuck)
         return LaunchOutcome(exit_code_for(None, stuck), None, 0, 0, 0, stuck)
-    contexts = resolve_contexts(options.kaggle_account)
+    contexts = resolve_contexts(options.kaggle_account or "auto")
     settings = SchedulerSettings(
         parallel=options.parallel or 2 * len(contexts),
         budget_seconds=options.budget_seconds,

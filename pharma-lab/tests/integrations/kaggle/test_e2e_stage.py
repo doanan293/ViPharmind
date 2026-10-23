@@ -22,6 +22,7 @@ SHARD_ITEMS = (["e2e-inj-0001", "e2e-inj-0002"], ["e2e-inj-0002"])
 
 
 def write_job(tmp_path: Path, configs: list[str]) -> Path:
+    tmp_path.mkdir(parents=True, exist_ok=True)
     directory = tmp_path / "job"
     corpus = directory / "corpus"
     (corpus / "embeddings").mkdir(parents=True)
@@ -146,3 +147,25 @@ def test_proxy_credentials_sidecar_reaches_the_worker_config_without_secrets(tmp
     assert config["credentials_slug"] == "pipeline-cred-1"
     assert config["credentials_sha256"] == "ab"
     assert not any("proxy_credentials" in key for key in job.input_bundle.descriptors())
+
+
+def test_the_commit_of_a_shard_reaches_the_worker_config_not_the_identity(tmp_path):
+    first = write_job(tmp_path / "a", ["no-rerank"])
+    second = write_job(tmp_path / "b", ["no-rerank"])
+    for path, commit in ((first, "aaa"), (second, "bbb")):
+        (path.parent / "shard_meta.json").write_text(json.dumps({"commit": commit}))
+
+    jobs = [
+        E2ERunStage().build_job(
+            stage_request(
+                StageName.E2E_RUN,
+                E2E_MODELS.llm,
+                path,
+                runtime_profile=rerank_runtime_profile(RERANKER),
+            )
+        )
+        for path in (first, second)
+    ]
+
+    assert [job.worker_config["commit"] for job in jobs] == ["aaa", "bbb"]
+    assert jobs[0].identity.sha256 == jobs[1].identity.sha256

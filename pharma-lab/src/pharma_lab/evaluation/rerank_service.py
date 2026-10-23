@@ -46,7 +46,7 @@ from pharma_lab.integrations.kaggle.job_lock import (
     kaggle_cache_lock,
     kaggle_job_lock,
 )
-from pharma_lab.integrations.kaggle.job_registry import JobRegistry
+from pharma_lab.integrations.kaggle.job_registry import shared_registry
 from pharma_lab.runtime.catalog import ModelKind, ModelSpec, require_model
 from pharma_lab.runtime.client import LlamaCppClient
 from pharma_lab.runtime.compose import LlamaCppComposeManager, reranker_environment
@@ -619,7 +619,7 @@ class KaggleRerankBackend:
                 (missing_pairs, "reuse=local score cache"),
             )
 
-        contexts = resolve_session_contexts(request.kaggle_account)
+        contexts = resolve_session_contexts(request.kaggle_account or "auto")
         first = contexts[0]
 
         def benchmark_runner(**benchmark_arguments: Any) -> PipelineResult:
@@ -735,7 +735,9 @@ class KaggleRerankBackend:
         report = run_shards(
             adapter,
             contexts,
-            JobRegistry(WORK_DIR / "kaggle-rerank-shards" / spec.slug / "jobs.json"),
+            shared_registry(
+                WORK_DIR / "kaggle-rerank-shards" / spec.slug / "jobs.json", WORK_DIR
+            ),
             SchedulerSettings(
                 parallel=request.parallel or 2 * len(contexts),
                 budget_seconds=request.budget_seconds,

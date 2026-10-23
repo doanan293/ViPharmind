@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
 
-from pharma_lab.e2e.proxy_kernel import CONFIG_NAME
+from pharma_lab.e2e.proxy_kernel import CONFIG_NAME, without_forced_keys
 
 DOCKER_VOLUME = "vipharmind_cli_proxy_auth"
 DELETE_ATTEMPTS = 3
@@ -153,7 +153,14 @@ class CredentialDataset:
             shutil.copyfile(self._source / file.name, destination)
             destination.chmod(0o600)
         if self._template is not None:
-            shutil.copyfile(self._template, staging / CONFIG_NAME)
+            # Without the local api-keys and management secret: the kernel ignores them.
+            (staging / CONFIG_NAME).write_text(
+                "\n".join(
+                    without_forced_keys(self._template.read_text(encoding="utf-8"))
+                )
+                + "\n",
+                encoding="utf-8",
+            )
             (staging / CONFIG_NAME).chmod(0o600)
         self._staging = staging
         return self
@@ -175,7 +182,7 @@ class CredentialDataset:
             try:
                 self._deleter(profile, reference)
                 return
-            except (OSError, RuntimeError) as error:
+            except Exception as error:  # whatever it is, the dataset must be reported
                 self._say(
                     f"could not delete {reference} (attempt {attempt}/"
                     f"{DELETE_ATTEMPTS}, will retry): {type(error).__name__}"

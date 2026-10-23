@@ -449,3 +449,46 @@ def test_software_check_can_be_switched_off(tmp_path: Path) -> None:
     report = merge_shard(other, run_root, ["full"], software_check=False)
 
     assert report.appended == 1
+
+
+def test_each_kernel_imports_its_own_release_so_release_id_may_differ(
+    tmp_path: Path,
+) -> None:
+    run_root = tmp_path / "run"
+    merge_shard(shard_archive(tmp_path, [done("a")], name="a.tar"), run_root, ["full"])
+    other = shard_archive(
+        tmp_path,
+        [done("b")],
+        identity=run_json(release_id="another-kernel-release"),
+        name="b.tar",
+    )
+
+    report = merge_shard(other, run_root, ["full"])
+
+    assert report.appended == 1
+
+
+def test_the_same_failure_from_two_kernels_counts_twice_but_one_kernel_once(
+    tmp_path: Path,
+) -> None:
+    run_root = tmp_path / "run"
+    first = failed("a", "boom").model_copy(update={"session": "kernel-1"})
+    second = first.model_copy(update={"session": "kernel-2"})
+
+    merge_shard(shard_archive(tmp_path, [first], name="1.tar"), run_root, ["full"])
+    merge_shard(shard_archive(tmp_path, [first], name="1b.tar"), run_root, ["full"])
+    assert len((run_root / "full" / ANSWERS_FILE).read_text().splitlines()) == 1
+
+    merge_shard(shard_archive(tmp_path, [second], name="2.tar"), run_root, ["full"])
+    item = GoldenItem.model_validate(
+        {
+            "item_id": "a",
+            "category": "answerable",
+            "turns": [{"role": "user", "text": "q"}],
+            "expected_behavior": "grounded",
+        }
+    )
+    report = missing_pairs(run_root, ["full"], [item])
+
+    assert len((run_root / "full" / ANSWERS_FILE).read_text().splitlines()) == 2
+    assert [p.item_id for p in report.stuck] == ["a"]  # the same error twice

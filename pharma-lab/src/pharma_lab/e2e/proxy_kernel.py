@@ -52,19 +52,27 @@ def _top_level_key(line: str) -> str | None:
     return line.partition(":")[0].strip()
 
 
-def write_proxy_config(template: Path | None, target: Path, auth_dir: Path) -> Path:
-    """The template minus the settings the kernel forces, behind the forced ones."""
+def without_forced_keys(text: str) -> list[str]:
+    """The lines of a proxy config minus the settings the kernel decides itself (its
+    local keys and management secret included)."""
     kept: list[str] = []
     dropping = False
-    lines = (
-        [] if template is None else template.read_text(encoding="utf-8").splitlines()
-    )
-    for line in lines:
+    for line in text.splitlines():
         key = _top_level_key(line)
         if key is not None:
             dropping = key in FORCED_KEYS
         if not dropping:
             kept.append(line)
+    return kept
+
+
+def write_proxy_config(template: Path | None, target: Path, auth_dir: Path) -> Path:
+    """The template minus the settings the kernel forces, behind the forced ones."""
+    kept = (
+        []
+        if template is None
+        else without_forced_keys(template.read_text(encoding="utf-8"))
+    )
     forced = [
         'host: "127.0.0.1"',
         f"port: {PROXY_PORT}",
