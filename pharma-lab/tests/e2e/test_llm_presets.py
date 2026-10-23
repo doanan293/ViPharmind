@@ -92,3 +92,12 @@ def test_only_the_subscription_presets_have_a_request_ceiling() -> None:
     gemini, opus = PRESETS["gemini"].max_in_flight, PRESETS["opus"].max_in_flight
     assert gemini is not None and opus is not None
     assert opus < gemini  # Claude has the lowest allowance
+
+
+def test_gemini_uses_flash_lite_for_the_cheap_roles() -> None:
+    values = env_for("gemini")
+
+    for role in ("GUARDRAIL", "REPHRASE"):
+        assert values[f"PHARMA_LLM__ROLES__{role}__MODEL"] == "gemini-3.1-flash-lite"
+    for role in ("JUDGE", "REFINE", "ANSWER", "SUMMARIZER", "AGENT"):
+        assert values[f"PHARMA_LLM__ROLES__{role}__MODEL"] == "gemini-3.8-flash-high"

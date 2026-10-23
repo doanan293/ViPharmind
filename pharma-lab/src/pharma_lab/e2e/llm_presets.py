@@ -25,6 +25,8 @@ LLM_ROLES = (
 )
 # Qwen3.5 thinks by default; the pipeline wants one structured decision per call.
 CHAT_EXTRA_BODY = {"chat_template_kwargs": {"enable_thinking": False}}
+# The guard and the rephrase run on the lighter Gemini (spec v2 2.1b).
+CHEAP_ROLES = frozenset({"GUARDRAIL", "REPHRASE"})
 PROXY_BASE_URL = "http://127.0.0.1:8317/v1"
 PROXY_API_KEY = "proxypal-local"
 KERNEL_API_KEY = "kernel"
@@ -69,10 +71,17 @@ PRESETS: Mapping[str, LlmPreset] = MappingProxyType(
         ),
         "gemini": LlmPreset(
             "gemini",
-            _every_role(
-                RoleEndpoint(
-                    "gemini-3.8-flash-high", PROXY_API_KEY, base_url=PROXY_BASE_URL
-                )
+            MappingProxyType(
+                {
+                    role: RoleEndpoint(
+                        "gemini-3.1-flash-lite"
+                        if role in CHEAP_ROLES
+                        else "gemini-3.8-flash-high",
+                        PROXY_API_KEY,
+                        base_url=PROXY_BASE_URL,
+                    )
+                    for role in LLM_ROLES
+                }
             ),
             needs_proxy=True,
             providers=frozenset({"antigravity"}),
