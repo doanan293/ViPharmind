@@ -1,4 +1,4 @@
-# Spec: Chạy e2e trên Kaggle theo kiểu local-first, nối lại được, chia nhiều tài khoản
+# Spec: Mọi bước chạy trên Kaggle theo kiểu local-first, nối lại được, chia nhiều tài khoản
 
 Ngày: 2026-10-23. Trạng thái: chờ duyệt. Nhánh: `v2.0.0`.
 Thay phần "Đường gọi model" của `2026-10-14-paper-v2-design.md` (§2.1b, §2.5) và kế hoạch chạy trên
@@ -12,6 +12,11 @@ không nhắc tunnel (đã đọc Terms, Community Guidelines, Notebooks docs ng
 là tự động và theo quyết định của họ, và mỗi vi phạm chỉ kháng cáo một lần. **Quyết định của người dùng
 (2026-10-23): mọi thứ chạy trong kernel, không tunnel, không mở cổng.** Test
 `tests/integrations/kaggle/test_no_external_exposure.py` giữ quy tắc này.
+
+**Phạm vi (người dùng, 2026-10-23): cơ chế áp dụng cho mọi bước dùng Kaggle**, không chỉ bước e2e cuối:
+embed corpus, embed truy vấn, rerank, các lượt đo profile và e2e. Phần e2e (§4.1 đến §4.8) là bộ
+chuyển đổi khó nhất vì hiện chưa có resume nào; §4.9 nêu lớp điều phối chung và cách từng bước còn lại
+cắm vào.
 
 Spec v2 gốc được viết trước đó nên vẫn giả định mỗi model là một server riêng trên một account và
 một tunnel nối về máy. Cần thiết kế lại cách chạy sao cho đạt ba điều người dùng yêu cầu:
@@ -52,6 +57,19 @@ Hạ tầng đã có và dùng lại được (pipeline rerank đang dùng đún
 - `KernelReconciler.attach_or_recover` và `CloudArtifact.allow_partial`: nối lại kernel đang chạy,
   nhận lại output của kernel lỗi, chấp nhận artifact chưa đủ.
 - `workers/runtime.worker_deadline`: hạn dừng nhận việc mới, chừa biên để xả việc đang chạy.
+
+### 1.1 Các bước Kaggle hiện có (đã đọc `StageName` và nơi gọi `run_kaggle_stage`)
+
+| Bước (lệnh) | Việc còn thiếu tính ở máy | Resume | Xoay account | Song song nhiều account |
+| --- | --- | --- | --- | --- |
+| Embed corpus (`bundle embed --backend kaggle`) | Có: chỉ gửi văn bản chưa có trong cache (`missing_inputs.jsonl`) | Có (checkpoint) | Không: gắn một account (`hold_pinned_account`) | Không |
+| Embed truy vấn (`embed queries --backend kaggle`) | Có: chỉ gửi truy vấn chưa có (`*.missing.jsonl`) | Có | Không: gắn một account | Không |
+| Rerank (`rerank --backend kaggle`) | Có: cache rerank là checkpoint cục bộ | Có | **Có** (`run_account_sessions`, tuần tự) | Không |
+| Đo profile (`*-benchmark`, `auto_profile`) | Không áp dụng (một lượt đo) | Không áp dụng | Có (`reserve_session_account_waiting`) | Không áp dụng |
+| e2e (`e2e run --backend kaggle`) | **Không** | **Không** | Không | Không |
+
+Ba bước nặng nhất (rerank, embed corpus, e2e) đều có thể tách theo "đơn vị việc còn thiếu", nên đều
+hưởng lợi từ chia shard song song nhiều account. Các lượt đo profile là một kernel duy nhất nên giữ nguyên.
 
 ## 2. Nguyên tắc
 
@@ -185,12 +203,50 @@ pharma-lab e2e status --run e2e-v2-qwen9b
 `e2e report --latency-run` đang đọc. Chất lượng không lấy từ lượt đo. Chạy một lượt đo nhiều shard hay
 nhiều bố cục là sai thiết kế nên planner từ chối.
 
-### 4.8 Cấu hình có decision model (Jev)
-Chế độ kernel luôn dùng Qwen cục bộ cho **mọi vai** (`kernel_env`, kể cả `AGENT`), bỏ qua môi trường
-local. Các cấu hình A2, ReAct, quét τ với judge LLM, ablation và biến thể retriever chạy được. Cấu hình
-có vai dùng Jev (A3, A4, nhà cung cấp `systemone`) cần gọi OpenRouter từ kernel, mà kernel chưa có khoá.
-Nếu môi trường local khai báo vai `systemone`, lệnh dừng ngay với thông báo rõ, thay vì chạy âm thầm
-với model khác. Có hai hướng cho A3 và A4 (xem §9, người dùng quyết định).
+### 4.8 Model thương mại và decision model (qua proxy hoặc API)
+
+Hai cách một vai trò (guard, judge, rephrase, answer...) gọi model, chọn theo từng run:
+
+1. **Qwen cục bộ trong kernel** (mặc định, cách đã mô tả ở trên): `kernel_env` đặt mọi vai, kể cả
+   `AGENT`, trỏ vào llama-server trên `127.0.0.1` của chính kernel.
+2. **Model thương mại (Gemini 3.8 Flash, Claude Opus 5.5, judge gemini-3.1-flash-lite) và decision
+   model Jev.** Hiện chỉ gọi được qua `cli-proxy-api` (Docker, `127.0.0.1:8317`) vì credential OAuth
+   nằm ở volume cục bộ, nên kernel Kaggle **không với tới** (không tunnel). Vì vậy chạy ở máy:
+   - Dùng cùng bộ lập kế hoạch, gộp và `status` như chế độ Kaggle, nhưng **bộ thực thi là local**
+     (`--backend local`): shard chạy bằng harness trên máy, độ song song do `--concurrency` và giới hạn
+     của proxy. Dừng và nối lại như nhau (trạng thái là `answers.jsonl`). Không có khái niệm account Kaggle.
+   - Phần cần GPU của các run này (rerank) trên máy chỉ có CPU, chậm (khoảng 10 phút cho 40 tài liệu với
+     model 4B trên laptop i5, theo `docs/guides/e2e-evaluation.md`). Vì vậy các run Gemini và Opus mặc định
+     dùng nhóm không rerank (`no-rerank`, `no-guard-no-rerank`) trừ khi người dùng chọn cách khác.
+   - Judge đánh giá (`gemini-3.1-flash-lite`) luôn chạy ở máy và chạy song song với kernel, không tốn quota.
+3. **Khi người dùng cung cấp khoá API** (Gemini, Anthropic, OpenRouter cho Jev; người dùng đã nói sẽ
+   cung cấp sau): job mang `base_url` và khoá cho từng vai trong một dataset **private** của account chạy,
+   kernel gọi thẳng nhà cung cấp (kết nối đi ra, không cổng nào mở). Khi đó các run thương mại cũng
+   chạy trong kernel với reranker GPU, chia shard như Qwen. **Thiết kế chừa chỗ nhưng lần này không làm:**
+   `kernel_env` nhận bản đồ vai trò → điểm cuối; chưa có cờ, chưa có xử lý khoá.
+   Trước khi có khoá, lệnh dừng với thông báo rõ nếu môi trường local khai báo vai `systemone` (Jev)
+   cho chế độ kernel, thay vì chạy âm thầm với model khác.
+
+(Proxy round-robin của bố cục B ở §4.2 là một thứ khác: nó chỉ nằm trong kernel, nghe `127.0.0.1`.)
+
+### 4.9 Lớp điều phối chung cho mọi bước Kaggle
+
+Tách phần dùng chung ra khỏi từng bước để mọi bước có cùng hành vi: dừng và nối lại, đổi account,
+chia shard song song, `status`.
+
+- **Lớp chung** (module do builder đặt tên): lập danh sách account được phép và quota, giữ khoá theo
+  account, chạy thread pool các shard, ghi `jobs.json` toàn cục, nối lại kernel đang chạy, backoff khi
+  Kaggle trả 429, in bảng quota và giờ reset. Dùng lại `sessions.py`, `quota.py`, `KernelReconciler`.
+- **Bộ chuyển đổi cho mỗi bước** cung cấp ba việc: (1) liệt kê đơn vị việc còn thiếu từ kho cục bộ
+  (embed: văn bản hoặc truy vấn chưa có trong cache; rerank: cặp (truy vấn, đoạn) chưa có điểm; e2e: cặp
+  (cấu hình, câu)); (2) dựng đầu vào cho một lát đơn vị việc; (3) gộp artifact về kho cục bộ,
+  idempotent. Tất cả bước đã có (1) và (3) dưới dạng cache; phần mới là chia lát và chạy song song.
+- **Lệnh nhận cùng cờ**: `--kaggle-account auto|acc1,acc3` (mặc định `auto`, không còn gắn một account),
+  `--parallel N`, `--budget-seconds`, `--max-sessions`; thêm `pharma-lab kaggle status` liệt kê mọi kernel
+  đang chạy và quota của mọi account, và `e2e status` / `rerank --status` cho từng bước.
+- Thứ tự áp dụng theo lợi ích: rerank (tiêu nhiều giờ GPU nhất và đã có hạ tầng) và e2e (chưa có resume),
+  rồi embed corpus và embed truy vấn. Lượt đo profile giữ nguyên.
+- Dữ liệu và định danh cache của từng bước **không đổi**, nên không phải làm lại gì đã có.
 
 ## 5. Dọn tư duy tunnel (một lượt, cùng lần sửa)
 
@@ -202,12 +258,13 @@ với model khác. Có hai hướng cho A3 và A4 (xem §9, người dùng quy�
   `embed-server`. Plan và spec của camera-ready là lịch sử, chỉ thêm ghi chú đầu trang.
 - `pharma-lab/docs/guides/e2e-evaluation.md`, `cli-reference.md`, `workflow-local-kaggle.md`: mô tả
   quy trình mới (lệnh, `status`, dừng và nối lại, đổi account).
+- `evaluation.md`, `workflow-local-kaggle.md` (embed corpus, embed truy vấn, rerank): cùng cờ mới và cách dừng, nối lại, đổi account.
 - Memory: ghi quyết định này.
 
 ## 6. Ngoài phạm vi
 
 Tunnel, mở cổng hay phục vụ model ra ngoài kernel; resume *bên trong* một kernel; chia một câu hỏi
-giữa nhiều kernel; đưa khoá OpenRouter vào kernel nếu người dùng chọn hướng "Jev chạy ở máy" (§9); tự động hoá judge và báo cáo; đổi hạ tầng rerank, embed hiện có;
+giữa nhiều kernel; xử lý khoá API (OpenRouter, Gemini, Anthropic): người dùng cung cấp sau, thiết kế chỉ chừa chỗ (§4.8); tự động hoá judge và báo cáo; đổi hạ tầng rerank, embed hiện có;
 đụng `camera-ready`, `main`, tag `v1.1.0` hay dataset của bài.
 
 ## 7. Kiểm thử và tiêu chí chấp nhận
@@ -221,6 +278,9 @@ giữa nhiều kernel; đưa khoá OpenRouter vào kernel nếu người dùng c
 - Thật: một job thử khoảng 20 câu × 2 cấu hình trên một account (khoảng 1 đến 1,5 giờ GPU, cần quota
   sau reset 2026-10-24) để đo thời gian dựng môi trường, VRAM của từng server, và kiểm chứng giả định ở
   §4.3 bằng cách đặt `--budget-seconds` ngắn để ép dừng theo hạn và xem output có về không.
+- Mỗi bộ chuyển đổi (rerank, embed corpus, embed truy vấn, e2e) có test: liệt kê đơn vị còn thiếu, chia lát
+  không trùng và không sót, gộp idempotent; lớp chung có test với account giả (hết quota thì chuyển account,
+  kernel mồ côi không làm sai dữ liệu).
 - ruff, pyrefly, `lint-imports` và pytest của `pharma-lab` (và `backend` nếu chạm) đều xanh; code mới
   nằm đúng tầng (`e2e` cho điều phối và worker, `integrations/kaggle` cho phần Kaggle).
 
@@ -234,12 +294,13 @@ Tên và vị trí module mới, định dạng `jobs.json`, thuật toán chia 
 **Của người dùng (đã chốt):** chạy trong kernel, không tunnel; ba mục tiêu: nhanh nhất, dừng và nối
 lại dễ, đổi account dễ; sửa toàn bộ trong một lượt.
 
-**Cần người dùng quyết trước khi lập kế hoạch:**
-1. A3 và A4 (cấu hình chính của bài, có Jev) với Qwen: cho phép khoá OpenRouter nằm trong một dataset
-   private của account chạy (chỉ để kernel gọi ra OpenRouter, tức kết nối đi ra)? Nếu **có**, thêm cờ
-   `--with-decision-model` đưa khoá vào dataset private riêng cho lượt chạy và xoá sau khi thu; nếu
-   **không**, A3 và A4 với Qwen chạy ở máy và không có phần Qwen trong kernel.
-2. Kích thước lát câu hỏi cho lượt đo độ trễ concurrency 1 (§4.7).
+**Hoãn theo người dùng:** mọi vấn đề khoá API (Jev trong kernel, Gemini và Anthropic gọi thẳng từ
+kernel); người dùng sẽ cung cấp sau.
+
+**Còn mở, có mặc định (không chặn kế hoạch):**
+- Các run Gemini và Opus chạy ở máy theo nhóm không rerank (§4.8) cho đến khi có khoá. Người dùng có thể
+  chọn khác (ví dụ chờ khoá để rerank trong kernel).
+- Lượt đo độ trễ concurrency 1 (§4.7) dùng lát 100 câu `spread` mỗi cấu hình.
 
 **Của mình (có thể đổi):**
 - Mỗi account một shard một lúc theo mặc định.
