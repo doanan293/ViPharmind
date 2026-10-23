@@ -124,6 +124,11 @@ pharma-lab e2e status --run e2e-v2-qwen9b
 - Trước khi gộp, kiểm danh tính: `run.json` của shard phải khớp `run.json` của cấu hình trên máy
   (golden sha256, release, settings, pipeline). Khác thì dừng với thông báo rõ. Commit khác nhau chỉ
   cảnh báo.
+- **Độ chính xác khi gộp nhiều kernel:** mỗi shard ghi vào `run.json` sha256 của từng file model,
+  phiên bản `llama-server` và `cli-proxy-api`, phiên bản backend và mức suy luận của từng vai. Gộp hai
+  shard khác sha256 model hoặc khác bản `llama-server` bị **từ chối** (kết quả không còn so sánh được);
+  khác phiên bản proxy thì cảnh báo. Mục đích là mọi cặp của một run đến từ cùng một phần mềm và cùng
+  trọng số, dù chạy ở account nào.
 
 ### 4.2 Chia shard
 - Đơn vị việc là cặp (cấu hình, câu). Một shard gồm nhiều cấu hình **cùng bố cục máy chủ** trên cùng
@@ -143,9 +148,16 @@ pharma-lab e2e status --run e2e-v2-qwen9b
   `data/evaluation/e2e/runs/e2e-qwen35-9b/*/answers.jsonl`); chưa có thì dùng hằng số mặc định, sau
   mỗi shard xong ước lượng được cập nhật từ chính kết quả. Cùng đầu vào cho cùng cách chia (tất định).
   Không chia quá nhỏ vì mỗi shard trả lại chi phí dựng môi trường.
-- Số shard chạy song song là `min(--parallel, số account còn quota)`; mặc định `--parallel` bằng số
-  account được phép dùng, mỗi account **một shard một lúc** (mặc định của mình, giảm số phiên đồng
-  thời trên mỗi account; đổi bằng `--parallel` lớn hơn).
+- Số shard chạy song song là `min(--parallel, tổng số phiên GPU còn trống)`. Kaggle cho **hai phiên GPU
+  batch cùng lúc mỗi account** (`SESSION_CAPACITY_MARKER`), nên với ba account có tối đa sáu shard cùng
+  lúc. Mặc định `--parallel` dùng đủ hai phiên mỗi account, để thời gian thực ngắn nhất; tổng giờ GPU
+  không đổi và quota mỗi tuần vẫn là giới hạn thật. Trần riêng theo nhà cung cấp (§4.8) vẫn áp dụng.
+  Planner không đưa việc cho account không còn đủ quota cho một shard.
+- **Cân tải ở đuôi:** khi một kernel xong sớm, điều phối lập ngay shard mới từ phần chưa giao cho kernel
+  nào (kể cả phần đã thu của kernel chết), nên không account nào ngồi chờ kernel chậm nhất.
+- **Độ lớn shard là hàm của chi phí dựng môi trường** `S`: không tách khi việc của một shard nhỏ hơn
+  `S` (chi phí dựng lấn át), và mỗi shard dài tối đa khoảng 2 giờ (mặc định, tinh chỉnh sau khi đo `S`)
+  để việc dừng và chạy lại ít tốn kém.
 
 ### 4.3 Phía kernel (`kernel_worker`, `kernel_harness`)
 - `e2e_job.json` mang danh sách cặp (cấu hình, câu) của shard. Harness chỉ chạy các cặp đó (thêm bộ
@@ -178,6 +190,10 @@ pharma-lab e2e status --run e2e-v2-qwen9b
   làm sai dữ liệu vì mọi thứ tính lại từ trạng thái máy.
 - Dùng lại `QuotaExhausted`, `KaggleSessionCapacityReached`, chờ khi account đang bị lệnh local khác
   giữ. Thêm backoff khi Kaggle trả 429 (đã gặp khi tạo dataset liên tiếp).
+- **Đầu vào tĩnh dùng lại theo nội dung:** phần nặng của job (corpus khoảng 270 MB, golden, danh sách
+  thư viện) tách thành một dataset private *theo nội dung* cho mỗi account, tạo một lần rồi dùng lại cho
+  mọi shard; mỗi shard chỉ thêm một dataset rất nhỏ chứa `e2e_job.json` (lát của nó). Hiện mỗi job tải lại
+  cả 270 MB, và đường upload ở mạng công ty chỉ khoảng 0,3 đến 11 MB/s, nên đây là phần tiết kiệm lớn.
 - **Không dùng checkpoint dataset phía Kaggle cho e2e.** Trạng thái đã nằm ở máy nên không cần kế thừa
   checkpoint giữa account (`checkpoint_inheritance`), và không để lại dataset thừa trên account.
   (Quyết định của mình, dễ đổi: nếu sau này muốn resume trong lúc máy tắt, thêm sau.)
@@ -189,8 +205,14 @@ pharma-lab e2e status --run e2e-v2-qwen9b
 4. **Giảm thời gian dựng môi trường:** bước đầu tiên là *đo*. Nếu vượt 15 phút, đóng gói bánh xe
    Python, nhị phân Qdrant và gói Postgres vào một dataset "toolchain" private để kernel khỏi tải. Chỉ
    làm nếu số đo cho thấy đáng.
-5. Judge và báo cáo chạy ở máy song song với kernel, không tốn quota (quy trình hiện có, chưa tự động
-   hoá trong lần này).
+5. **Một hàng đợi chung trong kernel:** hiện harness chạy tuần tự từng (cấu hình, nhóm) nên cuối mỗi
+   nhóm GPU nhàn rỗi chờ câu chậm nhất. Chạy các cấu hình của shard đồng thời với một semaphore toàn
+   cục (tổng độ song song vẫn bằng số slot của LLM) giữ GPU luôn đầy. Làm sau khi có số đo thật cho thấy
+   khoảng nhàn rỗi đáng kể.
+6. **Đầu vào tĩnh dùng lại** (§4.4) và chỉ tải lên phần thay đổi.
+7. **Chấm điểm gối đầu (`--judge`):** sau mỗi lần gộp, một luồng ở máy chấm các câu mới về (`e2e judge`
+   đã tự nối lại theo từng câu, qua proxy cục bộ, không tốn quota GPU), nên khi shard cuối về thì phần
+   lớn đã chấm xong. Báo cáo sinh bằng lệnh có sẵn.
 
 ### 4.6 An toàn
 - Giữ `test_no_external_exposure.py`. Không thêm công cụ tunnel, cổng nghe ngoài `127.0.0.1`.
@@ -314,9 +336,15 @@ in danh sách file, dataset private xoá sau khi thu kết quả, trần độ s
 
 **Mặc định (đổi được):** lượt đo độ trễ concurrency 1 dùng lát 100 câu `spread` mỗi cấu hình.
 
-**Của mình (có thể đổi):**
-- Mỗi account một shard một lúc theo mặc định.
-- Không dùng checkpoint dataset phía Kaggle cho e2e.
-- Bố cục B (hai bản LLM) để giai đoạn 2, sau khi đo.
+**Của mình, chọn theo tiêu chí người dùng giao (nhanh, chính xác, dừng và nối lại tốt; có thể đổi):**
+- Đủ hai phiên GPU mỗi account (sáu shard cùng lúc với ba account), cân tải ở đuôi.
+- Trạng thái ở máy, không dùng checkpoint dataset phía Kaggle cho e2e. Dừng nghĩa là ngừng giao shard
+  mới (`--drain`) và để các shard đang chạy kết thúc theo ngân sách; Kaggle CLI không có lệnh huỷ kernel.
+  Vì shard ngắn (khoảng 2 giờ) nên chờ ngắn.
 - Câu lỗi quá 3 lần thì "kẹt", cần `--retry-stuck` mới chạy lại.
-- Chụp định kỳ mặc định 300 giây, tắt được; ngân sách phiên mặc định giữ 3 giờ.
+- Chụp định kỳ mặc định 300 giây (tắt được); ngân sách phiên mặc định khoảng 2 giờ.
+- Gộp từ chối khi khác sha256 model hoặc bản `llama-server` (độ chính xác).
+- Bố cục hai bản LLM và hàng đợi chung trong kernel chỉ làm sau khi có số đo thật.
+- Lượt đo độ trễ concurrency 1 dùng lát 100 câu `spread` mỗi cấu hình.
+- Cờ `--with-proxy-credentials` bật theo từng lần chạy; dataset credential xoá sau khi thu kết quả.
+- `--judge` gối đầu là cờ tuỳ chọn.
