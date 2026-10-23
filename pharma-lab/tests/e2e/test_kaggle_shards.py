@@ -86,6 +86,7 @@ def adapter(
     golden_path=None,
     build_static=static_builder,
     commit="abc1234",
+    embedding_model="qwen3-embedding:4b-q8_0",
 ) -> E2EShardAdapter:
     plan = make_plan(
         run_name="r1",
@@ -95,6 +96,7 @@ def adapter(
         limit=limit,
         llm=PRESETS["qwen"],
         latency=latency,
+        embedding_model=embedding_model,
     )
     return E2EShardAdapter(
         plan,
@@ -521,3 +523,25 @@ def test_a_shard_that_only_errors_merges_zero_units(tmp_path: Path) -> None:
     result = subject.run_shard(shard, reserved())
 
     assert subject.merge(shard, result) == 0
+
+
+def test_the_embedding_model_reaches_the_job_and_the_static_inputs(
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    built: list[Path] = []
+    runner = Runner(tmp_path)
+    subject = adapter(
+        tmp_path,
+        runner,
+        build_static=lambda root: (built.append(root), static_builder(root)),
+        embedding_model="qwen3-embedding:8b-q8_0",
+    )
+
+    subject.run_shard(shard_of([key("full", ITEMS[0])]), reserved())
+
+    job = json.loads(Path(runner.calls[0]["input_path"]).read_text())
+    assert job["embedding_model"] == "qwen3-embedding:8b-q8_0"
+    assert "8b" in built[0].name  # another corpus, another static directory
+    assert replace(subject.plan).embedding_model == "qwen3-embedding:8b-q8_0"

@@ -20,7 +20,7 @@ from pharma_lab.integrations.kaggle.models import (
     StageName,
     StageRequest,
 )
-from pharma_lab.runtime.catalog import require_model
+from pharma_lab.runtime.catalog import ModelKind, require_model
 from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
 
 JOB_FILE = "e2e_job.json"
@@ -123,11 +123,14 @@ class E2ERunStage:
             item.key for item in input_bundle.files if item.key != "job"
         ]
         credentials = self._credentials(directory) | self._meta(directory)
-        models = [E2E_MODELS.llm, E2E_MODELS.reranker, E2E_MODELS.embedding]
+        embedding = str(job.get("embedding_model") or E2E_MODELS.embedding)
+        if require_model(embedding).kind is not ModelKind.EMBEDDING:
+            raise ValueError(f"{embedding} is not an embedding model")
+        models = [E2E_MODELS.llm, E2E_MODELS.reranker, embedding]
         servers: list[JSONValue] = [
             _server(E2E_MODELS.llm, LLM_PORT, "0", llm_runtime),
             _server(E2E_MODELS.reranker, RERANK_PORT, "1", reranker_runtime),
-            _server(E2E_MODELS.embedding, EMBEDDING_PORT, "", EMBEDDING_RUNTIME),
+            _server(embedding, EMBEDDING_PORT, "", EMBEDDING_RUNTIME),
         ]
         identity = JobIdentity.create(
             stage=self.name,

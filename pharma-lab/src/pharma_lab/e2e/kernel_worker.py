@@ -366,6 +366,13 @@ def job_software(config: Mapping, job: Mapping) -> dict[str, object]:
     return software_info(config) | {"layout": job.get("layout", "A")}
 
 
+def _dimension(model: str) -> int:
+    dimension = require_model(model).vector_dimension
+    if dimension is None:
+        raise ValueError(f"{model} has no vector dimension")
+    return dimension
+
+
 def llm_preset_of(job: Mapping) -> LlmPreset:
     """The LLM preset a job asks for; jobs written before presets run Qwen."""
     return preset_named(str(job.get("llm", "qwen")))
@@ -459,6 +466,8 @@ def run_e2e_worker(config: dict) -> CloudArtifact:
             postgres_dsn=POSTGRES_DSN,
             qdrant_url=QDRANT_URL,
             preset=llm_preset_of(job),
+            embedding_model=models[2],
+            embedding_dimension=_dimension(models[2]),
         )
         | {"PYTHONPATH": str(source), "PHARMA_LAB_ROOT": str(workspace)}
     )

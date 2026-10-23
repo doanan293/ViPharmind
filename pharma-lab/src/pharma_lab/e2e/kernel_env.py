@@ -25,6 +25,8 @@ def kernel_backend_env(
     postgres_dsn: str,
     qdrant_url: str,
     preset: LlmPreset = PRESETS["qwen"],
+    embedding_model: str = EMBEDDING_MODEL,
+    embedding_dimension: int = EMBEDDING_DIMENSION,
 ) -> dict[str, str]:
     values = {
         "PHARMA_LLM__TIMEOUT_SECONDS": str(CHAT_TIMEOUT_SECONDS),
@@ -35,8 +37,8 @@ def kernel_backend_env(
         "PHARMA_RETRIEVAL__RERANK__TIMEOUT_SECONDS": "300",
         "PHARMA_RETRIEVAL__EMBEDDING__BASE_URL": f"http://127.0.0.1:{embedding_port}/v1",
         "PHARMA_RETRIEVAL__EMBEDDING__API_KEY": "kernel",
-        "PHARMA_RETRIEVAL__EMBEDDING__MODEL": EMBEDDING_MODEL,
-        "PHARMA_RETRIEVAL__EMBEDDING__DIMENSION": str(EMBEDDING_DIMENSION),
+        "PHARMA_RETRIEVAL__EMBEDDING__MODEL": embedding_model,
+        "PHARMA_RETRIEVAL__EMBEDDING__DIMENSION": str(embedding_dimension),
         "PHARMA_POSTGRES__DSN": postgres_dsn,
         "PHARMA_QDRANT__URL": qdrant_url,
     }

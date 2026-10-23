@@ -46,3 +46,18 @@ def test_retrieval_points_at_the_kernel_servers_and_stores() -> None:
     assert values["PHARMA_RETRIEVAL__EMBEDDING__DIMENSION"] == "2560"
     assert values["PHARMA_POSTGRES__DSN"].endswith("@127.0.0.1:5432/v")
     assert values["PHARMA_QDRANT__URL"] == "http://127.0.0.1:6333"
+
+
+def test_the_embedding_model_and_its_dimension_follow_the_job() -> None:
+    values = kernel_backend_env(
+        llm_port=11434,
+        rerank_port=11435,
+        embedding_port=11436,
+        postgres_dsn="postgresql+psycopg://v:v@127.0.0.1:5432/v",
+        qdrant_url="http://127.0.0.1:6333",
+        embedding_model="qwen3-embedding:8b-q8_0",
+        embedding_dimension=4096,
+    )
+
+    assert values["PHARMA_RETRIEVAL__EMBEDDING__MODEL"] == "qwen3-embedding:8b-q8_0"
+    assert values["PHARMA_RETRIEVAL__EMBEDDING__DIMENSION"] == "4096"

@@ -88,6 +88,8 @@ class E2EPlan:
     deadline_seconds: float = 900.0
     retry_stuck: bool = False
     latency: bool = False
+    # The model that embeds the agent's queries in the kernel (the retrieval pair).
+    embedding_model: str = E2E_MODELS.embedding
 
     @property
     def labels(self) -> tuple[str, ...]:
@@ -107,6 +109,7 @@ def make_plan(
     retry_stuck: bool = False,
     latency: bool = False,
     parallel: int = 1,
+    embedding_model: str = E2E_MODELS.embedding,
 ) -> E2EPlan:
     """Validate a request. A latency run is one shard, concurrency 1, layout A, written
     to `<run>-c1`: several shards or several configurations would make it meaningless."""
@@ -134,6 +137,7 @@ def make_plan(
         deadline_seconds,
         retry_stuck,
         latency,
+        embedding_model,
     )
 
 
@@ -338,10 +342,11 @@ class E2EShardAdapter:
         another is building waits for the lock and a crash leaves no half-built tree."""
         golden = self.plan.golden_path
         key = sha256_file(golden)[:16] if golden.is_file() else "none"
-        static = self.work_dir / f"static-{key}"
+        model = self.plan.embedding_model.replace(":", "_")
+        static = self.work_dir / f"static-{key}-{model}"
         with self._static_lock:
             if not (static / COMPLETE_MARK).is_file():
-                partial = self.work_dir / f".static-{key}.partial"
+                partial = self.work_dir / f".static-{key}-{model}.partial"
                 shutil.rmtree(partial, ignore_errors=True)
                 shutil.rmtree(static, ignore_errors=True)
                 self._build_static(partial)
@@ -382,6 +387,7 @@ class E2EShardAdapter:
         job = {
             "run": self.plan.run_name,
             "llm": self.plan.llm.name,
+            "embedding_model": self.plan.embedding_model,
             "layout": LAYOUT_A,
             "concurrency": self.plan.concurrency,
             "shards": entries,

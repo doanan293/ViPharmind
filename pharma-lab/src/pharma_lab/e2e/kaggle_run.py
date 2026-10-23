@@ -69,14 +69,14 @@ def _requirements(target: Path) -> None:
     target.write_text(text, encoding="utf-8")
 
 
-def build_static_inputs(golden_path: Path, target: Path) -> None:
+def build_static_inputs(
+    golden_path: Path, target: Path, *, embedding_model: str = E2E_MODELS.embedding
+) -> None:
     """The files every shard of a run shares; their content decides the static dataset."""
     target.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(golden_path, target / GOLDEN_FILE)
     _requirements(target / REQUIREMENTS_FILE)
-    trimmed_corpus(
-        BUNDLE_DIR, target / CORPUS_DIR, embedding_model=E2E_MODELS.embedding
-    )
+    trimmed_corpus(BUNDLE_DIR, target / CORPUS_DIR, embedding_model=embedding_model)
 
 
 def reranker_profile(kaggle_account: str | None, budget: int) -> RuntimeCandidate:

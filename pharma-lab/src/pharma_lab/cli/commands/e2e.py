@@ -149,6 +149,7 @@ from pharma_lab.e2e.sampling import (
 )
 from pharma_lab.evaluation.backend_retrieval import load_query_rows
 from pharma_lab.evaluation.relevance_judgments import judgments_path, load_judgments
+from pharma_lab.integrations.kaggle.e2e_stage import E2E_MODELS
 from pharma_lab.integrations.kaggle.job_lock import kaggle_job_lock
 from pharma_lab.integrations.kaggle.quota import AccountQuota
 from pharma_lab.integrations.kaggle.workspace import unwind_on_sigterm
@@ -608,7 +609,9 @@ def kaggle_adapter(
         work_dir=E2E_KAGGLE_WORK_DIR / plan.run_name,
         stage_runner=run_kaggle_stage,
         reranker_profile=profile_of,
-        build_static=lambda target: build_static_inputs(plan.golden_path, target),
+        build_static=lambda target: build_static_inputs(
+            plan.golden_path, target, embedding_model=plan.embedding_model
+        ),
         commit=git_commit(Path(__file__).resolve().parent),
         credentials=credentials,
         on_merged=on_merged,
@@ -757,6 +760,7 @@ def kaggle_plan(
     latency: bool,
     parallel: int | None,
     with_proxy_credentials: bool = False,
+    embedding_model: str = E2E_MODELS.embedding,
 ) -> E2EPlan:
     try:
         preset = preset_named(llm)
@@ -780,6 +784,7 @@ def kaggle_plan(
             retry_stuck=retry_stuck,
             latency=latency,
             parallel=parallel or 1,
+            embedding_model=embedding_model,
         )
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error
@@ -893,6 +898,14 @@ def run(
             help="Kaggle: judge each shard's answers as it returns (no GPU quota)",
         ),
     ] = False,
+    embedding_model: Annotated[
+        str,
+        typer.Option(
+            "--embedding-model",
+            help="Kaggle: the model that embeds the agent's queries in the kernel "
+            "(the corpus bundle must hold its embeddings)",
+        ),
+    ] = E2E_MODELS.embedding,
     judge_model: Annotated[
         str,
         typer.Option("--judge-model", help="With --judge: model name on the endpoint"),
@@ -927,6 +940,7 @@ def run(
             latency=latency,
             parallel=parallel,
             with_proxy_credentials=with_proxy_credentials,
+            embedding_model=embedding_model,
         )
 
         def kaggle_handler() -> CommandResult:

@@ -169,3 +169,44 @@ def test_the_commit_of_a_shard_reaches_the_worker_config_not_the_identity(tmp_pa
 
     assert [job.worker_config["commit"] for job in jobs] == ["aaa", "bbb"]
     assert jobs[0].identity.sha256 == jobs[1].identity.sha256
+
+
+def test_the_job_can_choose_the_embedding_model_of_the_kernel(tmp_path):
+    path = write_job(tmp_path, ["no-rerank"])
+    job = json.loads(path.read_text())
+    job["embedding_model"] = "qwen3-embedding:8b-q8_0"
+    path.write_text(json.dumps(job), encoding="utf-8")
+
+    built = E2ERunStage().build_job(
+        stage_request(
+            StageName.E2E_RUN,
+            E2E_MODELS.llm,
+            path,
+            runtime_profile=rerank_runtime_profile(RERANKER),
+        )
+    )
+
+    config = json.loads(json.dumps(built.worker_config))
+    assert config["models"][2] == "qwen3-embedding:8b-q8_0"
+    assert [s["model"] for s in config["servers"]][2] == "qwen3-embedding:8b-q8_0"
+    default = json.loads(
+        json.dumps(build(tmp_path / "other", ["no-rerank"]).worker_config)
+    )
+    assert default["models"][2] == E2E_MODELS.embedding
+
+
+def test_a_model_that_is_not_an_embedding_model_is_refused(tmp_path):
+    path = write_job(tmp_path, ["no-rerank"])
+    job = json.loads(path.read_text())
+    job["embedding_model"] = "qwen3-reranker:4b-q8_0"
+    path.write_text(json.dumps(job), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="embedding"):
+        E2ERunStage().build_job(
+            stage_request(
+                StageName.E2E_RUN,
+                E2E_MODELS.llm,
+                path,
+                runtime_profile=rerank_runtime_profile(RERANKER),
+            )
+        )
