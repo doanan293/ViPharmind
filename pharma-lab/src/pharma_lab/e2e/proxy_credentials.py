@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -91,7 +92,8 @@ def export_credentials_from_volume(
             "alpine",
             "sh",
             "-c",
-            "cp /auth/*.json /out/ && chmod 600 /out/*.json",
+            f"cp /auth/*.json /out/ && chown {os.getuid()}:{os.getgid()} /out/*.json "
+            "&& chmod 600 /out/*.json",
         ],
         check=True,
     )

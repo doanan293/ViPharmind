@@ -76,6 +76,9 @@ def test_the_export_copies_json_files_out_of_the_volume(tmp_path: Path) -> None:
     command = calls[0]
     assert command[:3] == ["docker", "run", "--rm"]
     assert "vol:/auth:ro" in command
+    # The container runs as root: the files must end up owned by the caller.
+    script = command[-1]
+    assert f"chown {os.getuid()}:{os.getgid()}" in script
     assert (tmp_path / "out").is_dir()
     assert stat.S_IMODE(os.stat(tmp_path / "out").st_mode) == 0o700
 
