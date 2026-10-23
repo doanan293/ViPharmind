@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import threading
 import time
-from collections.abc import Generator, Mapping
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -37,6 +37,27 @@ def find_unique(root: Path, filename: str, required: bool = True) -> Path | None
     if len(matches) != 1:
         raise RuntimeError(f"Expected exactly one {filename}, found {len(matches)}")
     return matches[0]
+
+
+def warm_model_file(
+    path: Path,
+    *,
+    log: Callable[[str], None],
+    chunk_bytes: int = 64 * 1024 * 1024,
+    clock: Callable[[], float] = time.monotonic,
+) -> int:
+    """Read `path` end to end so the page cache holds it; log the size and the speed."""
+    started = clock()
+    total = 0
+    with Path(path).open("rb") as handle:
+        while chunk := handle.read(chunk_bytes):
+            total += len(chunk)
+    seconds = max(clock() - started, 1e-9)
+    log(
+        f"read {Path(path).name}: {total / 1e6:.0f} MB in {seconds:.1f} s "
+        f"({total / 1e6 / seconds:.1f} MB/s)"
+    )
+    return total
 
 
 def resolve_input_file(
@@ -443,6 +464,9 @@ def managed_model_servers(
     )
     binary = runtime_root / "bin/llama-server"
     library = runtime_root / "lib"
+    # Read the weights once, sequentially, before any server asks for them: the dataset
+    # mount can be slow on a cold machine, and its speed belongs in the log.
+    warm_model_file(model_path, log=lambda line: print(line, flush=True))
     processes = []
     commands: list[list[str]] = []
     collectors: list[BoundedLogCollector] = []

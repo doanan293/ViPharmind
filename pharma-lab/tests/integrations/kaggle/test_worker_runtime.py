@@ -734,3 +734,20 @@ def test_visible_devices_overrides_the_layout(monkeypatch, tmp_path):
     assert [server.base_url for server in servers] == ["http://127.0.0.1:11440"]
     assert len(launched) == 1
     assert launched[0][1]["CUDA_VISIBLE_DEVICES"] == "1"
+
+
+def test_warming_the_model_file_reads_it_all_and_reports_the_speed(tmp_path):
+    from pharma_lab.integrations.kaggle.workers.runtime import warm_model_file
+
+    model = tmp_path / "model.gguf"
+    model.write_bytes(b"x" * (5 * 1024 * 1024 + 17))
+    lines: list[str] = []
+    ticks = iter(range(0, 1000, 2))
+
+    read = warm_model_file(
+        model, log=lines.append, chunk_bytes=1024 * 1024, clock=lambda: next(ticks)
+    )
+
+    assert read == 5 * 1024 * 1024 + 17
+    assert len(lines) == 1
+    assert "model.gguf" in lines[0] and "MB/s" in lines[0]
