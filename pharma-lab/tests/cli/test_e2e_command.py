@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -41,8 +42,9 @@ def wired(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     work = tmp_path / "e2e-kaggle"
     captured: dict[str, object] = {}
 
-    def fake_adapter(plan, *, budget_seconds) -> E2EShardAdapter:
+    def fake_adapter(plan, *, budget_seconds, credentials=None) -> E2EShardAdapter:
         captured["plan"] = plan
+        captured["credentials"] = credentials
         captured["budget"] = budget_seconds
         return subject
 
@@ -144,10 +146,49 @@ def test_latency_run_refuses_parallel_above_one(wired):
     assert result.exit_code == 2
 
 
-def test_a_proxy_preset_is_refused_until_the_kernel_runs_the_proxy(wired):
+def test_proxy_preset_without_the_flag_is_refused(wired):
     result = runner.invoke(app, [*BASE, "--llm", "gemini"])
 
     assert result.exit_code == 2
+    assert "--with-proxy-credentials" in " ".join(
+        result.output.replace("│", " ").split()
+    )
+
+
+def test_the_proxy_flag_is_refused_for_a_preset_that_does_not_use_it(wired):
+    result = runner.invoke(app, [*BASE, "--with-proxy-credentials"])
+
+    assert result.exit_code == 2
+
+
+def test_the_proxy_flag_hands_the_credential_dataset_to_the_adapter(wired, monkeypatch):
+    sentinel = object()
+    entered: list[dict[str, object]] = []
+
+    @contextmanager
+    def fake_session(plan, **kwargs):
+        entered.append(kwargs)
+        yield sentinel
+
+    launcher = Launcher(outcome(0, SchedulerStop.COMPLETE))
+    monkeypatch.setattr(e2e_command, "credential_session", fake_session)
+    monkeypatch.setattr(e2e_command, "launch", launcher)
+
+    result = runner.invoke(
+        app,
+        [
+            *BASE,
+            "--llm",
+            "opus",
+            "--with-proxy-credentials",
+            "--proxy-credential",
+            "claude-a.json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert wired["credentials"] is sentinel
+    assert entered[0]["names"] == ["claude-a.json"]
 
 
 def test_an_unknown_preset_lists_the_valid_names(wired):
@@ -197,3 +238,70 @@ def test_status_lists_live_shards_and_quota(wired, monkeypatch):
     assert details["kernel.s1"].startswith("acc2 units=1")
     assert details["quota.acc1"] == "12.5h of 30.0h"
     assert float(details["gpu_hours_needed"]) > 0
+
+
+def test_credential_session_lists_uploads_and_deletes_the_dataset(
+    tmp_path, monkeypatch, capsys
+):
+    from tests.e2e.test_kaggle_shards import FULL
+    from tests.integrations.kaggle.test_scheduler import contexts
+
+    import pharma_lab.integrations.kaggle.service as kaggle_service
+    from pharma_lab.e2e.kaggle_shards import make_plan
+    from pharma_lab.e2e.llm_presets import PRESETS
+    from pharma_lab.integrations.kaggle.dataset_service import DatasetService
+
+    auth = tmp_path / "auth"
+    auth.mkdir()
+    (auth / "claude-a.json").write_text('{"type": "claude", "t": "SECRET"}')
+    (auth / "codex-b.json").write_text('{"type": "codex"}')
+    deleted: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        kaggle_service, "resolve_session_contexts", lambda _a: contexts("acc1")
+    )
+    monkeypatch.setattr(
+        DatasetService,
+        "delete_dataset",
+        lambda self, reference: deleted.append((self.owner, reference)),
+    )
+    plan = make_plan(
+        run_name="r1",
+        entries=[FULL],
+        golden_path=tmp_path / "g",
+        categories=None,
+        limit=None,
+        llm=PRESETS["opus"],
+    )
+
+    with e2e_command.credential_session(
+        plan, names=(), source=auth, kaggle_account=None
+    ) as credentials:
+        assert credentials is not None
+        credentials.used("acc1", "user-acc1/pipeline-cred-z")
+
+    shown = capsys.readouterr()
+    assert "claude-a.json (claude)" in shown.out
+    assert "codex-b.json" not in shown.out
+    assert "SECRET" not in shown.out + shown.err
+    assert deleted == [("user-acc1", "user-acc1/pipeline-cred-z")]
+
+
+def test_no_credential_session_for_a_kernel_llm(tmp_path):
+    from tests.e2e.test_kaggle_shards import FULL
+
+    from pharma_lab.e2e.kaggle_shards import make_plan
+    from pharma_lab.e2e.llm_presets import PRESETS
+
+    plan = make_plan(
+        run_name="r1",
+        entries=[FULL],
+        golden_path=tmp_path / "g",
+        categories=None,
+        limit=None,
+        llm=PRESETS["qwen"],
+    )
+
+    with e2e_command.credential_session(
+        plan, names=(), source=None, kaggle_account=None
+    ) as credentials:
+        assert credentials is None

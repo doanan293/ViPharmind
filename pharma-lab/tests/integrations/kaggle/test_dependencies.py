@@ -379,3 +379,49 @@ def test_existing_stages_still_get_one_input_dataset(tmp_path, monkeypatch):
     assert set(dependencies.kaggle_input_roots(job).values()) == {
         Path("/kaggle/input") / dependencies.input_dataset_slug(job)
     }
+
+
+def test_credential_dataset_is_never_public(tmp_path, monkeypatch):
+    _patch_model(monkeypatch)
+    job, _, _ = _job(tmp_path)
+    staged = tmp_path / "creds"
+    staged.mkdir()
+    (staged / "claude-a.json").write_text(
+        '{"type": "claude", "token": "SECRET-TOKEN"}', encoding="utf-8"
+    )
+    job = replace(
+        job,
+        worker_config=job.worker_config
+        | {
+            "local_credentials_dir": str(staged),
+            "credentials_slug": "pipeline-cred-abc",
+            "credentials_sha256": "f" * 64,
+        },
+    )
+
+    desired = {
+        i.resource_kind: i
+        for i in dependencies.default_desired_datasets(job, owners("acc"), tmp_path)
+    }
+
+    credentials = desired["credentials"]
+    assert credentials.reference == "acc/pipeline-cred-abc"
+    assert credentials.public is False
+    assert credentials.fingerprint == "f" * 64
+    copied = credentials.materialize(tmp_path / "up")
+    assert sorted(p.name for p in copied.iterdir()) == [
+        "claude-a.json",
+        "dependency_manifest.json",
+    ]
+    manifest = json.loads((copied / "dependency_manifest.json").read_text())
+    assert manifest["files"] == ["claude-a.json"]
+    assert "SECRET-TOKEN" not in json.dumps(manifest)
+
+
+def test_a_job_without_credentials_gets_no_credential_dataset(tmp_path, monkeypatch):
+    _patch_model(monkeypatch)
+    job, _, _ = _job(tmp_path)
+
+    desired = dependencies.default_desired_datasets(job, owners("acc"), tmp_path)
+
+    assert "credentials" not in {i.resource_kind for i in desired}

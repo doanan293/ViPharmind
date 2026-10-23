@@ -221,3 +221,50 @@ def test_bundle_carries_the_backend_only_when_the_job_asks(tmp_path):
     } <= with_backend
     assert not any("__pycache__" in name for name in with_backend)
     assert without == {"pharma_lab/__init__.py"}
+
+
+def test_local_only_settings_never_reach_the_kernel_config(tmp_path):
+    candidates = tmp_path / "candidates.jsonl"
+    candidates.write_text(
+        json.dumps(
+            {
+                "query_id": "q1",
+                "query": "query",
+                "candidates": [{"chunk_id": "c1", "document_text": "text"}],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "manifest.json").write_text(
+        json.dumps({"schema_version": 1}) + "\n", encoding="utf-8"
+    )
+    job = RerankStage().build_job(
+        stage_request(
+            StageName.RERANK,
+            "qwen3-reranker:0.6b-q8_0",
+            candidates,
+            runtime_profile=rerank_runtime_profile(),
+        )
+    )
+    job = replace(
+        job,
+        worker_config=job.worker_config
+        | {"local_credentials_dir": "/tmp/pharma-cred-xyz", "credentials_slug": "s"},
+    )
+
+    bundle = PipelineKernelService(
+        service=UnusedKernelService(), owner="owner", source_root=Path("src")
+    ).prepare_bundle(
+        job,
+        root=tmp_path / "bundle",
+        dataset_references=["owner/runtime"],
+        checkpoint_reference=None,
+        total_budget_seconds=60,
+    )
+
+    text = (bundle / "stage_config.json").read_text(encoding="utf-8")
+    runner = (bundle / "runner.py").read_text(encoding="utf-8")
+    assert "pharma-cred-xyz" not in text + runner
+    assert "local_credentials_dir" not in text + runner
+    assert json.loads(text)["credentials_slug"] == "s"

@@ -117,3 +117,32 @@ def test_golden_requirements_and_corpus_are_static_and_the_job_is_not(tmp_path):
         "corpus/embeddings/qwen3_embedding_4b_fp16.jsonl",
     }
     assert "job" not in static
+
+
+def test_proxy_credentials_sidecar_reaches_the_worker_config_without_secrets(tmp_path):
+    job_path = write_job(tmp_path, ["no-rerank"])
+    (job_path.parent / "proxy_credentials.json").write_text(
+        json.dumps(
+            {
+                "local_dir": "/tmp/pharma-cred-x",
+                "slug": "pipeline-cred-1",
+                "sha256": "ab",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    job = E2ERunStage().build_job(
+        stage_request(
+            StageName.E2E_RUN,
+            E2E_MODELS.llm,
+            job_path,
+            runtime_profile=rerank_runtime_profile(RERANKER),
+        )
+    )
+
+    config = json.loads(json.dumps(job.worker_config))
+    assert config["local_credentials_dir"] == "/tmp/pharma-cred-x"
+    assert config["credentials_slug"] == "pipeline-cred-1"
+    assert config["credentials_sha256"] == "ab"
+    assert not any("proxy_credentials" in key for key in job.input_bundle.descriptors())

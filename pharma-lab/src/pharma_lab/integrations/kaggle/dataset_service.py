@@ -16,6 +16,7 @@ import requests
 from pharma_lab.integrations.kaggle.api import (
     config_view_command,
     dataset_create_command,
+    dataset_delete_command,
     dataset_file_download_command,
     dataset_files_command,
     dataset_list_mine_command,
@@ -137,6 +138,16 @@ class DatasetService:
         self._version_downloader = version_downloader or rest_version_downloader(
             environment.get("KAGGLE_API_TOKEN")
         )
+
+    def delete_dataset(self, reference: str) -> None:
+        """Delete one of this account's own datasets (a Kaggle dataset cannot be undeleted)."""
+        owner, _, _slug = reference.partition("/")
+        if owner.casefold() != self.owner.casefold():
+            raise ValueError(
+                f"{reference} belongs to another account than {self.owner}; "
+                "only its owner can delete it"
+            )
+        self.runner.run(dataset_delete_command(reference))
 
     def status(self, reference: str) -> str:
         return parse_dataset_status(

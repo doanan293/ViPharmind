@@ -118,3 +118,29 @@ def test_download_file_unpacks_a_zipped_single_file(tmp_path):
     assert path == tmp_path / "data.part-0001"
     assert path.read_bytes() == b"payload"
     assert not (tmp_path / "data.part-0001.zip").exists()
+
+
+def test_delete_dataset_removes_it_without_asking():
+    runner = RecordingRunner()
+    service = DatasetService(runner, "owner")
+
+    service.delete_dataset("owner/pipeline-cred-abc")
+
+    assert runner.calls[-1][0] == [
+        "kaggle",
+        "datasets",
+        "delete",
+        "owner/pipeline-cred-abc",
+        "--yes",
+    ]
+
+
+def test_delete_dataset_refuses_another_accounts_dataset():
+    import pytest
+
+    runner = RecordingRunner()
+    service = DatasetService(runner, "owner")
+
+    with pytest.raises(ValueError, match="another account"):
+        service.delete_dataset("someone-else/pipeline-cred-abc")
+    assert runner.calls == []

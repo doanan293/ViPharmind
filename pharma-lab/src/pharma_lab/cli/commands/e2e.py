@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import tempfile
 from collections import Counter
+from collections.abc import Generator, Sequence
+from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
@@ -34,6 +37,7 @@ from pharma_lab.config.paths import (
     E2E_AUTHORING_DIR,
     GOLD_DIR,
     GOLDEN_E2E_PATH,
+    PROJECT_ROOT,
     e2e_run_dir,
     run_dir,
 )
@@ -116,6 +120,7 @@ from pharma_lab.e2e.kaggle_run import (
     reranker_profile,
 )
 from pharma_lab.e2e.kaggle_shards import (
+    CredentialSource,
     E2EPlan,
     E2EShardAdapter,
     Entry,
@@ -124,6 +129,13 @@ from pharma_lab.e2e.kaggle_shards import (
 )
 from pharma_lab.e2e.llm_presets import preset_named
 from pharma_lab.e2e.one_round import load_one_round
+from pharma_lab.e2e.proxy_credentials import (
+    DOCKER_VOLUME,
+    CredentialDataset,
+    export_credentials_from_volume,
+    list_credentials,
+    select_credentials,
+)
 from pharma_lab.e2e.report import write_report
 from pharma_lab.e2e.run_identity import git_commit
 from pharma_lab.e2e.sampling import (
@@ -568,7 +580,12 @@ class RunBackend(StrEnum):
     KAGGLE = "kaggle"
 
 
-def kaggle_adapter(plan: E2EPlan, *, budget_seconds: int) -> E2EShardAdapter:
+def kaggle_adapter(
+    plan: E2EPlan,
+    *,
+    budget_seconds: int,
+    credentials: CredentialSource | None = None,
+) -> E2EShardAdapter:
     """The plan's work as shards, with the real Kaggle stage runner and inputs."""
     from pharma_lab.integrations.kaggle.service import run_kaggle_stage
     from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
@@ -589,7 +606,62 @@ def kaggle_adapter(plan: E2EPlan, *, budget_seconds: int) -> E2EShardAdapter:
         reranker_profile=profile_of,
         build_static=lambda target: build_static_inputs(plan.golden_path, target),
         commit=git_commit(Path(__file__).resolve().parent),
+        credentials=credentials,
     )
+
+
+PROXY_CONFIG_TEMPLATE = PROJECT_ROOT.parent / "devops" / "cli-proxy-api" / "config.yaml"
+
+
+@contextmanager
+def credential_session(
+    plan: E2EPlan,
+    *,
+    names: Sequence[str],
+    source: Path | None,
+    kaggle_account: str | None,
+) -> Generator[CredentialDataset | None]:
+    """The run's credential dataset when the preset needs the proxy, else nothing.
+
+    Prints which files go up; they are staged outside the checkout, uploaded to a private
+    dataset per account, and deleted from Kaggle when the block ends."""
+    from pharma_lab.integrations.kaggle.dataset_service import DatasetService
+    from pharma_lab.integrations.kaggle.service import resolve_session_contexts
+
+    if not plan.llm.needs_proxy:
+        yield None
+        return
+    with tempfile.TemporaryDirectory(prefix="pharma-auth-") as exported:
+        directory = source
+        if directory is None:
+            directory = Path(exported) / "auth"
+            export_credentials_from_volume(DOCKER_VOLUME, directory)
+        files = select_credentials(
+            list_credentials(directory), plan.llm.providers, names
+        )
+        for file in files:
+            typer.echo(
+                f"credential to upload (private, deleted after): {file.name} ({file.type})"
+            )
+
+        def delete(profile: str, reference: str) -> None:
+            for context in resolve_session_contexts(kaggle_account):
+                if context.profile is not None and context.profile.name == profile:
+                    DatasetService(
+                        context.runner, context.owners.execution
+                    ).delete_dataset(reference)
+                    return
+            raise RuntimeError(f"no Kaggle account {profile} to delete {reference}")
+
+        with CredentialDataset(
+            directory,
+            files,
+            run_name=plan.run_name,
+            template=PROXY_CONFIG_TEMPLATE if PROXY_CONFIG_TEMPLATE.is_file() else None,
+            deleter=delete,
+            say=lambda line: typer.echo(line, err=True),
+        ) as dataset:
+            yield dataset
 
 
 def account_quotas(kaggle_account: str | None) -> list[AccountQuota]:
@@ -616,14 +688,18 @@ def kaggle_plan(
     retry_stuck: bool,
     latency: bool,
     parallel: int | None,
+    with_proxy_credentials: bool = False,
 ) -> E2EPlan:
     try:
         preset = preset_named(llm)
-        if preset.needs_proxy:
+        if preset.needs_proxy and not with_proxy_credentials:
             raise ValueError(
-                f"--llm {llm} goes through cli-proxy-api, which is not wired into "
-                "the kernel yet"
+                f"--llm {llm} goes through cli-proxy-api in the kernel: add "
+                "--with-proxy-credentials to upload your credential files to a "
+                "private dataset of this run (deleted when the command ends)"
             )
+        if with_proxy_credentials and not preset.needs_proxy:
+            raise ValueError(f"--llm {llm} does not use the proxy")
         return make_plan(
             run_name=run_name,
             entries=[Entry(c, tuple(pipeline_option or ())) for c in config],
@@ -728,6 +804,28 @@ def run(
             help="Kaggle: latency run, one kernel at concurrency 1 into <run>-c1",
         ),
     ] = False,
+    with_proxy_credentials: Annotated[
+        bool,
+        typer.Option(
+            "--with-proxy-credentials",
+            help="Kaggle gemini/opus: upload the proxy credential files to a private "
+            "per-run dataset, deleted when the command ends",
+        ),
+    ] = False,
+    proxy_credential: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--proxy-credential", help="Upload only this credential file; repeatable"
+        ),
+    ] = None,
+    proxy_credentials_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--proxy-credentials-dir",
+            file_okay=False,
+            help=f"Directory of credential files (default: Docker volume {DOCKER_VOLUME})",
+        ),
+    ] = None,
 ) -> None:
     """Answer the golden set; re-run to resume (Kaggle: only what is missing)."""
     categories = list(category or [])
@@ -745,14 +843,25 @@ def run(
             retry_stuck=retry_stuck,
             latency=latency,
             parallel=parallel,
+            with_proxy_credentials=with_proxy_credentials,
         )
 
         def kaggle_handler() -> CommandResult:
             from pharma_lab.integrations.kaggle.service import resolve_session_contexts
 
             check_no_decision_roles(backend_env_file)
-            adapter = kaggle_adapter(plan, budget_seconds=budget_seconds)
-            with unwind_on_sigterm():
+            with (
+                unwind_on_sigterm(),
+                credential_session(
+                    plan,
+                    names=proxy_credential or (),
+                    source=proxy_credentials_dir,
+                    kaggle_account=kaggle_account,
+                ) as credentials,
+            ):
+                adapter = kaggle_adapter(
+                    plan, budget_seconds=budget_seconds, credentials=credentials
+                )
                 outcome = launch(
                     adapter,
                     LaunchOptions(
@@ -847,7 +956,7 @@ def status(
         golden=golden,
         category=category,
         limit=limit,
-        llm=llm,
+        llm="qwen",
         concurrency=8,
         deadline_seconds=None,
         retry_stuck=False,

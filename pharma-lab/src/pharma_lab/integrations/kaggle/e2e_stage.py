@@ -24,6 +24,9 @@ from pharma_lab.runtime.catalog import require_model
 from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
 
 JOB_FILE = "e2e_job.json"
+# Written by the machine next to the job when the run uses cli-proxy-api credentials:
+# where they are staged, the dataset slug and a digest. Never the credentials themselves.
+CREDENTIALS_FILE = "proxy_credentials.json"
 GOLDEN_FILE = "golden_e2e.jsonl"
 REQUIREMENTS_FILE = "backend_requirements.txt"
 CORPUS_DIR = "corpus"
@@ -117,6 +120,7 @@ class E2ERunStage:
         static_keys: list[JSONValue] = [
             item.key for item in input_bundle.files if item.key != "job"
         ]
+        credentials = self._credentials(directory)
         models = [E2E_MODELS.llm, E2E_MODELS.reranker, E2E_MODELS.embedding]
         servers: list[JSONValue] = [
             _server(E2E_MODELS.llm, LLM_PORT, "0", llm_runtime),
@@ -153,8 +157,21 @@ class E2ERunStage:
                 "gguf_root": str(request.gguf_root),
                 "job_sha256": identity.sha256,
                 "static_input_keys": static_keys,
+                **credentials,
                 "bundle_backend": True,
                 "enable_internet": True,
                 "qdrant_version": QDRANT_VERSION,
             },
         )
+
+    @staticmethod
+    def _credentials(directory: Path) -> dict[str, JSONValue]:
+        path = directory / CREDENTIALS_FILE
+        if not path.is_file():
+            return {}
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return {
+            "local_credentials_dir": str(raw["local_dir"]),
+            "credentials_slug": str(raw["slug"]),
+            "credentials_sha256": str(raw["sha256"]),
+        }

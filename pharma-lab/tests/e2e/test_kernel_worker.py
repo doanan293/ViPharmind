@@ -16,6 +16,7 @@ from pharma_lab.e2e.kernel_worker import (
     pack_outputs,
     restore_inputs,
     run_with_snapshots,
+    running_proxy,
     shard_label,
     stop_at_from_config,
     write_snapshot,
@@ -328,3 +329,69 @@ def test_the_job_names_its_llm_preset_and_defaults_to_qwen():
     assert llm_preset_of({"llm": "opus"}).name == "opus"
     with pytest.raises(ValueError, match="unknown LLM preset"):
         llm_preset_of({"llm": "gpt"})
+
+
+class FakeProxy:
+    def __init__(self) -> None:
+        self.terminated = False
+
+    def poll(self) -> int | None:
+        return None
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+    def wait(self, timeout: float | None = None) -> int:
+        return 0
+
+
+def test_running_proxy_installs_private_credentials_and_cleans_up(tmp_path, capsys):
+    mounted = tmp_path / "input" / "pipeline-cred-x"
+    mounted.mkdir(parents=True)
+    (mounted / "claude-person@example.com.json").write_text('{"type": "claude"}')
+    (mounted / "proxy-config.yaml").write_text('host: ""\nrequest-retry: 0\n')
+    seen: dict[str, object] = {}
+    process = FakeProxy()
+
+    def start(binary, config, **kwargs):
+        seen["config"] = Path(config).read_text()
+        seen["auth"] = sorted(p.name for p in Path(seen_auth(config)).iterdir())
+        return process
+
+    def seen_auth(config):
+        line = next(
+            row
+            for row in Path(config).read_text().splitlines()
+            if row.startswith("auth-dir")
+        )
+        return line.split('"')[1]
+
+    work = tmp_path / "work"
+    work.mkdir()
+    with running_proxy(
+        {
+            "kaggle_input_root": str(tmp_path / "input"),
+            "credentials_slug": "pipeline-cred-x",
+        },
+        fetch=lambda directory: directory / "CLIProxyAPI",
+        start=start,
+        work_root=work,
+    ):
+        assert not process.terminated
+        auth_dir = Path(seen_auth(next(work.glob("*/config.yaml"))))
+        assert auth_dir.is_dir()
+
+    assert process.terminated
+    assert seen["auth"] == ["claude-person@example.com.json"]
+    assert 'host: "127.0.0.1"' in str(seen["config"])
+    assert not auth_dir.exists()
+    # The account names are in the file names: counted, never printed.
+    assert "person@example.com" not in capsys.readouterr().out
+
+
+def test_running_proxy_needs_the_credential_dataset(tmp_path):
+    with (
+        pytest.raises(RuntimeError, match="credentials"),
+        running_proxy({}, work_root=tmp_path),
+    ):
+        pass

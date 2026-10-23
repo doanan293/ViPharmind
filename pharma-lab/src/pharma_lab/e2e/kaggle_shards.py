@@ -15,6 +15,7 @@ from collections import defaultdict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 from pydantic import ValidationError
 
@@ -28,7 +29,11 @@ from pharma_lab.e2e.work_state import (
     missing_pairs,
     select_universe,
 )
-from pharma_lab.integrations.kaggle.e2e_stage import E2E_MODELS, JOB_FILE
+from pharma_lab.integrations.kaggle.e2e_stage import (
+    CREDENTIALS_FILE,
+    E2E_MODELS,
+    JOB_FILE,
+)
 from pharma_lab.integrations.kaggle.job_registry import ShardRecord
 from pharma_lab.integrations.kaggle.models import (
     CloudArtifact,
@@ -149,6 +154,19 @@ def turn_estimates(
     return {key: sum(values) / len(values) for key, values in totals.items()}
 
 
+class CredentialSource(Protocol):
+    """The staged proxy credentials of a run (see `proxy_credentials.CredentialDataset`)."""
+
+    fingerprint: str
+
+    @property
+    def stage_dir(self) -> Path: ...
+
+    def slug(self, profile: str) -> str: ...
+
+    def used(self, profile: str, reference: str) -> None: ...
+
+
 class E2EShardAdapter:
     stage = "e2e-run"
 
@@ -164,6 +182,7 @@ class E2EShardAdapter:
         build_static: StaticBuilder,
         commit: str | None = None,
         log: Callable[[str], None] = print,
+        credentials: CredentialSource | None = None,
     ) -> None:
         self.plan = plan
         self.run_root = run_root
@@ -177,6 +196,7 @@ class E2EShardAdapter:
         self._reranker_profile = reranker_profile
         self._build_static = build_static
         self._commit = commit
+        self._credentials = credentials
         self._log = log
         self._attach: set[str] = set()
         self._merged: dict[str, int] = defaultdict(int)
@@ -221,6 +241,7 @@ class E2EShardAdapter:
     def run_shard(self, shard: Shard, reserved: ReservedAccount) -> PipelineResult:
         directory = self.work_dir / shard.shard_id
         job_path = self._write_job(shard, directory)
+        self._write_credentials(directory, reserved)
 
         def sink(_job: StageJob, artifact: CloudArtifact) -> None:
             self._merge(shard, artifact.data_path)
@@ -249,6 +270,30 @@ class E2EShardAdapter:
         self._merged[shard.shard_id] += report.appended
         for warning in report.warnings:
             self._log(f"warning: {warning}")
+
+    def _write_credentials(self, directory: Path, reserved: ReservedAccount) -> None:
+        """Tell the stage where the credentials are staged and which dataset carries them.
+
+        Recorded as used before anything is uploaded, so the command deletes the
+        dataset even if it dies between the upload and the end of the shard."""
+        if self._credentials is None:
+            (directory / CREDENTIALS_FILE).unlink(missing_ok=True)
+            return
+        slug = self._credentials.slug(reserved.profile)
+        owner = reserved.context.owners.execution
+        self._credentials.used(reserved.profile, f"{owner}/{slug}")
+        (directory / CREDENTIALS_FILE).write_text(
+            json.dumps(
+                {
+                    "local_dir": str(self._credentials.stage_dir),
+                    "slug": slug,
+                    "sha256": self._credentials.fingerprint,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
 
     def _write_job(self, shard: Shard, directory: Path) -> Path:
         static = self.work_dir / "static"

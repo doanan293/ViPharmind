@@ -98,6 +98,10 @@ def dataset_version_command(path: Path, message: str) -> list[str]:
     ]
 
 
+def dataset_delete_command(reference: str) -> list[str]:
+    return ["kaggle", "datasets", "delete", reference, "--yes"]
+
+
 def dataset_status_command(reference: str) -> list[str]:
     return ["kaggle", "datasets", "status", reference, "--format", "json"]
 

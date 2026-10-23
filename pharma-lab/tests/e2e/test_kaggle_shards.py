@@ -73,6 +73,7 @@ def adapter(
     categories=None,
     limit=None,
     latency=False,
+    credentials=None,
 ) -> E2EShardAdapter:
     plan = make_plan(
         run_name="r1",
@@ -99,6 +100,7 @@ def adapter(
         ),
         build_static=static_builder,
         commit="abc1234",
+        credentials=credentials,
     )
 
 
@@ -281,3 +283,60 @@ def test_nothing_missing_means_no_units_and_no_stage_call(tmp_path: Path) -> Non
     assert subject.missing() == []
     assert runner.calls == []
     assert subject.report().done == len(ITEMS)
+
+
+def test_credentials_go_to_the_job_directory_as_a_sidecar_without_secrets(
+    tmp_path: Path,
+) -> None:
+    secrets = tmp_path / "auth"
+    secrets.mkdir()
+    (secrets / "claude-a.json").write_text('{"type": "claude", "k": "SECRET-TOKEN"}')
+    used: list[tuple[str, str]] = []
+
+    class Credentials:
+        fingerprint = "ab" * 32
+        stage_dir = secrets
+
+        def slug(self, profile: str) -> str:
+            return f"pipeline-cred-{profile}"
+
+        def used(self, profile: str, reference: str) -> None:
+            used.append((profile, reference))
+
+    runner = Runner(tmp_path)
+    subject = adapter(tmp_path, runner, credentials=Credentials())
+
+    subject.run_shard(shard_of([key("full", ITEMS[0])]), reserved("acc2"))
+
+    directory = Path(runner.calls[0]["input_path"]).parent
+    sidecar = json.loads((directory / "proxy_credentials.json").read_text())
+    assert sidecar == {
+        "local_dir": str(secrets),
+        "slug": "pipeline-cred-acc2",
+        "sha256": "ab" * 32,
+    }
+    assert used == [("acc2", "user-acc2/pipeline-cred-acc2")]
+    assert "SECRET-TOKEN" not in (directory / "e2e_job.json").read_text()
+    assert "SECRET-TOKEN" not in (directory / "proxy_credentials.json").read_text()
+
+
+def test_without_credentials_there_is_no_sidecar(tmp_path: Path) -> None:
+    runner = Runner(tmp_path)
+    subject = adapter(tmp_path, runner)
+
+    subject.run_shard(shard_of([key("full", ITEMS[0])]), reserved())
+
+    directory = Path(runner.calls[0]["input_path"]).parent
+    assert not (directory / "proxy_credentials.json").exists()
+
+
+def test_a_stale_sidecar_from_an_earlier_run_is_removed(tmp_path: Path) -> None:
+    runner = Runner(tmp_path)
+    subject = adapter(tmp_path, runner)
+    directory = tmp_path / "work" / "s1"
+    directory.mkdir(parents=True)
+    (directory / "proxy_credentials.json").write_text("{}", encoding="utf-8")
+
+    subject.run_shard(shard_of([key("full", ITEMS[0])]), reserved())
+
+    assert not (directory / "proxy_credentials.json").exists()

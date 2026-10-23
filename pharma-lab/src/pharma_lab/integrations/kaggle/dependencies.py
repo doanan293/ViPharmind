@@ -264,7 +264,7 @@ def default_desired_datasets(
                 _static_files(job),
             ),
         )
-    return (*model_datasets, *inputs)
+    return (*model_datasets, *inputs, *_credentials(job, owners))
 
 
 def _dynamic_fingerprint(job: StageJob) -> str:
@@ -319,4 +319,56 @@ def _input_dataset(
         "dependency_manifest.json",
         False,
         materialize,
+    )
+
+
+def _credentials(
+    job: StageJob, owners: OwnerConfiguration
+) -> tuple[DesiredDataset, ...]:
+    """The run's private credential dataset, when the job carries one (opt-in, e2e only).
+
+    The manifest holds file names and the digest, never contents; the dataset is deleted
+    by the command that created it."""
+    local = job.worker_config.get("local_credentials_dir")
+    slug = job.worker_config.get("credentials_slug")
+    digest = job.worker_config.get("credentials_sha256")
+    if not (
+        isinstance(local, str) and isinstance(slug, str) and isinstance(digest, str)
+    ):
+        return ()
+
+    def materialize(root: Path) -> Path:
+        target = Path(root)
+        target.mkdir(parents=True, exist_ok=True)
+        names = []
+        for path in sorted(Path(local).iterdir()):
+            if path.is_file():
+                shutil.copyfile(path, target / path.name)
+                names.append(path.name)
+        (target / "dependency_manifest.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 2,
+                    "resource_kind": "credentials",
+                    "fingerprint": digest,
+                    "files": names,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return target
+
+    return (
+        DesiredDataset(
+            "credentials",
+            f"{owners.execution}/{slug}",
+            "Kaggle Pipeline Run Auth",
+            digest,
+            "dependency_manifest.json",
+            False,
+            materialize,
+        ),
     )

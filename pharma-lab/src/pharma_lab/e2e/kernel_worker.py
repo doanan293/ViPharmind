@@ -21,9 +21,17 @@ import zipfile
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
+from typing import Any
 
 from pharma_lab.e2e.kernel_env import kernel_backend_env
 from pharma_lab.e2e.llm_presets import LlmPreset, preset_named
+from pharma_lab.e2e.proxy_kernel import (
+    CONFIG_NAME,
+    fetch_proxy,
+    install_credentials,
+    start_proxy,
+    write_proxy_config,
+)
 from pharma_lab.integrations.kaggle.models import CloudArtifact, JobIdentity
 from pharma_lab.integrations.kaggle.workers.runtime import (
     artifact_from_output,
@@ -349,6 +357,42 @@ def llm_preset_of(job: Mapping) -> LlmPreset:
     return preset_named(str(job.get("llm", "qwen")))
 
 
+@contextmanager
+def running_proxy(
+    config: Mapping,
+    *,
+    fetch: Callable[[Path], Path] = fetch_proxy,
+    start: Callable[..., Any] = start_proxy,
+    work_root: Path | None = None,
+) -> Generator[None]:
+    """`cli-proxy-api` on 127.0.0.1 with the run's credential dataset, for the Gemini and
+    Claude presets. The credentials live in a private directory outside the artifact and
+    are removed when the proxy stops; only how many files there are is ever logged."""
+    slug = config.get("credentials_slug")
+    if not slug:
+        raise RuntimeError("this LLM preset needs the run's proxy credentials dataset")
+    mounted = Path(config.get("kaggle_input_root", "/kaggle/input")) / str(slug)
+    work = Path(tempfile.mkdtemp(prefix="proxy-", dir=work_root))
+    work.chmod(0o700)
+    process = None
+    try:
+        binary = fetch(work / "bin")
+        names = install_credentials(mounted, work / "auth")
+        template = mounted / CONFIG_NAME
+        proxy_config = write_proxy_config(
+            template if template.is_file() else None,
+            work / "config.yaml",
+            work / "auth",
+        )
+        process = start(binary, proxy_config)
+        log(f"cli-proxy-api is up with {len(names)} credential file(s)")
+        yield
+    finally:
+        if process is not None:
+            process.terminate()
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def run_e2e_worker(config: dict) -> CloudArtifact:
     identity = identity_from_config(config)
     output_dir = Path(config.get("output_dir", "/kaggle/working/artifact"))
@@ -398,6 +442,9 @@ def run_e2e_worker(config: dict) -> CloudArtifact:
     artifact: CloudArtifact | None = None
     try:
         with ExitStack() as stack:
+            if llm_preset_of(job).needs_proxy:
+                with phases.phase("proxy"):
+                    stack.enter_context(running_proxy(config))
             with phases.phase("servers"):
                 for server in config["servers"]:
                     stack.enter_context(

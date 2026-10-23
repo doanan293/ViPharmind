@@ -40,6 +40,9 @@ class KernelOperations(Protocol):
     def log_tail(self, reference: str, /) -> str: ...
 
 
+LOCAL_ONLY_PREFIX = "local_"
+
+
 class PipelineKernelService:
     def __init__(
         self,
@@ -81,7 +84,12 @@ class PipelineKernelService:
         (bundle / "kernel-metadata.json").write_text(
             json.dumps(metadata, indent=2), encoding="utf-8"
         )
-        config = dict(job.worker_config) | {
+        # `local_*` settings steer this machine only (a staging path, say).
+        config = {
+            key: value
+            for key, value in job.worker_config.items()
+            if not key.startswith(LOCAL_ONLY_PREFIX)
+        } | {
             "output_dir": "/kaggle/working/artifact",
             "total_budget_seconds": total_budget_seconds,
             "identity": job.identity.payload,
