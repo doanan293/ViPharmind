@@ -103,7 +103,10 @@ def open_run(
     current = asdict(identity)
     if path.is_file():
         stored = json.loads(path.read_text(encoding="utf-8"))
-        recorded = {k: v for k, v in stored.items() if k not in INFORMATIONAL}
+        # `software` is a fact about the machine, merged and checked by `merge_shard`.
+        recorded = {
+            k: v for k, v in stored.items() if k not in (*INFORMATIONAL, "software")
+        }
         # JSON has no tuples; compare through a JSON round trip.
         if recorded != json.loads(json.dumps(current)):
             changed = sorted(

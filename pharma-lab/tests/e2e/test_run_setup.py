@@ -219,6 +219,18 @@ def test_open_run_resumes_only_the_same_identity(tmp_path: Path) -> None:
         open_run(tmp_path, identity(settings, release_id="r2"), commit="abc")
 
 
+def test_a_second_pass_in_the_same_kernel_reopens_a_run_that_records_software(
+    tmp_path: Path,
+) -> None:
+    settings = base_settings()
+    software = {"llama_server": "b9637", "layout": "A"}
+    open_run(tmp_path, identity(settings), commit="abc", extra={"software": software})
+
+    # The retry pass of a kernel opens the same directory again.
+    open_run(tmp_path, identity(settings), commit="abc", extra={"software": software})
+    open_run(tmp_path, identity(settings), commit="abc")
+
+
 def test_pipeline_options_parse_and_label() -> None:
     options = parse_pipeline_options(PipelineOptions(), ["guard=false"])
     assert options == PipelineOptions(guard=False)
