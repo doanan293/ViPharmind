@@ -14,13 +14,13 @@ pharma-lab source crawl [--sitemap-url URL]
 pharma-lab build [--leaflets-dir DIR]
 pharma-lab validate
 pharma-lab bundle export --output DIR
-pharma-lab bundle embed --bundle DIR --backend local|kaggle --model MODEL
+pharma-lab bundle embed --bundle DIR --backend local|kaggle --model MODEL [--kaggle-account auto|accN[,accM]] [--parallel N] [--drain]
 pharma-lab bundle rechunk --bundle DIR --out DIR --collection KEY --title TITLE --target-chars N
 pharma-lab evaluation build [--bundle DIR]
 pharma-lab evaluation judgments [--evaluation FILE] [--bundle DIR]
-pharma-lab embed queries --backend local|kaggle
+pharma-lab embed queries --backend local|kaggle [--kaggle-account auto|accN[,accM]] [--parallel N] [--drain]
 pharma-lab retrieve --run NAME [--limit N | --sample N [--sample-seed S]]
-pharma-lab rerank --run NAME --backend local|kaggle --model MODEL [--kaggle-account accN|auto] [--max-runs N] [--recover-kernel OWNER/SLUG]
+pharma-lab rerank --run NAME --backend local|kaggle --model MODEL [--kaggle-account auto|accN[,accM]] [--parallel N] [--drain] [--max-runs N] [--recover-kernel OWNER/SLUG]
 pharma-lab rerank --run NAME --backend local --benchmark --model MODEL
 pharma-lab metrics --run NAME [--gold-only]
 pharma-lab metrics compare --run NAME --baseline MODEL --candidate MODEL
@@ -32,7 +32,9 @@ pharma-lab e2e decision-probe [--chars N] [--bundle DIR]
 pharma-lab e2e decision-set build|guard-draft|score
 pharma-lab e2e report --run NAME [--latency-run NAME]
 pharma-lab e2e compare --run-a NAME --run-b NAME [--config CONFIG_DIR] [--config-b CONFIG_DIR]
-pharma-lab e2e run --backend kaggle --run NAME --config CONFIG [--config ...] [--category CATEGORY ...] [--kaggle-account accN]
+pharma-lab e2e run --backend kaggle --run NAME --config CONFIG [--config ...] [--category CATEGORY ...] [--pipeline-option KEY=VALUE ...] [--llm qwen|gemini|opus] [--kaggle-account auto|accN[,accM]] [--parallel N] [--budget-seconds S] [--max-sessions K] [--drain] [--retry-stuck] [--judge] [--latency] [--with-proxy-credentials [--proxy-credential FILE ...] [--proxy-credentials-dir DIR]]
+pharma-lab e2e status --run NAME --config CONFIG [--config ...] [--category CATEGORY ...] [--limit N]
+pharma-lab kaggle status [--kaggle-account auto|accN[,accM]]
 ```
 
 Global `--json` in envelope máy đọc được, `--debug` bật traceback. `uv run pharma-lab COMMAND --help` cho default thực tế.
@@ -93,7 +95,7 @@ uv run pharma-lab retrieve --run hybrid-qwen4b-p50-k30-rrf2-sample1000 --retriev
 
 `pharma-lab rerank` chỉ đọc candidates của run; với Kaggle, stage chỉ load reranker và chấm candidate pairs. Mỗi reranker có đúng một biến thể dưới `rerank/<model>/` của run. `--dry-run` in `target=` và `missing_pairs=N`, số cặp query–chunk chưa có điểm trong `data/cache/rerank_scores/<model>.jsonl`; khi cache đã đủ, rerank không khởi động model.
 
-Với `--backend kaggle`, job chạy thành nhiều phiên GPU. `--kaggle-account auto` đọc `kaggle quota -v` của mọi profile trước mỗi phiên và chọn tài khoản còn nhiều giờ nhất (bằng nhau thì `accN` nhỏ hơn) mà không bị lệnh khác khoá; `--kaggle-account accN` giữ một tài khoản. Ngân sách phiên = min(`--budget-seconds`, quota còn lại − 0,5 giờ), tối thiểu 1 giờ nên `--budget-seconds` phải ≥ 3600. Lệnh dừng khi đủ cặp (`stop=complete`), hết quota (`stop=quota-exhausted`, exit 3, in bảng quota với `refresh_at`), một phiên không thêm cặp (`stop=no-progress`) hoặc đạt `--max-runs N` (`stop=max-runs`). Điểm của mọi phiên được gộp vào cache ở máy trước khi publish checkpoint, và cache đủ cặp thì lệnh ghi biến thể mà không gọi Kaggle. `--force` chấm lại từ đầu: xoá các cặp của run khỏi cache ở máy, phiên đầu bỏ qua checkpoint, kernel cũ và publish lại dataset, các phiên sau chỉ tiếp tục từ điểm của lần chạy này. Mỗi lệnh ghi log có timestamp vào `data/work/logs/rerank/<model>.log`.
+Với `--backend kaggle`, job chạy thành nhiều phiên GPU. `--kaggle-account auto` đọc `kaggle quota -v` của mọi profile trước mỗi phiên và chọn tài khoản còn nhiều giờ nhất (bằng nhau thì `accN` nhỏ hơn) mà không bị lệnh khác khoá; `--kaggle-account accN` giữ một tài khoản. Ngân sách phiên = min(`--budget-seconds`, quota còn lại − 0,5 giờ), tối thiểu 1 giờ nên `--budget-seconds` phải ≥ 3600. Lệnh dừng khi đủ cặp (`stop=complete`), hết quota (`stop=quota-exhausted`, exit 3, in bảng quota với `refresh_at`), một shard không thêm gì hai lần (`stop=stuck`), đạt `--max-runs N` (`stop=max-sessions`) hoặc `--drain` (`stop=drained`). Điểm của mọi phiên được gộp vào cache ở máy trước khi publish checkpoint, và cache đủ cặp thì lệnh ghi biến thể mà không gọi Kaggle. `--force` chấm lại từ đầu: xoá các cặp của run khỏi cache ở máy, phiên đầu bỏ qua checkpoint, kernel cũ và publish lại dataset, các phiên sau chỉ tiếp tục từ điểm của lần chạy này. Mỗi lệnh ghi log có timestamp vào `data/work/logs/rerank/<model>.log`.
 
 `--recover-kernel OWNER/SLUG` (chỉ với `--backend kaggle`) tải output của một kernel đã kết thúc bằng profile có username `OWNER`, kiểm manifest (`rerank_scores`, đúng `--model`, đúng sha256) rồi gộp điểm vào `data/cache/rerank_scores/<model>.jsonl`, không nộp kernel mới. Điểm được khớp theo model, request contract, query và tài liệu, nên cách này dùng được cả khi job identity đã đổi. Khi cache đủ cặp của run, lệnh ghi luôn biến thể.
 
@@ -120,6 +122,16 @@ uv run pharma-lab metrics compare --run hybrid-qwen4b-p50-k30-rrf2-sample1000 --
 ```
 
 `pharma-lab embed queries --backend local|kaggle --model MODEL` tạo cache vector query (`data/cache/query_embeddings/<model-slug>.jsonl`) mà `pharma-lab retrieve` dùng cho `dense` và `hybrid`; `--model` phải trùng model embedding của backend. Candidate `document_text` là `embedding_text` của hit, đúng văn bản reranker của benchmark cũ chấm.
+
+## Chạy theo lô trên Kaggle (e2e, rerank, embedding)
+
+| Command | Việc |
+| --- | --- |
+| `pharma-lab e2e run --backend kaggle ...` | Chia các cặp (cấu hình, câu) còn thiếu thành shard, mỗi shard một kernel, chạy song song trên các account còn quota và gộp kết quả vào `answers.jsonl` ở máy; chạy lại để nối tiếp. Mã thoát `0` xong, `10` tạm dừng (hết quota, `--drain`, `--max-sessions`), `11` còn cặp kẹt (`--retry-stuck` để thử lại) |
+| `pharma-lab e2e status --run NAME --config ...` | Số câu xong/tổng/kẹt từng cấu hình, kernel đang chạy, quota từng account và giờ GPU còn cần |
+| `pharma-lab kaggle status` | Kernel đang chạy theo bước và account, quota với giờ reset, dataset credential còn sót |
+
+Cờ chung của `e2e run`, `rerank`, `bundle embed` và `embed queries`: `--kaggle-account auto` (mọi profile `accN`), `accN` hoặc `acc1,acc3`; `--parallel N` (số shard cùng lúc, mặc định hai mỗi account); `--drain` (để kernel đang chạy xong rồi dừng). Riêng `e2e run`: `--llm gemini|opus` cần `--with-proxy-credentials` (tải file credential của proxy lên dataset private của lượt chạy, xoá khi lệnh kết thúc), `--judge` chấm câu mới về, `--latency` là lượt đo `concurrency 1` ghi vào `<run>-c1`. Chi tiết: [E2E evaluation](e2e-evaluation.md), [Local + Kaggle workflow](workflow-local-kaggle.md).
 
 ## Runtime profiling trên Kaggle
 

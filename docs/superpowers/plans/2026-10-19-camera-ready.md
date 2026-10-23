@@ -1,5 +1,9 @@
 # Camera-ready SoICT 2026 Implementation Plan
 
+> **Ghi chú 2026-10-23.** Tài liệu này mô tả đợt chuẩn bị bản camera-ready (tag `v1.1.0`) và được giữ nguyên
+> nội dung. Các lệnh `e2e llm-server`, `e2e rerank-server` nhắc ở dưới là của v1 và đã bị gỡ khỏi nhánh `v2.0.0`
+> (thay bằng `e2e run --backend kaggle`); nhánh `camera-ready` vẫn giữ chúng.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Bản camera-ready của paper 1360 trả lời bốn review bằng ba thí nghiệm (E1 baseline hội thoại, E2 dev/test, E3 citation recall) và các chỉnh sửa câu chữ, trên đúng code, data và model F16 của `v1.0.0`.

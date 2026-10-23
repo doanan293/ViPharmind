@@ -1,5 +1,10 @@
 # Paper v2 phase 1: decision model — implementation plan
 
+> **Cập nhật 2026-10-23.** Các lệnh `e2e llm-server`, `e2e rerank-server`, `e2e embed-server` và tunnel đã bị
+> gỡ; thay bằng `e2e run --backend kaggle` (kernel chạy trọn pipeline, chia shard, nối lại được). Các bước
+> bên dưới nhắc những lệnh đó là lịch sử, không còn chạy được. Xem
+> `docs/superpowers/specs/2026-10-23-kaggle-resumable-runs-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** The guard and the evidence judge can run on TypeSafe's decision model Jev (probabilities, no generation), the judge–refine loop can run without any LLM call (template refine), refinement is gated by a confidence threshold τ chosen on a held-out set, and the A2/A3/A4 runs and the τ sweep (B) are produced for the three paper models.

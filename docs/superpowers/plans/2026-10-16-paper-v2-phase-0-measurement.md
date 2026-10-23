@@ -1,5 +1,10 @@
 # Paper v2 phase 0: measurement infrastructure — implementation plan
 
+> **Cập nhật 2026-10-23.** Các lệnh `e2e llm-server`, `e2e rerank-server`, `e2e embed-server` và tunnel đã bị
+> gỡ; thay bằng `e2e run --backend kaggle` (kernel chạy trọn pipeline, chia shard, nối lại được). Các bước
+> bên dưới nhắc những lệnh đó là lịch sử, không còn chạy được. Xem
+> `docs/superpowers/specs/2026-10-23-kaggle-resumable-runs-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Every end-to-end run reports quality, seconds per turn (by step, p50 and p95) and USD per turn, runs can be compared pairwise, pipeline switches and retriever variants are configurable from the harness, and the A1 (Gemini) and A2 (Qwen3.5-9B) tables are re-run on the v2 release with the new columns.

@@ -22,7 +22,7 @@ Harness gọi backend trong cùng tiến trình, như `pharma-lab retrieve`, v�
 
 **Endpoint LLM** là service `cli-proxy-api` của compose (`docker compose -f ../compose.yaml -f ../compose.llm-proxy.yaml up -d cli-proxy-api` từ `pharma-lab/`, đăng nhập lưu trong volume `vipharmind_cli_proxy_auth`).
 
-**Reranker và Kaggle.** Reranker trên CPU quá chậm cho E2E: trên laptop i5, 40 tài liệu mất khoảng 10 phút với model 4B. Kaggle không được dùng để phục vụ model ra ngoài (một account đã bị khóa vì notebook mở tunnel), nên cấu hình cần GPU chạy trọn trong một kernel Kaggle theo lô (xem *Chạy trên Kaggle* bên dưới). Setting Gemini có reranker không chạy được trong kernel, vì mỗi lượt vừa cần proxy Gemini ở máy vừa cần reranker trên GPU; các cấu hình Gemini chạy ở máy, không reranker (`no-rerank`, `no-guard-no-rerank`) hoặc với reranker local.
+**Reranker và Kaggle.** Reranker trên CPU quá chậm cho E2E: trên laptop i5, 40 tài liệu mất khoảng 10 phút với model 4B. Cấu hình cần GPU chạy trong kernel Kaggle theo lô (xem *Chạy trên Kaggle*): LLM, reranker, embedding, Postgres và Qdrant cùng nằm trong một kernel, không phục vụ gì ra ngoài. Setting Gemini và Opus cũng chạy trong kernel, cùng reranker GPU: `cli-proxy-api` chạy ngay trong kernel, chỉ nghe `127.0.0.1`, dùng file credential tải lên một dataset private của lượt chạy rồi xoá (`--llm gemini|opus --with-proxy-credentials`).
 
 **Endpoint LLM còn phục vụ judge**, mặc định `gpt-5-mini` với reasoning `medium`. Proxy antigravity không có model này. Run `e2e-gemini` chấm bằng `--judge-model gemini-3.1-flash-lite`: model này khác model trả lời (`gemini-3.8-flash-high`), nhanh (khoảng 3 giây mỗi lần gọi), và có quota lớn nhất trong các model đã thử.
 
@@ -30,13 +30,28 @@ Harness gọi backend trong cùng tiến trình, như `pharma-lab retrieve`, v�
 
 *File GGUF.* Model là bản Q8_0 Unsloth công bố (`qwen3.5:9b-q8_0`, 9,5 GB), tải theo commit và kiểm sha256 cùng các model khác ([Đánh giá retrieval](evaluation.md), mục "File GGUF"). Template chat trong file nhận `chat_template_kwargs.enable_thinking: false`. Lần chạy stage đầu tiên tự đưa file lên dataset Kaggle `vector-cache-gguf-qwen3-5-9b-q8-0`. Bản llama.cpp trên Kaggle (b9637) đã hỗ trợ kiến trúc `qwen35`.
 
-*Chạy trên Kaggle.* Setting Qwen chạy trọn trong một kernel: Qwen3.5-9B Q8_0 trên GPU0, reranker Q8_0 trên GPU1, embedding Q8_0 trên CPU, Postgres và Qdrant trong kernel, harness như ở máy. Kernel chỉ bật internet để tải về, không mở cổng nào; câu trả lời được tải về thư mục run, còn judge và report chạy ở máy.
+*Chạy trên Kaggle.* Mỗi kernel chạy trọn pipeline: Qwen3.5-9B Q8_0 trên GPU0, reranker Q8_0 trên GPU1, embedding Q8_0 trên CPU, Postgres và Qdrant trong kernel, harness như ở máy. Kernel chỉ bật internet để tải về, không mở cổng nào; judge và report chạy ở máy.
 
 ```bash
-uv run pharma-lab e2e run --backend kaggle --run e2e-qwen35-9b-cr --config no-rerank --config no-guard-no-rerank --category injection --category out_of_scope --category unanswerable --kaggle-account acc1
+uv run pharma-lab e2e run --backend kaggle --run e2e-qwen35-9b --config full --config no-rerank \
+  --kaggle-account auto
+uv run pharma-lab e2e status --run e2e-qwen35-9b --config full --config no-rerank
 ```
 
-Một lệnh là một job, chạy gọn trong một phiên kernel (mặc định tối đa 3 giờ, khoảng nửa giờ cho cài đặt và nạp model). Lệnh tạo `data/work/e2e-kaggle/<run>/`: `e2e_job.json`, golden, `backend_requirements.txt` xuất từ `uv.lock`, và bản corpus chỉ giữ embedding `qwen3-embedding:4b-q8_0`. Thư mục cấu hình đích đã có `answers.jsonl` thì lệnh từ chối; kernel chưa xong mọi câu thì lệnh báo lỗi và không ghi gì.
+Máy là nơi giữ trạng thái; kernel chỉ là nơi tính. Đơn vị việc là một cặp (thư mục cấu hình, câu golden), và cặp nào còn thiếu hoặc lỗi thì lệnh tự tính lại từ `answers.jsonl` mỗi lần chạy. Vì vậy chạy lại đúng lệnh là nối tiếp, không cần cờ resume, và thư mục đã có câu trả lời không còn là lỗi: lệnh chỉ gộp phần mới vào.
+
+- **Chia shard.** Phần còn thiếu được chia thành các shard, mỗi shard một kernel, sao cho vừa một phiên (`--budget-seconds`, mặc định 3 giờ) và không nhỏ hơn chi phí dựng môi trường (khoảng nửa giờ). Giây mỗi lượt lấy từ `latency_seconds` đã có; chưa có thì dùng mặc định. Cùng phần thiếu cho cùng cách chia, nên lệnh chạy lại nối vào kernel đang chạy thay vì nộp kernel mới.
+- **Nhiều account.** `--kaggle-account auto` dùng mọi profile `accN`, `acc1,acc3` dùng đúng các account đó. Mỗi account chạy hai phiên GPU cùng lúc, nên ba account chạy tối đa sáu shard; `--parallel N` giảm số shard chạy cùng lúc. Quota GPU mỗi tuần vẫn là giới hạn thật: lệnh không giao shard cho account không đủ một phiên, và khi một kernel xong sớm thì phần còn lại được chia lại cho account trống.
+- **Dừng và nối.** Ctrl-C dừng lệnh nhưng kernel vẫn chạy; lần sau lệnh đọc `data/work/e2e-kaggle/<run>/jobs.json`, nối vào các kernel đó và thu kết quả. `--drain` để các kernel đang chạy xong rồi dừng, không nộp thêm; `--max-sessions K` dừng sau K kernel. Kernel còn chụp định kỳ câu trả lời của nó (mỗi 5 phút), nên kernel hết giờ hay bị kill vẫn để lại phần đã làm.
+- **Mã thoát.** `0` xong; `10` tạm dừng (hết quota, `--drain` hoặc `--max-sessions`; chạy lại để tiếp); `11` còn cặp kẹt, tức đã lỗi ba lần hoặc lỗi giống nhau hai lần. `e2e status` liệt kê cặp kẹt riêng; `--retry-stuck` mới đưa chúng vào shard lại.
+- **Cùng phần mềm.** Mỗi shard ghi vào `run.json` sha256 file model và bản `llama-server`; gộp shard khác model hoặc khác bản `llama-server` bị từ chối, nên mọi cặp của một run đến từ cùng trọng số dù chạy ở account nào. `run.json` của shard cũng phải khớp bản trên máy (golden, release, settings, pipeline).
+- **`--pipeline-option`** được gửi vào kernel và đặt tên thư mục cấu hình như khi chạy ở máy (`full+guard=false`).
+- **`e2e status --run R --config C...`** in số câu xong, tổng và kẹt của từng cấu hình, các kernel đang chạy, quota từng account và số giờ GPU còn cần. `uv run pharma-lab kaggle status` xem mọi bước (e2e, rerank, embedding) và các account cùng lúc.
+- **`--judge`** chấm các câu mới về ngay khi mỗi shard được gộp, nên khi shard cuối về thì phần lớn đã chấm xong; judge chạy ở máy qua endpoint cục bộ, không tốn quota GPU, và lỗi của judge không làm hỏng việc gộp.
+- **Đo độ trễ.** `--latency` là lượt đo duy nhất một kernel, `--concurrency 1`, ghi vào run `<run>-c1` (nơi `e2e report --latency-run` đọc); lệnh từ chối nếu kết hợp với `--parallel` lớn hơn 1 hoặc nhiều cấu hình.
+- **Gemini và Opus trong kernel.** `--llm gemini` hoặc `--llm opus` chạy `cli-proxy-api` trong kernel và bắt buộc `--with-proxy-credentials`. Lệnh in tên và loại (`antigravity`, `claude`, `codex`) của từng file credential sẽ được tải lên, chỉ đưa lên các file cần cho model của run (`--proxy-credential FILE` để chọn tay, `--proxy-credentials-dir DIR` để lấy từ thư mục khác volume `vipharmind_cli_proxy_auth`). File nằm trong thư mục tạm quyền `0700` ngoài repo, đi lên dataset private `pipeline-cred-<hash>` của account chạy shard và bị xoá khi lệnh kết thúc, kể cả khi lỗi (thử ba lần, báo to nếu xoá không được). Chúng không bao giờ vào git, `data/`, archive của `data push` hay log. Nếu lệnh bị giết cứng, `kaggle status` liệt kê dataset còn sót kèm lệnh xoá. Judge `gemini-3.1-flash-lite` chạy ở máy như trước.
+
+Lệnh tạo `data/work/e2e-kaggle/<run>/`: danh sách shard, `jobs.json`, và với mỗi shard `e2e_job.json` cùng golden, `backend_requirements.txt` xuất từ `uv.lock` và bản corpus chỉ giữ embedding `qwen3-embedding:4b-q8_0`. Phần nặng (corpus, golden, danh sách thư viện) thành một dataset private theo nội dung cho mỗi account, tạo một lần rồi dùng lại cho mọi shard; mỗi shard chỉ thêm một dataset nhỏ chứa lát câu hỏi của nó.
 
 *Qua API thay cho Kaggle.* Cùng model có trên OpenRouter (key `OPENROUTER_API_KEY` trong `pharma-lab/.env`); khi đó đặt endpoint từng bước bằng tay:
 
@@ -66,7 +81,7 @@ done
 | `closed-book` | – | – | – | – |
 | `react` | bật | – | – | bật; agent ReAct thay pipeline (mục "Agent ReAct") |
 
-**`--pipeline-option key=value`** (lặp được) ghi đè một trường của `PipelineOptions` cho cấu hình đó, ví dụ `--config full --pipeline-option guard=false`. Giá trị được kiểm theo kiểu của trường (`true`/`false`, số, `none`); khoá lạ bị từ chối trước khi chạy câu nào. Thư mục cấu hình thành `full+guard=false`, `run.json` ghi các giá trị, và `e2e report` đưa các thư mục này vào `ablation.csv` so với `full`. `e2e judge --config` nhận đúng tên thư mục đó. Lệnh `--backend kaggle` chưa nhận `--pipeline-option`.
+**`--pipeline-option key=value`** (lặp được) ghi đè một trường của `PipelineOptions` cho cấu hình đó, ví dụ `--config full --pipeline-option guard=false`. Giá trị được kiểm theo kiểu của trường (`true`/`false`, số, `none`); khoá lạ bị từ chối trước khi chạy câu nào. Thư mục cấu hình thành `full+guard=false`, `run.json` ghi các giá trị, và `e2e report` đưa các thư mục này vào `ablation.csv` so với `full`. `e2e judge --config` nhận đúng tên thư mục đó.
 
 `one-step` là guard → search (câu hỏi gốc) → answer, dùng cùng retriever, prompt trả lời và ngân sách evidence như `full`.
 

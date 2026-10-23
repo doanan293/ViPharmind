@@ -1,5 +1,10 @@
 # E2E trong một kernel Kaggle — Implementation Plan
 
+> **Cập nhật 2026-10-23.** Các lệnh `e2e llm-server`, `e2e rerank-server`, `e2e embed-server` và tunnel đã bị
+> gỡ; thay bằng `e2e run --backend kaggle` (kernel chạy trọn pipeline, chia shard, nối lại được). Các bước
+> bên dưới nhắc những lệnh đó là lịch sử, không còn chạy được. Xem
+> `docs/superpowers/specs/2026-10-23-kaggle-resumable-runs-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** `pharma-lab e2e run --backend kaggle` chạy cấu hình e2e của setting Qwen trọn trong một kernel Kaggle theo lô, và không còn đường tunnel nào.

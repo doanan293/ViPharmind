@@ -1,5 +1,11 @@
 # Spec: Paper v2 — chất lượng, độ trễ và chi phí của agentic RAG cho tra cứu thuốc tiếng Việt
 
+> **Cập nhật 2026-10-23.** Kaggle không phục vụ model ra ngoài nữa (không tunnel, không `e2e llm-server`,
+> `e2e rerank-server`, `e2e embed-server`). Mọi bước dùng GPU chạy trọn trong kernel qua `e2e run
+> --backend kaggle`, chia shard và nối lại được; Gemini và Opus chạy qua `cli-proxy-api` trong kernel.
+> Xem `docs/superpowers/specs/2026-10-23-kaggle-resumable-runs-design.md` và
+> `pharma-lab/docs/guides/e2e-evaluation.md`. Nội dung bên dưới nhắc cách phục vụ cũ chỉ là lịch sử.
+
 Ngày: 2026-10-14. Trạng thái: chờ duyệt.
 Nền: release v1.0.0 (bản nộp SoICT 2026) và ghi chú nghiên cứu trong `docs/research/paper-v2/`.
 
@@ -123,10 +129,9 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   vì cả hai đều là endpoint tương thích OpenAI nên khác nhau chỉ ở cấu hình, không ở mã. Mỗi vai trò
   có `BASE_URL`, `API_KEY` và `MODEL` riêng như hiện nay, nên hai đường của lab trộn được trong một
   run.
-- **Model mở** (Qwen3.5-9B) tự host trên Kaggle bằng `pharma-lab e2e llm-server --model
-  qwen3.5:9b-q8_0`: llama.cpp GGUF Q8_0, một bản trên mỗi T4 (replicated 2×1, proxy round-robin
-  của serve worker chia request), mỗi bản 4 slot × 32.768 token, tức 8 request đồng thời; tunnel
-  cloudflared (`docs/guides/e2e-evaluation.md`).
+- **Model mở** (Qwen3.5-9B) chạy trong kernel Kaggle của `pharma-lab e2e run --backend kaggle`:
+  llama.cpp GGUF Q8_0 trên GPU0 (4 slot × 32.768 token, tức 4 request đồng thời), reranker trên GPU1,
+  embedding trên CPU; không có tunnel hay cổng nào mở ra ngoài (`docs/guides/e2e-evaluation.md`).
 - **Mọi model tự host đều ở Q8_0**, cả LLM, embedding và reranker. Sinh token trên GPU bị giới
   hạn bởi băng thông bộ nhớ, nên F16 lãng phí: Q8_0 giảm nửa dung lượng trọng số, chất lượng
   gần như bằng F16, tốc độ sinh mỗi request nhanh hơn rõ. Trọng số 9B Q8_0 còn 9,5 GB nên vừa một
@@ -163,10 +168,10 @@ RAG hội thoại); ViRE và ViMedAQA (tiếng Việt). Danh sách đầy đủ 
   rõ điều đó. Tiền thật phải trả chỉ phát sinh ở Jev qua OpenRouter.
 - Embedding query và reranker của tầng agent: chọn từ bảng retrieval v2 (§4.D) sau khi pha D
   xong, theo quy tắc ghi trong plan pha 0 (nDCG@5 sau rerank cao nhất; chênh dưới một điểm thì
-  lấy model nhỏ hơn), không cố định trước (quyết định ngày 2026-10-16). Cả hai tự host trên
-  Kaggle ở kernel riêng, replicated 2×1, bằng `pharma-lab e2e embed-server` và `pharma-lab e2e
-  rerank-server`; mỗi model một tài khoản (LLM acc1, reranker acc2, embedding acc3). Embedding
-  phải cùng file với index đã dựng; CPU qua `compose.local-models.yaml` chỉ để demo.
+  lấy model nhỏ hơn), không cố định trước (quyết định ngày 2026-10-16). Cả hai chạy trong cùng
+  kernel với LLM của lượt chạy (reranker GPU1, embedding CPU), không còn kernel riêng phục vụ qua
+  mạng; shard chạy song song trên nhiều tài khoản. Embedding phải cùng file với index đã dựng; CPU
+  qua `compose.local-models.yaml` chỉ để demo.
 - Jev: qua OpenRouter, cả ở lab lẫn production, bằng SDK chính thức của TypeSafe với `base_url`
   `https://openrouter.ai/api` và id `~typesafe/jev-latest` (danh sách model OpenRouter ngày
   2026-10-14 hiện id `typesafe/jev-router`, giá ghi -1, tức OpenRouter không công bố giá cố định).
@@ -669,7 +674,7 @@ rẻ. Mỗi run chạy thử 20 item trước khi chạy đủ.
   20 item ở pha 0 kiểm tra không có lượt nào chạm trần ngữ cảnh; nếu có thì hạ `max_evidence_chars`
   cho mọi cấu hình cùng lúc, không hạ riêng một nhánh.
 - Bốn slot 32.768 token mỗi bản 9B Q8_0 trên một T4 là tính toán (KV cache 4 GiB cạnh 9,5 GB
-  weights), chưa đo: lần khởi động đầu của `e2e llm-server` ở pha 0 xác nhận server lên được; nếu
+  weights), chưa đo: lần chạy kernel đầu của `e2e run --backend kaggle` xác nhận server lên được; nếu
   hết VRAM thì giảm còn 3 slot. ReAct vẫn ghi số lượt chạm trần ngữ cảnh vào bảng thất bại.
 - Credential OAuth Antigravity hoặc Claude của cli-proxy-api hết hạn, hết quota, hoặc đổi danh sách
   model được dùng: proxy trả `auth_unavailable`, khi đó chép lại credential từ ProxyPal; `pin_judge`

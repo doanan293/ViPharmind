@@ -37,9 +37,9 @@ uv run pharma-lab bundle export --output data/corpus/formulary --force
 
 ```bash
 uv run pharma-lab bundle embed --bundle data/corpus/formulary --backend kaggle \
-  --model qwen3-embedding:4b-q8_0 --kaggle-account acc1 --dry-run
+  --model qwen3-embedding:4b-q8_0 --kaggle-account auto --dry-run
 uv run pharma-lab bundle embed --bundle data/corpus/formulary --backend kaggle \
-  --model qwen3-embedding:4b-q8_0 --kaggle-account acc1
+  --model qwen3-embedding:4b-q8_0 --kaggle-account auto --parallel 4
 ```
 
 Lệnh stream log kernel, tải artifact về và merge vào `data/cache/text_embeddings/qwen3_embedding_4b_q8_0.jsonl`. Exit code 3 nghĩa là kernel chưa xong hoặc hết budget: chạy lại đúng lệnh để resume từ checkpoint. Khi cache đủ, lệnh ghi `embeddings/qwen3_embedding_4b_q8_0.jsonl` vào bundle. `Ctrl-C` chỉ dừng theo dõi; kernel vẫn chạy và lần chạy sau tự attach.
@@ -69,7 +69,7 @@ Thêm `--limit 50` và tên run `...-smoke50` để chạy thử trước.
 
 ## 6. Rerank trên Kaggle và metrics
 
-Một model có thể cần nhiều phiên GPU 6 giờ, nên mỗi model chạy trong một cửa sổ tmux riêng; tắt terminal hay mất kết nối không làm dừng lệnh:
+Một model có thể cần nhiều phiên GPU, nên mỗi model chạy trong một cửa sổ tmux riêng; tắt terminal hay mất kết nối chỉ dừng việc theo dõi, các kernel vẫn chạy và lần sau lệnh nối vào:
 
 ```bash
 tmux new-session -s rerank -n qwen3-reranker-4b
@@ -80,15 +80,15 @@ uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend kagg
 uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --model qwen3-reranker:4b-q8_0 --top-k 30
 ```
 
-Với `--kaggle-account auto`, trước mỗi phiên lệnh:
+Với `--kaggle-account auto`, mỗi shard (một nhóm truy vấn, một kernel) được giao cho account:
 
-- chạy `kaggle quota -v` bằng thông tin của từng profile `accN` trong `.env` và đọc dòng `GPU`;
-- bỏ tài khoản đang bị lệnh khác khoá (`data/work/locks/kaggle-accounts/<accN>.lock`), chọn tài khoản còn nhiều giờ GPU nhất, bằng nhau thì chọn `accN` nhỏ hơn;
-- đặt ngân sách phiên = min(`--budget-seconds`, giờ còn lại − 0,5 giờ) và chỉ nộp kernel khi ngân sách ít nhất 1 giờ.
+- còn nhiều giờ GPU nhất sau khi trừ phần các kernel đang chạy đã giữ (đọc `kaggle quota -v` của từng profile `accN`), bằng nhau thì `accN` nhỏ hơn;
+- không bị lệnh khác khoá (`data/work/locks/kaggle-accounts/<accN>.lock`; mỗi account có hai khoá cho hai phiên GPU cùng lúc);
+- còn ít nhất 1 giờ sau phần dự phòng 0,5 giờ; ngân sách phiên = min(`--budget-seconds`, giờ còn lại − 0,5 giờ).
 
-Sau mỗi phiên, điểm (kể cả khi kernel dừng giữa chừng) được gộp vào `data/cache/rerank_scores/<model>.jsonl` trước, rồi mới publish checkpoint. Trước phiên kế tiếp, nguồn có nhiều cặp nhất trong cache ở máy và checkpoint của mọi tài khoản được publish làm checkpoint của tài khoản sắp chạy, nên đổi tài khoản không mất điểm. Lệnh chạy tới khi đủ cặp hoặc hết quota; `--max-runs N` giới hạn số phiên. `--kaggle-account accN` chỉ dùng một tài khoản, với cùng quy tắc quota. Dataset model chưa có được tạo công khai bằng profile của `KAGGLE_SHARED_OWNER` (acc1), vì vậy `.env` phải có profile đó; mọi tài khoản mount chung model và bản build llama.cpp. Dataset input (câu hỏi đánh giá, text corpus) là riêng tư của tài khoản chạy kernel: khi phiên chuyển sang tài khoản khác, tài khoản đó tự upload bản input của mình, còn tiến độ đi qua cache ở máy và checkpoint riêng tư.
+Điểm của mọi shard, kể cả khi kernel dừng giữa chừng, được gộp vào `data/cache/rerank_scores/<model>.jsonl` ngay khi về; cache ở máy là nguồn duy nhất của phần còn thiếu, nên đổi account hay chạy lại không mất điểm. Lệnh chạy tới khi đủ cặp hoặc hết quota; `--max-runs N` giới hạn số kernel, `--parallel N` số shard cùng lúc, `--drain` để các kernel đang chạy xong rồi dừng. `--kaggle-account accN` chỉ dùng một account, `acc1,acc3` dùng đúng các account đó. Dataset model chưa có được tạo công khai bằng profile của `KAGGLE_SHARED_OWNER` (acc1), vì vậy `.env` phải có profile đó; mọi account mount chung model và bản build llama.cpp. Dataset input (câu hỏi đánh giá, text corpus) là riêng tư của account chạy kernel: khi shard chuyển sang account khác, account đó tự upload bản input của mình.
 
-Nhiều model chạy song song, mỗi model một cửa sổ tmux (`tmux new-window -n qwen3-reranker-8b`); khoá tài khoản bảo đảm mỗi tài khoản chỉ chạy một phiên GPU.
+Nhiều model chạy song song, mỗi model một cửa sổ tmux (`tmux new-window -n qwen3-reranker-8b`); khoá tài khoản bảo đảm mỗi account chỉ chạy tối đa hai phiên GPU.
 
 Khi không tài khoản nào còn đủ 1 giờ, lệnh dừng với exit code 3, `stop=quota-exhausted`, và in bảng quota:
 
@@ -108,6 +108,26 @@ tail -f data/work/logs/rerank/qwen3_reranker_4b_q8_0.log
 
 Kaggle không truy cập Postgres/Qdrant và không tính metrics; rerank chỉ nhận candidate JSONL cùng manifest.
 
+## 7. Nhiều account, dừng và nối lại
+
+Embedding corpus, embedding truy vấn, rerank và `e2e run` dùng chung một cơ chế:
+
+1. Máy là nguồn sự thật. Phần còn thiếu luôn được tính lại từ cache hoặc `answers.jsonl` ở máy; kernel Kaggle chỉ là nơi tính và có thể bỏ đi.
+2. Phần thiếu được chia thành shard vừa một phiên, mỗi shard một kernel, giao cho account còn quota (hai phiên GPU cùng lúc mỗi account). Cùng phần thiếu cho cùng shard, nên chạy lại nối vào kernel đang chạy.
+3. Mỗi kernel xong (hoặc dừng giữa chừng) thì kết quả được gộp vào máy ngay; kernel xong sớm thì phần còn lại được chia lại.
+
+Điều khiển: `Ctrl-C` dừng lệnh nhưng để kernel chạy; `--drain` chờ các kernel đang chạy rồi dừng; `--max-sessions`/`--max-runs` giới hạn số kernel; `--parallel N` giới hạn số shard cùng lúc; `--kaggle-account auto|accN|acc1,acc3` chọn account. Đổi account giữa chừng là chạy lại lệnh với `--kaggle-account` khác: tiến độ nằm ở máy.
+
+Xem trạng thái mọi bước và mọi account:
+
+```bash
+uv run pharma-lab kaggle status
+```
+
+Lệnh liệt kê các kernel đang chạy theo bước và account (đọc `jobs.json` của từng bước), bảng quota GPU với giờ reset, và các dataset `pipeline-cred-*` còn sót lại trên account (credential của proxy, xem [E2E evaluation](e2e-evaluation.md)) kèm lệnh xoá. Một account lỗi API chỉ làm dòng của nó ghi `unavailable`, không làm hỏng cả bảng. Với e2e còn có `e2e status --run R --config C...`.
+
+Không có công cụ nào mở cổng ra ngoài trong kernel: mọi thứ nói chuyện qua `127.0.0.1` và chỉ tải về (`tests/integrations/kaggle/test_no_external_exposure.py` giữ điều này).
+
 ## Troubleshooting
 
 - Credential/owner lỗi: sửa `.env`, chạy lại `pharma-lab doctor --backend kaggle`.
@@ -117,7 +137,7 @@ Kaggle không truy cập Postgres/Qdrant và không tính metrics; rerank chỉ 
 - `Query embedding cache ... is missing`: chạy lại `pharma-lab embed queries --backend kaggle` với đúng file evaluation và model embedding của backend.
 - `--top-k` lớn hơn `candidate-k`: retrieve lại với candidate depth đủ lớn.
 - `stop=quota-exhausted`: xem bảng quota và chạy lại sau `refresh_at`.
-- `stop=no-progress`: phiên vừa rồi không thêm cặp nào (kernel lỗi không có output hoặc llama-server không lên sau 3 lần khởi động lại); đọc `data/work/logs/rerank/<model>.log` và `server-*.log` trong output kernel.
+- `stop=stuck`: một shard hai lần liền không thêm gì (kernel lỗi không có output hoặc llama-server không lên sau 3 lần khởi động lại); đọc `data/work/logs/rerank/<model>.log` và `server-*.log` trong output kernel.
 - Máy hoặc WSL khởi động lại khi kernel đang chạy: mở lại tmux và chạy lại đúng lệnh; lệnh nối vào kernel đang chạy trên tài khoản đó thay vì nộp kernel mới.
 - Kernel đã kết thúc nhưng điểm chưa về máy và lệnh không còn nối được vào nó (ví dụ cấu hình runtime đã đổi nên job identity khác): `uv run pharma-lab rerank --run RUN --backend kaggle --model MODEL --recover-kernel OWNER/SLUG`, rồi chạy lại lệnh rerank thường để chấm phần còn thiếu.
 
