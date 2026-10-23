@@ -183,3 +183,39 @@ def test_quota_table_lists_refresh_time_and_lock_per_account():
         "2026-09-19T00:00:00",
         "yes",
     ]
+
+
+def test_committed_hours_reduce_the_budget():
+    choice = select_session_account(
+        [_quota("acc1", 3.0)],
+        locked=frozenset(),
+        requested_budget_seconds=7_200,
+        committed_seconds={"acc1": 5_400},
+    )
+
+    # 3 h = 10_800 s, minus the 1_800 s reserve and the 5_400 s already promised.
+    assert choice == SessionAccount("acc1", 3_600)
+
+
+def test_nothing_is_left_once_the_commitments_use_the_quota_up():
+    assert (
+        select_session_account(
+            [_quota("acc1", 3.0)],
+            locked=frozenset(),
+            requested_budget_seconds=7_200,
+            committed_seconds={"acc1": 9_000},
+        )
+        is None
+    )
+
+
+def test_commitments_move_the_choice_to_the_account_with_more_free_quota():
+    choice = select_session_account(
+        [_quota("acc1", 4.0), _quota("acc2", 3.5)],
+        locked=frozenset(),
+        requested_budget_seconds=7_200,
+        committed_seconds={"acc1": 7_200},
+    )
+
+    assert choice is not None
+    assert choice.profile == "acc2"

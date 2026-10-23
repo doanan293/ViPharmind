@@ -157,3 +157,34 @@ def test_an_error_inside_the_held_account_is_not_mistaken_for_a_busy_lock(tmp_pa
         raise KaggleAccountBusy("acc9")
 
     assert waits == []
+
+
+def test_slot_zero_keeps_the_existing_lock_name_and_other_slots_get_their_own(
+    tmp_path: Path,
+) -> None:
+    lock_root = tmp_path / "locks"
+    directory = lock_root / "kaggle-accounts"
+
+    with (
+        kaggle_account_lock("acc1", lock_root=lock_root),
+        kaggle_account_lock("acc1", lock_root=lock_root, slot=1),
+    ):
+        assert (directory / "acc1.lock").is_file()
+        assert (directory / "acc1.1.lock").is_file()
+
+
+def test_two_slots_of_one_account_can_be_held_together(tmp_path: Path) -> None:
+    lock_root = tmp_path / "locks"
+
+    with (
+        kaggle_account_lock("acc2", lock_root=lock_root, slot=0),
+        kaggle_account_lock("acc2", lock_root=lock_root, slot=1),
+        pytest.raises(KaggleAccountBusy, match="acc2"),
+        kaggle_account_lock("acc2", lock_root=lock_root, slot=1),
+    ):
+        raise AssertionError("a held slot must not be entered")
+
+
+def test_slot_must_not_be_negative(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="slot"):
+        kaggle_account_lock("acc1", lock_root=tmp_path, slot=-1)

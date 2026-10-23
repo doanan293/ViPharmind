@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Generator, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, ExitStack, contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
@@ -24,7 +24,7 @@ from pharma_lab.integrations.kaggle.quota import (
 from pharma_lab.integrations.kaggle.service import KaggleExecutionContext
 
 QuotaReader = Callable[[KaggleExecutionContext], AccountQuota]
-AccountLock = Callable[[str], AbstractContextManager[str]]
+AccountLock = Callable[..., AbstractContextManager[str]]
 SessionLog = Callable[[str], None]
 
 
@@ -112,6 +112,21 @@ def _format_quota(quota: AccountQuota) -> str:
     )
 
 
+def _lock_slot(stack: ExitStack, locker: AccountLock, profile: str, slots: int) -> bool:
+    """Take the first free session slot of the account; False when every slot is held.
+
+    With one slot the locker is called with the profile alone, so lockers that only
+    know accounts keep working."""
+    for slot in range(slots):
+        try:
+            held = locker(profile) if slots == 1 else locker(profile, slot=slot)
+            stack.enter_context(held)
+        except KaggleAccountBusy:
+            continue
+        return True
+    return False
+
+
 def _lock_preferred(
     profile: str | None,
     *,
@@ -119,12 +134,11 @@ def _lock_preferred(
     stack: ExitStack,
     locker: AccountLock,
     log: SessionLog,
+    slots: int = 1,
 ) -> SessionAccount | None:
     if profile is None:
         return None
-    try:
-        stack.enter_context(locker(profile))
-    except KaggleAccountBusy:
+    if not _lock_slot(stack, locker, profile, slots):
         log(
             f"account={profile} runs this job's kernel but is locked by another "
             "local job; choosing by quota"
@@ -142,6 +156,8 @@ def _lock_best(
     locker: AccountLock,
     log: SessionLog,
     unavailable: frozenset[str] = frozenset(),
+    slots: int = 1,
+    committed_seconds: Callable[[], Mapping[str, int]] | None = None,
 ) -> SessionAccount:
     busy: set[str] = set(unavailable)
     while True:
@@ -149,12 +165,13 @@ def _lock_best(
             quotas,
             locked=frozenset(busy),
             requested_budget_seconds=requested_budget_seconds,
+            committed_seconds=(
+                None if committed_seconds is None else committed_seconds()
+            ),
         )
         if choice is None:
             raise QuotaExhausted(quotas, frozenset(busy))
-        try:
-            stack.enter_context(locker(choice.profile))
-        except KaggleAccountBusy:
+        if not _lock_slot(stack, locker, choice.profile, slots):
             busy.add(choice.profile)
             log(f"account={choice.profile} is locked by another local job; skipped")
             continue
@@ -171,11 +188,16 @@ def reserve_session_account(
     account_lock: AccountLock | None = None,
     preferred_profile: str | None = None,
     unavailable: frozenset[str] = frozenset(),
+    slots_per_account: int = 1,
+    committed_seconds: Callable[[], Mapping[str, int]] | None = None,
 ) -> Generator[ReservedAccount, None, None]:
     """Read every account's GPU quota, then lock one account for one session.
 
     `unavailable` holds accounts a caller already found unusable, for example one whose
-    Kaggle GPU sessions are all taken.
+    Kaggle GPU sessions are all taken. `slots_per_account` is how many sessions of one
+    account may run at once (Kaggle allows two); `committed_seconds` returns the budget
+    of the sessions already running per account, which the choice subtracts from the
+    reported quota.
     """
     reader = read_quota or read_account_quota
     locker = account_lock or kaggle_account_lock
@@ -190,6 +212,7 @@ def reserve_session_account(
             stack=stack,
             locker=locker,
             log=log,
+            slots=slots_per_account,
         ) or _lock_best(
             quotas,
             requested_budget_seconds=requested_budget_seconds,
@@ -197,6 +220,8 @@ def reserve_session_account(
             locker=locker,
             log=log,
             unavailable=unavailable,
+            slots=slots_per_account,
+            committed_seconds=committed_seconds,
         )
         quota = next(item for item in quotas if item.profile == choice.profile)
         log(

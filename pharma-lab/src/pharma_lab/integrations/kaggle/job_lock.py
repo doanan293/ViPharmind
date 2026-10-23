@@ -67,16 +67,22 @@ def kaggle_account_lock(
     profile: str,
     *,
     lock_root: Path | None = None,
+    slot: int = 0,
 ) -> AbstractContextManager[str]:
-    """Hold the session lock of one Kaggle account, failing at once if it is taken.
+    """Hold one session slot of one Kaggle account, failing at once if it is taken.
 
     Parallel `pharma-lab rerank` commands for different models share the account pool;
-    this lock keeps each account to one GPU session started from this machine.
+    by default (slot 0) this lock keeps each account to one GPU session started from
+    this machine. Kaggle runs two batch GPU sessions per account, so a scheduler that
+    wants both takes slots 0 and 1; slot 0 keeps the lock file every command already uses.
     """
     if ACCOUNT_NAME.fullmatch(profile) is None:
         raise ValueError(f"invalid Kaggle account profile: {profile!r}")
+    if slot < 0:
+        raise ValueError(f"invalid Kaggle account slot: {slot!r}")
     root = paths.LOCK_DIR if lock_root is None else lock_root
-    return _account_lock(profile, Path(root) / ACCOUNT_LOCK_DIRNAME / f"{profile}.lock")
+    name = f"{profile}.lock" if slot == 0 else f"{profile}.{slot}.lock"
+    return _account_lock(profile, Path(root) / ACCOUNT_LOCK_DIRNAME / name)
 
 
 @contextmanager

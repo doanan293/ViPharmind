@@ -6,7 +6,7 @@ import csv
 import io
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -108,23 +108,32 @@ def select_session_account(
     *,
     locked: frozenset[str],
     requested_budget_seconds: int,
+    committed_seconds: Mapping[str, int] | None = None,
     margin_seconds: int = QUOTA_MARGIN_SECONDS,
     minimum_seconds: int = MINIMUM_SESSION_SECONDS,
 ) -> SessionAccount | None:
-    """Pick the unlocked account with the most GPU hours; ties go to the lowest accN.
+    """Pick the unlocked account with the most free GPU time; ties go to the lowest accN.
 
-    The session budget keeps `margin_seconds` of quota in reserve because Kaggle
-    reports usage late. No account qualifies when that budget is below
-    `minimum_seconds`.
+    Free time is the reported remaining quota minus `committed_seconds`, the budgets of
+    sessions already running on that account, because Kaggle reports their usage late.
+    The session budget keeps `margin_seconds` of quota in reserve for the same reason.
+    No account qualifies when that budget is below `minimum_seconds`.
     """
+    committed = committed_seconds or {}
+
+    def free_seconds(quota: AccountQuota) -> int:
+        return math.floor(quota.remaining_hours * 3600) - committed.get(
+            quota.profile, 0
+        )
+
     available = [quota for quota in quotas if quota.profile not in locked]
     if not available:
         return None
     best = min(
         available,
-        key=lambda quota: (-quota.remaining_hours, profile_order(quota.profile)),
+        key=lambda quota: (-free_seconds(quota), profile_order(quota.profile)),
     )
-    usable_seconds = math.floor(best.remaining_hours * 3600) - margin_seconds
+    usable_seconds = free_seconds(best) - margin_seconds
     budget = min(requested_budget_seconds, usable_seconds)
     if budget < minimum_seconds:
         return None
