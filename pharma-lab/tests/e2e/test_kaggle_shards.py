@@ -5,7 +5,14 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from tests.e2e.test_work_state import done, golden, run_json, tar_of, write_answers
+from tests.e2e.test_work_state import (
+    done,
+    failed,
+    golden,
+    run_json,
+    tar_of,
+    write_answers,
+)
 from tests.integrations.kaggle.factories import cloud_artifact, stage_job
 from tests.integrations.kaggle.test_scheduler import contexts
 
@@ -495,3 +502,22 @@ def test_the_job_names_its_server_layout(tmp_path: Path) -> None:
 
     job = json.loads(Path(runner.calls[0]["input_path"]).read_text())
     assert job["layout"] == "A"
+
+
+def test_a_shard_that_only_errors_merges_zero_units(tmp_path: Path) -> None:
+    errors = tar_of(
+        tmp_path / "errors.tar",
+        {
+            "full/answers.jsonl": (
+                failed(ITEMS[1].item_id, "429").model_dump_json() + "\n"
+            ).encode(),
+            "full/run.json": json.dumps(run_json()).encode(),
+        },
+    )
+    runner = Runner(tmp_path, deliver=errors)
+    subject = adapter(tmp_path, runner)
+    shard = shard_of([key("full", ITEMS[1])])
+
+    result = subject.run_shard(shard, reserved())
+
+    assert subject.merge(shard, result) == 0

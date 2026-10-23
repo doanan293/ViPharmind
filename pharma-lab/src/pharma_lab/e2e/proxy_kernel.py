@@ -29,6 +29,8 @@ PROXY_PORT = 8317
 # The member of the release archive that is the program (checked against the real v8.0.28).
 PROXY_BINARY = "cli-proxy-api"
 CONFIG_NAME = "proxy-config.yaml"
+# The dataset's own manifest sits beside the credentials and is not one of them.
+MANIFEST_NAME = "dependency_manifest.json"
 RELEASES = "https://github.com/router-for-me/CLIProxyAPI/releases/download"
 # Top-level settings the kernel decides itself, whatever the template says: where to
 # listen, where the credentials are, the local key, and no remote management API.
@@ -93,6 +95,8 @@ def install_credentials(source: Path, auth_dir: Path) -> list[str]:
     auth_dir.chmod(0o700)
     names = []
     for path in sorted(source.glob("*.json")):
+        if path.name == MANIFEST_NAME:
+            continue
         destination = auth_dir / path.name
         shutil.copyfile(path, destination)
         destination.chmod(0o600)

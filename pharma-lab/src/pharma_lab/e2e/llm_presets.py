@@ -76,7 +76,7 @@ PRESETS: Mapping[str, LlmPreset] = MappingProxyType(
             ),
             needs_proxy=True,
             providers=frozenset({"antigravity"}),
-            max_in_flight=8,
+            max_in_flight=4,
         ),
         "opus": LlmPreset(
             "opus",
@@ -90,7 +90,7 @@ PRESETS: Mapping[str, LlmPreset] = MappingProxyType(
             ),
             needs_proxy=True,
             providers=frozenset({"claude"}),
-            max_in_flight=4,
+            max_in_flight=2,
         ),
     }
 )

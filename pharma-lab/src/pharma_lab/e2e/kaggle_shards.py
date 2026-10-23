@@ -211,7 +211,6 @@ class E2EShardAdapter:
         self._on_merged = on_merged
         self._log = log
         self._attach: set[str] = set()
-        self._merged: dict[str, int] = defaultdict(int)
 
     @property
     def universe(self) -> Sequence[GoldenItem]:
@@ -289,7 +288,10 @@ class E2EShardAdapter:
     def merge(self, shard: Shard, result: PipelineResult) -> int:
         if result.artifact_path is not None:
             self._merge(shard, result.artifact_path)
-        return self._merged.pop(shard.shard_id, 0)
+        # Units that now have a final answer, not lines appended: an error line is
+        # not progress, and a shard that only errors must count as having done nothing.
+        still = {unit.key for unit in self.missing()}
+        return sum(1 for unit in shard.units if unit.key not in still)
 
     def _merge(self, shard: Shard, archive: Path) -> None:
         labels = sorted(
@@ -299,7 +301,6 @@ class E2EShardAdapter:
             }
         )
         report = merge_shard(archive, self.run_root, labels)
-        self._merged[shard.shard_id] += report.appended
         for warning in report.warnings:
             self._log(f"warning: {warning}")
         if report.appended and self._on_merged is not None:

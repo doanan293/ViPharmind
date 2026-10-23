@@ -233,3 +233,14 @@ def test_start_proxy_reports_an_early_exit(tmp_path: Path) -> None:
             popen=lambda *_a, **_k: Process(exit_code=3),
             log_path=tmp_path / "proxy.log",
         )
+
+
+def test_the_dataset_manifest_is_not_installed_as_a_credential(tmp_path: Path) -> None:
+    source = tmp_path / "mounted"
+    source.mkdir()
+    (source / "antigravity-a.json").write_text('{"type": "antigravity"}')
+    (source / "dependency_manifest.json").write_text("{}")
+
+    names = install_credentials(source, tmp_path / "auth")
+
+    assert names == ["antigravity-a.json"]
