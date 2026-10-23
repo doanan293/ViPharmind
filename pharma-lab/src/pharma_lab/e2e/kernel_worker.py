@@ -14,21 +14,24 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 import urllib.request
 import zipfile
-from collections.abc import Iterable, Mapping
-from contextlib import ExitStack
+from collections.abc import Callable, Generator, Iterable, Mapping
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 from pharma_lab.e2e.kernel_env import kernel_backend_env
-from pharma_lab.integrations.kaggle.models import CloudArtifact
+from pharma_lab.integrations.kaggle.models import CloudArtifact, JobIdentity
 from pharma_lab.integrations.kaggle.workers.runtime import (
     artifact_from_output,
     identity_from_config,
     managed_model_servers,
     resolve_input_file,
+    worker_deadline,
 )
+from pharma_lab.runtime.catalog import require_model
 
 OUTPUT_FILE = "e2e_output.tar"
 WORK_ROOT = Path("/tmp/e2e")
@@ -40,10 +43,88 @@ QDRANT_RELEASE = (
     "qdrant-x86_64-unknown-linux-gnu.tar.gz"
 )
 KEPT_FILES = ("answers.jsonl", "run.json")
+# Seconds between the snapshots of the answers so far (the job may change or switch off with 0).
+SNAPSHOT_SECONDS = 300.0
+POLL_SECONDS = 5.0
 
 
 def log(message: str) -> None:
     print(f"[e2e] {message}", flush=True)
+
+
+class PhaseLog:
+    """Seconds spent in each setup phase, so that speeding the setup up starts from numbers."""
+
+    def __init__(
+        self,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        emit: Callable[[str], None] = log,
+    ) -> None:
+        self._clock = clock
+        self._emit = emit
+
+    @contextmanager
+    def phase(self, name: str) -> Generator[None]:
+        started = self._clock()
+        try:
+            yield
+        finally:
+            self._emit(f"phase={name} seconds={self._clock() - started:.1f}")
+
+
+def shard_label(config: str, pipeline_options: Iterable[str]) -> str:
+    """Directory name of a configuration with its options, e.g. `full+guard=false`.
+
+    The rule of `configs.config_label`, repeated because this module runs before the
+    backend (and so `configs`) is installed; a test keeps the two equal."""
+    return "+".join([config, *(option.strip() for option in pipeline_options)])
+
+
+def shard_entries(job: Mapping) -> list[dict]:
+    """The `(config, pipeline_options, item_ids)` entries of a job, old or new layout."""
+    shards = job.get("shards")
+    if shards:
+        return [dict(entry) for entry in shards]
+    return [
+        {"config": config, "pipeline_options": [], "item_ids": job["item_ids"]}
+        for config in job["configs"]
+    ]
+
+
+def stop_at_from_config(
+    config: Mapping, clock: Callable[[], float] = time.time
+) -> float:
+    """The `time.time()` reading from which the harness starts no new item."""
+    return worker_deadline(dict(config), clock)
+
+
+def llama_server_fingerprint(input_root: Path) -> str | None:
+    """sha256 of the llama-server binary the runtime dataset ships, if it names one."""
+    manifests = [
+        p for p in Path(input_root).rglob("runtime_manifest.json") if p.is_file()
+    ]
+    if len(manifests) != 1:
+        return None
+    files = json.loads(manifests[0].read_text(encoding="utf-8")).get("files", {})
+    record = files.get("bin/llama-server")
+    return None if record is None else str(record["sha256"])
+
+
+def software_info(config: Mapping) -> dict[str, object]:
+    """What produced the answers; merging refuses answers of other weights or builds."""
+    info: dict[str, object] = {
+        "model_sha256": {
+            str(name): require_model(str(name)).sha256
+            for name in config.get("models", [])
+        }
+    }
+    server = llama_server_fingerprint(
+        Path(config.get("kaggle_input_root", "/kaggle/input"))
+    )
+    if server is not None:
+        info["llama_server"] = server
+    return info
 
 
 def restore_inputs(config: Mapping, target: Path) -> Path:
@@ -84,11 +165,93 @@ def completed_answers(run_root: Path, configs: Iterable[str]) -> int:
             continue
         latest: dict[str, str] = {}
         for line in path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
+            if not line.strip():
+                continue
+            try:
                 record = json.loads(line)
-                latest[record["item_id"]] = record["status"]
+            except ValueError:
+                continue  # the line the harness is writing right now
+            latest[record["item_id"]] = record["status"]
         count += sum(1 for status in latest.values() if status != "error")
     return count
+
+
+def write_snapshot(
+    *,
+    run_root: Path,
+    labels: Iterable[str],
+    output_dir: Path,
+    total: int,
+    identity: JobIdentity,
+) -> CloudArtifact:
+    """Write the answers so far as the kernel's output artifact, replacing the last one.
+
+    The tar and its manifest are built beside the output and moved in one after the
+    other, so a kernel killed at any moment leaves a complete artifact (a kill between the
+    two moves leaves a mismatch that the download rejects, and nothing else)."""
+    labels = list(labels)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".snapshot-", dir=output_dir))
+    try:
+        pack_outputs(run_root, labels, staging / OUTPUT_FILE)
+        built = artifact_from_output(
+            staging / OUTPUT_FILE,
+            artifact_type="e2e_run",
+            identity=identity,
+            total=total,
+            complete=completed_answers(run_root, labels),
+        )
+        os.replace(staging / OUTPUT_FILE, output_dir / OUTPUT_FILE)
+        os.replace(built.manifest_path, output_dir / "manifest.json")
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+    return CloudArtifact(
+        output_dir / OUTPUT_FILE,
+        output_dir / "manifest.json",
+        identity,
+        built.completion,
+    )
+
+
+def run_with_snapshots(
+    command: list[str],
+    *,
+    env: Mapping[str, str],
+    run_root: Path,
+    labels: Iterable[str],
+    output_dir: Path,
+    total: int,
+    identity: JobIdentity,
+    snapshot_seconds: float,
+    popen=subprocess.Popen,
+    writer=write_snapshot,
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+    poll_seconds: float = POLL_SECONDS,
+) -> int:
+    """Run the harness; every `snapshot_seconds` write what it has answered so far.
+
+    A failing snapshot is logged and the run goes on. `snapshot_seconds <= 0` writes none.
+    Returns the harness's exit code."""
+    labels = list(labels)
+    log("$ " + " ".join(command))
+    process = popen(command, env=dict(env))
+    last = clock()
+    while (code := process.poll()) is None:
+        sleep(poll_seconds)
+        if snapshot_seconds > 0 and clock() - last >= snapshot_seconds:
+            try:
+                writer(
+                    run_root=run_root,
+                    labels=labels,
+                    output_dir=output_dir,
+                    total=total,
+                    identity=identity,
+                )
+            except Exception as error:
+                log(f"snapshot failed, the run goes on: {error}")
+            last = clock()
+    return code
 
 
 def _run(command: list[str], *, env: Mapping[str, str] | None = None) -> None:
@@ -184,15 +347,29 @@ def run_e2e_worker(config: dict) -> CloudArtifact:
     identity = identity_from_config(config)
     output_dir = Path(config.get("output_dir", "/kaggle/working/artifact"))
     output_dir.mkdir(parents=True, exist_ok=True)
+    phases = PhaseLog()
     work = WORK_ROOT
     job_dir = restore_inputs(config, work / "job")
-    job = json.loads((job_dir / "e2e_job.json").read_text(encoding="utf-8"))
+    job_path = job_dir / "e2e_job.json"
+    job = json.loads(job_path.read_text(encoding="utf-8"))
+    entries = shard_entries(job)
+    labels = [shard_label(e["config"], e.get("pipeline_options", ())) for e in entries]
+    total = sum(len(entry["item_ids"]) for entry in entries)
+    job.update(
+        shards=entries,
+        stop_at=stop_at_from_config(config),
+        software=software_info(config),
+    )
+    job_path.write_text(json.dumps(job, indent=2) + "\n", encoding="utf-8")
     source = work / "source"
     with zipfile.ZipFile(SOURCE_ZIP) as archive:
         archive.extractall(source)
-    python = install_venv(job_dir / "backend_requirements.txt", work / "venv")
-    start_postgres()
-    qdrant = start_qdrant(str(config["qdrant_version"]), work / "qdrant")
+    with phases.phase("install_venv"):
+        python = install_venv(job_dir / "backend_requirements.txt", work / "venv")
+    with phases.phase("postgres"):
+        start_postgres()
+    with phases.phase("qdrant"):
+        qdrant = start_qdrant(str(config["qdrant_version"]), work / "qdrant")
     workspace = work / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
     (workspace / "pyproject.toml").write_text("[project]\nname = 'kernel'\n")
@@ -210,47 +387,68 @@ def run_e2e_worker(config: dict) -> CloudArtifact:
         | {"PYTHONPATH": str(source), "PHARMA_LAB_ROOT": str(workspace)}
     )
     run_root = work / "runs" / str(job["run"])
+    exit_code = 1
+    artifact: CloudArtifact | None = None
     try:
         with ExitStack() as stack:
-            for server in config["servers"]:
-                stack.enter_context(
-                    managed_model_servers(_server_config(server, config))
-                )
+            with phases.phase("servers"):
+                for server in config["servers"]:
+                    stack.enter_context(
+                        managed_model_servers(_server_config(server, config))
+                    )
             log("model servers are healthy")
-            _backend(python, env, "migrate")
-            _backend(
-                python,
-                env,
-                "corpus",
-                "import",
-                str(job_dir / "corpus"),
-                "--collection",
-                "formulary",
-                "--publish",
-            )
-            _run(
-                [
-                    str(python),
-                    "-m",
-                    "pharma_lab.e2e.kernel_harness",
-                    str(job_dir / "e2e_job.json"),
-                    str(job_dir / "golden_e2e.jsonl"),
-                    str(run_root),
-                ],
-                env=env,
-            )
+            with phases.phase("corpus_import"):
+                _backend(python, env, "migrate")
+                _backend(
+                    python,
+                    env,
+                    "corpus",
+                    "import",
+                    str(job_dir / "corpus"),
+                    "--collection",
+                    "formulary",
+                    "--publish",
+                )
+            with phases.phase("harness"):
+                exit_code = run_with_snapshots(
+                    [
+                        str(python),
+                        "-m",
+                        "pharma_lab.e2e.kernel_harness",
+                        str(job_path),
+                        str(job_dir / "golden_e2e.jsonl"),
+                        str(run_root),
+                    ],
+                    env=env,
+                    run_root=run_root,
+                    labels=labels,
+                    output_dir=output_dir,
+                    total=total,
+                    identity=identity,
+                    snapshot_seconds=float(
+                        config.get("snapshot_seconds", SNAPSHOT_SECONDS)
+                    ),
+                )
     finally:
         qdrant.terminate()
-    configs = list(job["configs"])
-    data_path = output_dir / OUTPUT_FILE
-    pack_outputs(run_root, configs, data_path)
-    return artifact_from_output(
-        data_path,
-        artifact_type="e2e_run",
-        identity=identity,
-        total=len(job["item_ids"]) * len(configs),
-        complete=completed_answers(run_root, configs),
-    )
+        if run_root.exists():
+            # Keep whatever was answered, even when something above failed.
+            try:
+                artifact = write_snapshot(
+                    run_root=run_root,
+                    labels=labels,
+                    output_dir=output_dir,
+                    total=total,
+                    identity=identity,
+                )
+            except Exception as error:
+                log(f"final snapshot failed: {error}")
+    if artifact is None or exit_code != 0:
+        kept = "none" if artifact is None else f"{artifact.completion.complete}/{total}"
+        raise RuntimeError(
+            f"the e2e harness exited with {exit_code}; answers kept: {kept}"
+        )
+    return artifact
 
 
 def main() -> None:

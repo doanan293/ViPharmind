@@ -51,6 +51,10 @@ class CloudArtifactManifest:
         return Completion(self.total, self.complete, self.missing)
 
 
+# Artifacts whose data file is not JSONL (a tar of run files); the checksum guards them.
+OPAQUE_ARTIFACT_TYPES = frozenset({"e2e_run"})
+
+
 def _read_jsonl_count(path: Path) -> int:
     count = 0
     try:
@@ -161,7 +165,10 @@ def load_cloud_artifact(
         raise ArtifactContractError("Manifest data filename mismatch")
     if sha256_file(data_path) != manifest.data_sha256:
         raise ArtifactContractError("Cloud artifact data checksum mismatch")
-    if _read_jsonl_count(data_path) != manifest.record_count:
+    if (
+        manifest.artifact_type not in OPAQUE_ARTIFACT_TYPES
+        and _read_jsonl_count(data_path) != manifest.record_count
+    ):
         raise ArtifactContractError("Cloud artifact record count mismatch")
     identity_payload = dict(manifest.identity)
     manifest_job_sha256 = str(identity_payload.pop("job_sha256", ""))
