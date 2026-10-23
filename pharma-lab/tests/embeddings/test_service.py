@@ -212,7 +212,9 @@ def kaggle_sessions(
 
     def resolve(account: str | None):
         asked.append(account)
-        names = ("acc1", "acc2") if account in (None, "auto") else (account,)
+        names = (
+            ("acc1", "acc2") if account in (None, "auto") else tuple(account.split(","))
+        )
         return contexts(*names)
 
     def read_quota(context):
@@ -375,3 +377,34 @@ def test_dry_run_plans_shards_without_touching_kaggle(
 
     assert result.incomplete
     assert any(action.startswith("planned_shards=1") for action in result.actions)
+
+
+def test_a_list_of_accounts_profiles_the_runtime_on_the_first_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kaggle_sessions: list[str | None]
+) -> None:
+    inputs_path = tmp_path / "embedding_inputs.jsonl"
+    write_embedding_inputs([_input("a")], inputs_path)
+    selected = require_model(MODEL).embedding_search_space
+    assert selected is not None
+    profiled: list[str | None] = []
+
+    def ensure(**kwargs):
+        profiled.append(kwargs["kaggle_account"])
+        return SimpleNamespace(
+            profile=SimpleNamespace(
+                selected=selected.corpus.candidates[0], measurements=()
+            ),
+            action="reuse",
+        )
+
+    monkeypatch.setattr(auto_profile, "ensure_runtime_profile", ensure)
+    request = replace(
+        _kaggle_request(tmp_path, inputs_path, tmp_path / "cache.jsonl"),
+        kaggle_account="acc1,acc2",
+        dry_run=True,
+    )
+
+    KaggleTextEmbeddingBackend().run(request)
+
+    # `acc1,acc2` is not an account name: the profile step takes the first one.
+    assert profiled == ["acc1"]

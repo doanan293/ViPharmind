@@ -27,7 +27,9 @@ def kaggle_sessions(monkeypatch, tmp_path):
 
     def resolve(account):
         asked.append(account)
-        names = ("acc1", "acc2") if account in (None, "auto") else (account,)
+        names = (
+            ("acc1", "acc2") if account in (None, "auto") else tuple(account.split(","))
+        )
         return contexts(*names)
 
     def read_quota(context):
@@ -238,3 +240,39 @@ def test_dry_run_plans_shards_without_touching_kaggle(
 
     assert result.incomplete
     assert any(action.startswith("planned_shards=1") for action in result.actions)
+
+
+def test_a_list_of_accounts_profiles_the_runtime_on_the_first_one(
+    tmp_path, monkeypatch, kaggle_sessions
+):
+    search_space = require_model(MODEL).embedding_search_space
+    assert search_space is not None
+    input_path = tmp_path / "evaluation.jsonl"
+    input_path.write_text('{"query_id": "q1", "query": "liều"}\n', encoding="utf-8")
+    profiled: list[str | None] = []
+
+    def ensure(**kwargs):
+        profiled.append(kwargs["kaggle_account"])
+        return SimpleNamespace(
+            profile=SimpleNamespace(
+                selected=search_space.query.candidates[0], measurements=()
+            ),
+            action="reuse",
+        )
+
+    monkeypatch.setattr(auto_profile, "ensure_runtime_profile", ensure)
+
+    KaggleQueryEmbeddingBackend().run(
+        QueryEmbeddingRequest(
+            evaluation_path=input_path,
+            model=MODEL,
+            output_dir=tmp_path / "cache.jsonl",
+            force=False,
+            dry_run=True,
+            budget_seconds=21_600,
+            request_timeout_seconds=5.0,
+            kaggle_account="acc1,acc2",
+        )
+    )
+
+    assert profiled == ["acc1"]

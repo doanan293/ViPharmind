@@ -319,17 +319,19 @@ class Follower:
         self.notified.append(list(labels))
 
 
-def fake_judging(entered: list[bool], follower: Follower):
+def fake_judging(entered: list[tuple], follower: Follower):
     @contextmanager
-    def judging(plan, *, enabled, backend_env_file, golden):
-        entered.append(enabled)
+    def judging(
+        plan, *, enabled, backend_env_file, golden, judge_model, judge_reasoning
+    ):
+        entered.append((enabled, judge_model, judge_reasoning))
         yield follower if enabled else None
 
     return judging
 
 
 def test_judge_off_by_default(wired, monkeypatch):
-    entered: list[bool] = []
+    entered: list[tuple] = []
     monkeypatch.setattr(e2e_command, "judging", fake_judging(entered, Follower()))
     monkeypatch.setattr(
         e2e_command, "launch", Launcher(outcome(0, SchedulerStop.COMPLETE))
@@ -338,22 +340,32 @@ def test_judge_off_by_default(wired, monkeypatch):
     result = runner.invoke(app, BASE)
 
     assert result.exit_code == 0, result.output
-    assert entered == [False]
+    assert [flag for flag, *_ in entered] == [False]
     assert wired["on_merged"] is None
 
 
 def test_judge_flag_hands_the_follower_to_the_adapter(wired, monkeypatch):
-    entered: list[bool] = []
+    entered: list[tuple] = []
     follower = Follower()
     monkeypatch.setattr(e2e_command, "judging", fake_judging(entered, follower))
     monkeypatch.setattr(
         e2e_command, "launch", Launcher(outcome(0, SchedulerStop.COMPLETE))
     )
 
-    result = runner.invoke(app, [*BASE, "--judge"])
+    result = runner.invoke(
+        app,
+        [
+            *BASE,
+            "--judge",
+            "--judge-model",
+            "gemini-3.1-flash-lite",
+            "--judge-reasoning",
+            "none",
+        ],
+    )
 
     assert result.exit_code == 0, result.output
-    assert entered == [True]
+    assert entered == [(True, "gemini-3.1-flash-lite", "none")]
     wired["on_merged"](["full"])
     assert follower.notified == [["full"]]
 
@@ -371,7 +383,8 @@ def test_judging_context_starts_and_stops_the_follower(tmp_path, monkeypatch):
             events.append("created")
 
         def start(self, factory):
-            events.append(f"start:{factory('full').config}")
+            request = factory("full")
+            events.append(f"start:{request.config}:{request.judge_model}")
 
         def notify_merged(self, labels):
             events.append(f"notify:{','.join(labels)}")
@@ -393,7 +406,11 @@ def test_judging_context_starts_and_stops_the_follower(tmp_path, monkeypatch):
     )
 
     with e2e_command.judging(
-        plan, enabled=True, backend_env_file=tmp_path / ".env", golden=tmp_path / "g"
+        plan,
+        enabled=True,
+        backend_env_file=tmp_path / ".env",
+        golden=tmp_path / "g",
+        judge_model="m",
     ):
         pass
     with (
@@ -403,17 +420,18 @@ def test_judging_context_starts_and_stops_the_follower(tmp_path, monkeypatch):
             enabled=True,
             backend_env_file=tmp_path / ".env",
             golden=tmp_path / "g",
+            judge_model="m",
         ),
     ):
         raise KeyError("boom")
 
     assert events == [
         "created",
-        "start:full",
+        "start:full:m",
         "notify:full",
         "stop:True",
         "created",
-        "start:full",
+        "start:full:m",
         "notify:full",
         "stop:False",
     ]

@@ -617,7 +617,13 @@ def kaggle_adapter(
 
 @contextmanager
 def judging(
-    plan: E2EPlan, *, enabled: bool, backend_env_file: Path, golden: Path
+    plan: E2EPlan,
+    *,
+    enabled: bool,
+    backend_env_file: Path,
+    golden: Path,
+    judge_model: str = JUDGE_MODEL,
+    judge_reasoning: str = DEFAULT_JUDGE_REASONING or "medium",
 ) -> Generator[JudgeFollower | None]:
     """Judge the answers of each shard as it returns (--judge); nothing when off.
 
@@ -634,6 +640,10 @@ def judging(
             config=label,
             golden_path=golden,
             backend_env_file=backend_env_file,
+            judge_model=judge_model,
+            judge_reasoning=TypeAdapter(ReasoningEffort).validate_python(
+                judge_reasoning
+            ),
         )
     )
     follower.notify_merged(
@@ -883,6 +893,14 @@ def run(
             help="Kaggle: judge each shard's answers as it returns (no GPU quota)",
         ),
     ] = False,
+    judge_model: Annotated[
+        str,
+        typer.Option("--judge-model", help="With --judge: model name on the endpoint"),
+    ] = JUDGE_MODEL,
+    judge_reasoning: Annotated[
+        str,
+        typer.Option("--judge-reasoning", help="With --judge: none, low, medium"),
+    ] = DEFAULT_JUDGE_REASONING or "medium",
     proxy_credentials_dir: Annotated[
         Path | None,
         typer.Option(
@@ -931,6 +949,8 @@ def run(
                     enabled=judge,
                     backend_env_file=backend_env_file,
                     golden=golden,
+                    judge_model=judge_model,
+                    judge_reasoning=judge_reasoning,
                 ) as follower,
             ):
                 adapter = kaggle_adapter(

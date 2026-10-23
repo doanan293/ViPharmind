@@ -191,6 +191,8 @@ class KaggleQueryEmbeddingBackend:
             "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in missing),
             encoding="utf-8",
         )
+        contexts = resolve_session_contexts(request.kaggle_account or "auto")
+        first = contexts[0].profile
         resolution = ensure_runtime_profile(
             workload="query-embed",
             benchmark_stage=StageName.QUERY_EMBED_BENCHMARK.value,
@@ -200,14 +202,14 @@ class KaggleQueryEmbeddingBackend:
             budget_seconds=request.budget_seconds,
             dry_run=request.dry_run,
             force=request.force,
-            kaggle_account=request.kaggle_account,
+            # `acc1,acc3` is not an account name: the runtime profile is account-neutral.
+            kaggle_account=first.name if first is not None else None,
         )
         if resolution.profile is None:
             return QueryEmbeddingStageResult(
                 None, None, (f"profile={resolution.action}",), incomplete=True
             )
         selected = resolution.profile.selected
-        contexts = resolve_session_contexts(request.kaggle_account or "auto")
         margin = shard_margin_seconds(request.budget_seconds)
         per_character = seconds_per_character(
             selected.to_dict(), resolution.profile.measurements

@@ -144,6 +144,8 @@ class KaggleTextEmbeddingBackend:
         if not request.force:
             inputs_path = work_dir / "missing_inputs.jsonl"
             write_embedding_inputs(missing, inputs_path)
+        contexts = resolve_session_contexts(request.kaggle_account or "auto")
+        first = contexts[0].profile
         resolution = ensure_runtime_profile(
             workload="corpus-embed",
             benchmark_stage=StageName.CORPUS_EMBED_BENCHMARK.value,
@@ -153,14 +155,14 @@ class KaggleTextEmbeddingBackend:
             budget_seconds=request.budget_seconds,
             dry_run=request.dry_run,
             force=request.force,
-            kaggle_account=request.kaggle_account,
+            # `acc1,acc3` is not an account name: the runtime profile is account-neutral.
+            kaggle_account=first.name if first is not None else None,
         )
         if resolution.profile is None:
             return TextEmbeddingResult(
                 None, (f"profile={resolution.action}",), incomplete=True
             )
         selected = resolution.profile.selected
-        contexts = resolve_session_contexts(request.kaggle_account or "auto")
         adapter = TextEmbeddingShardAdapter(
             model=request.model,
             inputs_path=request.inputs_path,
