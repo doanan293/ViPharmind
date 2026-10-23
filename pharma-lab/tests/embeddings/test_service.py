@@ -1,8 +1,10 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from tests.integrations.kaggle.test_scheduler import contexts
 
 from pharma_lab.artifacts.manifest import Completion
 from pharma_lab.cache.text_embeddings import (
@@ -145,7 +147,7 @@ def test_local_backend_does_not_start_a_server_when_cache_is_complete(
 
 
 def test_kaggle_backend_propagates_account_and_merges_remote_cache(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kaggle_sessions: list[str | None]
 ) -> None:
     inputs_path = tmp_path / "embedding_inputs.jsonl"
     write_embedding_inputs([_input("a")], inputs_path)
@@ -160,7 +162,9 @@ def test_kaggle_backend_propagates_account_and_merges_remote_cache(
         lambda **kwargs: (
             seen.append(("profile", kwargs["kaggle_account"]))
             or SimpleNamespace(
-                profile=SimpleNamespace(selected=selected.corpus.candidates[0]),
+                profile=SimpleNamespace(
+                    selected=selected.corpus.candidates[0], measurements=()
+                ),
                 action="reuse",
             )
         ),
@@ -185,7 +189,7 @@ def test_kaggle_backend_propagates_account_and_merges_remote_cache(
             cache_path=cache_path,
             force=False,
             dry_run=False,
-            budget_seconds=60,
+            budget_seconds=21_600,
             request_timeout_seconds=5.0,
             kaggle_account="acc2",
         )
@@ -196,6 +200,33 @@ def test_kaggle_backend_propagates_account_and_merges_remote_cache(
     assert open_text_cache(cache_path, MODEL).get(text_sha256("a")) == _vector(0.25)
 
 
+@pytest.fixture
+def kaggle_sessions(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> list[str | None]:
+    """Fake Kaggle accounts with quota; records what the backend asked to resolve."""
+    from pharma_lab.integrations.kaggle import sessions
+    from pharma_lab.integrations.kaggle.quota import AccountQuota
+
+    asked: list[str | None] = []
+
+    def resolve(account: str | None):
+        asked.append(account)
+        names = ("acc1", "acc2") if account in (None, "auto") else (account,)
+        return contexts(*names)
+
+    def read_quota(context):
+        assert context.profile is not None
+        return AccountQuota(
+            context.profile.name, context.profile.username, 25.0, 30.0, None
+        )
+
+    monkeypatch.setattr(kaggle_service, "resolve_session_contexts", resolve)
+    monkeypatch.setattr(sessions, "read_account_quota", read_quota)
+    monkeypatch.setattr(embedding_service, "WORK_DIR", tmp_path / "work")
+    return asked
+
+
 def _kaggle_request(tmp_path: Path, inputs_path: Path, cache_path: Path):
     return TextEmbeddingRequest(
         inputs_path=inputs_path,
@@ -203,14 +234,14 @@ def _kaggle_request(tmp_path: Path, inputs_path: Path, cache_path: Path):
         cache_path=cache_path,
         force=False,
         dry_run=False,
-        budget_seconds=60,
+        budget_seconds=21_600,
         request_timeout_seconds=5.0,
         kaggle_account="acc1",
     )
 
 
 def test_kaggle_backend_sends_only_texts_missing_from_the_cache(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kaggle_sessions: list[str | None]
 ) -> None:
     inputs_path = tmp_path / "embedding_inputs.jsonl"
     write_embedding_inputs([_input("a"), _input("b")], inputs_path)
@@ -237,7 +268,9 @@ def test_kaggle_backend_sends_only_texts_missing_from_the_cache(
         auto_profile,
         "ensure_runtime_profile",
         lambda **kwargs: SimpleNamespace(
-            profile=SimpleNamespace(selected=selected.corpus.candidates[0]),
+            profile=SimpleNamespace(
+                selected=selected.corpus.candidates[0], measurements=()
+            ),
             action="reuse",
         ),
     )
@@ -271,3 +304,74 @@ def test_kaggle_backend_starts_no_job_when_everything_is_cached(
 
     assert result.actions == ("cached",)
     assert not result.incomplete
+
+
+def test_default_account_is_auto(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kaggle_sessions: list[str | None]
+) -> None:
+    inputs_path = tmp_path / "embedding_inputs.jsonl"
+    write_embedding_inputs([_input("a")], inputs_path)
+    remote_path = tmp_path / "remote" / "text_embeddings.jsonl"
+    open_text_cache(remote_path, MODEL).set(text_sha256("a"), _vector(0.25))
+    selected = require_model(MODEL).embedding_search_space
+    assert selected is not None
+    monkeypatch.setattr(
+        auto_profile,
+        "ensure_runtime_profile",
+        lambda **kwargs: SimpleNamespace(
+            profile=SimpleNamespace(
+                selected=selected.corpus.candidates[0], measurements=()
+            ),
+            action="reuse",
+        ),
+    )
+    accounts: list[str] = []
+
+    def stage(**kwargs):
+        accounts.append(kwargs["kaggle_account"])
+        return SimpleNamespace(
+            artifact_path=remote_path, completion=Completion(1, 1, 0), actions=()
+        )
+
+    monkeypatch.setattr(kaggle_service, "run_kaggle_stage", stage)
+    request = replace(
+        _kaggle_request(tmp_path, inputs_path, tmp_path / "cache.jsonl"),
+        kaggle_account=None,
+    )
+
+    KaggleTextEmbeddingBackend().run(request)
+
+    assert kaggle_sessions == ["auto"]
+    assert accounts == ["acc2"] or accounts == ["acc1"]
+
+
+def test_dry_run_plans_shards_without_touching_kaggle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kaggle_sessions: list[str | None]
+) -> None:
+    inputs_path = tmp_path / "embedding_inputs.jsonl"
+    write_embedding_inputs([_input("a"), _input("b")], inputs_path)
+    selected = require_model(MODEL).embedding_search_space
+    assert selected is not None
+    monkeypatch.setattr(
+        auto_profile,
+        "ensure_runtime_profile",
+        lambda **kwargs: SimpleNamespace(
+            profile=SimpleNamespace(
+                selected=selected.corpus.candidates[0], measurements=()
+            ),
+            action="reuse",
+        ),
+    )
+    monkeypatch.setattr(
+        kaggle_service,
+        "run_kaggle_stage",
+        lambda **kwargs: pytest.fail("a dry run starts no session"),
+    )
+    request = replace(
+        _kaggle_request(tmp_path, inputs_path, tmp_path / "cache.jsonl"), dry_run=True
+    )
+
+    result = KaggleTextEmbeddingBackend().run(request)
+
+    assert result.incomplete
+    assert any(action.startswith("planned_shards=1") for action in result.actions)

@@ -115,6 +115,8 @@ def embed_command(
     budget_seconds: int = DEFAULT_BUDGET_SECONDS,
     request_timeout_seconds: float = DEFAULT_REQUEST_TIMEOUT_SECONDS,
     kaggle_account: str | None = None,
+    parallel: int | None = None,
+    drain: bool = False,
 ) -> CommandResult:
     adapter: TextEmbeddingBackend = (
         LocalTextEmbeddingBackend()
@@ -133,6 +135,8 @@ def embed_command(
                 kaggle_account=kaggle_account,
                 cache_path=cache,
                 work_dir=work_dir,
+                parallel=parallel,
+                drain=drain,
             ),
             adapter,
         )
@@ -171,7 +175,27 @@ def embed(
     request_timeout_seconds: Annotated[
         float, typer.Option("--request-timeout-seconds")
     ] = DEFAULT_REQUEST_TIMEOUT_SECONDS,
-    kaggle_account: Annotated[str | None, typer.Option("--kaggle-account")] = None,
+    kaggle_account: Annotated[
+        str | None,
+        typer.Option(
+            "--kaggle-account",
+            help="Kaggle: accN, a comma list (acc1,acc3) or auto (default: every account)",
+        ),
+    ] = None,
+    parallel: Annotated[
+        int | None,
+        typer.Option(
+            "--parallel",
+            min=1,
+            help="Kaggle shards at once (default: two sessions per account)",
+        ),
+    ] = None,
+    drain: Annotated[
+        bool,
+        typer.Option(
+            "--drain", help="Kaggle: let running kernels finish, start no new one"
+        ),
+    ] = False,
 ) -> None:
     run_handler(
         state_from_context(ctx),
@@ -186,6 +210,8 @@ def embed(
             budget_seconds=budget_seconds,
             request_timeout_seconds=request_timeout_seconds,
             kaggle_account=kaggle_account,
+            parallel=parallel,
+            drain=drain,
         ),
     )
 

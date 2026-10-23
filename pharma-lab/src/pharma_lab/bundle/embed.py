@@ -46,6 +46,8 @@ class BundleEmbedRequest:
     kaggle_account: str | None = None
     cache_path: Path | None = None
     work_dir: Path = BUNDLE_EMBED_WORK_DIR
+    parallel: int | None = None
+    drain: bool = False
 
 
 @dataclass(frozen=True)
@@ -93,6 +95,8 @@ def embed_bundle(
             budget_seconds=request.budget_seconds,
             request_timeout_seconds=request.request_timeout_seconds,
             kaggle_account=request.kaggle_account,
+            parallel=request.parallel,
+            drain=request.drain,
         )
     )
     if request.dry_run or stage.incomplete or stage.cache_path is None:

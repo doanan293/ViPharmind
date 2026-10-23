@@ -91,6 +91,9 @@ def test_bundle_embed_command_uses_the_selected_backend(
             str(tmp_path / "work"),
             "--kaggle-account",
             "acc2",
+            "--parallel",
+            "3",
+            "--drain",
         ],
     )
 
@@ -104,6 +107,7 @@ def test_bundle_embed_command_uses_the_selected_backend(
     assert expected >= 2
     assert (details["inputs"], details["vectors"]) == (expected, expected)
     assert created[0].requests[0].kaggle_account == "acc2"
+    assert (created[0].requests[0].parallel, created[0].requests[0].drain) == (3, True)
 
 
 def test_bundle_rechunk_command_writes_a_bundle_with_the_new_chunking(

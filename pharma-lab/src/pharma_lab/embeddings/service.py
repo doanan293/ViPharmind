@@ -2,25 +2,20 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from pharma_lab.cache.jsonl_records import merge_records
 from pharma_lab.cache.text_embeddings import (
     TextEmbeddingCache,
-    cache_record_key,
     embed_missing,
     read_embedding_inputs,
     write_embedding_inputs,
 )
 from pharma_lab.config.paths import GGUF_ROOT, LOCAL_MODELS_COMPOSE_FILES, WORK_DIR
-from pharma_lab.integrations.kaggle.job_lock import (
-    hold_pinned_account,
-    kaggle_cache_lock,
-    kaggle_job_lock,
-)
+from pharma_lab.integrations.kaggle.job_lock import kaggle_job_lock
 from pharma_lab.runtime.catalog import ModelKind, require_model
 from pharma_lab.runtime.client import LlamaCppClient
 from pharma_lab.runtime.compose import LlamaCppComposeManager, resolve_server
@@ -36,6 +31,9 @@ class TextEmbeddingRequest:
     budget_seconds: int
     request_timeout_seconds: float
     kaggle_account: str | None = None
+    # Kaggle shards at once (default: two sessions per account) and finish-then-stop.
+    parallel: int | None = None
+    drain: bool = False
 
 
 @dataclass(frozen=True)
@@ -43,6 +41,7 @@ class TextEmbeddingResult:
     cache_path: Path | None
     actions: tuple[str, ...]
     incomplete: bool = False
+    quota: tuple[str, ...] = ()
 
 
 class TextEmbeddingBackend(Protocol):
@@ -108,19 +107,30 @@ class LocalTextEmbeddingBackend:
 
 class KaggleTextEmbeddingBackend:
     def run(self, request: TextEmbeddingRequest) -> TextEmbeddingResult:
-        with (
-            kaggle_job_lock(request.cache_path),
-            hold_pinned_account(request.kaggle_account),
-        ):
+        with kaggle_job_lock(request.cache_path):
             return self._run_unlocked(request)
 
     @staticmethod
     def _run_unlocked(request: TextEmbeddingRequest) -> TextEmbeddingResult:
+        from pharma_lab.embeddings.shards import (
+            TextEmbeddingShardAdapter,
+            seconds_per_character,
+        )
         from pharma_lab.integrations.kaggle.auto_profile import (
             ensure_runtime_profile,
         )
+        from pharma_lab.integrations.kaggle.job_registry import JobRegistry
         from pharma_lab.integrations.kaggle.models import StageName
-        from pharma_lab.integrations.kaggle.service import run_kaggle_stage
+        from pharma_lab.integrations.kaggle.scheduler import (
+            SchedulerSettings,
+            run_shards,
+            shard_margin_seconds,
+        )
+        from pharma_lab.integrations.kaggle.service import (
+            resolve_session_contexts,
+            run_kaggle_stage,
+        )
+        from pharma_lab.integrations.kaggle.shards import plan_shards
 
         spec = require_model(request.model)
         # Kaggle GPU time is the scarce resource: send only texts the cache lacks.
@@ -129,11 +139,10 @@ class KaggleTextEmbeddingBackend:
         )
         if not missing and not request.force:
             return TextEmbeddingResult(request.cache_path, ("cached",))
+        work_dir = WORK_DIR / "kaggle-text-embeddings" / spec.slug
         inputs_path = request.inputs_path
         if not request.force:
-            inputs_path = (
-                WORK_DIR / "kaggle-text-embeddings" / spec.slug / "missing_inputs.jsonl"
-            )
+            inputs_path = work_dir / "missing_inputs.jsonl"
             write_embedding_inputs(missing, inputs_path)
         resolution = ensure_runtime_profile(
             workload="corpus-embed",
@@ -150,31 +159,65 @@ class KaggleTextEmbeddingBackend:
             return TextEmbeddingResult(
                 None, (f"profile={resolution.action}",), incomplete=True
             )
-        result = run_kaggle_stage(
-            stage=StageName.CORPUS_EMBED,
+        selected = resolution.profile.selected
+        contexts = resolve_session_contexts(request.kaggle_account or "auto")
+        adapter = TextEmbeddingShardAdapter(
             model=request.model,
-            input_path=inputs_path,
-            output_dir=WORK_DIR / "kaggle-text-embeddings" / spec.slug,
-            gguf_root=GGUF_ROOT,
+            inputs_path=request.inputs_path,
+            cache_path=request.cache_path,
+            work_dir=work_dir,
+            remote_dir=work_dir,
+            stage_runner=run_kaggle_stage,
+            runtime_profile=selected,
+            seconds_per_character=seconds_per_character(
+                selected.to_dict(), resolution.profile.measurements
+            ),
             force=request.force,
-            check_only=request.dry_run,
-            budget_seconds=request.budget_seconds,
-            runtime_profile=resolution.profile.selected,
-            kaggle_account=request.kaggle_account,
         )
-        actions = tuple(action.reason for action in result.actions)
-        if result.artifact_path is None:
+        margin = shard_margin_seconds(request.budget_seconds)
+        if request.dry_run:
+            units = adapter.missing()
+            shards = plan_shards(
+                units,
+                setup_seconds=adapter.setup_seconds(),
+                budget_seconds=request.budget_seconds,
+                margin_seconds=margin,
+                slots=2 * len(contexts),
+            )
+            hours = (
+                sum(unit.seconds for unit in units)
+                + len(shards) * adapter.setup_seconds()
+            ) / 3600
             return TextEmbeddingResult(
-                None, actions, incomplete=not result.completion.is_complete
+                None,
+                (
+                    f"missing_texts={len(units)}",
+                    f"planned_shards={len(shards)}",
+                    f"estimated_gpu_hours={hours:.1f}",
+                ),
+                incomplete=True,
             )
-        remote = open_text_cache(result.artifact_path, request.model)
-        with kaggle_cache_lock(request.cache_path):
-            merge_records(
-                request.cache_path,
-                remote.records_for(remote.digests()),
-                key=cache_record_key,
-                equivalent=lambda left, right: left["embedding"] == right["embedding"],
-            )
+        report = run_shards(
+            adapter,
+            contexts,
+            JobRegistry(work_dir / "jobs.json"),
+            SchedulerSettings(
+                parallel=request.parallel or 2 * len(contexts),
+                budget_seconds=request.budget_seconds,
+                margin_seconds=margin,
+                max_sessions=None,
+                drain=request.drain,
+            ),
+            log=lambda line: print(line, file=sys.stderr, flush=True),
+        )
+        left = len(adapter.missing())
         return TextEmbeddingResult(
-            request.cache_path, actions, incomplete=not result.completion.is_complete
+            request.cache_path,
+            (
+                f"missing_texts={left}",
+                f"sessions={report.shards_run}",
+                f"stop={report.stop.value}",
+            ),
+            incomplete=bool(left),
+            quota=report.quota_table,
         )
