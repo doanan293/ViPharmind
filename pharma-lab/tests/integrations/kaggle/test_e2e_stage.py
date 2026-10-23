@@ -18,6 +18,9 @@ from pharma_lab.integrations.kaggle.models import StageName
 RERANKER = E2E_MODELS.reranker
 
 
+SHARD_ITEMS = (["e2e-inj-0001", "e2e-inj-0002"], ["e2e-inj-0002"])
+
+
 def write_job(tmp_path: Path, configs: list[str]) -> Path:
     directory = tmp_path / "job"
     corpus = directory / "corpus"
@@ -36,6 +39,10 @@ def write_job(tmp_path: Path, configs: list[str]) -> Path:
                 "configs": configs,
                 "categories": ["injection"],
                 "item_ids": ["e2e-inj-0001", "e2e-inj-0002"],
+                "shards": [
+                    {"config": c, "pipeline_options": [], "item_ids": ids}
+                    for c, ids in zip(configs, SHARD_ITEMS, strict=False)
+                ],
             }
         ),
         encoding="utf-8",
@@ -65,7 +72,7 @@ def test_e2e_job_carries_its_inputs_models_and_servers(tmp_path):
         descriptors["corpus/embeddings/qwen3_embedding_4b_fp16.jsonl"]["filename"]
         == "corpus__embeddings__qwen3_embedding_4b_fp16.jsonl"
     )
-    assert job.expected_total == 4
+    assert job.expected_total == 3
     assert job.data_filename == OUTPUT_FILE
     assert config["models"] == [E2E_MODELS.llm, RERANKER, E2E_MODELS.embedding]
     assert config["bundle_backend"] is True

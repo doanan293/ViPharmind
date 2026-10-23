@@ -26,6 +26,7 @@ from pharma_lab.integrations.kaggle.models import (
     PipelineResult,
     ReconcileAction,
     StageJob,
+    StageName,
     StageRequest,
 )
 from pharma_lab.integrations.kaggle.stages import get_stage_adapter
@@ -33,6 +34,10 @@ from pharma_lab.integrations.kaggle.workspace import managed_staging_directory
 
 RUNTIME_DATASET_SLUG = "vector-cache-llama-cpp-cuda-t4"
 ArtifactSink = Callable[[StageJob, CloudArtifact], None]
+# Stages whose progress lives only in the caller's local store: a partial session is
+# delivered to the sink and handed back, never published as a checkpoint dataset or
+# relaunched here (the caller plans what is left).
+LOCAL_STATE_STAGES = frozenset({StageName.E2E_RUN})
 
 
 def runtime_dataset_reference(owners) -> str:
@@ -191,6 +196,10 @@ class KagglePipelineOrchestrator:
                             return self._complete_result(
                                 job, artifact, actions, attempts=0
                             )
+                        if job.stage in LOCAL_STATE_STAGES:
+                            return PipelineResult(
+                                job, artifact.completion, actions, None, attached_runs
+                            )
                         if not benchmark:
                             # A re-attached kernel may hold only pairs the checkpoint
                             # already has; that is not an error.
@@ -297,6 +306,10 @@ class KagglePipelineOrchestrator:
             if artifact.completion.is_complete:
                 return self._complete_result(
                     job, artifact, combined_actions, attempts=attempt
+                )
+            if job.stage in LOCAL_STATE_STAGES:
+                return PipelineResult(
+                    job, artifact.completion, combined_actions, None, attempt
                 )
             if benchmark:
                 actions = combined_actions

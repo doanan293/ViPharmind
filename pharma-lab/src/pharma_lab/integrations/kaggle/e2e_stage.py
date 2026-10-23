@@ -145,7 +145,7 @@ class E2ERunStage:
             output_dir,
             output_dir / OUTPUT_FILE,
             OUTPUT_FILE,
-            len(job["item_ids"]) * len(job["configs"]),
+            sum(len(entry["item_ids"]) for entry in job["shards"]),
             "pharma_lab.e2e.kernel_worker",
             {
                 "models": list(models),

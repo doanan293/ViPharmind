@@ -1,0 +1,319 @@
+"""The e2e step as shards for the Kaggle scheduler.
+
+The unit of work is a pair (configuration label, golden item). What is missing is read
+from the local `answers.jsonl` files; a shard becomes one `e2e_job.json` for one Kaggle
+kernel; whatever a kernel returns, even half of it, is merged into the local run. Nothing
+here keeps state of its own, so every command recomputes the plan from the run directory.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+from collections import defaultdict
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+
+from pydantic import ValidationError
+
+from pharma_lab.e2e.configs import E2EConfig, config_label
+from pharma_lab.e2e.golden import Category, GoldenItem
+from pharma_lab.e2e.llm_presets import LlmPreset
+from pharma_lab.e2e.records import ANSWERS_FILE, AnswerRecord
+from pharma_lab.e2e.work_state import (
+    WorkReport,
+    merge_shard,
+    missing_pairs,
+    select_universe,
+)
+from pharma_lab.integrations.kaggle.e2e_stage import E2E_MODELS, JOB_FILE
+from pharma_lab.integrations.kaggle.job_registry import ShardRecord
+from pharma_lab.integrations.kaggle.models import (
+    CloudArtifact,
+    PipelineResult,
+    StageJob,
+    StageName,
+)
+from pharma_lab.integrations.kaggle.sessions import ReservedAccount
+from pharma_lab.integrations.kaggle.shards import Shard, WorkUnit
+from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
+
+SEPARATOR = "\x1f"
+LAYOUT_A = "A"
+# Qwen3.5-9B answers a turn in about this long at concurrency 1 (measured, v1 runs).
+DEFAULT_TURN_SECONDS = 60.0
+# Postgres, Qdrant, the venv, three models and the corpus import (spec 4.3).
+SETUP_SECONDS = 1800.0
+DEFAULT_CONCURRENCY = 8
+LATENCY_SUFFIX = "-c1"
+
+StageRunner = Callable[..., PipelineResult]
+RerankerProfile = Callable[[str], RuntimeCandidate]
+StaticBuilder = Callable[[Path], None]
+
+
+@dataclass(frozen=True)
+class Entry:
+    """A configuration with its pipeline options, answered into one label directory."""
+
+    config: E2EConfig
+    pipeline_options: tuple[str, ...] = ()
+
+    @property
+    def label(self) -> str:
+        return config_label(self.config, self.pipeline_options)
+
+
+@dataclass(frozen=True)
+class E2EPlan:
+    run_name: str
+    entries: tuple[Entry, ...]
+    golden_path: Path
+    categories: tuple[Category, ...] | None
+    limit: int | None
+    llm: LlmPreset
+    concurrency: int = DEFAULT_CONCURRENCY
+    deadline_seconds: float = 900.0
+    retry_stuck: bool = False
+    latency: bool = False
+
+    @property
+    def labels(self) -> tuple[str, ...]:
+        return tuple(entry.label for entry in self.entries)
+
+
+def make_plan(
+    *,
+    run_name: str,
+    entries: Sequence[Entry],
+    golden_path: Path,
+    categories: Sequence[Category] | None,
+    limit: int | None,
+    llm: LlmPreset,
+    concurrency: int = DEFAULT_CONCURRENCY,
+    deadline_seconds: float = 900.0,
+    retry_stuck: bool = False,
+    latency: bool = False,
+    parallel: int = 1,
+) -> E2EPlan:
+    """Validate a request. A latency run is one shard, concurrency 1, layout A, written
+    to `<run>-c1`: several shards or several configurations would make it meaningless."""
+    if not entries:
+        raise ValueError("an e2e run needs at least one configuration")
+    if latency:
+        if parallel > 1:
+            raise ValueError("--latency measures in one kernel: use --parallel 1")
+        if len(entries) > 1:
+            raise ValueError(
+                "--latency measures one configuration per run; "
+                f"got {len(entries)}: run them one after another"
+            )
+        run_name, concurrency = f"{run_name}{LATENCY_SUFFIX}", 1
+    return E2EPlan(
+        run_name,
+        tuple(entries),
+        golden_path,
+        None if categories is None else tuple(categories),
+        limit,
+        llm,
+        concurrency,
+        deadline_seconds,
+        retry_stuck,
+        latency,
+    )
+
+
+def turn_estimates(
+    run_root: Path, labels: Sequence[str], universe: Sequence[GoldenItem]
+) -> dict[tuple[str, Category], float]:
+    """Mean seconds of a finished turn per (label, category), from the answers on disk."""
+    category = {item.item_id: item.category for item in universe}
+    totals: dict[tuple[str, Category], list[float]] = defaultdict(list)
+    for label in labels:
+        path = run_root / label / ANSWERS_FILE
+        if not path.is_file():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                record = AnswerRecord.model_validate_json(line)
+            except (ValidationError, ValueError):
+                continue
+            if (
+                record.status != "error"
+                and record.latency_seconds > 0
+                and record.item_id in category
+            ):
+                totals[(label, category[record.item_id])].append(record.latency_seconds)
+    return {key: sum(values) / len(values) for key, values in totals.items()}
+
+
+class E2EShardAdapter:
+    stage = "e2e-run"
+
+    def __init__(
+        self,
+        plan: E2EPlan,
+        *,
+        golden: Sequence[GoldenItem],
+        run_root: Path,
+        work_dir: Path,
+        stage_runner: StageRunner,
+        reranker_profile: RerankerProfile,
+        build_static: StaticBuilder,
+        commit: str | None = None,
+        log: Callable[[str], None] = print,
+    ) -> None:
+        self.plan = plan
+        self.run_root = run_root
+        self.work_dir = work_dir
+        self._universe = select_universe(
+            golden, categories=plan.categories, limit=plan.limit
+        )
+        self._order = {item.item_id: index for index, item in enumerate(self._universe)}
+        self._entries = {entry.label: entry for entry in plan.entries}
+        self._stage_runner = stage_runner
+        self._reranker_profile = reranker_profile
+        self._build_static = build_static
+        self._commit = commit
+        self._log = log
+        self._attach: set[str] = set()
+        self._merged: dict[str, int] = defaultdict(int)
+
+    @property
+    def universe(self) -> Sequence[GoldenItem]:
+        return self._universe
+
+    def report(self) -> WorkReport:
+        return missing_pairs(
+            self.run_root,
+            self.plan.labels,
+            self._universe,
+            retry_stuck=self.plan.retry_stuck,
+        )
+
+    def missing(self) -> Sequence[WorkUnit]:
+        estimates = turn_estimates(self.run_root, self.plan.labels, self._universe)
+        category = {item.item_id: item.category for item in self._universe}
+        return [
+            WorkUnit(
+                f"{pair.label}{SEPARATOR}{pair.item_id}",
+                # The kernel answers `concurrency` turns at once.
+                estimates.get(
+                    (pair.label, category[pair.item_id]), DEFAULT_TURN_SECONDS
+                )
+                / self.plan.concurrency,
+                LAYOUT_A,
+            )
+            for pair in self.report().missing
+        ]
+
+    def setup_seconds(self) -> float:
+        return SETUP_SECONDS
+
+    def preferred_profile(self, shard: Shard, record: ShardRecord | None) -> str | None:
+        if record is None:
+            return None
+        self._attach.add(shard.shard_id)
+        return record.profile
+
+    def run_shard(self, shard: Shard, reserved: ReservedAccount) -> PipelineResult:
+        directory = self.work_dir / shard.shard_id
+        job_path = self._write_job(shard, directory)
+
+        def sink(_job: StageJob, artifact: CloudArtifact) -> None:
+            self._merge(shard, artifact.data_path)
+
+        return self._stage_runner(
+            stage=StageName.E2E_RUN,
+            model=E2E_MODELS.llm,
+            input_path=job_path,
+            output_dir=directory / "kernels",
+            max_runs=1,
+            budget_seconds=reserved.budget_seconds,
+            runtime_profile=self._reranker_profile(reserved.profile),
+            kaggle_account=reserved.profile,
+            # A relaunched shard attaches to its running kernel; a new one starts clean.
+            resume_remote=shard.shard_id in self._attach,
+            artifact_sink=sink,
+        )
+
+    def merge(self, shard: Shard, result: PipelineResult) -> int:
+        if result.artifact_path is not None:
+            self._merge(shard, result.artifact_path)
+        return self._merged.pop(shard.shard_id, 0)
+
+    def _merge(self, shard: Shard, archive: Path) -> None:
+        report = merge_shard(archive, self.run_root, self.plan.labels)
+        self._merged[shard.shard_id] += report.appended
+        for warning in report.warnings:
+            self._log(f"warning: {warning}")
+
+    def _write_job(self, shard: Shard, directory: Path) -> Path:
+        static = self.work_dir / "static"
+        if not static.is_dir():
+            self._build_static(static)
+        directory.mkdir(parents=True, exist_ok=True)
+        link_tree(static, directory)
+        by_label: dict[str, list[str]] = defaultdict(list)
+        for unit in shard.units:
+            label, _, item_id = unit.key.partition(SEPARATOR)
+            by_label[label].append(item_id)
+        entries = [
+            {
+                "config": self._entries[label].config.value,
+                "pipeline_options": list(self._entries[label].pipeline_options),
+                "item_ids": sorted(ids, key=self._order.__getitem__),
+            }
+            for label, ids in sorted(by_label.items())
+        ]
+        job = {
+            "run": self.plan.run_name,
+            "llm": self.plan.llm.name,
+            "concurrency": self.plan.concurrency,
+            "shards": entries,
+            "deadline_seconds": self.plan.deadline_seconds,
+            "commit": self._commit,
+        }
+        path = directory / JOB_FILE
+        path.write_text(
+            json.dumps(job, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        return path
+
+
+def link_tree(source: Path, target: Path) -> None:
+    """Mirror `source` under `target` with hard links (copies across filesystems)."""
+    for path in sorted(source.rglob("*")):
+        destination = target / path.relative_to(source)
+        if path.is_dir():
+            destination.mkdir(parents=True, exist_ok=True)
+        elif not destination.exists():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                os.link(path, destination)
+            except OSError:
+                shutil.copy2(path, destination)
+
+
+def check_no_decision_roles(env_file: Path) -> None:
+    """A kernel cannot reach the local decision model; refuse instead of answering with
+    a different one."""
+    from pharma_agent.domain.llm.models import LlmRole
+    from pharma_agent.infrastructure.settings import LlmEndpoint, Settings
+
+    # Read the declared providers, not `resolve()`: an env file may configure no LLM.
+    llm = Settings(_env_file=env_file).llm
+    roles = [
+        role
+        for role in LlmRole
+        if ((llm.roles.get(role) or LlmEndpoint()).provider or llm.default.provider)
+        == "systemone"
+    ]
+    if roles:
+        names = ", ".join(sorted(role.value for role in roles))
+        raise ValueError(
+            f"{env_file} sends {names} to the decision model (provider systemone), "
+            "which a Kaggle kernel cannot reach yet; run with --backend local"
+        )

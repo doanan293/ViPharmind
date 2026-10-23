@@ -103,9 +103,29 @@ from pharma_lab.e2e.judging.structured import (
     JUDGE_MODEL,
     judge_llm,
 )
-from pharma_lab.e2e.kaggle_run import KaggleE2ERequest, run_on_kaggle
+from pharma_lab.e2e.kaggle_launch import (
+    LaunchOptions,
+    launch,
+    registry_for,
+    run_status,
+)
+from pharma_lab.e2e.kaggle_run import (
+    DEFAULT_BUDGET_SECONDS,
+    E2E_KAGGLE_WORK_DIR,
+    build_static_inputs,
+    reranker_profile,
+)
+from pharma_lab.e2e.kaggle_shards import (
+    E2EPlan,
+    E2EShardAdapter,
+    Entry,
+    check_no_decision_roles,
+    make_plan,
+)
+from pharma_lab.e2e.llm_presets import preset_named
 from pharma_lab.e2e.one_round import load_one_round
 from pharma_lab.e2e.report import write_report
+from pharma_lab.e2e.run_identity import git_commit
 from pharma_lab.e2e.sampling import (
     replacement_candidates,
     sample_answerable,
@@ -115,6 +135,8 @@ from pharma_lab.e2e.sampling import (
 )
 from pharma_lab.evaluation.backend_retrieval import load_query_rows
 from pharma_lab.evaluation.relevance_judgments import judgments_path, load_judgments
+from pharma_lab.integrations.kaggle.quota import AccountQuota
+from pharma_lab.integrations.kaggle.workspace import unwind_on_sigterm
 
 GOLD_PATH = GOLD_DIR / "section_retrieval_eval.jsonl"
 
@@ -546,6 +568,79 @@ class RunBackend(StrEnum):
     KAGGLE = "kaggle"
 
 
+def kaggle_adapter(plan: E2EPlan, *, budget_seconds: int) -> E2EShardAdapter:
+    """The plan's work as shards, with the real Kaggle stage runner and inputs."""
+    from pharma_lab.integrations.kaggle.service import run_kaggle_stage
+    from pharma_lab.runtime.runtime_profiles import RuntimeCandidate
+
+    profiles: dict[str, RuntimeCandidate] = {}
+
+    def profile_of(account: str) -> RuntimeCandidate:
+        if account not in profiles:
+            profiles[account] = reranker_profile(account, budget_seconds)
+        return profiles[account]
+
+    return E2EShardAdapter(
+        plan,
+        golden=load_golden(plan.golden_path),
+        run_root=e2e_run_dir(plan.run_name),
+        work_dir=E2E_KAGGLE_WORK_DIR / plan.run_name,
+        stage_runner=run_kaggle_stage,
+        reranker_profile=profile_of,
+        build_static=lambda target: build_static_inputs(plan.golden_path, target),
+        commit=git_commit(Path(__file__).resolve().parent),
+    )
+
+
+def account_quotas(kaggle_account: str | None) -> list[AccountQuota]:
+    from pharma_lab.integrations.kaggle.quota import read_account_quota
+    from pharma_lab.integrations.kaggle.service import resolve_session_contexts
+
+    return [
+        read_account_quota(context)
+        for context in resolve_session_contexts(kaggle_account)
+    ]
+
+
+def kaggle_plan(
+    *,
+    run_name: str,
+    config: list[E2EConfig],
+    pipeline_option: list[str] | None,
+    golden: Path,
+    category: list[Category] | None,
+    limit: int | None,
+    llm: str,
+    concurrency: int,
+    deadline_seconds: float | None,
+    retry_stuck: bool,
+    latency: bool,
+    parallel: int | None,
+) -> E2EPlan:
+    try:
+        preset = preset_named(llm)
+        if preset.needs_proxy:
+            raise ValueError(
+                f"--llm {llm} goes through cli-proxy-api, which is not wired into "
+                "the kernel yet"
+            )
+        return make_plan(
+            run_name=run_name,
+            entries=[Entry(c, tuple(pipeline_option or ())) for c in config],
+            golden_path=golden,
+            categories=category or None,
+            limit=limit,
+            llm=preset,
+            concurrency=concurrency,
+            deadline_seconds=deadline_seconds or 900.0,
+            retry_stuck=retry_stuck,
+            latency=latency,
+            parallel=parallel or 1,
+        )
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
+
+
 @e2e_app.command("run")
 def run(
     ctx: typer.Context,
@@ -589,38 +684,118 @@ def run(
         RunBackend,
         typer.Option(
             "--backend",
-            help="kaggle runs the Qwen setting inside one Kaggle kernel",
+            help="kaggle runs the setting inside Kaggle kernels, resumably",
         ),
     ] = RunBackend.LOCAL,
     kaggle_account: Annotated[
-        str | None, typer.Option("--kaggle-account", help="Default: .env account")
+        str | None,
+        typer.Option(
+            "--kaggle-account",
+            help="auto (every account), accN[,accM] or one name; default: .env account",
+        ),
     ] = None,
+    llm: Annotated[
+        str,
+        typer.Option("--llm", help="Kaggle: qwen (kernel llama-server), gemini, opus"),
+    ] = "qwen",
+    parallel: Annotated[
+        int | None,
+        typer.Option(
+            "--parallel", min=1, help="Kaggle: shards at once (default 2 per account)"
+        ),
+    ] = None,
+    budget_seconds: Annotated[
+        int, typer.Option("--budget-seconds", min=3600, help="Kaggle: one session")
+    ] = DEFAULT_BUDGET_SECONDS,
+    max_sessions: Annotated[
+        int | None,
+        typer.Option("--max-sessions", min=1, help="Kaggle: stop after K kernels"),
+    ] = None,
+    drain: Annotated[
+        bool,
+        typer.Option("--drain", help="Kaggle: finish running kernels, start no more"),
+    ] = False,
+    retry_stuck: Annotated[
+        bool,
+        typer.Option(
+            "--retry-stuck", help="Kaggle: also retry pairs that keep failing"
+        ),
+    ] = False,
+    latency: Annotated[
+        bool,
+        typer.Option(
+            "--latency",
+            help="Kaggle: latency run, one kernel at concurrency 1 into <run>-c1",
+        ),
+    ] = False,
 ) -> None:
-    """Answer the golden set with one configuration; re-run to resume."""
+    """Answer the golden set; re-run to resume (Kaggle: only what is missing)."""
     categories = list(category or [])
     if backend is RunBackend.KAGGLE:
-        if pipeline_option:
-            raise typer.BadParameter("--pipeline-option is not sent to a Kaggle run")
-        kaggle_request = KaggleE2ERequest(
+        plan = kaggle_plan(
             run_name=run_name,
-            configs=tuple(config),
-            categories=tuple(categories or list(Category)),
-            golden_path=golden,
-            kaggle_account=kaggle_account,
-            deadline_seconds=deadline_seconds or 900.0,
+            config=config,
+            pipeline_option=pipeline_option,
+            golden=golden,
+            category=categories,
+            limit=limit,
+            llm=llm,
+            concurrency=concurrency,
+            deadline_seconds=deadline_seconds,
+            retry_stuck=retry_stuck,
+            latency=latency,
+            parallel=parallel,
         )
 
         def kaggle_handler() -> CommandResult:
-            written = run_on_kaggle(kaggle_request)
+            from pharma_lab.integrations.kaggle.service import resolve_session_contexts
+
+            check_no_decision_roles(backend_env_file)
+            adapter = kaggle_adapter(plan, budget_seconds=budget_seconds)
+            with unwind_on_sigterm():
+                outcome = launch(
+                    adapter,
+                    LaunchOptions(
+                        kaggle_account,
+                        1 if plan.latency else parallel,
+                        budget_seconds,
+                        max_sessions,
+                        drain,
+                    ),
+                    resolve_contexts=resolve_session_contexts,
+                    registry=registry_for(E2E_KAGGLE_WORK_DIR / plan.run_name),
+                )
+            for row in outcome.quota_table:
+                typer.echo(row)
             return CommandResult(
                 "e2e run",
-                CommandStatus.COMPLETE,
-                e2e_run_dir(run_name),
-                {"files": ",".join(str(path) for path in written)},
+                CommandStatus.COMPLETE
+                if outcome.exit_code == 0
+                else CommandStatus.INCOMPLETE,
+                e2e_run_dir(plan.run_name),
+                {
+                    "stop": outcome.stop.value if outcome.stop else "nothing-missing",
+                    "shards": outcome.shards_run,
+                    "merged": outcome.merged_units,
+                    "remaining": outcome.remaining,
+                    "stuck": outcome.stuck,
+                },
+                exit_code=outcome.exit_code or None,
             )
 
         run_handler(state_from_context(ctx), kaggle_handler)
         return
+    kaggle_only = {
+        "--llm": llm != "qwen",
+        "--parallel": parallel is not None,
+        "--max-sessions": max_sessions is not None,
+        "--drain": drain,
+        "--retry-stuck": retry_stuck,
+        "--latency": latency,
+    }
+    named = [flag for flag, given in kaggle_only.items() if given]
+    if named:
+        raise typer.BadParameter(f"{', '.join(named)} apply to --backend kaggle")
     if len(config) != 1 or len(categories) > 1:
         raise typer.BadParameter(
             "a local run takes one --config and at most one --category"
@@ -645,6 +820,62 @@ def run(
             CommandStatus.INCOMPLETE if summary.errors else CommandStatus.COMPLETE,
             request.run_root / config_label(config[0], request.pipeline_options),
             {"items": summary.total, "ran": summary.ran, "errors": summary.errors},
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@e2e_app.command("status")
+def status(
+    ctx: typer.Context,
+    run_name: Annotated[str, typer.Option("--run")],
+    config: Annotated[list[E2EConfig], typer.Option("--config")],
+    golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
+    limit: Annotated[int | None, typer.Option("--limit", min=1)] = None,
+    category: Annotated[list[Category] | None, typer.Option("--category")] = None,
+    pipeline_option: Annotated[
+        list[str] | None, typer.Option("--pipeline-option")
+    ] = None,
+    llm: Annotated[str, typer.Option("--llm")] = "qwen",
+    kaggle_account: Annotated[str | None, typer.Option("--kaggle-account")] = None,
+) -> None:
+    """What a Kaggle run still lacks, the kernels running and the quota of each account."""
+    plan = kaggle_plan(
+        run_name=run_name,
+        config=config,
+        pipeline_option=pipeline_option,
+        golden=golden,
+        category=category,
+        limit=limit,
+        llm=llm,
+        concurrency=8,
+        deadline_seconds=None,
+        retry_stuck=False,
+        latency=False,
+        parallel=None,
+    )
+
+    def handler() -> CommandResult:
+        adapter = kaggle_adapter(plan, budget_seconds=DEFAULT_BUDGET_SECONDS)
+        report = run_status(adapter, registry_for(E2E_KAGGLE_WORK_DIR / plan.run_name))
+        details: dict[str, object] = {
+            f"label.{row.label}": f"{row.done}/{row.total} stuck={row.stuck}"
+            for row in report.labels
+        }
+        for record in report.live:
+            details[f"kernel.{record.shard_id}"] = (
+                f"{record.profile} units={len(record.unit_keys)} since={record.submitted_at}"
+            )
+        details["gpu_hours_needed"] = f"{report.gpu_hours_needed:.1f}"
+        try:
+            for quota in account_quotas(kaggle_account):
+                details[f"quota.{quota.profile}"] = (
+                    f"{quota.remaining_hours:.1f}h of {quota.total_hours:.1f}h"
+                )
+        except (OSError, RuntimeError, ValueError) as error:
+            details["quota"] = f"unavailable: {error}"
+        return CommandResult(
+            "e2e status", CommandStatus.COMPLETE, e2e_run_dir(plan.run_name), details
         )
 
     run_handler(state_from_context(ctx), handler)

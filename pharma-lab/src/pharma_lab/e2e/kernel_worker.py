@@ -23,6 +23,7 @@ from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 from pharma_lab.e2e.kernel_env import kernel_backend_env
+from pharma_lab.e2e.llm_presets import LlmPreset, preset_named
 from pharma_lab.integrations.kaggle.models import CloudArtifact, JobIdentity
 from pharma_lab.integrations.kaggle.workers.runtime import (
     artifact_from_output,
@@ -343,6 +344,11 @@ def _server_config(server: Mapping, config: Mapping) -> dict:
     }
 
 
+def llm_preset_of(job: Mapping) -> LlmPreset:
+    """The LLM preset a job asks for; jobs written before presets run Qwen."""
+    return preset_named(str(job.get("llm", "qwen")))
+
+
 def run_e2e_worker(config: dict) -> CloudArtifact:
     identity = identity_from_config(config)
     output_dir = Path(config.get("output_dir", "/kaggle/working/artifact"))
@@ -383,6 +389,7 @@ def run_e2e_worker(config: dict) -> CloudArtifact:
             embedding_port=ports[models[2]],
             postgres_dsn=POSTGRES_DSN,
             qdrant_url=QDRANT_URL,
+            preset=llm_preset_of(job),
         )
         | {"PYTHONPATH": str(source), "PHARMA_LAB_ROOT": str(workspace)}
     )

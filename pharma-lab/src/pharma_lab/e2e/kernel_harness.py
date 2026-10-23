@@ -14,6 +14,7 @@ from pharma_lab.e2e.configs import E2EConfig
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
 
 DEADLINE_SECONDS = 900.0
+DEFAULT_CONCURRENCY = 8
 
 
 def run_job(job_path: Path, golden_path: Path, run_root: Path) -> None:
@@ -29,6 +30,7 @@ def run_job(job_path: Path, golden_path: Path, run_root: Path) -> None:
                     golden_path=golden_path,
                     backend_env_file=env_file,
                     retry_errors=retry_errors,
+                    concurrency=int(job.get("concurrency", DEFAULT_CONCURRENCY)),
                     only_ids=frozenset(entry["item_ids"]),
                     deadline_seconds=float(
                         job.get("deadline_seconds", DEADLINE_SECONDS)

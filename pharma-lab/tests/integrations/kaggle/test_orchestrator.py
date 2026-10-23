@@ -580,3 +580,76 @@ def test_run_without_remote_resume_ignores_account_state(tmp_path):
     assert reconciler.attached == []
     assert len(reconciler.submissions) == 1
     assert dependencies.forced == [False]
+
+
+class FixedStage:
+    def __init__(self, job: StageJob):
+        self.job = job
+
+    def build_job(self, _request) -> StageJob:
+        return self.job
+
+
+def _e2e_orchestrator(tmp_path, monkeypatch, reconciler, delivered):
+    job = stage_job(tmp_path, stage=StageName.E2E_RUN, expected_total=4)
+    checkpoints = FakeCheckpoints(4)
+    artifact = _artifact(tmp_path, job, complete=2, total=4)
+    orchestrator = KagglePipelineOrchestrator(
+        FixedStage(job),
+        FakeDependencies(),
+        checkpoints,
+        FakeKernels(),
+        reconciler=reconciler,
+        artifact_sink=lambda _job, item: delivered.append(item.completion),
+    )
+    monkeypatch.setattr(
+        orchestrator, "_load_downloaded_artifact", lambda root, job: artifact
+    )
+    request = replace(
+        _request(tmp_path), stage=StageName.E2E_RUN, model="qwen3.5:9b-q8_0"
+    )
+    return orchestrator, checkpoints, artifact, request
+
+
+def test_a_partial_e2e_session_is_delivered_and_never_checkpointed(
+    tmp_path, monkeypatch
+):
+    absent = KernelRemoteState("owner/kernel", KernelPresence.ABSENT)
+    done = KernelRemoteState(
+        "owner/kernel", KernelPresence.EXISTS, KernelStatus.COMPLETE
+    )
+    delivered: list[Completion] = []
+    reconciler = FakeReconciler(
+        KernelResolution(absent, None, ()),
+        KernelResolution(done, tmp_path / "output", (), submitted=True),
+    )
+    orchestrator, checkpoints, _, request = _e2e_orchestrator(
+        tmp_path, monkeypatch, reconciler, delivered
+    )
+
+    result = orchestrator.run(request)
+
+    assert delivered == [Completion(4, 2, 2)]
+    assert checkpoints.published == []
+    assert result.completion == Completion(4, 2, 2)
+    assert result.artifact_path is None
+
+
+def test_a_partial_e2e_kernel_that_stopped_is_not_relaunched(tmp_path, monkeypatch):
+    failed = KernelRemoteState(
+        "owner/kernel", KernelPresence.EXISTS, KernelStatus.ERROR
+    )
+    delivered: list[Completion] = []
+    reconciler = FakeReconciler(
+        KernelResolution(failed, tmp_path / "output", ()), _detached_submission()
+    )
+    orchestrator, checkpoints, _, request = _e2e_orchestrator(
+        tmp_path, monkeypatch, reconciler, delivered
+    )
+
+    result = orchestrator.run(replace(request, max_runs=3))
+
+    assert delivered == [Completion(4, 2, 2)]
+    assert reconciler.submissions == []
+    assert checkpoints.published == []
+    assert result.completion == Completion(4, 2, 2)

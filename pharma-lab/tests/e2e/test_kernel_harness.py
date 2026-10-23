@@ -52,3 +52,22 @@ def test_each_shard_entry_runs_twice_under_its_own_label(
     assert first.commit == "abc1234"
     assert first.deadline_seconds == 900.0
     assert first.run_root == tmp_path / "runs" / "r1"
+
+
+def test_concurrency_comes_from_the_job_and_defaults_to_eight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[int] = []
+
+    def fake_run(request: E2ERunRequest) -> RunSummary:
+        seen.append(request.concurrency)
+        return RunSummary(total=0, ran=0, errors=0)
+
+    monkeypatch.setattr(kernel_harness, "run_e2e", fake_run)
+    for extra in ({"concurrency": 1}, {}):
+        job = {"run": "r", "shards": [{"config": "full", "item_ids": ["a"]}]} | extra
+        path = tmp_path / "e2e_job.json"
+        path.write_text(json.dumps(job), encoding="utf-8")
+        kernel_harness.run_job(path, tmp_path / "g.jsonl", tmp_path / "runs")
+
+    assert seen == [1, 1, 8, 8]

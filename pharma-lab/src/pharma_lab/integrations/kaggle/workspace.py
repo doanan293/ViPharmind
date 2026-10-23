@@ -6,6 +6,7 @@ import shutil
 import signal
 import sys
 import tempfile
+import threading
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -170,6 +171,11 @@ def managed_staging_directory(
 
 @contextmanager
 def unwind_on_sigterm():
+    """Turn SIGTERM into KeyboardInterrupt so `finally` blocks run. Only the main thread
+    can take a signal handler; shards run in worker threads under a caller that did."""
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
     previous = signal.getsignal(signal.SIGTERM)
 
     def raise_interrupt(signum, frame):

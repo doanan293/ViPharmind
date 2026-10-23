@@ -26,6 +26,8 @@ class CommandResult:
     status: CommandStatus
     artifact: Path | None = None
     details: dict[str, Any] = field(default_factory=dict)
+    # A command with several resumable outcomes (paused, stuck) names its own code.
+    exit_code: int | None = None
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,7 @@ def result_payload(result: CommandResult) -> dict[str, Any]:
     payload: dict[str, Any] = asdict(result)
     payload["status"] = result.status.value
     payload["artifact"] = str(result.artifact) if result.artifact else None
+    del payload["exit_code"]
     return payload
 
 
@@ -89,6 +92,8 @@ def run_handler(state: CliState, handler: Callable[[], CommandResult]) -> None:
             raise
         fail(str(exc), 1)
     render_result(result, json_output=state.json_output)
+    if result.exit_code is not None:
+        raise typer.Exit(code=result.exit_code)
     if result.status is CommandStatus.INCOMPLETE:
         raise typer.Exit(code=3)
     if result.status is CommandStatus.FAILED:

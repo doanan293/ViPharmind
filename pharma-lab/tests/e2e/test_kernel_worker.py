@@ -12,6 +12,7 @@ from pharma_lab.e2e.kernel_worker import (
     PhaseLog,
     completed_answers,
     llama_server_fingerprint,
+    llm_preset_of,
     pack_outputs,
     restore_inputs,
     run_with_snapshots,
@@ -320,3 +321,10 @@ def test_llama_server_fingerprint_reads_the_runtime_manifest(tmp_path):
 
     assert llama_server_fingerprint(tmp_path / "input") == "c" * 64
     assert llama_server_fingerprint(tmp_path / "empty") is None
+
+
+def test_the_job_names_its_llm_preset_and_defaults_to_qwen():
+    assert llm_preset_of({}).name == "qwen"
+    assert llm_preset_of({"llm": "opus"}).name == "opus"
+    with pytest.raises(ValueError, match="unknown LLM preset"):
+        llm_preset_of({"llm": "gpt"})
