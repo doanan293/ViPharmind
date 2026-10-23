@@ -183,6 +183,7 @@ class E2EShardAdapter:
         commit: str | None = None,
         log: Callable[[str], None] = print,
         credentials: CredentialSource | None = None,
+        on_merged: Callable[[Sequence[str]], None] | None = None,
     ) -> None:
         self.plan = plan
         self.run_root = run_root
@@ -197,6 +198,7 @@ class E2EShardAdapter:
         self._build_static = build_static
         self._commit = commit
         self._credentials = credentials
+        self._on_merged = on_merged
         self._log = log
         self._attach: set[str] = set()
         self._merged: dict[str, int] = defaultdict(int)
@@ -270,6 +272,9 @@ class E2EShardAdapter:
         self._merged[shard.shard_id] += report.appended
         for warning in report.warnings:
             self._log(f"warning: {warning}")
+        if report.appended and self._on_merged is not None:
+            labels = sorted({unit.key.partition(SEPARATOR)[0] for unit in shard.units})
+            self._on_merged(labels)
 
     def _write_credentials(self, directory: Path, reserved: ReservedAccount) -> None:
         """Tell the stage where the credentials are staged and which dataset carries them.

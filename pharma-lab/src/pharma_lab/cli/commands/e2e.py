@@ -4,7 +4,7 @@ import asyncio
 import json
 import tempfile
 from collections import Counter
-from collections.abc import Generator, Sequence
+from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
 from enum import StrEnum
 from pathlib import Path
@@ -97,6 +97,7 @@ from pharma_lab.e2e.golden_draft import (
 )
 from pharma_lab.e2e.golden_generate import generate
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
+from pharma_lab.e2e.judge_follower import JudgeFollower
 from pharma_lab.e2e.judging.service import (
     JudgeRequest,
     run_citation_rejudge,
@@ -585,6 +586,7 @@ def kaggle_adapter(
     *,
     budget_seconds: int,
     credentials: CredentialSource | None = None,
+    on_merged: Callable[[Sequence[str]], None] | None = None,
 ) -> E2EShardAdapter:
     """The plan's work as shards, with the real Kaggle stage runner and inputs."""
     from pharma_lab.integrations.kaggle.service import run_kaggle_stage
@@ -608,6 +610,42 @@ def kaggle_adapter(
         commit=git_commit(Path(__file__).resolve().parent),
         credentials=credentials,
     )
+
+
+@contextmanager
+def judging(
+    plan: E2EPlan, *, enabled: bool, backend_env_file: Path, golden: Path
+) -> Generator[JudgeFollower | None]:
+    """Judge the answers of each shard as it returns (--judge); nothing when off.
+
+    Answers a earlier command left unjudged are picked up first. A command that ends
+    in an error does not wait for the judge to catch up."""
+    if not enabled:
+        yield None
+        return
+    run_root = e2e_run_dir(plan.run_name)
+    follower = JudgeFollower(run_judge, log=lambda line: typer.echo(line, err=True))
+    follower.start(
+        lambda label: JudgeRequest(
+            run_root=run_root,
+            config=label,
+            golden_path=golden,
+            backend_env_file=backend_env_file,
+        )
+    )
+    follower.notify_merged(
+        [
+            label
+            for label in plan.labels
+            if (run_root / label / "answers.jsonl").is_file()
+        ]
+    )
+    try:
+        yield follower
+    except BaseException:
+        follower.stop(drain=False)
+        raise
+    follower.stop()
 
 
 PROXY_CONFIG_TEMPLATE = PROJECT_ROOT.parent / "devops" / "cli-proxy-api" / "config.yaml"
@@ -818,6 +856,13 @@ def run(
             "--proxy-credential", help="Upload only this credential file; repeatable"
         ),
     ] = None,
+    judge: Annotated[
+        bool,
+        typer.Option(
+            "--judge",
+            help="Kaggle: judge each shard's answers as it returns (no GPU quota)",
+        ),
+    ] = False,
     proxy_credentials_dir: Annotated[
         Path | None,
         typer.Option(
@@ -858,9 +903,18 @@ def run(
                     source=proxy_credentials_dir,
                     kaggle_account=kaggle_account,
                 ) as credentials,
+                judging(
+                    plan,
+                    enabled=judge,
+                    backend_env_file=backend_env_file,
+                    golden=golden,
+                ) as follower,
             ):
                 adapter = kaggle_adapter(
-                    plan, budget_seconds=budget_seconds, credentials=credentials
+                    plan,
+                    budget_seconds=budget_seconds,
+                    credentials=credentials,
+                    on_merged=follower.notify_merged if follower else None,
                 )
                 outcome = launch(
                     adapter,
@@ -901,6 +955,7 @@ def run(
         "--drain": drain,
         "--retry-stuck": retry_stuck,
         "--latency": latency,
+        "--judge": judge,
     }
     named = [flag for flag, given in kaggle_only.items() if given]
     if named:

@@ -74,6 +74,7 @@ def adapter(
     limit=None,
     latency=False,
     credentials=None,
+    on_merged=None,
 ) -> E2EShardAdapter:
     plan = make_plan(
         run_name="r1",
@@ -101,6 +102,7 @@ def adapter(
         build_static=static_builder,
         commit="abc1234",
         credentials=credentials,
+        on_merged=on_merged,
     )
 
 
@@ -340,3 +342,30 @@ def test_a_stale_sidecar_from_an_earlier_run_is_removed(tmp_path: Path) -> None:
     subject.run_shard(shard_of([key("full", ITEMS[0])]), reserved())
 
     assert not (directory / "proxy_credentials.json").exists()
+
+
+def test_merged_answers_notify_the_follower_with_the_shard_labels(
+    tmp_path: Path,
+) -> None:
+    archive = tar_of(
+        tmp_path / "out.tar",
+        {
+            "full/answers.jsonl": (
+                done(ITEMS[1].item_id).model_dump_json() + "\n"
+            ).encode(),
+            "full/run.json": json.dumps(run_json()).encode(),
+        },
+    )
+    notified: list[list[str]] = []
+    subject = adapter(
+        tmp_path,
+        Runner(tmp_path, deliver=archive),
+        on_merged=lambda labels: notified.append(list(labels)),
+    )
+    shard = shard_of([key("full", ITEMS[1])])
+
+    result = subject.run_shard(shard, reserved())
+    subject.merge(shard, result)
+    subject.merge(shard, result)  # nothing new the second time
+
+    assert notified == [["full"]]

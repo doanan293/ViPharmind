@@ -42,9 +42,12 @@ def wired(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     work = tmp_path / "e2e-kaggle"
     captured: dict[str, object] = {}
 
-    def fake_adapter(plan, *, budget_seconds, credentials=None) -> E2EShardAdapter:
+    def fake_adapter(
+        plan, *, budget_seconds, credentials=None, on_merged=None
+    ) -> E2EShardAdapter:
         captured["plan"] = plan
         captured["credentials"] = credentials
+        captured["on_merged"] = on_merged
         captured["budget"] = budget_seconds
         return subject
 
@@ -305,3 +308,111 @@ def test_no_credential_session_for_a_kernel_llm(tmp_path):
         plan, names=(), source=None, kaggle_account=None
     ) as credentials:
         assert credentials is None
+
+
+class Follower:
+    def __init__(self) -> None:
+        self.notified: list[list[str]] = []
+
+    def notify_merged(self, labels) -> None:
+        self.notified.append(list(labels))
+
+
+def fake_judging(entered: list[bool], follower: Follower):
+    @contextmanager
+    def judging(plan, *, enabled, backend_env_file, golden):
+        entered.append(enabled)
+        yield follower if enabled else None
+
+    return judging
+
+
+def test_judge_off_by_default(wired, monkeypatch):
+    entered: list[bool] = []
+    monkeypatch.setattr(e2e_command, "judging", fake_judging(entered, Follower()))
+    monkeypatch.setattr(
+        e2e_command, "launch", Launcher(outcome(0, SchedulerStop.COMPLETE))
+    )
+
+    result = runner.invoke(app, BASE)
+
+    assert result.exit_code == 0, result.output
+    assert entered == [False]
+    assert wired["on_merged"] is None
+
+
+def test_judge_flag_hands_the_follower_to_the_adapter(wired, monkeypatch):
+    entered: list[bool] = []
+    follower = Follower()
+    monkeypatch.setattr(e2e_command, "judging", fake_judging(entered, follower))
+    monkeypatch.setattr(
+        e2e_command, "launch", Launcher(outcome(0, SchedulerStop.COMPLETE))
+    )
+
+    result = runner.invoke(app, [*BASE, "--judge"])
+
+    assert result.exit_code == 0, result.output
+    assert entered == [True]
+    wired["on_merged"](["full"])
+    assert follower.notified == [["full"]]
+
+
+def test_judging_context_starts_and_stops_the_follower(tmp_path, monkeypatch):
+    from tests.e2e.test_kaggle_shards import FULL
+
+    from pharma_lab.e2e.kaggle_shards import make_plan
+    from pharma_lab.e2e.llm_presets import PRESETS
+
+    events: list[str] = []
+
+    class FakeFollower:
+        def __init__(self, run_judge, *, log):
+            events.append("created")
+
+        def start(self, factory):
+            events.append(f"start:{factory('full').config}")
+
+        def notify_merged(self, labels):
+            events.append(f"notify:{','.join(labels)}")
+
+        def stop(self, *, drain=True):
+            events.append(f"stop:{drain}")
+
+    monkeypatch.setattr(e2e_command, "JudgeFollower", FakeFollower)
+    monkeypatch.setattr(e2e_command, "e2e_run_dir", lambda _name: tmp_path / "runs")
+    (tmp_path / "runs" / "full").mkdir(parents=True)
+    (tmp_path / "runs" / "full" / "answers.jsonl").write_text("{}\n")
+    plan = make_plan(
+        run_name="r1",
+        entries=[FULL],
+        golden_path=tmp_path / "g",
+        categories=None,
+        limit=None,
+        llm=PRESETS["qwen"],
+    )
+
+    with e2e_command.judging(
+        plan, enabled=True, backend_env_file=tmp_path / ".env", golden=tmp_path / "g"
+    ):
+        pass
+    with (
+        pytest.raises(KeyError),
+        e2e_command.judging(
+            plan,
+            enabled=True,
+            backend_env_file=tmp_path / ".env",
+            golden=tmp_path / "g",
+        ),
+    ):
+        raise KeyError("boom")
+
+    assert events == [
+        "created",
+        "start:full",
+        "notify:full",
+        "stop:True",
+        "created",
+        "start:full",
+        "notify:full",
+        "stop:False",
+    ]
