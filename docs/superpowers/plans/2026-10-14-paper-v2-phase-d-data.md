@@ -1,5 +1,7 @@
 # Paper v2, pha D (dữ liệu): tách leaflet theo heading, benchmark không rò rỉ, golden cập nhật
 
+> **Trạng thái 2026-10-24: Task 1–7b xong (mã và dữ liệu). Task 8 (`08-phase-d-results.md`) chưa viết: chờ chốt golden, xem spec §Việc đang mở.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Dựng lại corpus với mỗi tờ hướng dẫn tách thành section theo heading, sinh lại benchmark retrieval 10.000 câu không còn gợi ý trong câu hỏi với nhãn nhóm đúng, cập nhật bộ golden e2e sang section mới, rồi chạy lại bảng retrieval trên release mới.

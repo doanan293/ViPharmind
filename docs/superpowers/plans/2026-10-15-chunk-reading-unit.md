@@ -1,5 +1,7 @@
 # Chunk là đơn vị đọc: gộp mục, bỏ hydrate, 5 chunk mỗi lượt
 
+> **Trạng thái 2026-10-24: Xong (Task 1–11).**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Chunk trở thành đúng văn bản LLM đọc: chunker gộp các mục liền kề của một tài liệu tới khoảng 1.024 token, backend bỏ hẳn hydrate, reranker trả 5 chunk mỗi lượt, mọi nhãn và dữ liệu đánh giá đi theo.

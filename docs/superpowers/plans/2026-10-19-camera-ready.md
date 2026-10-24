@@ -1,5 +1,7 @@
 # Camera-ready SoICT 2026 Implementation Plan
 
+> **Trạng thái 2026-10-24: Xong (tag `v1.1.0`). Dọn nhánh `camera-ready` giữ đến sau buổi trình bày.**
+
 > **Ghi chú 2026-10-23.** Tài liệu này mô tả đợt chuẩn bị bản camera-ready (tag `v1.1.0`) và được giữ nguyên
 > nội dung. Các lệnh `e2e llm-server`, `e2e rerank-server` nhắc ở dưới là của v1 và đã bị gỡ khỏi nhánh `v2.0.0`
 > (thay bằng `e2e run --backend kaggle`); nhánh `camera-ready` vẫn giữ chúng.
@@ -12,7 +14,7 @@
 
 **Tech Stack:** backend `pharma_agent` (LangGraph), pharma-lab (typer, pydantic), llama.cpp, Kaggle T4, LaTeX LNCS.
 
-**Spec:** `docs/superpowers/specs/2026-10-19-camera-ready-design.md`
+**Spec:** `spec camera-ready (đã nộp, tag v1.1.0; xem lịch sử git)`
 
 ## Global Constraints
 
@@ -158,7 +160,7 @@ Trên test, report ghi cho cả hai option của từng quyết định: `hit@10
 - Create: `pharma-lab/src/pharma_lab/e2e/citation_analysis.py`
 - Modify: `pharma-lab/src/pharma_lab/cli/commands/e2e.py` (lệnh `citations` và `citations-summary`)
 - Modify: `pharma-lab/docs/guides/e2e-evaluation.md`
-- Modify: `docs/superpowers/specs/2026-10-19-camera-ready-design.md` §2 E3 (xem Step 3)
+- Modify: `spec camera-ready (đã nộp, tag v1.1.0; xem lịch sử git)` §2 E3 (xem Step 3)
 - Test: `pharma-lab/tests/e2e/test_citation_analysis.py`
 
 **Interfaces:**

@@ -1,9 +1,11 @@
 # Paper v2 phase 0: measurement infrastructure — implementation plan
 
+> **Trạng thái 2026-10-24: Task 1–9 xong (Task 8b bị thay bởi `e2e run --backend kaggle`). Còn Task 10 (judge `none` so với nhãn dược sĩ v1) và Task 11 (run A1, A2).**
+
 > **Cập nhật 2026-10-23.** Các lệnh `e2e llm-server`, `e2e rerank-server`, `e2e embed-server` và tunnel đã bị
 > gỡ; thay bằng `e2e run --backend kaggle` (kernel chạy trọn pipeline, chia shard, nối lại được). Các bước
 > bên dưới nhắc những lệnh đó là lịch sử, không còn chạy được. Xem
-> `docs/superpowers/specs/2026-10-23-kaggle-resumable-runs-design.md`.
+> `docs/superpowers/specs/2026-10-14-paper-v2-design.md (Phụ lục B)`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

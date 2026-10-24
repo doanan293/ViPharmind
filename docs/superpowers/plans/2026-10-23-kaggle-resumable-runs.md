@@ -1,5 +1,7 @@
 # Chạy Kaggle nối lại được, chia nhiều account: Kế hoạch triển khai
 
+> **Trạng thái 2026-10-24: Xong (Task 1–19); nghiệm thu trên Kaggle thật, kết quả ở Phụ lục B của spec.**
+
 > **Cho người thực thi:** BẮT BUỘC dùng superpowers:subagent-driven-development (khuyến nghị) hoặc superpowers:executing-plans để làm từng task. Các bước dùng checkbox (`- [ ]`).
 
 **Mục tiêu:** Mọi bước dùng Kaggle (embed corpus, embed truy vấn, rerank, e2e) lập kế hoạch từ trạng thái ở máy, chia shard chạy song song trên nhiều account, dừng và nối lại bất kỳ lúc nào, đổi account không mất gì; cấu hình thương mại chạy trong kernel qua `cli-proxy-api`.
@@ -8,7 +10,7 @@
 
 **Công nghệ:** Python 3.12, typer, pydantic, pytest, Kaggle CLI hiện có, llama.cpp, `CLIProxyAPI_8.0.28_linux_amd64`.
 
-**Spec:** `docs/superpowers/specs/2026-10-23-kaggle-resumable-runs-design.md`
+**Spec:** `docs/superpowers/specs/2026-10-14-paper-v2-design.md (Phụ lục B)`
 
 ## Ràng buộc chung
 
@@ -350,7 +352,7 @@
 
 ### Task 19: Nghiệm thu bằng job Kaggle thật (cần quota sau reset 2026-10-24)
 
-Không có test tự động; ghi kết quả vào `docs/superpowers/specs/2026-10-23-kaggle-resumable-runs-design.md` (mục "Kết quả nghiệm thu").
+Không có test tự động; ghi kết quả vào `docs/superpowers/specs/2026-10-14-paper-v2-design.md (Phụ lục B)` (mục "Kết quả nghiệm thu").
 
 - [ ] **Bước 1: Đo dựng môi trường.** `uv run pharma-lab e2e run --backend kaggle --run accept-1 --config full --config no-rerank --limit 20 --kaggle-account acc1 --parallel 1 --budget-seconds 7200`. Đọc log `phase=…` của kernel; ghi thời gian từng bước, VRAM của từng server. Kỳ vọng: job xong, `e2e status` báo 40/40.
 - [ ] **Bước 2: Kiểm chứng giả định output của kernel lỗi.** Chạy lại với `--limit 100 --budget-seconds 3600` để ép dừng theo hạn; kỳ vọng: kernel kết thúc trước khi bị kill, artifact đủ phần đã làm, `e2e status` thấy thiếu đúng phần chưa chạy. Nếu sai giả định (không có output khi kernel lỗi), ghi lại và đặt `snapshot_seconds` mặc định thành `0`.

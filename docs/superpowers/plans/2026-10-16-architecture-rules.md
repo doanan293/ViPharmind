@@ -1,5 +1,7 @@
 # Quy tắc kiến trúc cho frontend, backend và pharma-lab
 
+> **Trạng thái 2026-10-24: Xong; quy tắc nằm ở `AGENTS.md` và được ép bằng công cụ.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ba project có quy tắc bố cục và ranh giới import viết ở một chỗ (`AGENTS.md`) và được công cụ ép: oxlint cộng `app/architecture.test.ts` ở frontend, import-linter ở backend và pharma-lab; pharma-lab hết vòng import giữa các package.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** uv workspace (Python 3.12, ruff, pyrefly, pytest), import-linter 2.15, pre-commit; frontend React Router với Vitest 5 và oxlint.
 
-**Spec:** `docs/superpowers/specs/2026-10-16-architecture-rules-design.md`.
+**Spec:** `AGENTS.md (quy tắc kiến trúc; spec gốc trong lịch sử git)`.
 
 ## Global Constraints
 

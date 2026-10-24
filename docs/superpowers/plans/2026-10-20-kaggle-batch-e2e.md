@@ -1,9 +1,11 @@
 # E2E trong một kernel Kaggle — Implementation Plan
 
+> **Trạng thái 2026-10-24: Xong, sau đó được thay bởi `2026-10-23-kaggle-resumable-runs.md`.**
+
 > **Cập nhật 2026-10-23.** Các lệnh `e2e llm-server`, `e2e rerank-server`, `e2e embed-server` và tunnel đã bị
 > gỡ; thay bằng `e2e run --backend kaggle` (kernel chạy trọn pipeline, chia shard, nối lại được). Các bước
 > bên dưới nhắc những lệnh đó là lịch sử, không còn chạy được. Xem
-> `docs/superpowers/specs/2026-10-23-kaggle-resumable-runs-design.md`.
+> `docs/superpowers/specs/2026-10-14-paper-v2-design.md (Phụ lục B)`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -13,7 +15,7 @@
 
 **Tech Stack:** Python 3.12, Typer, pytest, Kaggle CLI, llama.cpp runtime dataset, PostgreSQL (apt), Qdrant v1.19.1 binary, qdrant-client + fastembed (BM25).
 
-**Spec:** `docs/superpowers/specs/2026-10-20-kaggle-batch-e2e-design.md`
+**Spec:** `docs/superpowers/specs/2026-10-14-paper-v2-design.md (Phụ lục B)`
 
 ## Global Constraints
 

@@ -1,5 +1,7 @@
 # Unified Benchmark Implementation Plan
 
+> **Trạng thái 2026-10-24: Task 1 và 3 xong; Task 2 (bảng retrieval) và Task 4 (tài liệu, bài) theo pha D của spec.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** One retrieval benchmark of exactly 10,000 questions whose groups prove every layer, and a golden e2e set whose every item is a row of it, so every retrieval and e2e table reports the same groups end to end.
