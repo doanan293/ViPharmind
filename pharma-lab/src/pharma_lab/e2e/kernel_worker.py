@@ -378,6 +378,16 @@ def llm_preset_of(job: Mapping) -> LlmPreset:
     return preset_named(str(job.get("llm", "qwen")))
 
 
+def mounted_dataset(input_root: Path, slug: str) -> Path:
+    """Kaggle mounts a dataset at `<root>/<slug>` or, in the newer layout, at
+    `<root>/datasets/<owner>/<slug>`; the directory name is the same in both."""
+    direct = input_root / slug
+    if direct.is_dir():
+        return direct
+    found = sorted(path for path in input_root.rglob(slug) if path.is_dir())
+    return found[0] if found else direct
+
+
 @contextmanager
 def running_proxy(
     config: Mapping,
@@ -392,7 +402,9 @@ def running_proxy(
     slug = config.get("credentials_slug")
     if not slug:
         raise RuntimeError("this LLM preset needs the run's proxy credentials dataset")
-    mounted = Path(config.get("kaggle_input_root", "/kaggle/input")) / str(slug)
+    mounted = mounted_dataset(
+        Path(config.get("kaggle_input_root", "/kaggle/input")), str(slug)
+    )
     work = Path(tempfile.mkdtemp(prefix="proxy-", dir=work_root))
     work.chmod(0o700)
     process = None

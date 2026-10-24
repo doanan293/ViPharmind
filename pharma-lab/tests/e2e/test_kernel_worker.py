@@ -389,6 +389,33 @@ def test_running_proxy_installs_private_credentials_and_cleans_up(tmp_path, caps
     assert "person@example.com" not in capsys.readouterr().out
 
 
+def test_running_proxy_finds_the_credential_dataset_under_the_owner_layout(tmp_path):
+    # Kaggle can mount a dataset at /kaggle/input/datasets/<owner>/<slug>.
+    mounted = tmp_path / "input" / "datasets" / "owner" / "pipeline-cred-x"
+    mounted.mkdir(parents=True)
+    (mounted / "antigravity-person@example.com.json").write_text('{"type": "x"}')
+    seen: dict[str, object] = {}
+
+    def start(binary, config, **kwargs):
+        seen["started"] = True
+        return FakeProxy()
+
+    work = tmp_path / "work"
+    work.mkdir()
+    with running_proxy(
+        {
+            "kaggle_input_root": str(tmp_path / "input"),
+            "credentials_slug": "pipeline-cred-x",
+        },
+        fetch=lambda directory: directory / "cli-proxy-api",
+        start=start,
+        work_root=work,
+    ):
+        pass
+
+    assert seen["started"]
+
+
 def test_running_proxy_needs_the_credential_dataset(tmp_path):
     with (
         pytest.raises(RuntimeError, match="credentials"),
