@@ -124,6 +124,12 @@ def rest_version_downloader(token: str | None) -> VersionDownloader:
     return download
 
 
+def _answer_unreadable(error: KaggleCommandError) -> bool:
+    """The upload reached Kaggle but the CLI could not parse the empty answer and exited
+    1, so whether it took effect is decided by looking at the dataset."""
+    return "expecting value: line 1 column 1" in f"{error}".casefold()
+
+
 class DatasetService:
     def __init__(
         self,
@@ -347,21 +353,45 @@ class DatasetService:
         )
         if state.presence is DatasetPresence.ABSENT:
             print(f"Uploading Kaggle dataset {reference} (create)...", flush=True)
-            self.runner.run(
-                dataset_create_command(Path(path), public=public),
-                live_output=True,
-            )
+            try:
+                self.runner.run(
+                    dataset_create_command(Path(path), public=public),
+                    live_output=True,
+                )
+            except KaggleCommandError as error:
+                if not _answer_unreadable(error) or (
+                    self.inspect_state(
+                        reference, active_owner=active_owner or self.owner
+                    ).presence
+                    is DatasetPresence.ABSENT
+                ):
+                    raise
             print(f"Uploaded Kaggle dataset {reference}.", flush=True)
             return PreparedDataset(reference, True, 1)
         print(f"Uploading Kaggle dataset {reference} (version)...", flush=True)
-        self.runner.run(
-            dataset_version_command(Path(path), message=message or title),
-            live_output=True,
-        )
-        print(f"Uploaded Kaggle dataset {reference}.", flush=True)
         expected_version = (
             state.current_version + 1 if state.current_version is not None else None
         )
+        try:
+            self.runner.run(
+                dataset_version_command(Path(path), message=message or title),
+                live_output=True,
+            )
+        except KaggleCommandError as error:
+            after = (
+                self.inspect_state(reference, active_owner=active_owner or self.owner)
+                if _answer_unreadable(error)
+                else None
+            )
+            if (
+                after is None
+                or after.current_version is None
+                or state.current_version is None
+                or after.current_version <= state.current_version
+            ):
+                raise
+            expected_version = after.current_version
+        print(f"Uploaded Kaggle dataset {reference}.", flush=True)
         return PreparedDataset(reference, True, expected_version)
 
     def wait_for_dataset_ready(

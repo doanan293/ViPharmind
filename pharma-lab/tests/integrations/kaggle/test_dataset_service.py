@@ -4,11 +4,14 @@ import json
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from pharma_lab.integrations.kaggle.dataset_service import (
     DatasetPresence,
     DatasetRemoteState,
     DatasetService,
 )
+from pharma_lab.integrations.kaggle.errors import KaggleCommandError
 
 
 class RecordingRunner:
@@ -144,3 +147,99 @@ def test_delete_dataset_refuses_another_accounts_dataset():
     with pytest.raises(ValueError, match="another account"):
         service.delete_dataset("someone-else/pipeline-cred-abc")
     assert runner.calls == []
+
+
+UNREADABLE_RESPONSE = (
+    "Upload successful: manifest.json (929B)\nExpecting value: line 1 column 1 (char 0)"
+)
+
+
+class UploadFailingRunner(RecordingRunner):
+    """The upload reaches Kaggle, but the CLI cannot read the answer and exits 1."""
+
+    def run(self, args, capture_output=False, *, live_output=False):
+        if args[1:3] in (["datasets", "create"], ["datasets", "version"]):
+            self.calls.append((args, capture_output, live_output))
+            raise KaggleCommandError(
+                operation="command",
+                target=None,
+                returncode=1,
+                stdout=UNREADABLE_RESPONSE,
+                stderr="",
+            )
+        return super().run(args, capture_output, live_output=live_output)
+
+
+def states(*sequence):
+    remaining = list(sequence)
+    return lambda *_args, **_kwargs: remaining.pop(0)
+
+
+def test_create_with_an_unreadable_answer_is_kept_when_the_dataset_exists(
+    tmp_path, monkeypatch
+):
+    service = DatasetService(UploadFailingRunner(), "owner")
+    monkeypatch.setattr(
+        service,
+        "inspect_state",
+        states(
+            DatasetRemoteState(DatasetPresence.ABSENT),
+            DatasetRemoteState(DatasetPresence.EXISTS, current_version=1),
+        ),
+    )
+
+    result = service.ensure_dataset("slug", "Title", tmp_path)
+
+    assert result.expected_version == 1
+
+
+def test_create_with_an_unreadable_answer_fails_when_nothing_was_created(
+    tmp_path, monkeypatch
+):
+    service = DatasetService(UploadFailingRunner(), "owner")
+    monkeypatch.setattr(
+        service,
+        "inspect_state",
+        states(
+            DatasetRemoteState(DatasetPresence.ABSENT),
+            DatasetRemoteState(DatasetPresence.ABSENT),
+        ),
+    )
+
+    with pytest.raises(KaggleCommandError):
+        service.ensure_dataset("slug", "Title", tmp_path)
+
+
+def test_version_with_an_unreadable_answer_is_kept_when_the_version_advanced(
+    tmp_path, monkeypatch
+):
+    service = DatasetService(UploadFailingRunner(), "owner")
+    monkeypatch.setattr(
+        service,
+        "inspect_state",
+        states(
+            DatasetRemoteState(DatasetPresence.EXISTS, current_version=3),
+            DatasetRemoteState(DatasetPresence.EXISTS, current_version=4),
+        ),
+    )
+
+    result = service.ensure_dataset("slug", "Title", tmp_path)
+
+    assert result.expected_version == 4
+
+
+def test_version_with_an_unreadable_answer_fails_when_the_version_did_not_advance(
+    tmp_path, monkeypatch
+):
+    service = DatasetService(UploadFailingRunner(), "owner")
+    monkeypatch.setattr(
+        service,
+        "inspect_state",
+        states(
+            DatasetRemoteState(DatasetPresence.EXISTS, current_version=3),
+            DatasetRemoteState(DatasetPresence.EXISTS, current_version=3),
+        ),
+    )
+
+    with pytest.raises(KaggleCommandError):
+        service.ensure_dataset("slug", "Title", tmp_path)
