@@ -169,10 +169,11 @@ uv run pharma-lab e2e report --run e2e-gemini
    - mọi chỉ số kèm CI bootstrap, ngưỡng tin cậy 0,6;
    - `ppi.json`: ước lượng PPI.
 
-**`e2e report`** ghi các file sau vào `runs/<run>/reports/`:
+**`e2e report`** ghi các file sau vào `runs/<run>/reports/`; lệnh dừng nếu một cấu hình của run chạy trên phiên bản golden khác file `--golden` hiện tại:
 - `main.csv|tex`: CSV có mọi cấu hình; bảng LaTeX chỉ gồm `full` và `one-step`, kèm CI;
 - `ablation.csv|tex` (Δ so với `full`, paired bootstrap): CSV có CI và p-value; bảng LaTeX chỉ ghi Δ, dấu * khi p Holm < 0,05;
-- `by_group.csv`;
+- `by_group.csv` và `group_ablation.csv`: theo `category`, `eval_group`, tầng golden (`tier`: `natural`, `slice`, `multi_hop`, `multi_turn`, và `natural_and_multi_hop` là tập của D6 và các hàng retriever, reranker theo spec v2 Phụ lục C.4) và loại multi-hop (`multi_hop_kind`);
+- `reweighted.csv`: truthfulness, perfect, hallucination và nugget recall của tầng tự nhiên với trọng số đưa mỗi nhóm về tỉ lệ của nó trong benchmark (KTC bootstrap); lệnh dừng nếu golden được dựng từ benchmark khác `--evaluation`;
 - `calibration.csv|tex`;
 - `cost.csv|tex`: USD mỗi lượt và mỗi 1.000 lượt (CI bootstrap), cost of pass, giây theo bước, latency p50/p95;
 

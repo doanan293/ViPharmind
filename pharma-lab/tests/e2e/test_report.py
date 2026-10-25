@@ -14,6 +14,7 @@ from tests.e2e.report_fixtures import (
 
 from pharma_lab.e2e.calibration import calibration_dir
 from pharma_lab.e2e.configs import E2EConfig
+from pharma_lab.e2e.golden import Category, GoldenItem
 from pharma_lab.e2e.records import (
     AnswerRecord,
     CitedSection,
@@ -28,9 +29,11 @@ from pharma_lab.e2e.report import (
     METRIC_LABELS,
     METRICS,
     ItemView,
+    _item_groups,
     _number,
     bootstrap_mean,
     error_label,
+    group_weights,
     paired_delta,
     write_report,
 )
@@ -128,7 +131,13 @@ def test_write_report_builds_every_table(tmp_path: Path) -> None:
     assert 0 < float(delta["p_value"]) <= 1
     assert float(delta["p_holm"]) == pytest.approx(float(delta["p_value"]))
     groups = rows(reports / "by_group.csv")
-    assert {r["group"] for r in groups} == {"answerable", "formulary", "leaflet"}
+    assert {r["group"] for r in groups} == {
+        "answerable",
+        "formulary",
+        "leaflet",
+        "natural",
+        "natural_and_multi_hop",
+    }
     tex = (reports / "main.tex").read_text("utf-8")
     assert r"\label{tab:e2e-main}" in tex
     assert r"\toprule" in tex and r"\hline" not in tex
@@ -413,3 +422,85 @@ def test_report_writes_react_failures(tmp_path: Path) -> None:
         "react",
     }
     assert CONFIG_LABELS["react"] == "ReAct agent"
+
+
+def test_group_weights_restore_benchmark_shares() -> None:
+    weights = group_weights(
+        {"a1": "A", "a2": "A", "b1": "B", "b2": "B"}, {"A": 300, "B": 100, "C": 50}
+    )
+    assert weights == pytest.approx({"a1": 1.5, "a2": 1.5, "b1": 0.5, "b2": 0.5})
+
+
+def test_reweighting_needs_every_golden_group_in_the_benchmark() -> None:
+    with pytest.raises(ValueError, match="B"):
+        group_weights({"a1": "A", "b1": "B"}, {"A": 300})
+
+
+def _tiered_items() -> dict[str, GoldenItem]:
+    plain = golden(1)
+    sliced = golden(2).model_copy(update={"tags": ["name_variant"]})
+    hop = golden(3).model_copy(
+        update={
+            "item_id": "e2e-mhop-0003",
+            "category": Category.MULTI_HOP,
+            "eval_group": None,
+            "tags": ["two_drug"],
+        }
+    )
+    return {item.item_id: item for item in (plain, sliced, hop)}
+
+
+def test_items_are_grouped_by_tier_and_multi_hop_kind() -> None:
+    items = _tiered_items()
+    groups = _item_groups(items, items)
+    assert groups[("tier", "natural")] == {"e2e-ans-0001"}
+    assert groups[("tier", "slice")] == {"e2e-ans-0002"}
+    assert groups[("tier", "natural_and_multi_hop")] == {
+        "e2e-ans-0001",
+        "e2e-mhop-0003",
+    }
+    assert groups[("multi_hop_kind", "two_drug")] == {"e2e-mhop-0003"}
+
+
+def test_report_writes_reweighted_table(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    write_config(tmp_path, "full", [1.0, 1.0, 0.0, 0.5])
+    write_config(tmp_path, "one-step", [0.5, 0.5, 0.0, 0.5])
+
+    written = write_report(
+        tmp_path, items, benchmark_counts={"formulary": 300, "leaflet": 100}
+    )
+
+    path = tmp_path / "reports" / "reweighted.csv"
+    assert path in written
+    table = rows(path)
+    assert {(r["config"], r["metric"]) for r in table} == {
+        (config, metric)
+        for config in ("full", "one-step")
+        for metric in (
+            "truthfulness",
+            "perfect_rate",
+            "hallucination_rate",
+            "nugget_recall",
+        )
+    }
+    nugget = next(
+        r for r in table if r["config"] == "full" and r["metric"] == "nugget_recall"
+    )
+    # Items 1 and 3 are formulary (1.0 and 0.5), items 0 and 2 leaflet (1.0, 0.0):
+    # weights 1.5 and 0.5 give (1.5 * 1.5 + 0.5 * 1.0) / 4.
+    assert float(nugget["mean"]) == pytest.approx((1.5 * 1.5 + 0.5 * 1.0) / 4)
+    assert nugget["n"] == "4"
+
+
+def test_report_refuses_a_run_on_another_golden(tmp_path: Path) -> None:
+    items = {golden(n).item_id: golden(n) for n in range(2)}
+    write_config(tmp_path, "full", [1.0, 0.5])
+    identity = json.loads((tmp_path / "full" / "run.json").read_text("utf-8"))
+    (tmp_path / "full" / "run.json").write_text(
+        json.dumps({**identity, "golden_sha256": "a" * 64}), encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match=r"full.*another golden"):
+        write_report(tmp_path, items, golden_sha256="b" * 64)
+    write_report(tmp_path, items, golden_sha256="a" * 64)

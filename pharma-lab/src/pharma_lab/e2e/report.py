@@ -17,6 +17,7 @@ import csv
 import json
 import math
 import statistics
+from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,7 +28,13 @@ from pharma_agent.domain.agent.schemas import JudgeOutcome
 
 from pharma_lab.e2e.calibration import AGREEMENT_FILE, PPI_FILE, calibration_dir
 from pharma_lab.e2e.configs import E2EConfig
-from pharma_lab.e2e.golden import Category, ExpectedBehavior, GoldenItem
+from pharma_lab.e2e.golden import (
+    MULTI_HOP_KINDS,
+    SLICE_KINDS,
+    Category,
+    ExpectedBehavior,
+    GoldenItem,
+)
 from pharma_lab.e2e.harness import config_dir
 from pharma_lab.e2e.judging.code_metrics import (
     CRAG_SCORES,
@@ -57,6 +64,7 @@ from pharma_lab.evaluation.statistics import (
     bootstrap_mean,
     holm,
     paired_test,
+    weighted_bootstrap_mean,
     wilson,
 )
 
@@ -820,6 +828,73 @@ def _ablation_tables(
     return [ablation_csv, ablation_tex]
 
 
+def _tier(item: GoldenItem) -> str | None:
+    """The golden tier of spec v2 appendix C.2 (None for the safety items)."""
+    if item.category is Category.ANSWERABLE:
+        return "slice" if set(item.tags) & set(SLICE_KINDS) else "natural"
+    if item.category is Category.MULTI_HOP:
+        return "multi_hop"
+    if item.category is Category.MULTI_TURN:
+        return "multi_turn"
+    return None
+
+
+def group_weights(
+    golden_groups: Mapping[str, str], benchmark_counts: Mapping[str, int]
+) -> dict[str, float]:
+    """Item key -> weight that brings each eval group back to its benchmark share,
+    counted over the groups the golden items come from."""
+    missing = sorted(set(golden_groups.values()) - set(benchmark_counts))
+    if missing:
+        raise ValueError(f"benchmark has no rows of group(s) {', '.join(missing)}")
+    sizes = Counter(golden_groups.values())
+    benchmark_total = sum(benchmark_counts[group] for group in sizes)
+    golden_total = len(golden_groups)
+    return {
+        key: (benchmark_counts[group] / benchmark_total) / (sizes[group] / golden_total)
+        for key, group in golden_groups.items()
+    }
+
+
+REWEIGHTED_METRICS = (
+    "truthfulness",
+    "perfect_rate",
+    "hallucination_rate",
+    "nugget_recall",
+)
+
+
+def _reweighted_table(
+    directory: Path,
+    configs: Sequence[str],
+    items: Mapping[str, GoldenItem],
+    values: Mapping[str, dict[str, Values]],
+    benchmark_counts: Mapping[str, int],
+) -> Path:
+    """Natural-tier means with each eval group weighted to its benchmark share."""
+    rows: list[list[object]] = []
+    for config in configs:
+        for name in REWEIGHTED_METRICS:
+            scored = {
+                key: value
+                for key, value in values[config][name].items()
+                if _tier(items[key]) == "natural" and items[key].eval_group
+            }
+            if not scored:
+                continue
+            weights = group_weights(
+                {key: str(items[key].eval_group) for key in scored}, benchmark_counts
+            )
+            keys = sorted(scored)
+            s = weighted_bootstrap_mean(
+                [scored[k] for k in keys], [weights[k] for k in keys]
+            )
+            rows.append([config, name, s.n, s.mean, s.ci_low, s.ci_high])
+    path = directory / "reweighted.csv"
+    write_csv(path, ["config", "metric", "n", "mean", "ci_low", "ci_high"], rows)
+    return path
+
+
 def _item_groups(
     items: Mapping[str, GoldenItem],
     keys: Iterable[str],
@@ -839,6 +914,14 @@ def _item_groups(
         groups.setdefault(("category", item.category.value), set()).add(key)
         if item.category is Category.ANSWERABLE and item.eval_group:
             groups.setdefault(("eval_group", item.eval_group), set()).add(key)
+        tier = _tier(item)
+        if tier is not None:
+            groups.setdefault(("tier", tier), set()).add(key)
+        if tier in {"natural", "multi_hop"}:
+            groups.setdefault(("tier", "natural_and_multi_hop"), set()).add(key)
+        if item.category is Category.MULTI_HOP:
+            for kind in (tag for tag in item.tags if tag in MULTI_HOP_KINDS):
+                groups.setdefault(("multi_hop_kind", kind), set()).add(key)
         record = full_answers.get(key) if full_answers is not None else None
         if record is not None and record.judge_outcomes:
             first = record.judge_outcomes[0]
@@ -857,7 +940,7 @@ def _group_table(
     rows: list[list[object]] = []
     for config in configs:
         groups = _item_groups(items, loaded[config][1])
-        for kind in ("category", "eval_group"):
+        for kind in ("category", "eval_group", "tier", "multi_hop_kind"):
             for (group_kind, name), keys in sorted(groups.items()):
                 if group_kind != kind:
                     continue
@@ -1097,13 +1180,26 @@ def write_report(
     items: dict[str, GoldenItem],
     relevance: LoadedJudgments | None = None,
     latency_root: Path | None = None,
+    benchmark_counts: Mapping[str, int] | None = None,
+    golden_sha256: str | None = None,
 ) -> list[Path]:
     """Write every table; `relevance` extends relevant chunks as in retrieval metrics.
+
+    With `benchmark_counts` (rows per eval group of the benchmark the golden set comes
+    from), the natural tier is also reported reweighted to the benchmark's group shares.
+    With `golden_sha256`, every configuration must have been run on that golden version.
 
     With `latency_root`, every latency number comes from that run's answers of the same
     configuration (the concurrency-1 run of spec v2 §2.5); quality stays from this run.
     """
     loaded = load_run(run_root)
+    if golden_sha256 is not None:
+        for config, (_answers, _judgments, identity) in loaded.items():
+            if identity.get("golden_sha256") != golden_sha256:
+                raise ValueError(
+                    f"{config} was run on another golden version "
+                    f"({identity.get('golden_sha256')}); start a new run"
+                )
     directory = Path(run_root) / REPORTS_DIR
     directory.mkdir(parents=True, exist_ok=True)
     values = {
@@ -1118,6 +1214,10 @@ def write_report(
     if E2EConfig.FULL.value in values:
         written += _ablation_tables(directory, configs, values)
     written.append(_group_table(directory, configs, items, loaded, values))
+    if benchmark_counts is not None:
+        written.append(
+            _reweighted_table(directory, configs, items, values, benchmark_counts)
+        )
     written += _cost_table(directory, configs, values)
     react = _react_table(directory, configs, values)
     if react is not None:

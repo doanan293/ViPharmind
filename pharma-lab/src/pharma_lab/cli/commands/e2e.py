@@ -1214,6 +1214,16 @@ def calibration_score(
     run_handler(state_from_context(ctx), handler)
 
 
+def benchmark_group_counts(golden: Path, evaluation: Path) -> dict[str, int]:
+    """Rows per eval group of the benchmark the golden set was built from."""
+    manifest = json.loads(manifest_path(golden).read_text(encoding="utf-8"))
+    if manifest.get("gold_sha256") != sha256_file(evaluation):
+        raise ValueError(f"{golden} was built from another benchmark than {evaluation}")
+    return dict(
+        Counter(str(row.get("eval_group")) for row in load_query_rows(evaluation))
+    )
+
+
 @e2e_app.command("report")
 def report(
     ctx: typer.Context,
@@ -1243,6 +1253,8 @@ def report(
             items,
             relevance,
             latency_root=None if latency_run is None else e2e_run_dir(latency_run),
+            benchmark_counts=benchmark_group_counts(golden, evaluation),
+            golden_sha256=sha256_file(golden),
         )
         return CommandResult(
             "e2e report",

@@ -71,6 +71,33 @@ def bootstrap_mean(values: Sequence[float], *, seed: int = SEED) -> Summary:
     return Summary(data.size, float(data.mean()), float(low), float(high))
 
 
+def weighted_bootstrap_mean(
+    values: Sequence[float], weights: Sequence[float], *, seed: int = SEED
+) -> Summary:
+    """sum(w * v) / sum(w), with a 95% percentile bootstrap interval over the items."""
+    data = np.asarray(values, dtype=float)
+    weight = np.asarray(weights, dtype=float)
+    if data.shape != weight.shape:
+        raise ValueError("weighted mean needs one weight per value")
+    if data.size == 0:
+        return _empty()
+    rng = np.random.default_rng(seed)
+    means = np.concatenate(
+        [
+            _weighted(data, weight, rng.integers(0, data.size, (block, data.size)))
+            for block in _blocks()
+        ]
+    )
+    low, high = np.percentile(means, [2.5, 97.5])
+    return Summary(
+        data.size, float((data * weight).sum() / weight.sum()), float(low), float(high)
+    )
+
+
+def _weighted(data: np.ndarray, weight: np.ndarray, picks: np.ndarray) -> np.ndarray:
+    return (data[picks] * weight[picks]).sum(axis=1) / weight[picks].sum(axis=1)
+
+
 @dataclass(frozen=True)
 class PairedTest:
     summary: Summary

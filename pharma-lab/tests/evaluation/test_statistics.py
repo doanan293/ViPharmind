@@ -11,6 +11,7 @@ from pharma_lab.evaluation.statistics import (
     paired_test,
     percent_agreement,
     ppi_mean,
+    weighted_bootstrap_mean,
     wilson,
 )
 
@@ -106,3 +107,17 @@ def test_resampling_never_draws_the_whole_matrix_at_once(
     stats.paired_test([0.5, -0.25] * 50)
     assert sum(rows) == 2 * stats.RESAMPLES
     assert max(rows) <= stats.RESAMPLE_BLOCK
+
+
+def test_weighted_bootstrap_mean_with_equal_weights_is_the_plain_mean() -> None:
+    values = [(i * 37 % 11 - 4.8) / 5 for i in range(300)]
+    weighted = weighted_bootstrap_mean(values, [2.0] * 300)
+    plain = bootstrap_mean(values)
+    assert weighted.n == 300
+    assert weighted.mean == pytest.approx(plain.mean)
+    assert weighted.ci_low < weighted.mean < weighted.ci_high
+
+
+def test_weighted_bootstrap_mean_weights_the_items() -> None:
+    summary = weighted_bootstrap_mean([1.0, 1.0, 0.0, 0.0], [1.5, 1.5, 0.5, 0.5])
+    assert summary.mean == pytest.approx(0.75)
