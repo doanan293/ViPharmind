@@ -8,6 +8,7 @@ import pytest
 from pharma_agent.domain.agent.decisions import judge_state
 from pharma_agent.domain.corpus.bundle import read_bundle
 from pharma_agent.domain.llm.models import LlmRole
+from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.evidence import Evidence
 from pharma_agent.domain.retrieval.models import Hit
 from pydantic import BaseModel
@@ -304,3 +305,21 @@ def test_guard_draft_rejects_a_count_the_templates_cannot_cover(
 
 def test_guard_turn_is_a_model() -> None:
     assert issubclass(GuardTurn, BaseModel)
+
+
+def test_guard_draft_retries_a_turn_after_an_llm_error(tmp_path: Path) -> None:
+    llm = ScriptedLlm()
+    llm.script(
+        LlmRole.JUDGE,
+        LlmError("judge: model returned no choices"),
+        *[GuardTurn(turn=f"lượt {i}") for i in range(2)],
+    )
+    path = asyncio.run(draft_guard_set(llm, tmp_path / "g.todo.jsonl", count=2))
+    assert len(path.read_text("utf-8").splitlines()) == 2
+
+
+def test_guard_draft_gives_up_after_three_errors_on_one_turn(tmp_path: Path) -> None:
+    llm = ScriptedLlm()
+    llm.script(LlmRole.JUDGE, *[LlmError("down")] * 3)
+    with pytest.raises(LlmError, match="down"):
+        asyncio.run(draft_guard_set(llm, tmp_path / "g.todo.jsonl", count=2))

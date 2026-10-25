@@ -29,6 +29,7 @@ class FakeCompletions:
         self.parsed: object = Verdict(ok=True)
         self.raise_on_parse: Exception | None = None
         self.usage_details: object | None = None
+        self.no_choices = False
 
     async def parse(self, **kwargs):
         self.parse_kwargs = kwargs
@@ -36,7 +37,7 @@ class FakeCompletions:
             raise self.raise_on_parse
         message = SimpleNamespace(parsed=self.parsed, refusal=None)
         return SimpleNamespace(
-            choices=[SimpleNamespace(message=message)],
+            choices=[] if self.no_choices else [SimpleNamespace(message=message)],
             usage=SimpleNamespace(
                 prompt_tokens=12,
                 completion_tokens=3,
@@ -137,6 +138,16 @@ async def test_openai_errors_and_refusals_become_llm_error() -> None:
     client.completions.raise_on_parse = None
     client.completions.parsed = None
     with pytest.raises(LlmError, match="no parsed output"):
+        await adapter.structured(LlmRole.GUARDRAIL, [user("a")], Verdict)
+
+
+async def test_a_completion_without_choices_becomes_llm_error() -> None:
+    # A proxy can answer 200 with an empty choices list; the step must degrade like any
+    # other LLM failure instead of crashing with IndexError.
+    adapter, created = make_adapter()
+    await adapter.structured(LlmRole.GUARDRAIL, [user("warm up")], Verdict)
+    created[(None, "sk-cloud")].completions.no_choices = True
+    with pytest.raises(LlmError, match="no choices"):
         await adapter.structured(LlmRole.GUARDRAIL, [user("a")], Verdict)
 
 

@@ -88,6 +88,8 @@ class OpenAiLlmAdapter:
             raise LlmError(
                 f"{role.value}: output does not match {schema.__name__}"
             ) from exc
+        if not completion.choices:
+            raise LlmError(f"{role.value}: model returned no choices")
         choice = completion.choices[0]
         parsed = choice.message.parsed
         if parsed is None:

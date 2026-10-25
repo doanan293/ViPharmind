@@ -26,7 +26,7 @@ from pharma_agent.domain.corpus.bundle import (
 )
 from pharma_agent.domain.corpus.chunking import ChunkDraft
 from pharma_agent.domain.llm.models import LlmRole, system, user
-from pharma_agent.domain.llm.port import LlmPort
+from pharma_agent.domain.llm.port import LlmError, LlmPort
 from pharma_agent.domain.retrieval.evidence import Evidence
 from pharma_agent.domain.retrieval.models import Hit
 from pydantic import BaseModel
@@ -57,6 +57,9 @@ __all__ = [
 
 EVIDENCE_TOP_K = 5
 DRAFT_CONCURRENCY = 8
+# A proxy fails a call now and then (an empty completion, a dropped connection); one
+# failed turn must not throw away the whole batch.
+DRAFT_ATTEMPTS = 3
 
 Row = dict[str, Any]
 
@@ -240,14 +243,22 @@ async def draft_guard_set(
     plan = _guard_plan(count, seed)
     gate = asyncio.Semaphore(DRAFT_CONCURRENCY)
 
+    async def call(template: str) -> str:
+        result, _ = await llm.structured(
+            LlmRole.JUDGE,
+            [system(DRAFT_SYSTEM), user(f"Scenario: {template}")],
+            GuardTurn,
+        )
+        return result.turn.strip()
+
     async def draft(template: str) -> str:
         async with gate:
-            result, _ = await llm.structured(
-                LlmRole.JUDGE,
-                [system(DRAFT_SYSTEM), user(f"Scenario: {template}")],
-                GuardTurn,
-            )
-        return result.turn.strip()
+            for _ in range(DRAFT_ATTEMPTS - 1):
+                try:
+                    return await call(template)
+                except LlmError:
+                    continue
+            return await call(template)
 
     turns = await asyncio.gather(*(draft(template) for _, _, template in plan))
     output.parent.mkdir(parents=True, exist_ok=True)
