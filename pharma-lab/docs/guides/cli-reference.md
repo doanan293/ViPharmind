@@ -76,7 +76,7 @@ Global `--json` in envelope máy đọc được, `--debug` bật traceback. `uv
 
 ```bash
 uv run pharma-lab retrieve \
-  --run backend-hybrid-qwen4b-p50-k30-rrf2 \
+  --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 \
   --retriever hybrid \
   --prefetch-k 50 \
   --candidate-k 30 \
@@ -88,7 +88,7 @@ Candidate `chunk_id` là nhãn vị trí `<document_key>:chunk-<ordinal:03d>` c�
 `--limit N` lấy N dòng đầu của file gold. `--sample N` lấy mẫu phân tầng theo `eval_group`: mỗi nhóm nhận số câu tỉ lệ với cỡ nhóm, làm tròn theo phần dư lớn nhất (phần dư bằng nhau thì nhóm xuất hiện trước trong file được ưu tiên), chọn ngẫu nhiên trong nhóm bằng `--sample-seed` (mặc định 0) và giữ thứ tự của file. Hai tuỳ chọn loại trừ nhau. Với bộ gold 10.000 câu, `--sample 1000` cho 500 `formulary`, 250 `leaflet`, 100 `chunk_risk`, 50 `leaflet_short`, 50 `noisy`, 50 `multi_intent`.
 
 ```bash
-uv run pharma-lab retrieve --run hybrid-qwen4b-p50-k30-rrf2-sample1000 --retriever hybrid --prefetch-k 50 --candidate-k 30 --rrf-k 2 --sample 1000 --sample-seed 0
+uv run pharma-lab retrieve --run hybrid-qwen4b-v3-p50-k20-rrf2-sample1000 --retriever hybrid --prefetch-k 50 --candidate-k 20 --rrf-k 2 --sample 1000 --sample-seed 0
 ```
 
 ## Rerank và metrics
@@ -104,13 +104,13 @@ Rerank chỉ gọi `POST /v1/rerank` với file GGUF bản convert classifier; m
 `--backend local --benchmark` đo từng mức của search space CPU: (`-np`, `-ub`) là (4, 4096), `-b` bằng `-ub`, `-c` bằng `-ub` nhân số slot cộng một, `--threads` 8/12. Mỗi mức dựng lại `llama-reranker`, chạy một nhóm khởi động không tính giờ rồi 6 nhóm câu hỏi × 15 ứng viên chọn phân tầng theo tổng số ký tự. Mức nào xếp hạng ứng viên khác mức hợp lệ đầu tiên thì bị loại (`rank_mismatch`); lệnh chọn p95 thấp nhất (bằng nhau thì số cặp/giây cao hơn), lưu profile và in `selected=`, `latency_p95_seconds=`, `env=`. Chép `env=` vào `.env` ở gốc repo và đặt `RERANK_TIMEOUT_SECONDS` ít nhất gấp đôi `latency_p95_seconds`.
 
 ```bash
-uv run pharma-lab rerank --run hybrid-qwen4b-p50-k30-rrf2 --backend local --benchmark --model qwen3-reranker:4b-q8_0
+uv run pharma-lab rerank --run hybrid-qwen4b-v3-p50-k20-rrf2 --backend local --benchmark --model qwen3-reranker:4b-q8_0
 ```
 
 ```bash
-uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account auto
-uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --top-k 30
-uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --model qwen3-reranker:4b-q8_0 --top-k 30
+uv run pharma-lab rerank --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account auto
+uv run pharma-lab metrics --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --top-k 20
+uv run pharma-lab metrics --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --model qwen3-reranker:4b-q8_0 --top-k 20
 ```
 
 Report nằm ở `reports/baseline/top<K>-window<N>/` và `reports/rerank/<model>/top<K>-window<N>/`; chạy lại cùng cutoff với input khác thì lệnh dừng, `--force` thay report. Metrics gồm Hit@3/5/10/30, MRR, và với `answer_mode=multi_required`: Multi-section Recall@K, Multi-all-hit@K. `--top-k` không được lớn hơn `candidate-k`. `--gold-only` chấm chỉ theo mục gold, không dùng relevance judgments, và ghi vào `top<K>-gold/`; run trên bundle chia chunk khác mặc định (`bundle rechunk`) phải dùng cờ này.

@@ -37,13 +37,13 @@ uv run pharma-lab evaluation build --bundle data/corpus/formulary
 uv run pharma-lab embed queries --backend local --model qwen3-embedding:4b-q8_0
 uv run pharma-lab retrieve --run backend-bm25-k30 --retriever bm25 --candidate-k 30
 uv run pharma-lab metrics --run backend-bm25-k30 --top-k 30
-uv run pharma-lab retrieve --run backend-dense-qwen4b-k30 --retriever dense --candidate-k 30
-uv run pharma-lab metrics --run backend-dense-qwen4b-k30 --top-k 30
-uv run pharma-lab retrieve --run backend-hybrid-qwen4b-p50-k30-rrf2 --retriever hybrid \
+uv run pharma-lab retrieve --run backend-dense-qwen4b-v3-k20 --retriever dense --candidate-k 20
+uv run pharma-lab metrics --run backend-dense-qwen4b-v3-k20 --top-k 20
+uv run pharma-lab retrieve --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --retriever hybrid \
   --prefetch-k 50 --candidate-k 30 --rrf-k 2
-uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend local --benchmark --model qwen3-reranker:4b-q8_0
-uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend local --model qwen3-reranker:4b-q8_0
-uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --top-k 30
+uv run pharma-lab rerank --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --backend local --benchmark --model qwen3-reranker:4b-q8_0
+uv run pharma-lab rerank --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --backend local --model qwen3-reranker:4b-q8_0
+uv run pharma-lab metrics --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --top-k 20
 ```
 
 `--benchmark` chọn cấu hình `llama-reranker` có p95 thấp nhất trên máy này và lưu profile ở `data/cache/local_profiles/rerank/`; lệnh rerank sau đó dựng service theo profile và gửi một request `/v1/rerank` cho mỗi câu hỏi. Benchmark và rerank cả run chạy lâu, nên chạy trong tmux.

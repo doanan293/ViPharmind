@@ -60,9 +60,9 @@ cd ../pharma-lab
 uv run pharma-lab evaluation build --bundle data/corpus/formulary
 uv run pharma-lab embed queries --backend kaggle --model qwen3-embedding:4b-q8_0 --kaggle-account acc1
 uv run pharma-lab retrieve --run backend-bm25-k30 --retriever bm25 --candidate-k 30
-uv run pharma-lab retrieve --run backend-hybrid-qwen4b-p50-k30-rrf2 --retriever hybrid \
+uv run pharma-lab retrieve --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --retriever hybrid \
   --prefetch-k 50 --candidate-k 30 --rrf-k 2
-uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --top-k 30
+uv run pharma-lab metrics --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --top-k 20
 ```
 
 Thêm `--limit 50` và tên run `...-smoke50` để chạy thử trước.
@@ -73,11 +73,11 @@ Một model có thể cần nhiều phiên GPU, nên mỗi model chạy trong m�
 
 ```bash
 tmux new-session -s rerank -n qwen3-reranker-4b
-uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend kaggle \
+uv run pharma-lab rerank --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --backend kaggle \
   --model qwen3-reranker:4b-q8_0 --kaggle-account auto --dry-run
-uv run pharma-lab rerank --run backend-hybrid-qwen4b-p50-k30-rrf2 --backend kaggle \
+uv run pharma-lab rerank --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --backend kaggle \
   --model qwen3-reranker:4b-q8_0 --kaggle-account auto
-uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --model qwen3-reranker:4b-q8_0 --top-k 30
+uv run pharma-lab metrics --run backend-hybrid-qwen4b-v3-p50-k20-rrf2 --model qwen3-reranker:4b-q8_0 --top-k 20
 ```
 
 Với `--kaggle-account auto`, mỗi shard (một nhóm truy vấn, một kernel) được giao cho account:

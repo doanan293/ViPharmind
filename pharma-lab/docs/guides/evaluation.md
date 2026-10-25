@@ -10,11 +10,11 @@ uv run pharma-lab data pull --kaggle-account acc1
 
 Lệnh tải bundle `data/corpus/formulary` (embedding của 5 model), bộ gold `data/evaluation/gold`, candidates và artifact rerank của các run, cache vector query và điểm rerank, rồi kiểm sha256 từng file. `run.json`, manifest và `report.md` của các run đã có trong Git.
 
-Metrics đọc thêm file nhãn `data/evaluation/gold/section_retrieval_eval.judgments.jsonl` (kèm `section_retrieval_eval.judgments.manifest.json` ghi sha256 của bộ gold và phiên bản luật). Với câu hỏi nhóm `formulary` và `multi_intent`, gold chỉ ghi section Dược thư; file nhãn chấp nhận thêm chunk của tờ hướng dẫn biệt dược có đúng các hoạt chất của chuyên luận đó và nằm trong mục trả lời cùng ý hỏi (chỉ định, liều dùng, chống chỉ định, tác dụng phụ, quá liều, thận trọng, dược lý, tương tác, thai kỳ và cho con bú). Hoạt chất đọc từ mục "Thành phần" của trang; thuốc phối hợp chỉ khớp chuyên luận phối hợp cùng thành phần. Mục của chunk lấy theo heading của trang, kể cả dòng tiêu đề mất dấu `#` như "- Thận trọng khi sử dụng". Đổi luật chỉ cần dựng lại file nhãn rồi chạy lại metrics; candidates, cache embedding và điểm rerank giữ nguyên:
+Metrics đọc thêm file nhãn `data/evaluation/gold/section_retrieval_eval.judgments.jsonl` (kèm `section_retrieval_eval.judgments.manifest.json` ghi sha256 của bộ gold và phiên bản luật). Với mọi câu hỏi có gold là section Dược thư, ở bất kỳ nhóm nào (luật phiên bản 2), file nhãn chấp nhận thêm chunk của tờ hướng dẫn biệt dược có đúng các hoạt chất của chuyên luận đó và nằm trong mục trả lời cùng ý hỏi (chỉ định, liều dùng, chống chỉ định, tác dụng phụ, quá liều, thận trọng, dược lý, tương tác, thai kỳ và cho con bú). Hoạt chất đọc từ mục "Thành phần" của trang; thuốc phối hợp chỉ khớp chuyên luận phối hợp cùng thành phần. Mục của chunk lấy theo heading của trang, kể cả dòng tiêu đề mất dấu `#` như "- Thận trọng khi sử dụng". Đổi luật chỉ cần dựng lại file nhãn rồi chạy lại metrics; candidates, cache embedding và điểm rerank giữ nguyên:
 
 ```bash
 uv run pharma-lab evaluation judgments
-uv run pharma-lab metrics --run hybrid-qwen4b-p50-k30-rrf2 --top-k 30 --force
+uv run pharma-lab metrics --run hybrid-qwen4b-v3-p50-k20-rrf2 --top-k 20 --force
 ```
 
 Report ghi `judgments_sha256` trong identity, và `pharma-lab metrics select` chỉ so các report chấm bằng đúng file nhãn hiện tại.
@@ -48,28 +48,28 @@ uv run pharma-agent corpus import ../pharma-lab/data/corpus/formulary --collecti
 Trong `pharma-lab/`:
 
 ```bash
-uv run pharma-lab retrieve --run dense-qwen4b-k30 --retriever dense --candidate-k 30 --force
-uv run pharma-lab retrieve --run bm25-qwen4b-k30 --retriever bm25 --candidate-k 30 --force
-uv run pharma-lab retrieve --run hybrid-qwen4b-p50-k30-rrf60 --retriever hybrid --prefetch-k 50 --candidate-k 30 --rrf-k 60 --force
-uv run pharma-lab metrics --run hybrid-qwen4b-p50-k30-rrf60 --top-k 30 --force
+uv run pharma-lab retrieve --run dense-qwen4b-v3-k20 --retriever dense --candidate-k 20 --force
+uv run pharma-lab retrieve --run bm25-v3-k20 --retriever bm25 --candidate-k 20 --force
+uv run pharma-lab retrieve --run hybrid-qwen4b-v3-p50-k20-rrf60 --retriever hybrid --prefetch-k 50 --candidate-k 20 --rrf-k 60 --force
+uv run pharma-lab metrics --run hybrid-qwen4b-v3-p50-k20-rrf60 --top-k 20 --force
 ```
 
 `--force` thay run tải từ archive, vì stack mới có release id khác. Mỗi lần retrieve 10.000 query mất khoảng 10–20 phút.
 
 | Model | Chiều vector | `PHARMA_RETRIEVAL__QDRANT_COLLECTION` | Run |
 | --- | ---: | --- | --- |
-| `embeddinggemma:300m-q8_0` | 768 | `eval_embeddinggemma_300m_q8_0` | `dense-gemma300m-k30` |
-| `bge-m3:567m-q8_0` | 1024 | `eval_bge_m3_567m_q8_0` | `dense-bge-m3-k30` |
-| `qwen3-embedding:0.6b-q8_0` | 1024 | `eval_qwen3_embedding_0_6b_q8_0` | `dense-qwen06b-k30` |
-| `qwen3-embedding:8b-q8_0` | 4096 | `eval_qwen3_embedding_8b_q8_0` | `dense-qwen8b-k30` |
-| `qwen3-embedding:4b-q8_0` | 2560 | `eval_qwen3_embedding_4b_q8_0` | `dense-qwen4b-k30`, `bm25-qwen4b-k30`, `hybrid-qwen4b-p50-k30-rrf2`, `hybrid-qwen4b-p50-k30-rrf60` |
+| `embeddinggemma:300m-q8_0` | 768 | `eval_embeddinggemma_300m_q8_0` | `dense-gemma300m-v3-k20` |
+| `bge-m3:567m-q8_0` | 1024 | `eval_bge_m3_567m_q8_0` | `dense-bge-m3-v3-k20` |
+| `qwen3-embedding:0.6b-q8_0` | 1024 | `eval_qwen3_embedding_0_6b_q8_0` | `dense-qwen06b-v3-k20` |
+| `qwen3-embedding:8b-q8_0` | 4096 | `eval_qwen3_embedding_8b_q8_0` | `dense-qwen8b-v3-k20` |
+| `qwen3-embedding:4b-q8_0` | 2560 | `eval_qwen3_embedding_4b_q8_0` | `dense-qwen4b-v3-k20`, `bm25-v3-k20`, `hybrid-qwen4b-v3-p50-k20-rrf2`, `hybrid-qwen4b-v3-p50-k20-rrf60` |
 
 ## 4. Rerank
 
 ```bash
-uv run pharma-lab rerank --run hybrid-qwen4b-p50-k30-rrf2 --model qwen3-reranker:4b-q8_0 --dry-run
-uv run pharma-lab rerank --run hybrid-qwen4b-p50-k30-rrf2 --model qwen3-reranker:4b-q8_0
-uv run pharma-lab metrics --run hybrid-qwen4b-p50-k30-rrf2 --model qwen3-reranker:4b-q8_0 --top-k 30
+uv run pharma-lab rerank --run hybrid-qwen4b-v3-p50-k20-rrf2 --model qwen3-reranker:4b-q8_0 --dry-run
+uv run pharma-lab rerank --run hybrid-qwen4b-v3-p50-k20-rrf2 --model qwen3-reranker:4b-q8_0
+uv run pharma-lab metrics --run hybrid-qwen4b-v3-p50-k20-rrf2 --model qwen3-reranker:4b-q8_0 --top-k 20
 ```
 
 `--dry-run` in `missing_pairs=N`, số cặp query–chunk chưa có điểm trong `data/cache/rerank_scores/`; rerank chỉ chạy model cho các cặp đó.
@@ -79,7 +79,7 @@ Mọi reranker được gọi qua `/v1/rerank`.
 Cấu hình `llama-reranker` cho backend trên CPU được chọn bằng benchmark đầu-cuối trên máy production (chạy trong tmux: mỗi mức nạp lại model 4B trên CPU):
 
 ```bash
-uv run pharma-lab rerank --run hybrid-qwen4b-p50-k30-rrf2 --backend local --benchmark --model qwen3-reranker:4b-q8_0
+uv run pharma-lab rerank --run hybrid-qwen4b-v3-p50-k20-rrf2 --backend local --benchmark --model qwen3-reranker:4b-q8_0
 ```
 
 Lệnh lưu `data/cache/local_profiles/rerank/<model>.json` và in các biến `LLAMA_RERANKER_*` cho `.env` ở gốc repo. Trên Kaggle, benchmark chạy tự động trước lần chấm đầu tiên khi chưa có profile khớp (xem [CLI reference](cli-reference.md)).
@@ -109,9 +109,9 @@ export PHARMA_RETRIEVAL__QDRANT_COLLECTION=eval_qwen3_embedding_4b_q8_0_sections
 uv run pharma-agent corpus import ../pharma-lab/data/corpus/formulary-sections --collection formulary_sections --publish
 
 cd ../pharma-lab
-uv run pharma-lab retrieve --run hybrid-qwen4b-v2-sections-p50-k20-rrf2 --collection formulary_sections --retriever hybrid --prefetch-k 50 --candidate-k 20 --rrf-k 2
-uv run pharma-lab rerank --run hybrid-qwen4b-v2-sections-p50-k20-rrf2 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account auto
-for r in hybrid-qwen4b-v2-sections-p50-k20-rrf2 hybrid-qwen4b-v2-p50-k20-rrf2; do
+uv run pharma-lab retrieve --run hybrid-qwen4b-v3-sections-p50-k20-rrf2 --collection formulary_sections --retriever hybrid --prefetch-k 50 --candidate-k 20 --rrf-k 2
+uv run pharma-lab rerank --run hybrid-qwen4b-v3-sections-p50-k20-rrf2 --backend kaggle --model qwen3-reranker:4b-q8_0 --kaggle-account auto
+for r in hybrid-qwen4b-v3-sections-p50-k20-rrf2 hybrid-qwen4b-v3-p50-k20-rrf2; do
   uv run pharma-lab metrics --run "$r" --model qwen3-reranker:4b-q8_0 --top-k 20 --gold-only
 done
 ```
@@ -206,29 +206,6 @@ Lệnh cho kết quả tất định. So với file tải về, mọi tensor gi�
 ## 6. Cách tính chỉ số
 
 Kết quả của bài nằm trong `report.md` của từng run (`data/evaluation/runs/<run>/reports/`).
-
-### Chọn trên dev, báo cáo trên test
-
-Hằng số RRF `k` và instruction của reranker được chọn trên chính benchmark mà bài báo cáo. Lệnh sau chia 10.000 câu thành dev và test (một nửa mỗi `eval_group`, làm tròn xuống cho dev, seed cố định), lặp lại từng lựa chọn chỉ bằng nửa dev rồi báo cáo mọi phương án trên nửa test. Nó chỉ đọc metric từng câu của các run đã có, không chạy model.
-
-```bash
-uv run pharma-lab evaluation dev-test --seed 0
-```
-
-- `k ∈ {2, 60}`: chọn theo Hit@10 trước rerank của `hybrid-qwen4b-p50-k30-rrf2` và `-rrf60` trên dev; test báo Hit@10, MRR@10, nDCG@10 của cả hai và của rrf2 sau Qwen3-Reranker-4B.
-- Instruction: chọn theo MRR@30 của Qwen3-Reranker-0.6B trong run `hybrid-qwen4b-p50-k30-rrf2-sample1000`, chỉ trên các câu của pilot thuộc dev; test báo các câu pilot thuộc test.
-
-Kết quả ghi vào `data/evaluation/dev-test/report.json` và `report.md`.
-
-### Lớp nào giúp ở đâu (slice)
-
-Slice là thuộc tính của câu hỏi và corpus, không phụ thuộc kết quả hệ thống: `rare_term` (câu hỏi có một từ xuất hiện trong tối đa 10 section và có trong section gold, nơi nửa BM25 của hybrid có lợi) và `sibling_products` (tờ hướng dẫn có tờ khác cùng thương hiệu và cùng hoạt chất, nơi reranker quyết định thứ tự). Lệnh sau tính tỉ lệ câu mà một lớp thắng, trong và ngoài slice, từ metric từng câu của các run đã có:
-
-```bash
-uv run pharma-lab evaluation slices
-```
-
-Kết quả ghi vào `data/evaluation/slices/report.json` và `report.md`.
 
 **Cách tính nDCG@10 và MRR@k.** Gain là nhị phân. Mỗi đơn vị bằng chứng chỉ được tính gain một lần, tại chunk đầu tiên thoả nó:
 - câu single hoặc any_acceptable có 1 đơn vị;
