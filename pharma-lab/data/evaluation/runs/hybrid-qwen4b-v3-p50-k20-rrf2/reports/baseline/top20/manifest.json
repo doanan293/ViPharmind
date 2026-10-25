@@ -1,15 +1,15 @@
 {
   "artifact_type": "metrics_report",
   "complete": 9970,
-  "created_at": "2026-10-19T02:23:11.312920+00:00",
+  "created_at": "2026-10-24T09:14:21.743115+00:00",
   "data_filename": "metrics.jsonl",
-  "data_sha256": "366718e4e6f198895a1ebd6ca14bfabf1bc7c51dd70d4b5bbfb27d00f5f786a4",
+  "data_sha256": "7be7a600fffe3e84a0fcaace1157bfb57cf147bf983c2413385d5e432242fbcc",
   "identity": {
-    "candidate_data_sha256": "b15561dd8e3a38800ea102749c912a80ce95a7e56c47e83b94dc6a8a10e6d846",
+    "candidate_data_sha256": "726651a40453910e9830287c849f89379809c969fafeeaf4ad6c29ddc62b9916",
     "contract_version": 2,
-    "evaluation_sha256": "070bbe39fca5fd02371d1b7de19e16f1ea3e4180fe48e73ad2e9976760f57deb",
-    "judgments_sha256": "a51e0fb48c6be21db4f100e26a8be3df5db2731298a5589064cdfadcdbc2390c",
-    "metrics_sha256": "891f6de91077c53af72d28bff0f2e4b3e3da0ab4ec2889975d6d99f38f8affe0",
+    "evaluation_sha256": "9c6e4de6bc2bda541fa288ea9ad688097957e421b34c2d6909492f6773b5e6d5",
+    "judgments_sha256": "8947713587a67957996fb91e7bda064912fffc28de7af35ef003288c04785c1e",
+    "metrics_sha256": "5dae5f8e614d478e7a6327a29159f8446de44074440d05f48a93343cef55a38c",
     "model": null,
     "top_k": 20,
     "variant_sha256": null

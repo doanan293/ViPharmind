@@ -6,10 +6,10 @@
     "collection_name": "eval_qwen3_embedding_8b_q8_0",
     "embedding_model": "qwen3-embedding:8b-q8_0",
     "evaluation_path": "evaluation/gold/section_retrieval_eval.jsonl",
-    "evaluation_sha256": "070bbe39fca5fd02371d1b7de19e16f1ea3e4180fe48e73ad2e9976760f57deb",
+    "evaluation_sha256": "9c6e4de6bc2bda541fa288ea9ad688097957e421b34c2d6909492f6773b5e6d5",
     "limit": null,
     "prefetch_k": 50,
-    "query_embeddings_sha256": "b197438b58d4a50ace09e3792709abd276a454376e7d069d360b1c2217892d5c",
+    "query_embeddings_sha256": "dd1b27cb365083f7f137c5d702d5433352f8772973d735af7b68dcbc97543e11",
     "release_id": "099c331b-7a56-4da5-8ff8-98449c58c5e8",
     "retriever": "hybrid",
     "rrf_k": 2,
@@ -17,6 +17,22 @@
     "sample_seed": null
   },
   "origin": "backend",
-  "rerank_variants": {},
+  "rerank_variants": {
+    "bge_reranker_v2_m3_q8_0": {
+      "artifact_dir": "rerank/bge_reranker_v2_m3_q8_0",
+      "model": "bge-reranker-v2-m3:q8_0",
+      "variant_sha256": "67c31dbc66f47d5db52d6a1b8c37a3c9aa836b751c18963f784a8c8c20064cbb"
+    },
+    "qwen3_reranker_0_6b_q8_0": {
+      "artifact_dir": "rerank/qwen3_reranker_0_6b_q8_0",
+      "model": "qwen3-reranker:0.6b-q8_0",
+      "variant_sha256": "9bd7cd2762278d04e3db468866018b9431e4026984a2f82792cb1a146e34cf7d"
+    },
+    "qwen3_reranker_4b_q8_0": {
+      "artifact_dir": "rerank/qwen3_reranker_4b_q8_0",
+      "model": "qwen3-reranker:4b-q8_0",
+      "variant_sha256": "2ea6f71fdb55b23a636c4bbb4a7ab59be7454e36d9346ea45eedccc2e83449ff"
+    }
+  },
   "schema_version": 3
 }

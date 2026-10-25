@@ -34,11 +34,14 @@ Judge, `report`, `compare`, `calibration`, `decision-set` và `decision-probe` c
 
 ### Việc đang mở
 
-1. **Golden có ba phiên bản.** Các run `-v2-` ghi golden `587b0374…` (bản `data/work/golden-v3/v2-input`),
-   các run `-v3-` ghi `070bbe39…`, golden hiện tại là `9c6e4de6…` (sửa 2026-10-19) và bộ e2e dựng
-   trên bản này. `pharma-lab metrics` từ chối run có hash khác golden hiện tại, nên run
-   `hybrid-qwen8b-v2-p50-k20-rrf2` (đã rerank xong 29.460 cặp với `qwen3-reranker:4b-q8_0`) chưa tính
-   được metric. Cần chốt một golden cho bảng retrieval của paper rồi dựng lại các run còn lại trên đó.
+1. **Golden đã chốt (2026-10-24): `9c6e4de6…`** (`data/evaluation/gold/section_retrieval_eval.jsonl`,
+   bản dựng lại cuối cùng ngày 2026-10-19). Lý do: file nhãn judgments (958 query) và bộ e2e
+   `golden_e2e` (sha `9e27…`) đều ghi hash này, và các run Qwen e2e đã dựng trên nó. Các run cũ ghi
+   `587b0374…` (mọi `-v2-`) hoặc `070bbe39…` (các `-v3-` cũ) không dùng được cho `metrics`. Việc đang
+   làm: `hybrid-qwen8b-v3-p50-k20-rrf2` đã retrieve lại trên `9c6e…` (9.970 query), đang rerank nốt
+   59.913 cặp với `qwen3-reranker:4b-q8_0`. Còn phải dựng lại trên `9c6e…` bốn run dense còn lại và
+   bốn reranker của bảng retrieval trước khi viết `08-phase-d-results.md` (các số `-v2-` dùng để chọn
+   cặp ở Task 11 Step 0 đo trên golden cũ, cần kiểm lại luật chọn trên số mới).
 2. **Run Qwen đầy đủ chưa xong.** `e2e-v2-qwen9b` mới có 20 dòng smoke mỗi cấu hình. Shard acc3
    lỗi hai lần ở bước tạo dataset 293 B (lỗi CLI Kaggle), một kernel lỗi với log rỗng. Chạy lại cùng lệnh để nối.
 3. **Chờ quyết định:** đẩy nhánh `v2.0.0`; xoá dataset đầu vào còn sót trên Kaggle (`pipeline-static-*`,
@@ -1241,3 +1244,77 @@ Lỗi chỉ lộ ra ở job thật, đã sửa kèm test: (1) lượt chạy th�
 Lỗi thêm tìm ra ở vòng này (đã sửa, có test): hạn mức Gemini 8 request quá cao (nay 4, Opus 2); thư mục credential trong kernel chứa nhầm `dependency_manifest.json`; `merged` đếm dòng lỗi thay vì câu xong; file credential xuất từ volume Docker thuộc `root`; tên nhị phân proxy là `cli-proxy-api`; xoá credential bị cắt ngang khi Ctrl-C hai lần; `--judge` thiếu lựa chọn model; danh sách account bị truyền nguyên chuỗi vào bước profile runtime ở embedding.
 
 Còn chưa thử: câu trả lời đầy đủ của Opus (chờ hạn mức Claude); `--judge` với model judge chạy được.
+
+## Phụ lục C. Ma trận ablation: mỗi câu hỏi một bộ dữ liệu, một phép thử, một ngưỡng (chốt 2026-10-25)
+
+Phụ lục này thay các cỡ golden ở Phụ lục A §4 và là nguồn duy nhất cho câu "ablation X đo trên gì,
+thử bằng gì, nhạy tới đâu". Mọi ablation phải ra một trong hai kết luận rõ: khác biệt có ý nghĩa
+(KTC 95% không chứa 0 và p sign-flip sau Holm < 0,05), hoặc tương đương trong biên (báo KTC và nói
+"chênh lệch nằm trong ±X điểm"). Không bảng nào để một hàng "không ý nghĩa" mà không kèm biên.
+
+### C.1 Bộ dữ liệu
+
+| Bộ | Cỡ | Chọn thế nào | Dùng cho |
+| --- | --- | --- | --- |
+| Benchmark retrieval `9c6e4de6…` | 10.000 dòng, 9.970 có gold | luật sinh, audit 4 vòng (Phụ lục A §6) | mọi ablation retrieval |
+| Tập chọn retrieval | 8.470 | benchmark trừ `conversational` và `safety` | luật chọn §3.4 |
+| Golden e2e v4 | 1.000 | xem C.2; không câu nào chọn theo kết quả hệ thống | mọi ablation e2e |
+| Tập giữ lại §3.3 | 300 câu judge + 300 lượt guard | judge: dòng benchmark ngoài golden, nhãn từ gold; guard: LLM nháp theo template, audit | ngưỡng guard, τ, hiệu chuẩn Jev; không bao giờ dùng golden để chỉnh |
+| Nhãn dược sĩ | 50 item × 9 cấu hình chính (A2, A3, ReAct × 3 model) | ngẫu nhiên phân tầng theo tầng golden | PPI cho metric dựa judge, κ của judge |
+
+### C.2 Golden e2e v4, 1.000 câu
+
+| Tầng | Cỡ | Nguồn và cách chọn |
+| --- | --- | --- |
+| Tự nhiên | 520 | dòng benchmark các nhóm luật, chia theo tỉ lệ nhóm trong benchmark, tối thiểu 30 mỗi nhóm (formulary 212, leaflet 106, structured 51, leaflet_short 31, multi_intent 30, noisy 30, glossary 30, colloquial 30); ngẫu nhiên trong nhóm |
+| Lát | 90 | 30 mỗi lát `header_dependent`, `name_variant`, `sibling_products`, ngẫu nhiên trong lát |
+| multi_hop | 200 | nhóm `multi_hop` của benchmark: two_drug 70, brand_to_ingredient 65, three_intent 65 |
+| multi_turn | 160 | nhóm `conversational`, 20 mỗi hiện tượng |
+| safety | 30 | unanswerable, out_of_scope, injection 10 mỗi loại; chỉ báo hành vi, không dùng chỉnh ngưỡng |
+
+Item đã soạn ở golden v3 được giữ khi dòng benchmark của nó vẫn thuộc tầng mới; tầng "trượt vòng 1"
+(retrieval_miss, noisy_retry, chọn từ lỗi của hybrid + rerank 4B) bỏ hẳn. Đáp án mới: LLM soạn nháp,
+máy kiểm mọi `evidence_quote` có nguyên văn trong section gold, một model khác hãng audit toàn bộ
+theo rubric, rồi dược sĩ duyệt toàn bộ 1.000 câu (quyết định 2026-10-25); bài báo tỉ lệ câu
+dược sĩ phải sửa ở mỗi tầng. Tầng tự nhiên có trọng số chuẩn về tỉ lệ benchmark để báo số tái trọng số cạnh số thô.
+
+### C.3 Độ nhạy (power 80%, α sau Holm khoảng 0,005; phương sai từ ablation v1)
+
+| Tập | n | truthfulness | nugget recall | hallucination |
+| --- | --- | --- | --- | --- |
+| Golden toàn bộ | 1.000 | 4,9 điểm | 3,9 | 1,9 |
+| Tự nhiên + multi_hop (D6) | 720 | 5,8 | 4,6 | 2,2 |
+| multi_hop | 200 | 11,0 | 8,7 | 4,2 |
+| multi_turn | 160 | 12,3 | 9,7 | 4,7 |
+| Benchmark, tập chọn (Hit@k) | 8.470 | khoảng 1,0 điểm | | |
+| Benchmark, conversational (Hit@k) | 1.500 | khoảng 3,6 điểm | | |
+
+Không thua kém (một phía, α 0,025): biên khả thi trên golden toàn bộ là 4 điểm truthfulness và 3
+điểm nugget recall; đây là biên chốt cho A (thay biên 3 điểm ở Phụ lục A §5).
+
+### C.4 Ma trận
+
+Họ so sánh (Holm) = một hàng "Họ" dưới đây; mỗi họ là một bảng của bài.
+
+| Mã | Câu hỏi | Dữ liệu | Thử | Metric chính (phụ) | Họ | Nhạy tới |
+| --- | --- | --- | --- | --- | --- | --- |
+| S1 | Chọn retriever cho agent | tập chọn 8.470 | §3.4 | Hit@20 (Hit@5) | S1 | 1 điểm |
+| S2 | Chọn reranker | tập chọn 8.470 trên cấu hình S1 | §3.4 | Hit@5 (MRR@10) | S2 | 1 điểm |
+| D1 | Sao phải hybrid | benchmark, theo nhóm và lát | dense + rerank so với hybrid + rerank, cùng reranker S2 | Hit@5 (nDCG@5) | D | 1 điểm; nhóm nhỏ báo KTC |
+| D2 | Enrichment giúp gì | benchmark | `plain` so với đủ, hybrid + rerank | Hit@5, theo colloquial, glossary, leaflet, noisy | D | 1 điểm |
+| D7 | Vì sao chunk 1.024 token | benchmark, chấm theo section gold | chunk theo mục so với chunk gộp; thêm mục ở k ≈ 15 cùng ngân sách token | Hit@5, tỉ lệ phủ đủ câu đa intent | D | 1 điểm |
+| D5 | Viết lại câu hỏi hội thoại | 1.500 conversational | Q1–Q6 so với Q0 | Hit@5 | D5 | 3,6 điểm |
+| D3, D4 | Bảng theo nhóm, intent, lát; chi phí embedding | benchmark; đo trên T4 | mô tả, Wilson | | không | |
+| D6 | Retrieval tốt hơn có thành e2e tốt hơn | golden tự nhiên + multi_hop (720) | 5 retriever × {one-step, full} so với hybrid + rerank | truthfulness (nugget recall) | D6 | 5,8 điểm |
+| A | Jev thay LLM ở vai trò quyết định | golden 1.000 | A3 không thua A2, mỗi model; A4 so với A3 trên Qwen | truthfulness NI 4 điểm, nugget NI 3 điểm; giây, USD | A | biên NI |
+| B | Refine theo ngưỡng | golden 1.000; τ chọn trên tập giữ lại | τ=0 so với τ\*, τ\* so với τ=1, Jev so với độ tin cậy nói ra | truthfulness, USD, giây | B | 4,9 điểm |
+| C | Graph routing so với ReAct | golden 1.000; multi_hop và multi_turn báo riêng | A2 so với ReAct, mỗi model | truthfulness (nugget, USD, giây) | C | 4,9 toàn bộ; 11 multi_hop |
+| E1 | Rephrase | golden 1.000; multi_turn báo riêng | `no-rephrase` so với `full` | truthfulness | E | 4,9 toàn bộ; 12,3 multi_turn |
+| E2 | Judge-refine | golden 1.000; multi_hop báo riêng | `no-judge-refine`, `one-step` so với `full`; tỉ lệ cứu có điều kiện (Wilson) | truthfulness, nugget | E | 4,9 |
+| E3 | Rerank ở e2e | golden 1.000 | `no-rerank` so với `full` | truthfulness | E | 4,9 |
+| E4 | Guard | guard set 300 của tập giữ lại; over-refusal trên golden | `no-guard` so với `full`, cả hai setting | tỉ lệ chặn tấn công, chặn nhầm (Wilson) | E | ±5 điểm mỗi tỉ lệ |
+| E5 | Decision model làm judge đánh giá | 450 item có nhãn dược sĩ | Jev per-key-fact so với gemini-3.1-flash-lite | AC1, κ có KTC; USD, giây | E5 | |
+| H | Hiệu chuẩn decision model | tập giữ lại §3.3 | mô tả | AUROC, ECE, Brier, tỉ lệ lật khi gọi 3 lần, bootstrap | không | |
+
+Các ablation e2e một model (E1–E3) chạy trên Qwen3.5-9B cấu hình A3; E4 trên A2 và A3 như §4.E.
+Run e2e chỉ bắt đầu sau khi S1 và S2 chốt và golden v4 build xong; mọi run trước đó bị bỏ.

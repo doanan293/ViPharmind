@@ -1,0 +1,22 @@
+{
+  "artifact_type": "metrics_report",
+  "complete": 9970,
+  "created_at": "2026-10-24T08:25:39.220201+00:00",
+  "data_filename": "metrics.jsonl",
+  "data_sha256": "dd982c5b6d5597d66aa4dd055db87af2ea55edab9b542a9d18e3b82c78a3be00",
+  "identity": {
+    "candidate_data_sha256": "843b137f384b326753aa1c712eba7f64875453673d1f599ae3795cde0e420b76",
+    "contract_version": 2,
+    "evaluation_sha256": "9c6e4de6bc2bda541fa288ea9ad688097957e421b34c2d6909492f6773b5e6d5",
+    "judgments_sha256": "8947713587a67957996fb91e7bda064912fffc28de7af35ef003288c04785c1e",
+    "metrics_sha256": "2dfe305c79ecc1cab18c19dcb7d82a4ce03c7c4c5fd46958cb58e6b74e49e177",
+    "model": "qwen3-reranker:4b-q8_0",
+    "rerank_variant_sha256": "2ea6f71fdb55b23a636c4bbb4a7ab59be7454e36d9346ea45eedccc2e83449ff",
+    "top_k": 20,
+    "variant_sha256": "2ea6f71fdb55b23a636c4bbb4a7ab59be7454e36d9346ea45eedccc2e83449ff"
+  },
+  "missing": 0,
+  "record_count": 9970,
+  "schema_version": 1,
+  "total": 9970
+}
