@@ -453,22 +453,39 @@ Thay hoàn toàn bằng Phụ lục A §3 (nhóm `conversational` 1.500 câu, m�
 - Hiệu chuẩn judge đánh giá bằng dược sĩ chấm mù giữ giao thức v1, mở rộng mẫu cho các cấu hình mới
   (50 item mỗi cấu hình chính) và báo tương quan lỗi giữa judge và người chấm theo Rao và Callison-Burch.
 
-### 3.4 Luật chọn retrieval và reranker cho agent (chốt 2026-10-18, trước khi có số `-v3-`)
+### 3.4 Luật chọn retrieval và reranker cho agent (bản 2026-10-25, viết trước khi tính lại số)
 
 Không thiên vị cấu hình nào, kể cả model lớn hơn. Chọn theo hai giai đoạn, để reranker chỉ chạy trên
-cấu hình đã thắng ở bước tìm:
+cấu hình đã thắng ở bước tìm. Thủ tục chính xác là mã `pharma_lab/evaluation/config_selection.py`,
+chạy bằng `pharma-lab metrics select`.
 
-1. Giai đoạn tìm (chưa rerank): BM25, dense với từng embedding, hybrid RRF k=2 prefetch 50 giữ 20
+1. Giai đoạn 1, tìm (chưa rerank): BM25, dense với từng embedding, hybrid RRF k=2 prefetch 50 giữ 20
    với Qwen3-Embedding-4B và 8B. Chỉ số chính Hit@20, tức gold nằm trong 20 ứng viên reranker nhận;
-   chỉ số phụ Hit@5. Các ablation enrichment, dense và hybrid đo ở giai đoạn này.
-2. Giai đoạn rerank, chỉ trên cấu hình thắng: Qwen3-Reranker-0.6B, 4B, 8B, và bge-reranker-v2-m3
-   làm đối chứng ngoài họ Qwen. Chỉ số chính Hit@5
-   (agent đọc 5 đoạn đầu), phụ MRR@10.
-3. Ở mỗi giai đoạn, một cấu hình thắng rõ khi chênh lệch chỉ số chính vượt khoảng tin cậy 95%
-   bootstrap theo câu hỏi (1.000 lần lấy mẫu lại) và nó không tụt quá 1 điểm ở lát hay nhóm nào.
-   Không ai thắng rõ: xét chỉ số phụ theo cùng luật; vẫn hòa thì chọn cấu hình rẻ và nhanh hơn, vì bài
-   đo cả độ trễ và chi phí.
-4. Bảng retrieval của bài báo cáo mọi cấu hình đã chạy, kể cả cấu hình không được chọn.
+   chỉ số phụ Hit@5.
+2. Giai đoạn 2, rerank, chỉ trên cấu hình thắng giai đoạn 1: Qwen3-Reranker-0.6B, 4B, 8B, và
+   bge-reranker-v2-m3 làm đối chứng ngoài họ Qwen. Chỉ số chính Hit@5 (agent đọc 5 đoạn đầu), phụ
+   MRR@10.
+3. Thắng rõ: cấu hình dẫn đầu (trung bình chỉ số cao nhất) thắng một cấu hình khác khi khoảng tin
+   cậy 95% bootstrap ghép cặp theo câu hỏi (10.000 lần) của chênh lệch nằm trên 0 **và** p của kiểm
+   định sign-flip ghép cặp, hiệu chỉnh Holm trong họ, dưới 0,05. Mỗi giai đoạn với mỗi chỉ số là một
+   họ. Cấu hình không bị thắng rõ thì hòa với cấu hình dẫn đầu; còn hòa thì xét chỉ số phụ trên các
+   cấu hình hòa theo cùng luật; vẫn hòa thì chọn cấu hình rẻ nhất.
+4. Tập câu: benchmark 10.000 câu trừ nhóm `conversational` (1.500) và 30 câu safety, tức 8.470 câu.
+   Agent luôn viết lại câu hỏi trước khi tìm, nên câu hội thoại để nguyên lượt cuối không phản ánh
+   truy vấn agent gửi; nhóm này được đo ở D5.
+5. Nhãn: golden `9c6e4de6…` cùng judgments rules_version 2, chấp nhận chunk leaflet cùng hoạt chất
+   cho mọi câu có gold là mục formulary, ở mọi nhóm.
+6. Thứ tự chi phí khi hòa: BM25; dense theo số tham số embedding (gemma-300m, bge-m3, qwen 0,6B, 4B,
+   8B); hybrid đứng ngay sau dense cùng embedding; reranker theo số tham số (bge-v2-m3, 0,6B, 4B, 8B).
+7. Bảng retrieval của bài báo cáo mọi cấu hình đã chạy, theo nhóm và theo lát, kể cả cấu hình không
+   được chọn và nhóm mà cấu hình thắng bị tụt.
+
+Lịch sử: bản 2026-10-18 dùng bootstrap 1.000 lần không kèm kiểm định, thêm vế "không tụt quá 1 điểm ở
+lát hay nhóm nào", chấm trên cả nhóm hội thoại, và judgments chỉ áp cho hai nhóm formulary và
+multi_intent. Bốn điểm này đổi ngày 2026-10-25, sau khi đã thấy số `-v3-` giai đoạn 1: vế 1 điểm so
+trung bình nhóm mà không xét cỡ mẫu (nhóm noisy 492 câu, 8 câu là 1,6 điểm) và chỉ xét cấu hình
+thắng tụt chứ không xét cấu hình kia tụt bao nhiêu; judgments hai nhóm chấm cùng một câu trả lời đúng
+khác nhau theo nhóm. Bài nêu cả hai bản luật và kết quả của bản cũ.
 
 ## 4. Ma trận thí nghiệm
 
@@ -829,8 +846,7 @@ multi_turn có lịch sử dán đoạn).
   τ* so với 1, Jev so với độ tin cậy nói ra) với Holm; Jev so với LLM judge là non-inferiority với biên
   3 điểm.
 - D7 thêm so sánh cùng ngân sách token (mục ở k ≈ 15 so với chunk gộp k = 5).
-- Reranker: chọn theo Hit@5 và Hit@1 trên 10k; 4B giữ vì Hit@1 cao hơn 0.6B 8 điểm và ngang 8B; nêu
-  0.6B ngang ở Hit@5.
+- Reranker và retriever của agent: chọn theo luật §3.4, không theo kết luận viết trước.
 
 ### 6. Kiểm chứng trước khi đóng băng
 
