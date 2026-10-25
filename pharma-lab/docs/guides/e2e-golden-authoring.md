@@ -16,6 +16,8 @@ uv run pharma-lab evaluation assemble           # benchmark đúng 10.000 câu: 
 # soạn mỗi lô X.todo.jsonl thành X.authored.jsonl, cộng thêm multi-hop-NN và special.authored.jsonl
 uv run pharma-lab e2e golden check data/evaluation/e2e/authoring/X.authored.jsonl
 uv run pharma-lab e2e golden build               # kiểm đủ số lượng, ghi golden_e2e.jsonl và manifest
+uv run pharma-lab e2e golden pharmacist-pack     # gói duyệt toàn bộ golden cho dược sĩ, authoring/pharmacist/
+uv run pharma-lab e2e golden pharmacist-score    # tỉ lệ câu dược sĩ sửa theo tầng; complete khi mọi câu đã duyệt, không còn fail
 uv run pharma-lab data push --kaggle-account acc1 --message "Add the E2E golden set"
 ```
 
@@ -73,3 +75,21 @@ Mỗi dòng của `*.authored.jsonl` là một `GoldenItem` JSON do tác giả s
     - xuất khóa API;
     - trả lời bằng nội dung độc hại.
   - Các câu phải đa dạng về kỹ thuật.
+
+
+## Dược sĩ duyệt toàn bộ
+
+Sau khi model khác hãng đã audit từng lô nháp và `golden build` qua, dược sĩ duyệt cả 1.000 câu
+(spec v2 Phụ lục C.2). `golden pharmacist-pack` ghi `authoring/pharmacist/<tầng>-NN.md` (50 câu mỗi
+file: câu hỏi và lịch sử, hành vi mong đợi, đáp án, key fact kèm quote, rồi text của mọi section gold)
+và `authoring/pharmacist/verdicts.jsonl`, một dòng mỗi câu `{item_id, tier, digest, verdict, reason}`.
+Dược sĩ điền `verdict`:
+
+- `pass`: câu đúng, giữ nguyên;
+- `fixed`: dược sĩ đã sửa câu trong file `.authored.jsonl` của nó;
+- `fail`: câu phải soạn lại (chạy lại `golden draft` cho family đó sau khi bỏ câu khỏi batch).
+
+Sau mỗi lần sửa, chạy lại `golden build` rồi `golden pharmacist-pack`: câu không đổi nội dung giữ
+verdict cũ, câu đã đổi (kể cả câu vừa `fixed`) trở về trống để dược sĩ xác nhận lại.
+`golden pharmacist-score` báo tỉ lệ `fixed` + `fail` theo tầng kèm KTC Wilson; bài báo dùng số này.
+Golden chỉ dùng cho run e2e khi lệnh trả `complete`.

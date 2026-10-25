@@ -24,7 +24,7 @@ pharma-lab rerank --run NAME --backend local|kaggle --model MODEL [--kaggle-acco
 pharma-lab rerank --run NAME --backend local --benchmark --model MODEL
 pharma-lab metrics --run NAME [--gold-only]
 pharma-lab metrics select --config LABEL=RUN[@MODEL] ... --metric M --secondary M [--exclude-group G]
-pharma-lab e2e golden sample|resample|multi-hop-candidates|answerable-candidates|multi-turn-candidates|draft|check|build
+pharma-lab e2e golden sample|resample|multi-hop-candidates|answerable-candidates|multi-turn-candidates|draft|check|build|pharmacist-pack|pharmacist-score
 pharma-lab e2e run --run NAME --config CONFIG [--pipeline-option KEY=VALUE ...] [--limit N] [--deadline-seconds S] [--retry-errors]
 pharma-lab e2e judge --run NAME --config CONFIG_DIR [--judge-model MODEL] [--judge-reasoning none|low|medium] [--force]
 pharma-lab e2e calibration export|refresh|score --run NAME
@@ -171,6 +171,8 @@ Chi tiết trong [e2e-evaluation.md](e2e-evaluation.md).
 | --- | --- |
 | `pharma-lab e2e golden sample [--seed S] [--force]` | Chọn câu answerable của sáu nhóm luật theo hạn ngạch trong `golden.py` (phân tầng theo intent và answer mode) và 160 cặp multi-turn, ghi `data/evaluation/e2e/authoring/*.todo.jsonl` kèm text section và chunk trọng tâm |
 | `pharma-lab e2e golden resample --slots IDS [--per-slot N]` | Đưa N câu chưa dùng cùng tầng cho các slot mà section gold không trả lời câu hỏi, ghi `replacement-NN.todo.jsonl` |
+| `pharma-lab e2e golden pharmacist-pack [--golden FILE]` | Ghi gói duyệt toàn bộ golden cho dược sĩ (`authoring/pharmacist/*.md`) và bảng verdict, giữ verdict của câu không đổi nội dung |
+| `pharma-lab e2e golden pharmacist-score [--golden FILE]` | Tỉ lệ câu dược sĩ sửa hoặc loại theo tầng (Wilson); complete khi mọi câu có verdict và không còn `fail` |
 | `pharma-lab e2e golden multi-hop-candidates` | Liệt kê mọi dòng nhóm `multi_hop` của benchmark làm ứng viên, loại là `query_form`, ghi `authoring/multi-hop.todo.jsonl` |
 | `pharma-lab e2e golden check FILE` | Kiểm một lô `*.authored.jsonl` (quote nằm trong section, hành vi theo nhóm, `absent_terms` vắng trong corpus) |
 | `pharma-lab e2e golden build` | Kiểm đủ số lượng từng nhóm rồi ghi `golden_e2e.jsonl` và manifest |

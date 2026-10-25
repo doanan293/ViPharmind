@@ -78,6 +78,12 @@ from pharma_lab.e2e.golden import (
     read_items,
     validate_items,
 )
+from pharma_lab.e2e.golden_audit import (
+    PACK_SIZE,
+    render_pack,
+    review_rows,
+    review_score,
+)
 from pharma_lab.e2e.golden_draft import (
     DRAFT_MODEL,
     FAMILIES,
@@ -506,6 +512,114 @@ def golden_draft(
                 "files": len(paths),
                 **kinds,
             },
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+PHARMACIST_DIR = "pharmacist"
+VERDICTS_FILE = "verdicts.jsonl"
+
+
+def _read_verdicts(path: Path) -> list[dict[str, str]]:
+    if not path.is_file():
+        return []
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+@golden_app.command("pharmacist-pack")
+def golden_pharmacist_pack(
+    ctx: typer.Context,
+    golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
+    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
+    authoring_dir: Annotated[
+        Path, typer.Option("--authoring-dir", file_okay=False)
+    ] = E2E_AUTHORING_DIR,
+) -> None:
+    """Write the pharmacist's review files of the whole golden set and the verdict sheet,
+    keeping the verdicts of items whose content did not change."""
+
+    def handler() -> CommandResult:
+        directory = authoring_dir / PHARMACIST_DIR
+        directory.mkdir(parents=True, exist_ok=True)
+        sheet = directory / VERDICTS_FILE
+        previous = {row["item_id"]: row for row in _read_verdicts(sheet)}
+        items = {item.item_id: item for item in load_golden(golden)}
+        rows = review_rows(list(items.values()), previous)
+        sheet.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+        for old in directory.glob("*.md"):
+            old.unlink()
+        corpus = load_corpus_text(bundle)
+        by_tier: dict[str, list[str]] = {}
+        for row in rows:
+            by_tier.setdefault(row["tier"], []).append(row["item_id"])
+        for tier, ids in by_tier.items():
+            for start in range(0, len(ids), PACK_SIZE):
+                name = f"{tier}-{start // PACK_SIZE + 1:02d}"
+                chunk = [items[item_id] for item_id in ids[start : start + PACK_SIZE]]
+                (directory / f"{name}.md").write_text(
+                    render_pack(name, chunk, corpus), encoding="utf-8"
+                )
+        pending = sum(1 for row in rows if not row["verdict"])
+        return CommandResult(
+            "e2e golden pharmacist-pack",
+            CommandStatus.COMPLETE,
+            directory,
+            {"items": len(rows), "to_review": pending},
+        )
+
+    run_handler(state_from_context(ctx), handler)
+
+
+@golden_app.command("pharmacist-score")
+def golden_pharmacist_score(
+    ctx: typer.Context,
+    golden: Annotated[Path, typer.Option("--golden", dir_okay=False)] = GOLDEN_E2E_PATH,
+    authoring_dir: Annotated[
+        Path, typer.Option("--authoring-dir", file_okay=False)
+    ] = E2E_AUTHORING_DIR,
+) -> None:
+    """Share of golden items the pharmacist fixed or rejected, per tier; complete when
+    every current item has a verdict and none is `fail`."""
+
+    def handler() -> CommandResult:
+        sheet = authoring_dir / PHARMACIST_DIR / VERDICTS_FILE
+        current = review_rows(load_golden(golden), {})
+        recorded = {row["item_id"]: row for row in _read_verdicts(sheet)}
+        stale = [
+            row["item_id"]
+            for row in current
+            if recorded.get(row["item_id"], {}).get("digest") != row["digest"]
+        ]
+        if stale:
+            raise ValueError(
+                f"{len(stale)} item(s) changed or are missing from {sheet}; run "
+                f"`e2e golden pharmacist-pack` (first: {stale[0]})"
+            )
+        rows = [recorded[row["item_id"]] for row in current]
+        unreviewed = [row["item_id"] for row in rows if not row.get("verdict")]
+        failed = [row["item_id"] for row in rows if row.get("verdict") == "fail"]
+        details: dict[str, object] = {
+            "unreviewed": len(unreviewed),
+            "failed": ",".join(failed),
+        }
+        if not unreviewed:
+            for tier, summary in review_score(rows).items():
+                details[f"{tier}_fix_rate"] = summary.mean
+                details[f"{tier}_ci"] = f"{summary.ci_low:.3f}-{summary.ci_high:.3f}"
+        done = not unreviewed and not failed
+        return CommandResult(
+            "e2e golden pharmacist-score",
+            CommandStatus.COMPLETE if done else CommandStatus.INCOMPLETE,
+            sheet,
+            details,
         )
 
     run_handler(state_from_context(ctx), handler)
