@@ -108,8 +108,9 @@ retrieval đã tốt, giữ chất lượng đó với độ trễ và chi phí 
 3. **Graph routing so với agent ReAct trên model rẻ.** Cùng corpus, retriever, tool, ngân sách và
    định dạng trả lời; chỉ khác ai điều khiển. Với mỗi model, kiến trúc nào cho chất lượng cao nhất
    trên mỗi USD và mỗi giây, và model nặng có đổi kết luận không.
-4. **Benchmark và đánh giá.** Benchmark retrieval 10.000 câu thêm lớp hội thoại; bộ e2e 500 item có
-   tập 150 câu cần tra nhiều lượt (§3.0b); mọi cấu hình báo chất lượng, giây và USD.
+4. **Benchmark và đánh giá.** Benchmark retrieval 10.000 câu thêm lớp hội thoại; bộ e2e 1.000 item
+   (Phụ lục C.2) có 200 câu cần tra nhiều lượt theo cấu tạo, dược sĩ duyệt toàn bộ; mọi cấu hình báo
+   chất lượng, giây và USD.
 
 Bài cố ý chỉ dùng ba LLM: cặp của v1 gồm một model mở rẻ (Qwen3.5-9B) và một model thương mại rẻ
 (Gemini 3.8 Flash), cộng một model nặng (Claude Opus 5.5) làm trần tham chiếu. Đóng góp của bài nằm ở
@@ -369,9 +370,10 @@ công bằng:
   bốn reranker trên Kaggle, tất cả ở Q8_0 (§2.1b) (bỏ BGE-reranker-v2-gemma; bỏ OpenAI text-embedding-3-large vì run v1 là
   run nhập từ pipeline cũ, không tái lập được); bài chỉ trình bày số trên benchmark mới.
 
-### 3.0b Tập "cần tra nhiều lượt" trong golden (tổng golden vẫn 500 câu)
+### 3.0b Tập "cần tra nhiều lượt" trong golden
 
-Thay hoàn toàn bằng Phụ lục A §4 (golden 500 câu, mọi item là một dòng của benchmark 10.000 câu, nhóm `multi_hop` do generator cố định tạo) và §3 của phụ lục đó.
+Thay hoàn toàn bằng Phụ lục C.2: 200 câu multi_hop (two_drug 70, brand_to_ingredient 65, three_intent 65)
+là dòng nhóm `multi_hop` của benchmark, do generator cố định tạo; không câu nào chọn theo lỗi của hệ thống.
 
 ### 3.0c Chunk là đơn vị đọc: gộp mục tới khoảng 1.024 token, bỏ hydrate, 5 chunk mỗi lượt
 
@@ -443,13 +445,13 @@ Thay hoàn toàn bằng Phụ lục A §3 (nhóm `conversational` 1.500 câu, m�
 
 - Nhóm an toàn của golden giữ 10 câu mỗi loại (§3.0b); không nâng lên 50. Kiểu tấn công kênh lựa
   chọn (Azizi et al.) và chèn nội dung tự nhiên vào câu hỏi (Xu et al.) được đo trên tập giữ lại của
-  guard (§3.3, 100 câu tấn công và ngoài phạm vi), không thêm vào golden.
+  guard (§3.3, 300 lượt tấn công và ngoài phạm vi), không thêm vào golden.
 
 ### 3.3 Tập giữ lại cho ngưỡng và hiệu chuẩn
 
 - Ngưỡng guard và judge không được chỉnh trên bộ golden. Dùng một tập hiệu chuẩn riêng lấy từ benchmark
   retrieval: 300 câu có gold section, với evidence do pipeline lấy về, nhãn "đủ bằng chứng" tính từ gold
-  (top-k có chứa gold section hay không, và với đa intent là có đủ mọi section không); cộng 100 câu tấn
+  (top-k có chứa gold section hay không, và với đa intent là có đủ mọi section không); cộng 300 lượt tấn
   công và ngoài phạm vi sinh thêm cho guard. Báo AUROC, ECE, và độ chính xác tại ngưỡng chọn của Jev,
   kèm kiểm tra xoay thứ tự lựa chọn và tỷ lệ lật quyết định khi gọi lặp 3 lần.
 - Hiệu chuẩn judge đánh giá bằng dược sĩ chấm mù giữ giao thức v1, mở rộng mẫu cho các cấu hình mới
@@ -579,7 +581,7 @@ nào cho chất lượng cao nhất trên mỗi USD và mỗi giây, và kết l
 - Phân loại lỗi còn lại của full agent từ `errors.md` thành bảng taxonomy.
 - Phân tích citation recall: câu không trích dẫn so với trích dẫn sai chunk (chunk không chứa section
   gold), và trong các chunk đúng, phần key fact mà judge thấy có trong text chunk được trích.
-- Thí nghiệm phụ "decision model làm judge đánh giá": chấm lại 500 item bằng Jev per-key-fact, so với
+- Thí nghiệm phụ "decision model làm judge đánh giá": chấm lại 450 item có nhãn dược sĩ bằng Jev per-key-fact, so với
   gemini-3.1-flash-lite và nhãn dược sĩ; báo κ, chi phí và giây.
 - Sửa số liệu và câu chữ đã liệt kê trong review (Hit@5 3,7 so với 3,8; BGE-gemma có cải thiện nDCG;
   "unanswered" so với missing; header Table 3; top 5 từ 20 ứng viên mỗi câu truy vấn, tối đa 40 mỗi vòng; footnote repo).
@@ -635,12 +637,12 @@ Tiêu chí chấp nhận mỗi pha: lint, type và test của backend và pharma
 identity; báo cáo sinh bằng lệnh có sẵn chứ không chép tay; số liệu vào bài chỉ từ file báo cáo.
 
 Ngân sách tiền thật, ước với chunk mới (§3.0c): mỗi item khoảng 1 lời gọi guard nhỏ cộng 1,5 vòng
-judge với evidence tới 19k token, tức khoảng 16k token Jev mỗi item và 8M token mỗi run 500 item,
-khoảng 0,34 USD mỗi run theo giá niêm yết. Ba run A3, một run A4, 12 điểm quét τ và tập hiệu chuẩn
-§3.3 cộng lại khoảng 6 đến 8 USD, cộng phí OpenRouter nếu có; đó là khoản tiền thật duy nhất. Qwen3.5-9B và reranker chạy trên quota GPU Kaggle; mọi run Qwen (A2, A3, A4, ReAct,
+judge với evidence tới 19k token, tức khoảng 16k token Jev mỗi item và 16M token mỗi run 1.000 item,
+khoảng 0,68 USD mỗi run theo giá niêm yết. Ba run A3, một run A4, 12 điểm quét τ và tập hiệu chuẩn
+§3.3 cộng lại khoảng 12 đến 16 USD, cộng phí OpenRouter nếu có; đó là khoản tiền thật duy nhất. Qwen3.5-9B và reranker chạy trên quota GPU Kaggle; mọi run Qwen (A2, A3, A4, ReAct,
 quét τ, ablation) phải xếp theo quota tuần của các account Kaggle.
 Gemini 3.8 Flash, Claude Opus 5.5 và judge gemini-3.1-flash-lite đi qua proxy thuê bao nên không
-tốn thêm; giá niêm yết của chúng (khoảng 120 USD cho ba run Opus 5.5, 20 USD cho judge) chỉ xuất
+tốn thêm; giá niêm yết của chúng (khoảng 240 USD cho ba run Opus 5.5, 40 USD cho judge, ước gấp đôi bản 500 item) chỉ xuất
 hiện trong bảng chi phí của bài. Quota Claude có hạn nên các run Opus 5.5 xếp sau run của hai model
 rẻ. Mỗi run chạy thử 20 item trước khi chạy đủ.
 
@@ -683,7 +685,7 @@ rẻ. Mỗi run chạy thử 20 item trước khi chạy đủ.
 Huấn luyện hoặc fine-tune bất kỳ model nào; corpus mới hoặc câu hỏi người dùng thật; kiến trúc đa agent;
 benchmark decision model tổng quát ngoài miền thuốc; thay judge đánh giá chính của bài.
 
-## Phụ lục A. Dữ liệu eval v3: benchmark 10.000 câu và golden 500 câu
+## Phụ lục A. Dữ liệu eval v3: benchmark 10.000 câu (golden e2e: xem Phụ lục C)
 
 Số trong phụ lục này đo trên các run `-v2-`; golden đã được dựng lại sau đó (xem "Việc đang mở" ở đầu). Thay §3.0b, §3.1 và phần dữ liệu của §4.
 
@@ -749,7 +751,7 @@ sẽ bác cả hai.
    (25 câu, người duyệt Fable) có tỉ lệ lỗi dưới 5%.
 2. **Độ khó định nghĩa từ cách dựng câu, không từ kết quả hệ thống.** Mỗi tầng có một lát cắt mục
    tiêu định nghĩa bằng thuộc tính của câu và corpus; bài báo cáo số tổng và số trong lát.
-3. **Một benchmark xuyên suốt.** Đúng 10.000 câu, golden 500 câu là các dòng của nó; mọi bảng
+3. **Một benchmark xuyên suốt.** Đúng 10.000 câu, golden e2e (1.000 câu, Phụ lục C.2) là các dòng của nó; mọi bảng
    retrieval và e2e theo cùng nhóm và cùng lát.
 4. **Ngân sách.** Benchmark chỉ chấm bằng retrieval; mọi lời gọi LLM chỉ trên golden. Ngoại lệ ghi
    rõ: decision model Jev trên bộ hiệu chỉnh 300 + 100 câu (khoảng 0,2 USD, không sinh văn bản).
@@ -828,32 +830,22 @@ Kiểm trước trên run v2, 5.831 dòng không đổi, tỉ lệ dòng mà l�
 
 Số chính thức đo lại trên run `-v3-` (Task 6).
 
-### 4. Golden 500 câu
+### 4. Golden e2e
 
-| Tầng golden | Cỡ | Cách chọn | Dùng cho |
-| --- | --- | --- | --- |
-| Tự nhiên | 30 × 6 nhóm luật + colloquial 20 + glossary 10 | ngẫu nhiên phân tầng trong nhóm | số không lệch, D6 |
-| Lát cắt | 60 | theo thuộc tính `slices` (header_dependent 20, name_variant 20, sibling_products 20), không theo kết quả hệ thống | hiệu quả tầng retrieval ở e2e |
-| multi_hop sinh | 72 (sequential 42, parallel 30) | luật multi_hop đã sửa | graph so với ReAct, loop |
-| multi_section | 16 | luật multi_section | judge đếm intent |
-| trượt vòng 1 | 62 (retrieval_miss 32, noisy_retry 30) | hệ đầy đủ trượt vòng 1; chỉ báo chỉ số có điều kiện (tỉ lệ cứu) | loop |
-| multi_turn | 50 | nhóm conversational, theo hiện tượng | rephrase |
-| safety | 30 | như hiện nay | guard |
-
-Thay đổi so với hiện tại: bỏ `rerank_probe`, `lexical_probe`, `semantic_probe` (chọn theo kết quả)
-và thay bằng lát cắt theo thuộc tính; colloquial 20 và glossary 10 chọn lại sau khi sửa luật; multi_hop
-chuyển sang sequential 42, parallel 30; thay câu golden có lỗi đã nêu (3 colloquial, 2 glossary, 3
-multi_turn có lịch sử dán đoạn).
+Thay bằng Phụ lục C.2 (golden v4, 1.000 câu, ngày 2026-10-25). Golden v3 (500 câu, sha `9e2769ca…`)
+có tầng "trượt vòng 1" (retrieval_miss 25, noisy_retry 25, cùng 7 câu three_intent lấy từ câu đa intent
+bị trượt) chọn từ lỗi của hybrid + rerank 4B; tầng này bỏ hẳn, 93 câu multi_hop sinh theo cấu tạo được
+giữ, mọi câu còn lại của v3 giữ khi vẫn thuộc tầng mới.
 
 ### 5. Quy tắc báo cáo (bài báo)
 
 - Mọi khẳng định retrieval lấy từ benchmark 10k, có bảng theo nhóm và theo lát.
-- Ablation trên golden báo theo tầng golden; D6 và các hàng retriever, reranker ở e2e chỉ trên tầng
-  tự nhiên và multi_hop sinh; tầng trượt vòng 1 chỉ báo tỉ lệ cứu có điều kiện.
+- Ablation trên golden báo theo tầng golden (`tier` trong report); D6 và các hàng retriever, reranker ở
+  e2e chỉ trên tầng `natural_and_multi_hop`; tỉ lệ cứu đo trên mọi câu mà chính run trượt ở vòng 1.
 - Truthfulness báo cả số thô và số tái trọng số theo tỉ lệ nhóm benchmark.
 - Khai báo trước các so sánh có kiểm định (loop: tất cả / multi_hop / cứu có điều kiện; τ: 0 so với τ*,
   τ* so với 1, Jev so với độ tin cậy nói ra) với Holm; Jev so với LLM judge là non-inferiority với biên
-  3 điểm.
+  4 điểm truthfulness và 3 điểm nugget recall (Phụ lục C.3).
 - D7 thêm so sánh cùng ngân sách token (mục ở k ≈ 15 so với chunk gộp k = 5).
 - Reranker và retriever của agent: chọn theo luật §3.4, không theo kết luận viết trước.
 
@@ -863,7 +855,8 @@ multi_turn có lịch sử dán đoạn).
 2. Bảng phân biệt: mỗi tầng có lát cắt mà tỉ lệ thắng trong lát ít nhất gấp đôi ngoài lát (đo trên
    run `-v3-`).
 3. Golden: audit độc lập toàn bộ câu mới và mẫu 60 câu cũ.
-4. `golden build` qua với kiểm tra mọi câu là dòng benchmark.
+4. `golden build` qua với kiểm tra mọi câu là dòng benchmark; câu multi_hop phải là dòng nhóm `multi_hop`
+   cùng loại.
 
 #### 6.1 Sổ audit benchmark (Fable 5.1, rubric `data/work/benchmark-audit/audit-rubric.md`)
 
