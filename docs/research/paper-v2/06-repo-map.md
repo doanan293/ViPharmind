@@ -525,10 +525,9 @@ mrr@10, multi_section_recall@k, multi_all_hit@k}`), so any other grouping (`quer
 `data/evaluation/gold/section_retrieval_eval.jsonl` (fields in
 `evaluation/section_eval_schema.py` `EVAL_HEADER`). Relevance logic:
 `evaluation/retrieval_metrics.py` (`is_hit`, `evidence_units`, `ranking_scores`,
-`score_ranked_payloads`). Paired bootstrap between two rerankers on the same run:
-`pharma-lab metrics compare --run R --baseline M1 --candidate M2 --metric mrr`
-(`evaluation/metric_comparison.py`); there is no cross-run compare (e.g. dense vs hybrid
-candidates) — same join on `query_id` would be needed (S).
+`score_ranked_payloads`). Selection across runs and rerankers (paired bootstrap,
+sign-flip, Holm; spec §3.4): `pharma-lab metrics select --config LABEL=RUN[@MODEL] ...`
+(`evaluation/config_selection.py`).
 
 ### 3.4 Cost columns (dimension, throughput)
 

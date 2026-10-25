@@ -26,7 +26,7 @@ from typing import Any
 
 from pharma_lab.artifacts.manifest import iter_jsonl_objects, write_json
 from pharma_lab.bundle.corpus_text import CorpusText, load_corpus_text
-from pharma_lab.evaluation.metric_comparison import load_query_metric
+from pharma_lab.evaluation.config_selection import load_query_metric
 
 RARE_TERM_SECTIONS = 10
 COMPOSITION_CHARS = 600

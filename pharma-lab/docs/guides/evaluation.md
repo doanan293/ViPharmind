@@ -17,7 +17,7 @@ uv run pharma-lab evaluation judgments
 uv run pharma-lab metrics --run hybrid-qwen4b-p50-k30-rrf2 --top-k 30 --force
 ```
 
-Report ghi `judgments_sha256` trong identity, và `pharma-lab metrics compare` chỉ so hai report dùng cùng file nhãn.
+Report ghi `judgments_sha256` trong identity, và `pharma-lab metrics select` chỉ so các report chấm bằng đúng file nhãn hiện tại.
 
 ## 2. Môi trường riêng cho đánh giá
 

@@ -23,7 +23,7 @@ pharma-lab retrieve --run NAME [--limit N | --sample N [--sample-seed S]]
 pharma-lab rerank --run NAME --backend local|kaggle --model MODEL [--kaggle-account auto|accN[,accM]] [--parallel N] [--drain] [--max-runs N] [--recover-kernel OWNER/SLUG]
 pharma-lab rerank --run NAME --backend local --benchmark --model MODEL
 pharma-lab metrics --run NAME [--gold-only]
-pharma-lab metrics compare --run NAME --baseline MODEL --candidate MODEL
+pharma-lab metrics select --config LABEL=RUN[@MODEL] ... --metric M --secondary M [--exclude-group G]
 pharma-lab e2e golden sample|resample|hard-candidates|trim|check|build
 pharma-lab e2e run --run NAME --config CONFIG [--pipeline-option KEY=VALUE ...] [--limit N] [--deadline-seconds S] [--retry-errors]
 pharma-lab e2e judge --run NAME --config CONFIG_DIR [--judge-model MODEL] [--judge-reasoning none|low|medium] [--force]
@@ -115,10 +115,11 @@ uv run pharma-lab metrics --run backend-hybrid-qwen4b-p50-k30-rrf2 --model qwen3
 
 Report nằm ở `reports/baseline/top<K>-window<N>/` và `reports/rerank/<model>/top<K>-window<N>/`; chạy lại cùng cutoff với input khác thì lệnh dừng, `--force` thay report. Metrics gồm Hit@3/5/10/30, MRR, và với `answer_mode=multi_required`: Multi-section Recall@K, Multi-all-hit@K. `--top-k` không được lớn hơn `candidate-k`. `--gold-only` chấm chỉ theo mục gold, không dùng relevance judgments, và ghi vào `top<K>-gold/`; run trên bundle chia chunk khác mặc định (`bundle rechunk`) phải dùng cờ này.
 
-`pharma-lab metrics compare` so sánh hai reranker đã có report cùng cutoff trên cùng run. Lệnh ghép từng câu hỏi trong `metrics.jsonl` của hai report, bootstrap theo cặp (lấy mẫu lại có hoàn lại các câu hỏi `--resamples` lần bằng `--seed`) cho hiệu trung bình `candidate − baseline` của `--metric` (mặc định `mrr`, tức MRR@K), rồi in trung bình của từng model, hiệu, khoảng tin cậy 95% (`ci95_low`, `ci95_high`, phân vị 2,5% và 97,5%) và `decision`. `decision` là `--candidate` khi `ci95_low > 0`, ngược lại là `--baseline`. Lệnh dừng nếu hai report khác evaluation, candidates hoặc tập câu hỏi.
+`pharma-lab metrics select` áp luật chọn retriever và reranker của agent (spec v2 §3.4) lên các cấu hình đã có report cùng cutoff. Mỗi `--config LABEL=RUN[@MODEL]` là một report: không có `@MODEL` là report baseline của run, có thì là report sau reranker đó; liệt kê từ rẻ tới đắt. Ở mỗi giai đoạn, cấu hình dẫn đầu là cấu hình có trung bình `--metric` cao nhất (bằng nhau thì cấu hình đứng trước); nó thắng một cấu hình khác khi khoảng 95% bootstrap ghép cặp 10.000 lần của hiệu nằm trên 0 và p sign-flip ghép cặp, hiệu chỉnh Holm trong giai đoạn, dưới 0,05. Còn hòa thì xét `--secondary` trên các cấu hình hòa; vẫn hòa thì chọn cấu hình rẻ nhất. `--exclude-group` (lặp được) bỏ câu của một `eval_group` khỏi quyết định. Lệnh dừng khi các report khác file golden, chấm bằng judgments khác file judgments hiện tại (chạy lại `pharma-lab metrics --run RUN --force`), hoặc khác tập câu.
 
 ```bash
-uv run pharma-lab metrics compare --run hybrid-qwen4b-p50-k30-rrf2-sample1000 --baseline qwen3-reranker:0.6b-q8_0 --candidate qwen3-reranker:0.6b-q8_0-vimed --metric mrr --top-k 30 --resamples 10000 --seed 0
+uv run pharma-lab metrics select --top-k 20 --metric hit@20 --secondary hit@5 --exclude-group conversational \
+  --config bm25=bm25-v3-k20 --config dense-qwen8b=dense-qwen8b-v3-k20 --config hybrid-qwen8b=hybrid-qwen8b-v3-p50-k20-rrf2
 ```
 
 `pharma-lab embed queries --backend local|kaggle --model MODEL` tạo cache vector query (`data/cache/query_embeddings/<model-slug>.jsonl`) mà `pharma-lab retrieve` dùng cho `dense` và `hybrid`; `--model` phải trùng model embedding của backend. Candidate `document_text` là `embedding_text` của hit, đúng văn bản reranker của benchmark cũ chấm.

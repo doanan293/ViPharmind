@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -11,12 +12,17 @@ from pharma_lab.cli.runtime import (
     state_from_context,
 )
 from pharma_lab.config.defaults import DEFAULT_TOP_K
-from pharma_lab.config.paths import run_dir
-from pharma_lab.evaluation.metric_comparison import (
-    MetricComparisonRequest,
-    run_metric_comparison,
+from pharma_lab.config.paths import DATA_DIR, run_dir
+from pharma_lab.evaluation.config_selection import (
+    ConfigReport,
+    select_config,
+    selection_details,
 )
 from pharma_lab.evaluation.metrics_service import MetricsRequest, run_metrics
+from pharma_lab.evaluation.run_workspace import (
+    load_run_record,
+    resolve_evaluation_reference,
+)
 
 metrics_app = typer.Typer(add_completion=False, invoke_without_command=True)
 
@@ -37,7 +43,7 @@ def metrics(
         ),
     ] = False,
 ) -> None:
-    """Write metrics reports for a run; `compare` tests two rerankers."""
+    """Write metrics reports for a run; `select` applies the selection rule."""
     if ctx.invoked_subcommand is not None:
         return
     if run is None:
@@ -72,57 +78,57 @@ def _run(request: MetricsRequest) -> CommandResult:
     )
 
 
-@metrics_app.command("compare")
-def compare(
+def _config(value: str) -> ConfigReport:
+    label, sep, target = value.partition("=")
+    if not sep or not label or not target:
+        raise typer.BadParameter(
+            f"{value!r} is not LABEL=RUN[@MODEL]", param_hint="'--config'"
+        )
+    run, _, model = target.partition("@")
+    return ConfigReport(label, run_dir(run), model or None)
+
+
+def run_evaluation_path(run_root: Path) -> Path:
+    """The gold evaluation file a retrieval run was built on."""
+    record = load_run_record(run_root / "run.json")
+    return resolve_evaluation_reference(record.identity.evaluation_path, DATA_DIR)
+
+
+@metrics_app.command("select")
+def select(
     ctx: typer.Context,
-    run: Annotated[str, typer.Option("--run")],
-    baseline: Annotated[
-        str, typer.Option("--baseline", help="Reranker the decision starts from")
+    configs: Annotated[
+        list[str],
+        typer.Option(
+            "--config",
+            help="LABEL=RUN[@MODEL], repeated, cheapest first; no MODEL = no reranker",
+        ),
     ],
-    candidate: Annotated[
-        str, typer.Option("--candidate", help="Reranker adopted only if it wins")
-    ],
-    metric: Annotated[
-        str, typer.Option("--metric", help="Per-query key of metrics.jsonl")
-    ] = "mrr",
+    metric: Annotated[str, typer.Option("--metric", help="Primary metric")],
+    secondary: Annotated[str, typer.Option("--secondary", help="Secondary metric")],
     top_k: Annotated[int, typer.Option("--top-k")] = DEFAULT_TOP_K,
-    resamples: Annotated[int, typer.Option("--resamples")] = 10_000,
-    seed: Annotated[int, typer.Option("--seed")] = 0,
+    exclude_groups: Annotated[
+        list[str] | None,
+        typer.Option("--exclude-group", help="eval_group left out of the decision"),
+    ] = None,
 ) -> None:
-    """Paired bootstrap of candidate minus baseline over the run's queries.
+    """Apply the agent's retrieval selection rule (spec v2 §3.4) to the configurations."""
+    reports = [_config(value) for value in configs]
 
-    The candidate wins only when the 95% interval's lower bound is above 0.
-    """
-    request = MetricComparisonRequest(
-        run_dir(run), baseline, candidate, metric, top_k, resamples, seed
-    )
-    run_handler(state_from_context(ctx), lambda: _compare(request))
+    def handler() -> CommandResult:
+        selection = select_config(
+            reports,
+            primary=metric,
+            secondary=secondary,
+            top_k=top_k,
+            evaluation_path=run_evaluation_path(reports[0].run_root),
+            exclude_groups=tuple(exclude_groups or ()),
+        )
+        return CommandResult(
+            "metrics select",
+            CommandStatus.COMPLETE,
+            reports[-1].run_root,
+            selection_details(selection),
+        )
 
-
-def _compare(request: MetricComparisonRequest) -> CommandResult:
-    comparison = run_metric_comparison(request)
-    bootstrap = comparison.bootstrap
-    winner = request.candidate_model if comparison.candidate_wins else None
-    return CommandResult(
-        "metrics compare",
-        CommandStatus.COMPLETE,
-        request.run_root,
-        {
-            "metric": comparison.metric,
-            "queries": comparison.query_count,
-            "baseline": {
-                "model": request.baseline_model,
-                "mean": comparison.baseline_mean,
-            },
-            "candidate": {
-                "model": request.candidate_model,
-                "mean": comparison.candidate_mean,
-            },
-            "mean_difference": bootstrap.mean_difference,
-            "ci95_low": bootstrap.ci_low,
-            "ci95_high": bootstrap.ci_high,
-            "resamples": bootstrap.resamples,
-            "seed": request.seed,
-            "decision": winner or request.baseline_model,
-        },
-    )
+    run_handler(state_from_context(ctx), handler)
