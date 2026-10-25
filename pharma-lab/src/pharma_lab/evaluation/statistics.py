@@ -19,6 +19,9 @@ from dataclasses import dataclass
 import numpy as np
 
 RESAMPLES = 10_000
+# Resamples drawn per block: 10,000 x n at once is ~700 MB for the 8,470-query retrieval
+# set. Blocks consume the generator's stream in the same order, so results do not change.
+RESAMPLE_BLOCK = 500
 SEED = 0
 Z95 = 1.959963984540054
 
@@ -47,13 +50,23 @@ def wilson(values: Sequence[float]) -> Summary:
     return Summary(n, p, max(0.0, centre - half), min(1.0, centre + half))
 
 
+def _blocks() -> list[int]:
+    full, rest = divmod(RESAMPLES, RESAMPLE_BLOCK)
+    return [RESAMPLE_BLOCK] * full + ([rest] if rest else [])
+
+
 def bootstrap_mean(values: Sequence[float], *, seed: int = SEED) -> Summary:
     """Mean with a 95% percentile bootstrap interval."""
     data = np.asarray(values, dtype=float)
     if data.size == 0:
         return _empty()
     rng = np.random.default_rng(seed)
-    means = data[rng.integers(0, data.size, (RESAMPLES, data.size))].mean(axis=1)
+    means = np.concatenate(
+        [
+            data[rng.integers(0, data.size, (block, data.size))].mean(axis=1)
+            for block in _blocks()
+        ]
+    )
     low, high = np.percentile(means, [2.5, 97.5])
     return Summary(data.size, float(data.mean()), float(low), float(high))
 
@@ -72,8 +85,14 @@ def paired_test(differences: Sequence[float], *, seed: int = SEED) -> PairedTest
         return PairedTest(summary, math.nan)
     observed = abs(data.mean())
     rng = np.random.default_rng(seed)
-    signs = rng.choice((-1.0, 1.0), size=(RESAMPLES, data.size))
-    permuted = np.abs((signs * data).mean(axis=1))
+    permuted = np.concatenate(
+        [
+            np.abs(
+                (rng.choice((-1.0, 1.0), size=(block, data.size)) * data).mean(axis=1)
+            )
+            for block in _blocks()
+        ]
+    )
     extreme = int(np.count_nonzero(permuted >= observed - 1e-12))
     return PairedTest(summary, (extreme + 1) / (RESAMPLES + 1))
 

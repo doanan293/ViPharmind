@@ -23,8 +23,8 @@ from pharma_lab.e2e.report import (
     write_csv,
     write_tex,
 )
-from pharma_lab.e2e.statistics import bootstrap_mean, holm, paired_test
 from pharma_lab.evaluation.relevance_judgments import LoadedJudgments
+from pharma_lab.evaluation.statistics import bootstrap_mean, holm, paired_test
 
 SIGNIFICANCE = 0.05
 

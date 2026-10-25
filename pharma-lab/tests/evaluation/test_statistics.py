@@ -2,7 +2,9 @@ import math
 
 import pytest
 
-from pharma_lab.e2e.statistics import (
+from pharma_lab.evaluation.statistics import (
+    PairedTest,
+    Summary,
     bootstrap_mean,
     gwet_ac1,
     holm,
@@ -63,3 +65,44 @@ def test_gwet_ac1_stays_high_when_kappa_collapses_on_skewed_labels() -> None:
     assert percent_agreement(judge, human) == 0.95
     assert gwet_ac1(judge, human) == pytest.approx(0.9474, abs=1e-3)
     assert gwet_ac1([True, True], [True, True]) == 1.0
+
+
+def test_blocked_resampling_matches_one_block() -> None:
+    # Reference values from the single-block implementation (2026-10-25): resampling in
+    # blocks must draw the same random stream and give the same numbers.
+    values = [(i * 37 % 11 - 4.8) / 5 for i in range(3000)]
+    expected = Summary(
+        3000, 0.039666666666666704, 0.017131666666666705, 0.061933333333333375
+    )
+    assert bootstrap_mean(values) == expected
+    assert paired_test(values) == PairedTest(expected, 0.0007999200079992001)
+
+
+def test_resampling_never_draws_the_whole_matrix_at_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import numpy as np
+
+    from pharma_lab.evaluation import statistics as stats
+
+    rows: list[int] = []
+    make = np.random.default_rng
+
+    class Recording:
+        def __init__(self, seed: int) -> None:
+            self.rng = make(seed)
+
+        def integers(self, low: int, high: int, size: tuple[int, int]) -> np.ndarray:
+            rows.append(size[0])
+            return self.rng.integers(low, high, size)
+
+        def choice(
+            self, options: tuple[float, float], size: tuple[int, int]
+        ) -> np.ndarray:
+            rows.append(size[0])
+            return self.rng.choice(options, size=size)
+
+    monkeypatch.setattr(stats.np.random, "default_rng", Recording)
+    stats.paired_test([0.5, -0.25] * 50)
+    assert sum(rows) == 2 * stats.RESAMPLES
+    assert max(rows) <= stats.RESAMPLE_BLOCK

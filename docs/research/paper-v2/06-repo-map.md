@@ -691,7 +691,7 @@ Outputs in `runs/<run>/reports/`:
 - `provenance.json`: run.json + judge.json per config, judgments sha, resamples, seed.
 
 CIs: yes in every CSV (Wilson for binary metrics, percentile bootstrap for means; `Summary{n,
-mean, ci_low, ci_high}` in `e2e/statistics.py`).
+mean, ci_low, ci_high}` in `evaluation/statistics.py`).
 
 The paper tables `report/tables/e2e-main.tex` and `e2e-ablation.tex` are hand-merged from
 the two runs' CSVs (`report/README.md`): there is no generator for a two-setting table.

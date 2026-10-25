@@ -49,7 +49,8 @@ from pharma_lab.e2e.records import (
     ReactRecord,
 )
 from pharma_lab.e2e.run_identity import RUN_FILE
-from pharma_lab.e2e.statistics import (
+from pharma_lab.evaluation.relevance_judgments import LoadedJudgments
+from pharma_lab.evaluation.statistics import (
     RESAMPLES,
     SEED,
     Summary,
@@ -58,7 +59,6 @@ from pharma_lab.e2e.statistics import (
     paired_test,
     wilson,
 )
-from pharma_lab.evaluation.relevance_judgments import LoadedJudgments
 
 REPORTS_DIR = "reports"
 ERROR_ROWS = 20

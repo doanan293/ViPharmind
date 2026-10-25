@@ -34,7 +34,7 @@ from pharma_lab.e2e.records import (
     JsonlStore,
     Judgement,
 )
-from pharma_lab.e2e.statistics import gwet_ac1, percent_agreement, ppi_mean
+from pharma_lab.evaluation.statistics import gwet_ac1, percent_agreement, ppi_mean
 
 CALIBRATION_DIR = "calibration"
 ITEMS_FILE = "items.jsonl"
