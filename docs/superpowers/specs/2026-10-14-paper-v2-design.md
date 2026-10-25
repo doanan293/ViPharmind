@@ -14,7 +14,7 @@ merge vào `v2.0.0` kèm test; "chạy" là thí nghiệm đã có số trong `p
 | --- | --- | --- | --- | --- |
 | Nền: quy tắc kiến trúc (`AGENTS.md`, import-linter, vị trí test) | Xong | Không áp dụng | `2026-10-16-architecture-rules.md` | Không |
 | Nền: bản camera-ready SoICT (tag `v1.1.0`) | Xong | Xong | `2026-10-19-camera-ready.md` | Dọn nhánh `camera-ready` giữ đến sau buổi trình bày |
-| Nền: chuẩn hoá đánh giá (Phụ lục C: luật chọn, judgments mọi nhóm, golden 1.000 câu, tập giữ lại) | Đang làm | Golden v4 chờ soạn và dược sĩ duyệt | `2026-10-25-retrieval-eval-standardization.md`, `2026-10-25-golden-e2e-v4.md` | Xem hai plan |
+| Nền: chuẩn hoá đánh giá (Phụ lục C: luật chọn, judgments mọi nhóm, golden 1.000 câu, tập giữ lại) | Xong (mã) | Golden v4 đã build (1.000 câu, sha `38508761…`, model audit xong) và guard set 300 lượt đã nháp; cả hai chờ dược sĩ duyệt; tập judge §3.3 chờ S2 | `2026-10-25-retrieval-eval-standardization.md`, `2026-10-25-golden-e2e-v4.md` | Xem hai plan |
 | Nền: Kaggle chạy trọn trong kernel, bỏ tunnel | Xong | Xong, hai vòng nghiệm thu trên Kaggle thật (Phụ lục B) | `2026-10-20-kaggle-batch-e2e.md`, `2026-10-23-kaggle-resumable-runs.md` | Không |
 | Pha D: dữ liệu (tách leaflet, chunk là đơn vị đọc, benchmark 10.000 câu, golden v3) | Xong | Giai đoạn 1 của §3.4 xong trên golden `9c6e…` (chọn hybrid-qwen8b); giai đoạn 2 tạm (chưa có reranker 8B) | `2026-10-14-paper-v2-phase-d-data.md`, `2026-10-15-chunk-reading-unit.md`, `2026-10-18-unified-benchmark.md`, `2026-10-18-eval-data-v3.md`, `2026-10-25-retrieval-eval-standardization.md` | Rerank 8B trên hybrid-qwen8b rồi chốt S2; các run Kaggle của Phụ lục C (D1, D2, D5, D7, rrf60); viết `08-phase-d-results.md` |
 | Pha 0: hạ tầng đo (reasoning token, giây, USD, `compare`, `--latency-run`) | Xong (Task 1–9) | Chưa: chọn xong cặp retrieval của agent; A1 Gemini, A2 Qwen và run latency chưa chạy | `2026-10-16-paper-v2-phase-0-measurement.md` | Task 10 (judge `none` so với nhãn dược sĩ v1), Task 11 (các run A1, A2), viết `09-phase-0-results.md` |
@@ -41,8 +41,13 @@ Judge, `report`, `compare`, `calibration`, `decision-set` và `decision-probe` c
    S2, rồi các run Kaggle của Phụ lục C.4 (D1 dense + reranker S2, D2 `plain`, `rrf60` cho D6, D5
    Q0–Q6, D7, D4 đo encode) trên golden này.
 2. **Mọi run e2e trước đây bị bỏ** (`e2e-v2-qwen9b`, `e2e-v2-qwen9b-c1-c1`, `e2e-v2-gemini`): chạy trước
-   khi cặp retrieval được chọn bằng luật và trên golden e2e cũ. Golden e2e dựng lại 1.000 câu theo
-   `2026-10-25-golden-e2e-v4.md`; run e2e bắt đầu sau S2 và golden v4.
+   khi cặp retrieval được chọn bằng luật và trên golden e2e cũ (chuyển sang
+   `pharma-lab/data/work/retired-e2e-runs/`). Golden v4 đã build 1.000 câu (sha `38508761…`): 557 câu
+   mới do gemini-3.1-flash-lite nháp, Claude audit (8 câu loại, soạn bù); kiểm thiên lệch: Hit@5 mỗi
+   tầng khớp mức chọn ngẫu nhiên trong nhóm. Còn: dược sĩ duyệt toàn bộ qua `golden pharmacist-pack`
+   (`authoring/pharmacist/`) tới khi `pharmacist-score` complete; dược sĩ duyệt 300 lượt
+   `data/evaluation/calibration/guard_set.todo.jsonl` rồi đổi tên `guard_set.jsonl`; tập judge 300 câu
+   dựng sau S2. Run e2e bắt đầu sau ba việc này.
 3. **Bất thường cần kiểm:** dense Qwen3-Embedding-4B (Hit@20 91,1) kém cả 0,6B (95,9) trên tập chọn,
    trong khi hybrid 4B vẫn 98,5; cần kiểm cache vector query và collection của 4B trước khi đưa vào
    bảng D.
