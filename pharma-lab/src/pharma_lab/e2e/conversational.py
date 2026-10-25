@@ -35,7 +35,14 @@ from pharma_lab.e2e.golden_generate import (
     drug_name,
     single_active,
 )
-from pharma_lab.e2e.one_round import MIN_SECTION_TOKENS, UNINFORMATIVE_SLUGS
+
+# Sections that do not answer a question on their own: trade-name lists, regulatory notes,
+# incompatibility lines, the formulary's front matter and a leaflet's closing notes. A
+# follow-up's gold must be informative and long enough to quote.
+UNINFORMATIVE_SLUGS = frozenset(
+    {"ten-thuong-mai", "thong-tin-qui-che", "tuong-ky", "noi-dung", "thong-tin-them"}
+)
+MIN_SECTION_TOKENS = 30
 
 PHENOMENA = (
     "pronoun",

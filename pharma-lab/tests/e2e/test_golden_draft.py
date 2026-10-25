@@ -14,7 +14,6 @@ from pharma_lab.e2e.golden_draft import (
     DraftFailure,
     DraftReference,
     answerable_candidates,
-    authored_documents,
     authored_sections,
     authored_state,
     draft_multi_hop,
@@ -187,13 +186,11 @@ def test_used_queries_and_draft_batches(tmp_path) -> None:
     )
     assert used_query_ids(tmp_path) == {"q6", "q7", "q9"}
     assert authored_state(tmp_path) == ({"two_drug": 1}, 2)
-    assert authored_documents(tmp_path, "two_drug") == []
     (tmp_path / "multi-hop-02.authored.jsonl").write_text(
         '{"item_id": "e2e-mhop-0003", "tags": ["three_intent"], '
         '"gold_section_ids": ["drug:a:x", "leaflet:t:b:01-y"]}\n',
         encoding="utf-8",
     )
-    assert authored_documents(tmp_path, "three_intent") == ["drug:a", "leaflet:t:b"]
     assert authored_sections(tmp_path) == [frozenset({"drug:a:x", "leaflet:t:b:01-y"})]
 
     item = to_item(candidate("q1"), good(), "e2e-mhop-0003")
@@ -212,15 +209,16 @@ def test_used_queries_and_draft_batches(tmp_path) -> None:
     assert len(paths[0].read_text("utf-8").splitlines()) == 2
 
 
-def test_load_candidates_reads_both_candidate_files(tmp_path) -> None:
+def test_load_candidates_reads_only_the_benchmark_candidates(tmp_path) -> None:
     assert load_candidates(tmp_path) == []
     (tmp_path / "multi-hop.todo.jsonl").write_text(
         '{"query_id": "q1"}\n\n', encoding="utf-8"
     )
+    # Generator output is no longer a candidate source: every item is a benchmark row.
     (tmp_path / "multi-hop.generated.jsonl").write_text(
         '{"query_id": "gen-1"}\n', encoding="utf-8"
     )
-    assert [r["query_id"] for r in load_candidates(tmp_path)] == ["q1", "gen-1"]
+    assert [r["query_id"] for r in load_candidates(tmp_path)] == ["q1"]
 
 
 def generated(query_id: str = "gen-two-drug-0001") -> dict[str, object]:

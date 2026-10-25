@@ -50,6 +50,22 @@ def sample_answerable(
     return [rows[index] for index in sorted(chosen)]
 
 
+def multi_hop_candidates(
+    rows: Sequence[Row],
+    corpus: CorpusText,
+    generated: Sequence[Mapping[str, object]] = (),
+) -> list[dict[str, object]]:
+    """Every usable row of the benchmark's multi_hop group, sorted by query id, with its
+    kind (the row's query_form) and the subjects the generator named for the same
+    question ([] when it named none)."""
+    subjects = {str(row["query"]): row.get("subjects", []) for row in generated}
+    return [
+        {**row, "kind": row["query_form"], "subjects": subjects.get(row["query"], [])}
+        for row in sorted(rows, key=lambda row: str(row["query_id"]))
+        if row.get("eval_group") == "multi_hop" and _usable(row, corpus)
+    ]
+
+
 def sample_multi_turn(
     rows: Sequence[Row],
     *,

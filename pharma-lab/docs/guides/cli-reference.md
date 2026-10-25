@@ -24,7 +24,7 @@ pharma-lab rerank --run NAME --backend local|kaggle --model MODEL [--kaggle-acco
 pharma-lab rerank --run NAME --backend local --benchmark --model MODEL
 pharma-lab metrics --run NAME [--gold-only]
 pharma-lab metrics select --config LABEL=RUN[@MODEL] ... --metric M --secondary M [--exclude-group G]
-pharma-lab e2e golden sample|resample|hard-candidates|trim|check|build
+pharma-lab e2e golden sample|resample|multi-hop-candidates|answerable-candidates|multi-turn-candidates|draft|check|build
 pharma-lab e2e run --run NAME --config CONFIG [--pipeline-option KEY=VALUE ...] [--limit N] [--deadline-seconds S] [--retry-errors]
 pharma-lab e2e judge --run NAME --config CONFIG_DIR [--judge-model MODEL] [--judge-reasoning none|low|medium] [--force]
 pharma-lab e2e calibration export|refresh|score --run NAME
@@ -169,10 +169,9 @@ Chi tiết trong [e2e-evaluation.md](e2e-evaluation.md).
 
 | Command | Việc |
 | --- | --- |
-| `pharma-lab e2e golden sample [--seed S] [--force]` | Chọn 270 câu answerable (45 × 6 nhóm, phân tầng theo intent và answer mode) và 50 cặp multi-turn, ghi `data/evaluation/e2e/authoring/*.todo.jsonl` kèm text section và chunk trọng tâm |
+| `pharma-lab e2e golden sample [--seed S] [--force]` | Chọn câu answerable của sáu nhóm luật theo hạn ngạch trong `golden.py` (phân tầng theo intent và answer mode) và 160 cặp multi-turn, ghi `data/evaluation/e2e/authoring/*.todo.jsonl` kèm text section và chunk trọng tâm |
 | `pharma-lab e2e golden resample --slots IDS [--per-slot N]` | Đưa N câu chưa dùng cùng tầng cho các slot mà section gold không trả lời câu hỏi, ghi `replacement-NN.todo.jsonl` |
-| `pharma-lab e2e golden hard-candidates --run RUN [--model RERANKER] [--top-k 5]` | Liệt kê câu benchmark mà một lượt (run retrieval, rerank, top k) thiếu section gold, gán loại multi-hop, ghi `authoring/multi-hop.todo.jsonl` |
-| `pharma-lab e2e golden trim --run RUN [--per-group 45]` | Bỏ câu answerable mà một lượt phủ đủ gold, đều theo nhóm, cho đến khi mỗi nhóm còn `--per-group` câu |
+| `pharma-lab e2e golden multi-hop-candidates` | Liệt kê mọi dòng nhóm `multi_hop` của benchmark làm ứng viên, loại là `query_form`, ghi `authoring/multi-hop.todo.jsonl` |
 | `pharma-lab e2e golden check FILE` | Kiểm một lô `*.authored.jsonl` (quote nằm trong section, hành vi theo nhóm, `absent_terms` vắng trong corpus) |
 | `pharma-lab e2e golden build` | Kiểm đủ số lượng từng nhóm rồi ghi `golden_e2e.jsonl` và manifest |
 | `pharma-lab e2e run --run NAME --config full\|one-step\|no-judge-refine\|no-rephrase\|no-rerank\|no-guard\|bm25\|dense\|hybrid-k60\|closed-book\|react [--pipeline-option KEY=VALUE ...] [--limit N] [--concurrency N] [--deadline-seconds S] [--retry-errors]` | Chạy agent trên bộ golden, ghi `runs/<run>/<config>[+key=value...]/answers.jsonl`; chạy lại để resume |

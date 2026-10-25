@@ -1,9 +1,9 @@
 """LLM drafts of the golden set's multi-hop items and answerable probes (spec §3.0b),
 for review.
 
-Candidates come from `golden hard-candidates` (benchmark questions one retrieval round
-answers only in part) and `golden generate` (two-drug and brand questions built from the
-corpus). A draft is the reference answer and key facts with verbatim quotes from every
+Candidates are benchmark rows, listed by `golden multi-hop-candidates`,
+`golden answerable-candidates` and `golden multi-turn-candidates`; none is chosen from a
+system's result (spec v2 appendix C.2). A draft is the reference answer and key facts with verbatim quotes from every
 gold section, plus the question in a user's words for generated candidates; it is checked
 with the golden rules, sent back once with its problems, and replaced by the next
 candidate of its kind when it still fails. Drafts are written as *.draft.jsonl: the
@@ -63,8 +63,8 @@ class Family:
     by_group: bool = False
 
     @property
-    def candidate_files(self) -> tuple[str, str]:
-        return (f"{self.batch}.todo.jsonl", f"{self.batch}.generated.jsonl")
+    def candidate_files(self) -> tuple[str, ...]:
+        return (f"{self.batch}.todo.jsonl",)
 
 
 MULTI_HOP = Family(
@@ -162,8 +162,7 @@ def needed_counts(
 def load_candidates(
     authoring_dir: Path, family: Family = MULTI_HOP
 ) -> list[dict[str, object]]:
-    """Rows of every candidate file of `family` that exists (the benchmark candidates
-    and the generated ones)."""
+    """Rows of the candidate file of `family`, when it exists."""
     rows: list[dict[str, object]] = []
     for name in family.candidate_files:
         path = Path(authoring_dir) / name
@@ -278,24 +277,6 @@ def authored_sections(
                 if isinstance(sections, list) and sections:
                     sets.append(frozenset(str(section) for section in sections))
     return sets
-
-
-def authored_documents(authoring_dir: Path, kind: str) -> list[str]:
-    """Documents whose sections the authored items of `kind` already use, so generated
-    candidates of that kind pick other drugs."""
-    documents: set[str] = set()
-    for path in _batches(authoring_dir, "multi-hop-*.authored.jsonl"):
-        for line in _lines(path):
-            tags = line.get("tags")
-            sections = line.get("gold_section_ids")
-            if isinstance(tags, list) and kind in tags and isinstance(sections, list):
-                documents.update(_document(str(section)) for section in sections)
-    return sorted(documents)
-
-
-def _document(section_id: str) -> str:
-    parts = section_id.split(":")
-    return ":".join(parts[:3] if parts[0] == "leaflet" else parts[:2])
 
 
 def write_drafts(

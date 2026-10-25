@@ -1,12 +1,6 @@
-import json
-from pathlib import Path
-
 import pytest
-from typer.testing import CliRunner
 
 from pharma_lab.bundle.corpus_text import CorpusText
-from pharma_lab.cli.app import app
-from pharma_lab.cli.commands import e2e as e2e_commands
 from pharma_lab.e2e.golden_generate import (
     GLOSSARY_TERM_SHARE,
     MonographNames,
@@ -201,44 +195,6 @@ def test_generate_rows_match_the_candidate_format() -> None:
     assert generate(CORPUS, {"two_drug": 0}, seed=0) == []
     with pytest.raises(ValueError, match="chunk map"):
         generate(CORPUS, {"three_intent": 1}, seed=0)
-
-
-def test_cli_generate_writes_the_candidates(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(e2e_commands, "read_bundle", lambda bundle: object())
-    monkeypatch.setattr(e2e_commands, "corpus_text", lambda knowledge: CORPUS)
-    monkeypatch.setattr(e2e_commands, "section_chunks", lambda knowledge: CHUNKS)
-    # An authored three-intent item on paracetamol keeps that drug out of the candidates.
-    (tmp_path / "multi-hop-01.authored.jsonl").write_text(
-        json.dumps(
-            {
-                "item_id": "e2e-mhop-0001",
-                "tags": ["three_intent"],
-                "gold_section_ids": [f"{PARA}:chi-dinh"],
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    result = CliRunner().invoke(
-        app,
-        [
-            "e2e",
-            "golden",
-            "generate",
-            "--authoring-dir",
-            str(tmp_path),
-            "--two-drug",
-            "1",
-        ],
-    )
-    assert result.exit_code == 0, result.output
-    rows = [
-        json.loads(line)
-        for line in (tmp_path / "multi-hop.generated.jsonl")
-        .read_text("utf-8")
-        .splitlines()
-    ]
-    assert [r["kind"] for r in rows] == ["two_drug", "brand_to_ingredient"]
 
 
 LEAF_TEXT = "Uống 1 viên mỗi lần, ngày 3 lần, cách nhau ít nhất 4 giờ."

@@ -22,7 +22,6 @@ from pharma_lab.bundle.corpus_text import (
     chunk_texts,
     corpus_text,
     load_corpus_text,
-    section_chunks,
 )
 from pharma_lab.cli.commands.kaggle import credential_datasets
 from pharma_lab.cli.runtime import (
@@ -71,7 +70,6 @@ from pharma_lab.e2e.golden import (
     ANSWERABLE_GROUP_QUOTAS,
     CONVERSATIONAL_GROUP,
     EVAL_GROUPS,
-    MULTI_HOP_QUOTAS,
     QUOTAS,
     Category,
     build_golden,
@@ -87,7 +85,6 @@ from pharma_lab.e2e.golden_draft import (
     NATURAL,
     SLICE,
     answerable_candidates,
-    authored_documents,
     authored_sections,
     authored_state,
     draft_multi_hop,
@@ -97,7 +94,6 @@ from pharma_lab.e2e.golden_draft import (
     used_query_ids,
     write_drafts,
 )
-from pharma_lab.e2e.golden_generate import generate
 from pharma_lab.e2e.harness import E2ERunRequest, run_e2e
 from pharma_lab.e2e.judge_follower import JudgeFollower
 from pharma_lab.e2e.judging.service import (
@@ -131,7 +127,6 @@ from pharma_lab.e2e.kaggle_shards import (
     make_plan,
 )
 from pharma_lab.e2e.llm_presets import preset_named
-from pharma_lab.e2e.one_round import load_one_round
 from pharma_lab.e2e.proxy_credentials import (
     DOCKER_VOLUME,
     CredentialDataset,
@@ -142,6 +137,7 @@ from pharma_lab.e2e.proxy_credentials import (
 from pharma_lab.e2e.report import write_report
 from pharma_lab.e2e.run_identity import git_commit
 from pharma_lab.e2e.sampling import (
+    multi_hop_candidates,
     replacement_candidates,
     sample_answerable,
     sample_multi_turn,
@@ -329,76 +325,45 @@ def golden_check(
     run_handler(state_from_context(ctx), handler)
 
 
-@golden_app.command("hard-candidates")
-def golden_hard_candidates(
+@golden_app.command("multi-hop-candidates")
+def golden_multi_hop_candidates(
     ctx: typer.Context,
-    run_name: Annotated[str, typer.Option("--run")],
-    model: Annotated[str, typer.Option("--model")] = "qwen3-reranker:4b-q8_0",
-    top_k: Annotated[int, typer.Option("--top-k", min=1)] = 5,
+    evaluation: Annotated[
+        Path, typer.Option("--evaluation", dir_okay=False)
+    ] = GOLD_PATH,
     bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
     authoring_dir: Annotated[
         Path, typer.Option("--authoring-dir", file_okay=False)
     ] = E2E_AUTHORING_DIR,
 ) -> None:
-    """List benchmark questions one retrieval round misses, by multi-hop kind."""
+    """List the benchmark's multi_hop rows as candidates (multi-hop.todo.jsonl), with the
+    subjects the generator named in multi-hop.generated.jsonl when it is there."""
 
     def handler() -> CommandResult:
-        candidates = load_one_round(
-            run_dir(run_name), model=model, top_k=top_k
-        ).hard_candidates(load_corpus_text(bundle))
-        output = authoring_dir / "multi-hop.todo.jsonl"
+        generated_path = authoring_dir / "multi-hop.generated.jsonl"
+        generated = (
+            [
+                json.loads(line)
+                for line in generated_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            if generated_path.is_file()
+            else []
+        )
+        candidates = multi_hop_candidates(
+            load_query_rows(evaluation), load_corpus_text(bundle), generated
+        )
+        output = authoring_dir / MULTI_HOP.candidate_files[0]
         output.write_text(
             "".join(json.dumps(c, ensure_ascii=False) + "\n" for c in candidates),
             encoding="utf-8",
         )
         kinds = Counter(str(c["kind"]) for c in candidates)
         return CommandResult(
-            "e2e golden hard-candidates", CommandStatus.COMPLETE, output, dict(kinds)
-        )
-
-    run_handler(state_from_context(ctx), handler)
-
-
-@golden_app.command("generate")
-def golden_generate(
-    ctx: typer.Context,
-    bundle: Annotated[Path, typer.Option("--bundle", file_okay=False)] = BUNDLE_DIR,
-    authoring_dir: Annotated[
-        Path, typer.Option("--authoring-dir", file_okay=False)
-    ] = E2E_AUTHORING_DIR,
-    two_drug: Annotated[int, typer.Option("--two-drug", min=0)] = 2
-    * MULTI_HOP_QUOTAS["two_drug"],
-    brand: Annotated[int, typer.Option("--brand", min=0)] = 2
-    * MULTI_HOP_QUOTAS["brand_to_ingredient"],
-    three_intent: Annotated[int, typer.Option("--three-intent", min=0)] = 2
-    * MULTI_HOP_QUOTAS["three_intent"],
-    seed: Annotated[int, typer.Option("--seed")] = 0,
-) -> None:
-    """Build three-intent, two-drug and brand-to-ingredient candidates from the corpus
-    (multi-hop.generated.jsonl); twice the quota by default, to cover rejected drafts.
-    Three-intent candidates skip the drugs the authored three-intent items already use."""
-
-    def handler() -> CommandResult:
-        knowledge = read_bundle(bundle)
-        rows = generate(
-            corpus_text(knowledge),
-            {
-                "three_intent": three_intent,
-                "two_drug": two_drug,
-                "brand_to_ingredient": brand,
-            },
-            seed=seed,
-            chunks=section_chunks(knowledge),
-            exclude_documents=authored_documents(authoring_dir, "three_intent"),
-        )
-        output = authoring_dir / "multi-hop.generated.jsonl"
-        output.write_text(
-            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
-            encoding="utf-8",
-        )
-        kinds = Counter(str(row["kind"]) for row in rows)
-        return CommandResult(
-            "e2e golden generate", CommandStatus.COMPLETE, output, dict(kinds)
+            "e2e golden multi-hop-candidates",
+            CommandStatus.COMPLETE,
+            output,
+            dict(kinds),
         )
 
     run_handler(state_from_context(ctx), handler)

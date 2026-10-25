@@ -7,6 +7,7 @@ import pytest
 from pharma_lab.bundle.corpus_text import CorpusText
 from pharma_lab.e2e.golden import EVAL_GROUPS
 from pharma_lab.e2e.sampling import (
+    multi_hop_candidates,
     replacement_candidates,
     sample_answerable,
     sample_multi_turn,
@@ -191,3 +192,54 @@ def test_replacements_come_from_the_slot_stratum_and_are_unused(tmp_path: Path) 
             seed=0,
             corpus=text,
         )
+
+
+def hop_row(query_id: str, kind: str, *sections: str, group: str = "multi_hop") -> dict:
+    return {
+        "query_id": query_id,
+        "query": f"question {query_id}",
+        "eval_group": group,
+        "query_form": kind,
+        "answer_mode": "multi_required",
+        "expected_section_ids": list(sections or ("doc0:s0", "doc1:s0")),
+    }
+
+
+def test_multi_hop_candidates_cover_the_multi_hop_group() -> None:
+    source = [
+        hop_row("mh-3", "three_intent"),
+        hop_row("mh-1", "two_drug"),
+        hop_row("mh-2", "brand_to_ingredient"),
+        hop_row("f-1", "natural", group="formulary"),
+    ]
+
+    candidates = multi_hop_candidates(source, corpus())
+
+    assert [(c["query_id"], c["kind"]) for c in candidates] == [
+        ("mh-1", "two_drug"),
+        ("mh-2", "brand_to_ingredient"),
+        ("mh-3", "three_intent"),
+    ]
+
+
+def test_multi_hop_candidates_carry_subjects_from_the_generator() -> None:
+    source = [hop_row("mh-1", "two_drug"), hop_row("mh-2", "two_drug")]
+    generated = [{"query": "question mh-1", "subjects": ["A", "B"]}]
+
+    candidates = multi_hop_candidates(source, corpus(), generated)
+
+    assert [c["subjects"] for c in candidates] == [["A", "B"], []]
+
+
+def test_multi_hop_candidates_are_deterministic() -> None:
+    source = [hop_row(f"mh-{n}", "two_drug") for n in (5, 1, 3)]
+
+    assert multi_hop_candidates(source, corpus()) == multi_hop_candidates(
+        list(reversed(source)), corpus()
+    )
+
+
+def test_unusable_multi_hop_rows_are_skipped() -> None:
+    source = [hop_row("mh-1", "two_drug", "doc0:s0", "nowhere")]
+
+    assert multi_hop_candidates(source, corpus()) == []
