@@ -37,21 +37,35 @@ def item_digest(item: GoldenItem) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def row_is_current(row: Mapping[str, str], digest: str) -> bool:
+    """A verdict stands for the item it was given on, and a `fixed` verdict also for
+    the item as the pharmacist's fix left it."""
+    return bool(digest) and digest in (row.get("digest"), row.get("fixed_digest"))
+
+
 def review_rows(
     items: Sequence[GoldenItem], previous: Mapping[str, Mapping[str, str]]
 ) -> list[dict[str, str]]:
-    """One row per item, sorted by tier then item id; a row keeps its earlier verdict
-    and reason only when the item's digest is unchanged."""
+    """One row per item, sorted by tier then item id. A row keeps its verdict while the
+    item is unchanged. A `fixed` verdict also survives the one rebuild that brings the
+    pharmacist's own edit into the set: the new digest is recorded as `fixed_digest`,
+    and any later change asks for review again."""
     rows: list[dict[str, str]] = []
     for item in sorted(items, key=lambda i: (TIERS.index(item_tier(i)), i.item_id)):
         digest = item_digest(item)
         old = previous.get(item.item_id, {})
-        kept = old.get("digest") == digest
+        fixed = old.get("fixed_digest", "")
+        if old.get("verdict") == "fixed" and not fixed and old.get("digest") != digest:
+            fixed = digest
+        kept = row_is_current(
+            {"digest": old.get("digest", ""), "fixed_digest": fixed}, digest
+        )
         rows.append(
             {
                 "item_id": item.item_id,
                 "tier": item_tier(item),
-                "digest": digest,
+                "digest": old["digest"] if kept else digest,
+                "fixed_digest": fixed if kept else "",
                 "verdict": old.get("verdict", "") if kept else "",
                 "reason": old.get("reason", "") if kept else "",
             }

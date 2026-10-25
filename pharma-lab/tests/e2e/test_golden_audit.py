@@ -9,6 +9,7 @@ from pharma_lab.e2e.golden_audit import (
     render_pack,
     review_rows,
     review_score,
+    row_is_current,
 )
 
 CORPUS = CorpusText(
@@ -56,7 +57,7 @@ def test_safety_items_are_their_own_tier() -> None:
 def test_review_pack_keeps_verdicts_of_unchanged_items() -> None:
     first = review_rows(items(), {})
     first[0] = {**first[0], "verdict": "pass", "reason": "ok"}
-    first[1] = {**first[1], "verdict": "fixed", "reason": "quote"}
+    first[1] = {**first[1], "verdict": "pass", "reason": "looked fine"}
     previous = {row["item_id"]: row for row in first}
     edited = golden(2).model_copy(
         update={"tags": ["name_variant"], "turns": [Turn(role="user", text="Khác?")]}
@@ -102,3 +103,45 @@ def test_the_pack_shows_the_question_answer_facts_and_section_text() -> None:
     assert "Câu 1 | liều?" in text
     assert "quote: «q»" in text
     assert "Người lớn uống 500 mg." in text
+
+
+def test_a_fixed_verdict_survives_the_rebuild_of_its_fix() -> None:
+    first = review_rows(items(), {})
+    first[1] = {**first[1], "verdict": "fixed", "reason": "quote"}
+    previous = {row["item_id"]: row for row in first}
+    # The pharmacist's edit is built into the golden set: the item's digest changes.
+    edited = golden(2).model_copy(
+        update={"tags": ["name_variant"], "turns": [Turn(role="user", text="Sửa?")]}
+    )
+
+    rows = review_rows([golden(1), edited, safety()], previous)
+
+    assert (rows[1]["verdict"], rows[1]["reason"]) == ("fixed", "quote")
+    assert rows[1]["fixed_digest"] == item_digest(edited)
+    again = review_rows(
+        [golden(1), edited, safety()], {row["item_id"]: row for row in rows}
+    )
+    assert again[1]["verdict"] == "fixed"
+
+
+def test_a_fixed_item_changed_again_is_reviewed_again() -> None:
+    first = review_rows(items(), {})
+    first[1] = {**first[1], "verdict": "fixed", "reason": "quote"}
+    edited = golden(2).model_copy(
+        update={"tags": ["name_variant"], "turns": [Turn(role="user", text="Sửa?")]}
+    )
+    rows = review_rows([golden(1), edited, safety()], {r["item_id"]: r for r in first})
+    later = golden(2).model_copy(
+        update={"tags": ["name_variant"], "turns": [Turn(role="user", text="Lần 3?")]}
+    )
+
+    again = review_rows([golden(1), later, safety()], {r["item_id"]: r for r in rows})
+
+    assert again[1]["verdict"] == ""
+
+
+def test_a_row_is_current_for_its_reviewed_or_fixed_digest() -> None:
+    row = {"digest": "a", "fixed_digest": "b"}
+    assert row_is_current(row, "a") and row_is_current(row, "b")
+    assert not row_is_current(row, "c")
+    assert not row_is_current({"digest": "a", "fixed_digest": ""}, "")

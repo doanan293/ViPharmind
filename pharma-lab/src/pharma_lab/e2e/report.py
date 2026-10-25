@@ -1209,6 +1209,20 @@ def write_report(
     configs = list(loaded)
     if latency_root is not None:
         for config in configs:
+            if golden_sha256 is not None:
+                identity_path = config_dir(latency_root, config) / RUN_FILE
+                recorded = (
+                    json.loads(identity_path.read_text(encoding="utf-8")).get(
+                        "golden_sha256"
+                    )
+                    if identity_path.is_file()
+                    else None
+                )
+                if recorded != golden_sha256:
+                    raise ValueError(
+                        f"latency run {latency_root} ran {config} on another golden "
+                        f"version ({recorded})"
+                    )
             values[config].update(latency_values(latency_root, config, items))
     written = _main_tables(directory, configs, values)
     if E2EConfig.FULL.value in values:

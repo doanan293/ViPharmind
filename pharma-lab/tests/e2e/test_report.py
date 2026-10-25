@@ -504,3 +504,24 @@ def test_report_refuses_a_run_on_another_golden(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match=r"full.*another golden"):
         write_report(tmp_path, items, golden_sha256="b" * 64)
     write_report(tmp_path, items, golden_sha256="a" * 64)
+
+
+def _stamp_golden(root: Path, config: str, sha: str) -> None:
+    path = root / config / "run.json"
+    identity = json.loads(path.read_text("utf-8"))
+    path.write_text(json.dumps({**identity, "golden_sha256": sha}), encoding="utf-8")
+
+
+def test_report_refuses_a_latency_run_on_another_golden(tmp_path: Path) -> None:
+    # Golden v4 keeps v3 item ids, so a v3 latency run would match every key silently.
+    items = {golden(n).item_id: golden(n) for n in range(4)}
+    quality, slow = tmp_path / "q", tmp_path / "c1"
+    write_config(quality, "full", [1.0, 1.0, 0.5, 1.0])
+    _stamp_golden(quality, "full", "a" * 64)
+    write_latency_run(slow, "full", 2.0, 4)
+    _stamp_golden(slow, "full", "b" * 64)
+
+    with pytest.raises(ValueError, match=r"latency run .*full.*another golden"):
+        write_report(quality, items, latency_root=slow, golden_sha256="a" * 64)
+    _stamp_golden(slow, "full", "a" * 64)
+    write_report(quality, items, latency_root=slow, golden_sha256="a" * 64)

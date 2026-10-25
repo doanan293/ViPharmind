@@ -83,6 +83,7 @@ from pharma_lab.e2e.golden_audit import (
     render_pack,
     review_rows,
     review_score,
+    row_is_current,
 )
 from pharma_lab.e2e.golden_draft import (
     DRAFT_MODEL,
@@ -596,7 +597,7 @@ def golden_pharmacist_score(
         stale = [
             row["item_id"]
             for row in current
-            if recorded.get(row["item_id"], {}).get("digest") != row["digest"]
+            if not row_is_current(recorded.get(row["item_id"], {}), row["digest"])
         ]
         if stale:
             raise ValueError(
