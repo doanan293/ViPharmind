@@ -1,15 +1,15 @@
 {
   "artifact_type": "metrics_report",
   "complete": 9970,
-  "created_at": "2026-10-24T08:55:55.786445+00:00",
+  "created_at": "2026-10-25T16:11:50.528944+00:00",
   "data_filename": "metrics.jsonl",
-  "data_sha256": "8047012ebefd6dca3dcdd90347b45155c13911e6029533c9e8ba9b31a14ac1e4",
+  "data_sha256": "9fb1d0a869c5bef327c2ce44a508c6b3c3711d8097819bbde89be69f38d87816",
   "identity": {
     "candidate_data_sha256": "e2e477a2ca0b828eaf4fd898d63f7859a6be9995e5e19a4461d2a34e7174b653",
     "contract_version": 2,
     "evaluation_sha256": "9c6e4de6bc2bda541fa288ea9ad688097957e421b34c2d6909492f6773b5e6d5",
-    "judgments_sha256": "8947713587a67957996fb91e7bda064912fffc28de7af35ef003288c04785c1e",
-    "metrics_sha256": "2cae3107b894674a4515cea9d831dd5237732d35bcdf5c45e9aca85b1ea99328",
+    "judgments_sha256": "ded93b0af2a52f815a01ec3147f538a5b0a260f3790846169be8cc77ac84bae7",
+    "metrics_sha256": "bd803c0b1ae2420edbdff4ded12a836174b70d30fa82c8440462e7b544cf8d90",
     "model": null,
     "top_k": 20,
     "variant_sha256": null

@@ -4,7 +4,7 @@
 "Lịch sử gộp" cuối bảng tiến độ). Nhánh: `v2.0.0`. Nền: release v1.0.0 (bản nộp SoICT 2026),
 tag `v1.1.0` (camera-ready) và ghi chú nghiên cứu trong `docs/research/paper-v2/`.
 
-## Bảng tiến độ (cập nhật 2026-10-24)
+## Bảng tiến độ (cập nhật 2026-10-25)
 
 Mỗi pha có một plan trong `docs/superpowers/plans/`. Plan chỉ tồn tại khi pha đã được triển khai;
 pha chưa tới thì chưa có plan, tới lúc đó mới viết (brainstorm, viết plan, làm). "Mã" là code đã
@@ -14,8 +14,9 @@ merge vào `v2.0.0` kèm test; "chạy" là thí nghiệm đã có số trong `p
 | --- | --- | --- | --- | --- |
 | Nền: quy tắc kiến trúc (`AGENTS.md`, import-linter, vị trí test) | Xong | Không áp dụng | `2026-10-16-architecture-rules.md` | Không |
 | Nền: bản camera-ready SoICT (tag `v1.1.0`) | Xong | Xong | `2026-10-19-camera-ready.md` | Dọn nhánh `camera-ready` giữ đến sau buổi trình bày |
+| Nền: chuẩn hoá đánh giá (Phụ lục C: luật chọn, judgments mọi nhóm, golden 1.000 câu, tập giữ lại) | Đang làm | Golden v4 chờ soạn và dược sĩ duyệt | `2026-10-25-retrieval-eval-standardization.md`, `2026-10-25-golden-e2e-v4.md` | Xem hai plan |
 | Nền: Kaggle chạy trọn trong kernel, bỏ tunnel | Xong | Xong, hai vòng nghiệm thu trên Kaggle thật (Phụ lục B) | `2026-10-20-kaggle-batch-e2e.md`, `2026-10-23-kaggle-resumable-runs.md` | Không |
-| Pha D: dữ liệu (tách leaflet, chunk là đơn vị đọc, benchmark 10.000 câu, golden v3) | Xong | Bảng retrieval đã chạy nhưng trên ba phiên bản golden khác nhau (xem "Việc đang mở") | `2026-10-14-paper-v2-phase-d-data.md`, `2026-10-15-chunk-reading-unit.md`, `2026-10-18-unified-benchmark.md`, `2026-10-18-eval-data-v3.md` | Chốt golden chính thức, dựng lại bảng retrieval trên đó, viết `08-phase-d-results.md` |
+| Pha D: dữ liệu (tách leaflet, chunk là đơn vị đọc, benchmark 10.000 câu, golden v3) | Xong | Giai đoạn 1 của §3.4 xong trên golden `9c6e…` (chọn hybrid-qwen8b); giai đoạn 2 tạm (chưa có reranker 8B) | `2026-10-14-paper-v2-phase-d-data.md`, `2026-10-15-chunk-reading-unit.md`, `2026-10-18-unified-benchmark.md`, `2026-10-18-eval-data-v3.md`, `2026-10-25-retrieval-eval-standardization.md` | Rerank 8B trên hybrid-qwen8b rồi chốt S2; các run Kaggle của Phụ lục C (D1, D2, D5, D7, rrf60); viết `08-phase-d-results.md` |
 | Pha 0: hạ tầng đo (reasoning token, giây, USD, `compare`, `--latency-run`) | Xong (Task 1–9) | Chưa: chọn xong cặp retrieval của agent; A1 Gemini, A2 Qwen và run latency chưa chạy | `2026-10-16-paper-v2-phase-0-measurement.md` | Task 10 (judge `none` so với nhãn dược sĩ v1), Task 11 (các run A1, A2), viết `09-phase-0-results.md` |
 | Pha 1: decision model (Jev) và refinement theo độ tin cậy | Xong (Task 1–10) | Chưa: chưa có kết quả đo token Jev, tập hiệu chuẩn, ngưỡng τ | `2026-10-16-paper-v2-phase-1-decision-model.md` | Task 4 (đo token), Task 10 (chạy hiệu chuẩn), Task 11 (run A2, A3, A4, quét τ), `10-phase-1-results.md`; cần API key Jev |
 | Pha 2: agent ReAct | Xong (Task 1–6) | Chưa | `2026-10-16-paper-v2-phase-2-react.md` | Task 7 (ma trận C), `11-phase-2-results.md`; chờ run của pha 1 |
@@ -34,17 +35,18 @@ Judge, `report`, `compare`, `calibration`, `decision-set` và `decision-probe` c
 
 ### Việc đang mở
 
-1. **Golden đã chốt (2026-10-24): `9c6e4de6…`** (`data/evaluation/gold/section_retrieval_eval.jsonl`,
-   bản dựng lại cuối cùng ngày 2026-10-19). Lý do: file nhãn judgments (958 query) và bộ e2e
-   `golden_e2e` (sha `9e27…`) đều ghi hash này, và các run Qwen e2e đã dựng trên nó. Các run cũ ghi
-   `587b0374…` (mọi `-v2-`) hoặc `070bbe39…` (các `-v3-` cũ) không dùng được cho `metrics`. Việc đang
-   làm: `hybrid-qwen8b-v3-p50-k20-rrf2` đã retrieve lại trên `9c6e…` (9.970 query), đang rerank nốt
-   59.913 cặp với `qwen3-reranker:4b-q8_0`. Còn phải dựng lại trên `9c6e…` bốn run dense còn lại và
-   bốn reranker của bảng retrieval trước khi viết `08-phase-d-results.md` (các số `-v2-` dùng để chọn
-   cặp ở Task 11 Step 0 đo trên golden cũ, cần kiểm lại luật chọn trên số mới).
-2. **Run Qwen đầy đủ chưa xong.** `e2e-v2-qwen9b` mới có 20 dòng smoke mỗi cấu hình. Shard acc3
-   lỗi hai lần ở bước tạo dataset 293 B (lỗi CLI Kaggle), một kernel lỗi với log rỗng. Chạy lại cùng lệnh để nối.
-3. **Chờ quyết định:** đẩy nhánh `v2.0.0`; xoá dataset đầu vào còn sót trên Kaggle (`pipeline-static-*`,
+1. **Golden retrieval chốt `9c6e4de6…`; judgments rules_version 2** (1.704 câu, mọi nhóm). Chỉ còn 8
+   run `-v3-` trên golden này; 26 run cũ chuyển sang `pharma-lab/data/work/retired-runs/`. Kết quả
+   luật §3.4 ghi ở §3.4. Còn: rerank Qwen3-Reranker-8B trên `hybrid-qwen8b-v3-p50-k20-rrf2` để chốt
+   S2, rồi các run Kaggle của Phụ lục C.4 (D1 dense + reranker S2, D2 `plain`, `rrf60` cho D6, D5
+   Q0–Q6, D7, D4 đo encode) trên golden này.
+2. **Mọi run e2e trước đây bị bỏ** (`e2e-v2-qwen9b`, `e2e-v2-qwen9b-c1-c1`, `e2e-v2-gemini`): chạy trước
+   khi cặp retrieval được chọn bằng luật và trên golden e2e cũ. Golden e2e dựng lại 1.000 câu theo
+   `2026-10-25-golden-e2e-v4.md`; run e2e bắt đầu sau S2 và golden v4.
+3. **Bất thường cần kiểm:** dense Qwen3-Embedding-4B (Hit@20 91,1) kém cả 0,6B (95,9) trên tập chọn,
+   trong khi hybrid 4B vẫn 98,5; cần kiểm cache vector query và collection của 4B trước khi đưa vào
+   bảng D.
+4. **Chờ quyết định:** đẩy nhánh `v2.0.0`; xoá dataset đầu vào còn sót trên Kaggle (`pipeline-static-*`,
    `pipeline-input-*`); dọn Postgres local; chạy lại Opus khi Claude hết giới hạn tốc độ.
 
 ### Lịch sử gộp
@@ -479,6 +481,13 @@ chạy bằng `pharma-lab metrics select`.
    8B); hybrid đứng ngay sau dense cùng embedding; reranker theo số tham số (bge-v2-m3, 0,6B, 4B, 8B).
 7. Bảng retrieval của bài báo cáo mọi cấu hình đã chạy, theo nhóm và theo lát, kể cả cấu hình không
    được chọn và nhóm mà cấu hình thắng bị tụt.
+
+Kết quả (2026-10-25, 8.470 câu, `pharma-lab metrics select`):
+
+| Giai đoạn | Chỉ số | Trung bình (%) | Cấu hình thắng | Chênh với cấu hình gần nhất | Lý do |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Hit@20 | hybrid-qwen8b 99,17; hybrid-qwen4b 98,51; dense bge-m3 97,17; dense qwen8b 97,06; dense qwen06b 95,89; dense gemma300m 95,02; BM25 94,34; dense qwen4b 91,11 | hybrid-qwen8b | +0,66 (KTC +0,47 đến +0,86; p Holm 0,0007) so với hybrid-qwen4b; thắng rõ cả 7 | chỉ số chính |
+| 2 (tạm, chưa có 8B) | Hit@5 | qwen 4B 98,29; qwen 0,6B 97,86; bge-v2-m3 96,75 | Qwen3-Reranker-4B | +0,43 (KTC +0,18 đến +0,67; p Holm 0,0007) so với 0,6B | chỉ số chính |
 
 Lịch sử: bản 2026-10-18 dùng bootstrap 1.000 lần không kèm kiểm định, thêm vế "không tụt quá 1 điểm ở
 lát hay nhóm nào", chấm trên cả nhóm hội thoại, và judgments chỉ áp cho hai nhóm formulary và
