@@ -145,21 +145,25 @@ def _chunk(section_id: str, index: int, title: str, text: str) -> dict:
     }
 
 
+ACARBOSE_LEAFLET = "leaflet:thuoc-tri-tieu-duong:acarbose-a"
+COMBINATION_LEAFLET = "leaflet:thuoc-tri-tieu-duong:acarbose-metformin"
+ACARBOSE_CHUNKS = [
+    _chunk("drug:acarbose:chi-dinh", 1, "ACARBOSE", "Điều trị đái tháo đường."),
+    _chunk(ACARBOSE_LEAFLET, 1, "Acarbose A 50 mg", LEAFLET_PAGE[0]),
+    _chunk(ACARBOSE_LEAFLET, 2, "Acarbose A 50 mg", LEAFLET_PAGE[1]),
+    _chunk(
+        COMBINATION_LEAFLET,
+        1,
+        "Acarbose Metformin",
+        "### 1. Thành phần\n\nAcarbose 50 mg\n\nMetformin 500 mg\n\n"
+        "### 2. Công dụng (Chỉ định)\n\nĐiều trị đái tháo đường.",
+    ),
+]
+
+
 def test_judgments_accept_same_ingredient_leaflet_chunks_of_the_asked_intent() -> None:
-    acarbose = "leaflet:thuoc-tri-tieu-duong:acarbose-a"
-    combination = "leaflet:thuoc-tri-tieu-duong:acarbose-metformin"
-    chunks = [
-        _chunk("drug:acarbose:chi-dinh", 1, "ACARBOSE", "Điều trị đái tháo đường."),
-        _chunk(acarbose, 1, "Acarbose A 50 mg", LEAFLET_PAGE[0]),
-        _chunk(acarbose, 2, "Acarbose A 50 mg", LEAFLET_PAGE[1]),
-        _chunk(
-            combination,
-            1,
-            "Acarbose Metformin",
-            "### 1. Thành phần\n\nAcarbose 50 mg\n\nMetformin 500 mg\n\n"
-            "### 2. Công dụng (Chỉ định)\n\nĐiều trị đái tháo đường.",
-        ),
-    ]
+    acarbose = ACARBOSE_LEAFLET
+    chunks = ACARBOSE_CHUNKS
     rows = [
         {
             "query_id": "q-dosage",
@@ -252,6 +256,10 @@ def test_judgments_live_next_to_the_gold_file_and_round_trip(tmp_path: Path) -> 
         "drug:acarbose:lieu-luong-va-cach-dung": frozenset({ACCEPTED})
     }
     assert loaded.for_query("q-other") == {}
+    manifest = json.loads(
+        path.with_name(f"{path.stem}.manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["rules_version"] == 2
 
 
 def test_judgments_of_another_gold_file_are_rejected(tmp_path: Path) -> None:
@@ -318,3 +326,19 @@ def test_a_leaflet_split_by_heading_is_judged_as_one_page() -> None:
             ],
         }
     ]
+
+
+@pytest.mark.parametrize(
+    "group", ["noisy", "glossary", "conversational", "multi_hop", "structured"]
+)
+def test_every_group_is_judged_by_the_same_rule(group: str) -> None:
+    rows = [
+        {
+            "query_id": "q-dosage",
+            "eval_group": group,
+            "answer_mode": "single",
+            "expected_section_id": "drug:acarbose:lieu-luong-va-cach-dung",
+        }
+    ]
+
+    assert build_judgments(rows, ACARBOSE_CHUNKS) == [JUDGMENT]

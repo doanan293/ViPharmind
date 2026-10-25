@@ -1,6 +1,8 @@
 """Relevance judgments that accept same-ingredient leaflet chunks for formulary queries.
 
-A formulary question (for example the dosage of ACARBOSE) is also answered by the
+The rule applies to every benchmark row whose gold is a formulary section, whatever its
+group (rules version 2; version 1 judged only the formulary and multi_intent groups, so
+the same answer scored differently in, say, the noisy group). A formulary question (for example the dosage of ACARBOSE) is also answered by the
 matching section of a drug leaflet whose only active ingredient is that drug. The gold
 file names the formulary section; these judgments add the leaflet chunks that answer the
 same intent, so a ranking that puts such a chunk first is not scored as a miss. They live
@@ -30,9 +32,8 @@ from pharma_lab.artifacts.manifest import (
 from pharma_lab.bundle.evaluation_chunks import evaluation_chunk_rows
 from pharma_lab.evaluation.retrieval_metrics import expected_section_ids
 
-RULES_VERSION = 1
+RULES_VERSION = 2
 JUDGMENTS_SCHEMA_VERSION = 1
-JUDGED_EVAL_GROUPS = frozenset({"formulary", "multi_intent"})
 INGREDIENT = "ingredient"
 
 FORMULARY_SECTION_INTENTS = {
@@ -427,8 +428,6 @@ def build_judgments(
     accepted = _accepted_leaflet_chunks(chunk_rows)
     judgments: list[dict[str, Any]] = []
     for row in evaluation_rows:
-        if row.get("eval_group") not in JUDGED_EVAL_GROUPS:
-            continue
         answer_mode = row.get("answer_mode")
         if answer_mode == "single":
             sections = [str(row["expected_section_id"])]
