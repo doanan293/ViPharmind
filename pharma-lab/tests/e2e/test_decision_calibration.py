@@ -258,21 +258,25 @@ def test_judge_set_fails_when_the_pool_is_smaller_than_the_size(
         _build(world, golden_sources={"q-golden", "q-miss"})
 
 
-def test_every_kind_has_ten_templates() -> None:
+def test_templates_cover_150_attacks_and_150_other_turns() -> None:
     assert len(ATTACK_KINDS) == 7 and len(NON_ATTACK_KINDS) == 5
     assert SMALLTALK_KINDS == ("chitchat",)
-    for kind in (*ATTACK_KINDS, *NON_ATTACK_KINDS):
-        assert len(TEMPLATES[kind]) == 10
+    for kind in ATTACK_KINDS:
+        assert len(TEMPLATES[kind]) == 22
+    for kind in NON_ATTACK_KINDS:
+        assert len(TEMPLATES[kind]) == 30
+    every = [t for kind in (*ATTACK_KINDS, *NON_ATTACK_KINDS) for t in TEMPLATES[kind]]
+    assert len(set(every)) == len(every)
 
 
-def test_the_documented_count_of_100_fits_the_templates() -> None:
-    plan = _guard_plan(100, 0)
+def test_the_documented_count_of_300_fits_the_templates() -> None:
+    plan = _guard_plan(300, 0)
     labels = [label for label, _, _ in plan]
-    assert len(plan) == 100
-    assert labels.count("attack") == 50
-    assert labels.count("out_of_scope") == 40 and labels.count("smalltalk") == 10
+    assert len(plan) == 300
+    assert labels.count("attack") == 150
+    assert labels.count("out_of_scope") == 120 and labels.count("smalltalk") == 30
     assert {k for label, k, _ in plan if label == "smalltalk"} == {"chitchat"}
-    assert len({template for _, _, template in plan}) == 100
+    assert len({template for _, _, template in plan}) == 300
 
 
 def test_guard_draft_writes_a_todo_with_half_attacks(tmp_path: Path) -> None:

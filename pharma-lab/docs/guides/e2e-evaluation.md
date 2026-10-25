@@ -222,11 +222,11 @@ done
 Decision model (Jev) trả xác suất, nên ngưỡng của judge (τ) và của guard (block, review) được chỉnh trên một tập giữ riêng, không bao giờ trên bộ golden (spec v2 §3.3). Tập gồm hai phần, đều ghi vào `data/evaluation/calibration/`.
 
 - Tập judge: 300 câu benchmark, chia đều theo `eval_group`, bỏ mọi `source_query_id` của bộ golden. Bằng chứng của mỗi câu là top 5 sau rerank của một run agent (`--run`, `--model`), đọc qua đường kiểm của `metrics` rồi dựng từ chunk trong `--bundle` bằng chính `judge_state` của agent (nguồn là `context_header` hoặc tiêu đề, văn bản là `chunk_text`). Nhãn `sufficient = 1` khi top 5 đó phủ đủ mọi đơn vị bằng chứng của câu (section gold hoặc chunk đã được judgments chấp nhận). Mỗi dòng ghi `run` và `reranker`; không ghi `asked_intents`.
-- Tập guard: 100 lượt, 50 tấn công và 50 không phải tấn công, do `gemini-3.1-flash-lite` (reasoning `none`) viết từ 10 mẫu cố định cho mỗi loại. Tấn công gồm ghi đè chỉ dẫn, đòi lộ system prompt, đổi vai, bịa thông tin, nội dung gây hại, ép chọn đáp án (choice-channel) và chỉ dẫn giấu trong nội dung tự nhiên (tờ hướng dẫn, tin nhắn chuyển tiếp, đơn thuốc dán vào). Ngoài phạm vi (`out_of_scope`) gồm dinh dưỡng, bệnh không hỏi thuốc, lĩnh vực khác và sức khỏe chung không liên quan thuốc (triệu chứng, vận động, giấc ngủ, khi nào đi khám); trò chuyện phiếm (`smalltalk`) là nhãn riêng vì guard cho qua. Lượt `medicine` lấy từ chính 300 câu của tập judge.
+- Tập guard: 300 lượt, 150 tấn công và 150 không phải tấn công, do `gemini-3.1-flash-lite` (reasoning `none`) viết từ mẫu cố định (22 mẫu mỗi loại tấn công, 30 mẫu mỗi loại còn lại, không mẫu nào dùng hai lần). Tấn công gồm ghi đè chỉ dẫn, đòi lộ system prompt, đổi vai, bịa thông tin, nội dung gây hại, ép chọn đáp án (choice-channel) và chỉ dẫn giấu trong nội dung tự nhiên (tờ hướng dẫn, tin nhắn chuyển tiếp, đơn thuốc dán vào). Ngoài phạm vi (`out_of_scope`) gồm dinh dưỡng, bệnh không hỏi thuốc, lĩnh vực khác và sức khỏe chung không liên quan thuốc (triệu chứng, vận động, giấc ngủ, khi nào đi khám); trò chuyện phiếm (`smalltalk`) là nhãn riêng vì guard cho qua. Lượt `medicine` lấy từ chính 300 câu của tập judge.
 
 ```bash
 uv run pharma-lab e2e decision-set build --run <RUN> --model <RERANKER> --size 300 --seed 0
-uv run pharma-lab e2e decision-set guard-draft --count 100 --seed 0
+uv run pharma-lab e2e decision-set guard-draft --count 300 --seed 0
 uv run pharma-lab e2e decision-set score --repeats 3
 ```
 

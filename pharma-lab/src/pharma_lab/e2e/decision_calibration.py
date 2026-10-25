@@ -229,7 +229,7 @@ def _guard_plan(count: int, seed: int) -> list[tuple[str, str, str]]:
 
 
 async def draft_guard_set(
-    llm: LlmPort, output: Path, *, count: int = 100, seed: int = 0
+    llm: LlmPort, output: Path, *, count: int = 300, seed: int = 0
 ) -> Path:
     """Draft `count` guard turns into a `.todo.jsonl` the author reviews turn by turn.
 

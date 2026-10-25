@@ -1507,7 +1507,7 @@ def decision_set_build(
 @decision_set_app.command("guard-draft")
 def decision_set_guard_draft(
     ctx: typer.Context,
-    count: Annotated[int, typer.Option("--count", min=2)] = 100,
+    count: Annotated[int, typer.Option("--count", min=2)] = 300,
     seed: Annotated[int, typer.Option("--seed")] = 0,
     output: Annotated[Path, typer.Option("--output", dir_okay=False)] = (
         DECISION_CALIBRATION_DIR / "guard_set.todo.jsonl"
