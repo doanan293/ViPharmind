@@ -59,8 +59,12 @@ def test_answerable_sample_is_deterministic_and_balanced() -> None:
     text = corpus()
     source = rows(text)
 
-    first = sample_answerable(source, per_group=20, seed=3, corpus=text)
-    second = sample_answerable(source, per_group=20, seed=3, corpus=text)
+    first = sample_answerable(
+        source, quotas=dict.fromkeys(EVAL_GROUPS, 20), seed=3, corpus=text
+    )
+    second = sample_answerable(
+        source, quotas=dict.fromkeys(EVAL_GROUPS, 20), seed=3, corpus=text
+    )
 
     assert first == second
     assert Counter(row["eval_group"] for row in first) == dict.fromkeys(EVAL_GROUPS, 20)
@@ -77,7 +81,9 @@ def test_answerable_sample_is_deterministic_and_balanced() -> None:
 def test_answerable_sample_needs_enough_rows() -> None:
     text = corpus()
     with pytest.raises(ValueError, match="need 500"):
-        sample_answerable(rows(text), per_group=500, seed=0, corpus=text)
+        sample_answerable(
+            rows(text), quotas=dict.fromkeys(EVAL_GROUPS, 500), seed=0, corpus=text
+        )
 
 
 def test_multi_turn_pairs_share_a_document_and_skip_excluded_rows() -> None:

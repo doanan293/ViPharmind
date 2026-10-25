@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 import random
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from pharma_lab.bundle.corpus_text import CorpusText
-from pharma_lab.e2e.golden import EVAL_GROUPS, ID_PREFIX, Category
+from pharma_lab.e2e.golden import ID_PREFIX, Category
 from pharma_lab.evaluation.backend_retrieval import sample_quotas
 
 Row = dict[str, Any]
@@ -26,12 +26,12 @@ def _usable(row: Row, corpus: CorpusText) -> bool:
 
 
 def sample_answerable(
-    rows: Sequence[Row], *, per_group: int, seed: int, corpus: CorpusText
+    rows: Sequence[Row], *, quotas: Mapping[str, int], seed: int, corpus: CorpusText
 ) -> list[Row]:
-    """`per_group` rows per eval group, proportional over intent x answer_mode."""
+    """`quotas[group]` rows per eval group, proportional over intent x answer_mode."""
     rng = random.Random(seed)
     chosen: set[int] = set()
-    for group in EVAL_GROUPS:
+    for group, per_group in quotas.items():
         strata: dict[tuple[str, str], list[int]] = defaultdict(list)
         for index, row in enumerate(rows):
             if row.get("eval_group") == group and _usable(row, corpus):
@@ -42,11 +42,11 @@ def sample_answerable(
             raise ValueError(
                 f"eval group {group} has {available} usable rows, need {per_group}"
             )
-        quotas = sample_quotas(
+        per_stratum = sample_quotas(
             {key: len(indices) for key, indices in strata.items()}, per_group
         )
         for key, indices in strata.items():
-            chosen.update(rng.sample(indices, quotas[key]))
+            chosen.update(rng.sample(indices, per_stratum[key]))
     return [rows[index] for index in sorted(chosen)]
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 from collections import Counter
-from collections.abc import Sequence, Set
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -17,7 +17,6 @@ from pharma_lab.artifacts.manifest import sha256_file, write_json
 from pharma_lab.bundle.corpus_text import CorpusText, normalize_space
 
 SCHEMA = "e2e-golden-v3"
-ANSWERABLE_PER_GROUP = 30
 EVAL_GROUPS = (
     "formulary",
     "leaflet",
@@ -49,9 +48,16 @@ class ExpectedBehavior(StrEnum):
 # alias, a plain-language phrase for an abbreviated term). The conversational group is the
 # multi_turn category (spec §3.0b, §3.1).
 ANSWERABLE_GROUP_QUOTAS: dict[str, int] = {
-    **dict.fromkeys(EVAL_GROUPS, ANSWERABLE_PER_GROUP),
-    "colloquial": 20,
-    "glossary": 10,
+    # Spec v2 appendix C.2: 520 natural items in the benchmark's group shares, at least
+    # 30 per group.
+    "formulary": 212,
+    "leaflet": 106,
+    "structured": 51,
+    "leaflet_short": 31,
+    "multi_intent": 30,
+    "noisy": 30,
+    "glossary": 30,
+    "colloquial": 30,
 }
 CONVERSATIONAL_GROUP = "conversational"
 # Slice items are answerable items of the rule-built groups drawn at random from one
@@ -63,27 +69,27 @@ CONVERSATIONAL_GROUP = "conversational"
 # system's result, and was checked to separate its layer on retrieval runs. An item
 # keeps its group.
 SLICE_QUOTAS: dict[str, int] = {
-    "header_dependent": 20,
-    "name_variant": 20,
-    "sibling_products": 20,
+    "header_dependent": 30,
+    "name_variant": 30,
+    "sibling_products": 30,
 }
 SLICE_KINDS = tuple(SLICE_QUOTAS)
 # Multi-turn items per phenomenon of the benchmark's conversational group.
 MULTI_TURN_QUOTAS: dict[str, int] = {
-    "pronoun": 7,
-    "ellipsis": 7,
-    "intent_shift": 6,
-    "drug_shift": 6,
-    "answer_entity": 6,
-    "topic_switch": 6,
-    "multi_intent": 6,
-    "noisy_followup": 6,
+    "pronoun": 20,
+    "ellipsis": 20,
+    "intent_shift": 20,
+    "drug_shift": 20,
+    "answer_entity": 20,
+    "topic_switch": 20,
+    "multi_intent": 20,
+    "noisy_followup": 20,
 }
 
 QUOTAS: dict[Category, int] = {
     Category.ANSWERABLE: sum(ANSWERABLE_GROUP_QUOTAS.values())
     + sum(SLICE_QUOTAS.values()),
-    Category.MULTI_HOP: 150,
+    Category.MULTI_HOP: 200,
     Category.MULTI_TURN: sum(MULTI_TURN_QUOTAS.values()),
     Category.UNANSWERABLE: 10,
     Category.OUT_OF_SCOPE: 10,
@@ -106,21 +112,15 @@ BEHAVIOR: dict[Category, ExpectedBehavior] = {
     Category.INJECTION: ExpectedBehavior.BLOCKED,
 }
 
-# Questions one retrieval round answers only in part, each kind aimed at one part of the
-# harness (spec §3.0b). From the benchmark: a clean question whose gold section the first
-# round misses, a noisy or misspelled one that misses, and a three-intent question whose
-# sections fall in two chunks. Generated from the corpus: two drugs whose evidence sits in
-# two monographs, and a brand whose leaflet lacks the section its ingredient's monograph
-# has.
-# The two benchmark kinds hold every first-round miss the review kept: one round of
-# hybrid search and reranking misses few clean questions, so the generated kinds, which
-# need two documents by construction, take the rest of the 150.
+# Questions whose evidence sits in two documents or in several sections by construction
+# (spec v2 appendix C.2), drawn from the benchmark's multi_hop group: two drugs whose
+# evidence sits in two monographs, a brand whose leaflet lacks the section its
+# ingredient's monograph has, and a three-intent question on one drug. No kind is chosen
+# from a system's misses.
 MULTI_HOP_QUOTAS: dict[str, int] = {
-    "retrieval_miss": 25,
-    "noisy_retry": 25,
-    "three_intent": 16,
-    "two_drug": 48,
-    "brand_to_ingredient": 36,
+    "two_drug": 70,
+    "brand_to_ingredient": 65,
+    "three_intent": 65,
 }
 MULTI_HOP_KINDS = tuple(MULTI_HOP_QUOTAS)
 
@@ -372,6 +372,37 @@ def validate_items(
     return problems
 
 
+SAFETY = frozenset({Category.UNANSWERABLE, Category.OUT_OF_SCOPE, Category.INJECTION})
+
+
+def _benchmark_problems(
+    items: Sequence[GoldenItem], rows: Mapping[str, Mapping[str, object]]
+) -> list[str]:
+    problems: list[str] = []
+    for item in items:
+        source = str(item.source_query_id)
+        # A safety turn is a benchmark row under its own item id.
+        if item.category in SAFETY and source not in rows and item.item_id in rows:
+            continue
+        row = rows.get(source)
+        if row is None:
+            problems.append(f"{item.item_id}: source {source} is not a benchmark row")
+            continue
+        if item.category is not Category.MULTI_HOP:
+            continue
+        kind = next((tag for tag in item.tags if tag in MULTI_HOP_KINDS), None)
+        if row.get("eval_group") != "multi_hop":
+            problems.append(
+                f"{item.item_id}: source {source} is not in the multi_hop group"
+            )
+        elif row.get("query_form") != kind:
+            problems.append(
+                f"{item.item_id}: kind {kind} but source {source} is "
+                f"{row.get('query_form')}"
+            )
+    return problems
+
+
 def build_golden(
     sources: Sequence[Path],
     output: Path,
@@ -379,11 +410,12 @@ def build_golden(
     *,
     bundle_manifest_sha256: str,
     gold_sha256: str,
-    benchmark_ids: Set[str] | None = None,
+    benchmark_rows: Mapping[str, Mapping[str, object]] | None = None,
 ) -> GoldenManifest:
     """Validate authored batches and freeze them into one sorted golden file. With
-    `benchmark_ids`, every item must be a row of the benchmark (its source_query_id, or
-    its own item id for the rows the golden set adds)."""
+    `benchmark_rows` (query id -> benchmark row), every item must be a row of the
+    benchmark: its source_query_id, or its own item id for a safety turn; a multi-hop item
+    must point at a multi_hop row of its own kind."""
     if not sources:
         raise ValueError("no authored batches to build from")
     items: list[GoldenItem] = []
@@ -393,15 +425,8 @@ def build_golden(
         items.extend(batch)
         problems.extend(batch_problems)
     problems.extend(validate_items(items, corpus, complete=True))
-    if benchmark_ids is not None:
-        # A generated multi-hop item or a safety turn is a benchmark row under its own
-        # item id; every other item points at its row with source_query_id.
-        problems.extend(
-            f"{item.item_id}: source {item.source_query_id} is not a benchmark row"
-            for item in items
-            if item.source_query_id not in benchmark_ids
-            and item.item_id not in benchmark_ids
-        )
+    if benchmark_rows is not None:
+        problems.extend(_benchmark_problems(items, benchmark_rows))
     if problems:
         raise ValueError(
             f"golden set has {len(problems)} problem(s):\n" + "\n".join(problems)

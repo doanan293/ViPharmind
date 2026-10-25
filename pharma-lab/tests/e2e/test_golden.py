@@ -110,9 +110,9 @@ def test_golden_schema_is_v3_without_chunk_ids() -> None:
 
 
 def test_answerable_groups_follow_the_benchmark_and_slice_items_keep_theirs() -> None:
-    assert sum(ANSWERABLE_GROUP_QUOTAS.values()) + sum(SLICE_QUOTAS.values()) == 270
-    assert ANSWERABLE_GROUP_QUOTAS["colloquial"] == 20
-    assert ANSWERABLE_GROUP_QUOTAS["glossary"] == 10
+    assert sum(ANSWERABLE_GROUP_QUOTAS.values()) + sum(SLICE_QUOTAS.values()) == 610
+    assert ANSWERABLE_GROUP_QUOTAS["colloquial"] == 30
+    assert ANSWERABLE_GROUP_QUOTAS["glossary"] == 30
     ok = [
         answerable("e2e-ans-0001", eval_group="colloquial"),
         answerable("e2e-ans-s0001", eval_group="leaflet", tags=["sibling_products"]),
@@ -130,7 +130,7 @@ def test_answerable_groups_follow_the_benchmark_and_slice_items_keep_theirs() ->
 
 def test_multi_turn_items_are_conversational_with_one_phenomenon() -> None:
     assert set(MULTI_TURN_QUOTAS) == set(PHENOMENA)
-    assert sum(MULTI_TURN_QUOTAS.values()) == 50
+    assert sum(MULTI_TURN_QUOTAS.values()) == 160
     good = multi_turn("e2e-mt-0001", tags=["pronoun"])
     assert validate_items([good], CORPUS, complete=False) == []
     wrong = multi_turn("e2e-mt-0002", eval_group="formulary", tags=[])
@@ -140,28 +140,16 @@ def test_multi_turn_items_are_conversational_with_one_phenomenon() -> None:
     ]
 
 
-def test_golden_keeps_500_items_with_a_multi_hop_split() -> None:
-    assert QUOTAS[Category.ANSWERABLE] == 270
-    assert QUOTAS[Category.MULTI_HOP] == 150
-    assert sum(QUOTAS.values()) == 500
-
-
 def test_a_multi_hop_item_names_exactly_one_kind() -> None:
     assert validate_items([multi_hop()], CORPUS, complete=False) == []
-    assert MULTI_HOP_KINDS == (
-        "retrieval_miss",
-        "noisy_retry",
-        "three_intent",
-        "two_drug",
-        "brand_to_ingredient",
-    )
+    assert MULTI_HOP_KINDS == ("two_drug", "brand_to_ingredient", "three_intent")
     assert sum(MULTI_HOP_QUOTAS.values()) == QUOTAS[Category.MULTI_HOP]
     untagged = multi_hop(tags=[])
     both = multi_hop(tags=["two_drug", "three_intent"])
     for item in (untagged, both):
         assert validate_items([item], CORPUS, complete=False) == [
             "e2e-mhop-0001: multi_hop items need exactly one kind tag "
-            "(retrieval_miss, noisy_retry, three_intent, two_drug, brand_to_ingredient)"
+            "(two_drug, brand_to_ingredient, three_intent)"
         ]
 
 
@@ -299,10 +287,10 @@ def test_complete_sets_must_match_the_quotas() -> None:
         if item.item_id not in {"e2e-ans-leaflet-00", "e2e-mhop-two_drug-0000"}
     ]
     assert validate_items(short, CORPUS, complete=True) == [
-        "answerable: 269 items, expected 270",
-        "multi_hop: 149 items, expected 150",
-        "answerable leaflet: 29 items, expected 30",
-        "multi_hop two_drug: 47 items, expected 48",
+        "answerable: 609 items, expected 610",
+        "multi_hop: 199 items, expected 200",
+        "answerable leaflet: 105 items, expected 106",
+        "multi_hop two_drug: 69 items, expected 70",
     ]
 
 
@@ -338,59 +326,121 @@ def test_build_freezes_sorted_items_and_a_manifest(tmp_path: Path) -> None:
     manifest = json.loads(manifest_path(output).read_text("utf-8"))
     assert manifest["schema"] == "e2e-golden-v3"
     assert manifest["counts"] == {
-        "answerable": 270,
+        "answerable": 610,
         "injection": 10,
-        "multi_hop": 150,
-        "multi_turn": 50,
+        "multi_hop": 200,
+        "multi_turn": 160,
         "out_of_scope": 10,
         "unanswerable": 10,
     }
-    assert manifest["answerable_per_group"]["leaflet"] == 30
-    assert manifest["answerable_per_group"]["colloquial"] == 20
+    assert manifest["answerable_per_group"]["leaflet"] == 106
+    assert manifest["answerable_per_group"]["colloquial"] == 30
     assert len(manifest["sha256"]) == 64
 
 
-def test_build_needs_every_item_to_be_a_benchmark_row(tmp_path: Path) -> None:
-    items = [
-        item.model_copy(update={"source_query_id": item.item_id})
-        if item.source_query_id is None
-        else item
-        for item in complete_set()
+def benchmark_rows(items: list[GoldenItem]) -> dict[str, dict[str, object]]:
+    """The benchmark row each item points at: multi-hop rows carry their kind."""
+    rows: dict[str, dict[str, object]] = {}
+    for item in items:
+        key = item.source_query_id or item.item_id
+        if item.category is Category.MULTI_HOP:
+            kind = next(tag for tag in item.tags if tag in MULTI_HOP_KINDS)
+            rows[key] = {"eval_group": "multi_hop", "query_form": kind}
+        else:
+            rows[key] = {"eval_group": item.eval_group or "safety"}
+    return rows
+
+
+def unique_sources(items: list[GoldenItem]) -> list[GoldenItem]:
+    return [
+        item
+        if item.category.value in {"unanswerable", "out_of_scope", "injection"}
+        else item.model_copy(update={"source_query_id": f"row-{item.item_id}"})
+        for item in items
     ]
+
+
+def build_with_rows(
+    tmp_path: Path, items: list[GoldenItem], rows: dict[str, dict[str, object]]
+) -> object:
     source = write_batch(tmp_path / "all.authored.jsonl", items)
-    ids = {str(item.source_query_id) for item in items}
-    missing = next(iter(ids))
+    return build_golden(
+        [source],
+        tmp_path / "golden_e2e.jsonl",
+        CORPUS,
+        bundle_manifest_sha256="b" * 64,
+        gold_sha256="g" * 64,
+        benchmark_rows=rows,
+    )
+
+
+def test_quotas_follow_appendix_c() -> None:
+    assert sum(QUOTAS.values()) == 1000
+    assert ANSWERABLE_GROUP_QUOTAS == {
+        "formulary": 212,
+        "leaflet": 106,
+        "structured": 51,
+        "leaflet_short": 31,
+        "multi_intent": 30,
+        "noisy": 30,
+        "glossary": 30,
+        "colloquial": 30,
+    }
+    assert (
+        dict.fromkeys(("header_dependent", "name_variant", "sibling_products"), 30)
+        == SLICE_QUOTAS
+    )
+    assert set(MULTI_TURN_QUOTAS.values()) == {20}
+    assert len(MULTI_TURN_QUOTAS) == 8
+    assert MULTI_HOP_QUOTAS == {
+        "two_drug": 70,
+        "brand_to_ingredient": 65,
+        "three_intent": 65,
+    }
+    assert QUOTAS[Category.MULTI_HOP] == 200
+
+
+def test_build_needs_every_item_to_be_a_benchmark_row(tmp_path: Path) -> None:
+    items = unique_sources(complete_set())
+    rows = benchmark_rows(items)
+    build_with_rows(tmp_path, items, rows)
+    missing = str(items[0].source_query_id)
     with pytest.raises(ValueError, match=f"source {missing} is not a benchmark row"):
-        build_golden(
-            [source],
-            tmp_path / "golden_e2e.jsonl",
-            CORPUS,
-            bundle_manifest_sha256="b" * 64,
-            gold_sha256="g" * 64,
-            benchmark_ids=ids - {missing},
+        build_with_rows(
+            tmp_path, items, {k: v for k, v in rows.items() if k != missing}
         )
-    build_golden(
-        [source],
-        tmp_path / "golden_e2e.jsonl",
-        CORPUS,
-        bundle_manifest_sha256="b" * 64,
-        gold_sha256="g" * 64,
-        benchmark_ids=ids,
-    )
-    # A generated multi-hop item is a benchmark row under its own item id.
+
+
+def test_multi_hop_kind_must_match_its_benchmark_row(tmp_path: Path) -> None:
+    items = unique_sources(complete_set())
+    rows = benchmark_rows(items)
+    hop = next(item for item in items if "two_drug" in item.tags)
+    rows[str(hop.source_query_id)] = {
+        "eval_group": "multi_hop",
+        "query_form": "three_intent",
+    }
+    with pytest.raises(ValueError, match=f"{hop.item_id}: .*two_drug.*three_intent"):
+        build_with_rows(tmp_path, items, rows)
+
+
+def test_a_multi_hop_item_must_come_from_the_multi_hop_group(tmp_path: Path) -> None:
+    items = unique_sources(complete_set())
+    rows = benchmark_rows(items)
+    hop = next(item for item in items if item.category is Category.MULTI_HOP)
+    rows[str(hop.source_query_id)] = {"eval_group": "formulary"}
+    with pytest.raises(ValueError, match=f"{hop.item_id}: .*multi_hop group"):
+        build_with_rows(tmp_path, items, rows)
+
+
+def test_a_generated_source_outside_the_benchmark_is_rejected(tmp_path: Path) -> None:
+    items = unique_sources(complete_set())
     hop = next(i for i, item in enumerate(items) if item.category is Category.MULTI_HOP)
-    items[hop] = items[hop].model_copy(update={"source_query_id": "gen-two-drug-0001"})
-    source = write_batch(tmp_path / "all.authored.jsonl", items)
-    build_golden(
-        [source],
-        tmp_path / "golden_e2e.jsonl",
-        CORPUS,
-        bundle_manifest_sha256="b" * 64,
-        gold_sha256="g" * 64,
-        benchmark_ids={str(item.source_query_id) for item in items}
-        - {"gen-two-drug-0001"}
-        | {items[hop].item_id},
-    )
+    rows = benchmark_rows(items)
+    # The item's own id is a benchmark row, but the source it names is not.
+    rows[items[hop].item_id] = rows.pop(str(items[hop].source_query_id))
+    items[hop] = items[hop].model_copy(update={"source_query_id": "gen-two-drug-0078"})
+    with pytest.raises(ValueError, match="source gen-two-drug-0078 is not a benchmark"):
+        build_with_rows(tmp_path, items, rows)
 
 
 def test_build_reports_every_problem_and_writes_nothing(tmp_path: Path) -> None:

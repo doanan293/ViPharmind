@@ -73,18 +73,18 @@ def only_first_section() -> DraftReference:
 
 def test_needed_counts_top_the_quotas_up() -> None:
     assert needed_counts({}) == {
-        "retrieval_miss": 25,
-        "noisy_retry": 25,
-        "three_intent": 16,
-        "two_drug": 48,
-        "brand_to_ingredient": 36,
+        "two_drug": 70,
+        "brand_to_ingredient": 65,
+        "three_intent": 65,
     }
-    topped = needed_counts({"noisy_retry": 25, "three_intent": 20, "two_drug": 1})
-    assert (topped["noisy_retry"], topped["three_intent"], topped["two_drug"]) == (
-        0,
-        0,
-        47,
+    topped = needed_counts(
+        {"brand_to_ingredient": 65, "three_intent": 70, "two_drug": 1}
     )
+    assert (
+        topped["brand_to_ingredient"],
+        topped["three_intent"],
+        topped["two_drug"],
+    ) == (0, 0, 69)
 
 
 def test_select_drops_used_queries_and_is_seeded() -> None:
@@ -162,8 +162,8 @@ async def test_ids_run_across_kinds_in_kind_order() -> None:
         first_number=53,
     )
     assert [(i.item_id, i.tags) for i in items] == [
-        ("e2e-mhop-0053", ["three_intent"]),
-        ("e2e-mhop-0054", ["two_drug"]),
+        ("e2e-mhop-0053", ["two_drug"]),
+        ("e2e-mhop-0054", ["three_intent"]),
     ]
 
 
@@ -301,7 +301,7 @@ async def test_a_slice_item_is_drafted_as_an_answerable_item_with_its_own_ids(
     assert item.eval_group == "formulary"
     paths = write_drafts(tmp_path, items, [], family=SLICE)
     assert [p.name for p in paths] == ["slice-01.draft.jsonl", "slice.failed.jsonl"]
-    assert needed_counts({"name_variant": 5}, SLICE)["name_variant"] == 15
+    assert needed_counts({"name_variant": 5}, SLICE)["name_variant"] == 25
     (tmp_path / "slice-01.authored.jsonl").write_text(
         paths[0].read_text("utf-8"), encoding="utf-8"
     )

@@ -68,8 +68,9 @@ from pharma_lab.e2e.decision_scoring import (
     write_scores,
 )
 from pharma_lab.e2e.golden import (
-    ANSWERABLE_PER_GROUP,
+    ANSWERABLE_GROUP_QUOTAS,
     CONVERSATIONAL_GROUP,
+    EVAL_GROUPS,
     MULTI_HOP_QUOTAS,
     QUOTAS,
     Category,
@@ -199,7 +200,10 @@ def golden_sample(
         corpus = corpus_text(knowledge)
         rows = load_query_rows(evaluation)
         answerable = sample_answerable(
-            rows, per_group=ANSWERABLE_PER_GROUP, seed=seed, corpus=corpus
+            rows,
+            quotas={group: ANSWERABLE_GROUP_QUOTAS[group] for group in EVAL_GROUPS},
+            seed=seed,
+            corpus=corpus,
         )
         pairs = sample_multi_turn(
             rows,
@@ -563,10 +567,11 @@ def golden_build(
             load_corpus_text(bundle),
             bundle_manifest_sha256=sha256_file(bundle / "manifest.json"),
             gold_sha256=sha256_file(evaluation),
-            benchmark_ids={
-                str(json.loads(line)["query_id"])
-                for line in evaluation.read_text(encoding="utf-8").splitlines()
-                if line.strip()
+            benchmark_rows={
+                str(row["query_id"]): row
+                for row in map(
+                    json.loads, evaluation.read_text(encoding="utf-8").splitlines()
+                )
             },
         )
         return CommandResult(
