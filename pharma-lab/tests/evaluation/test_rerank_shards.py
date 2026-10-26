@@ -71,11 +71,18 @@ def score_cache(path: Path) -> RerankScoreCache:
     )
 
 
-def score_query(cache: RerankScoreCache, artifact_path: Path, query_id: str) -> None:
+def score_query(
+    cache: RerankScoreCache,
+    artifact_path: Path,
+    query_id: str,
+    only: str | None = None,
+) -> None:
     for row in CandidateArtifactReader.from_data_path(artifact_path):
         if row["query_id"] != query_id:
             continue
         for item in row["candidates"]:
+            if only is not None and item["chunk_id"] != only:
+                continue
             candidate = RetrievalCandidate(
                 chunk_id=item["chunk_id"],
                 score=float(item["retrieval_score"]),
@@ -175,6 +182,28 @@ def test_shard_input_is_a_subset_with_a_consistent_manifest(tmp_path: Path) -> N
     assert isinstance(call["local_checkpoint"], RerankCacheCheckpoint)
 
 
+def test_shard_input_holds_only_the_pairs_the_cache_lacks(tmp_path: Path) -> None:
+    # A query with one missing pair must not send all its candidates: the kernel scores
+    # every pair it receives, so a whole query per missing pair multiplies the GPU time.
+    runner = Runner(tmp_path)
+    adapter, artifact, cache_path, _ = make(tmp_path, runner)
+    score_query(score_cache(cache_path), artifact.data_path, "q1", only="chunk-1")
+    shard = Shard("abc", (WorkUnit("q1", 2.0), WorkUnit("q3", 2.0)), "")
+
+    adapter.run_shard(shard, reserved("acc2"))
+
+    subset = Path(runner.calls[0]["input_path"])
+    rows = list(CandidateArtifactReader.from_data_path(subset))
+    assert [
+        (r["query_id"], [c["chunk_id"] for c in r["candidates"]]) for r in rows
+    ] == [
+        ("q1", ["chunk-2"]),
+        ("q3", ["chunk-1"]),
+    ]
+    manifest = json.loads(subset.with_name("manifest.json").read_text())
+    assert manifest["identity"]["pair_count"] == 2
+
+
 def test_subset_files_are_deterministic_so_a_relaunch_attaches(tmp_path: Path) -> None:
     runner = Runner(tmp_path)
     adapter, _, _, _ = make(tmp_path, runner)
@@ -197,12 +226,13 @@ def test_subset_files_are_deterministic_so_a_relaunch_attaches(tmp_path: Path) -
 def test_checkpoint_source_counts_only_the_shard_pairs(tmp_path: Path) -> None:
     runner = Runner(tmp_path)
     adapter, artifact, cache_path, _ = make(tmp_path, runner)
-    cache = score_cache(cache_path)
-    for query in QUERIES:
-        score_query(cache, artifact.data_path, query)
     shard = Shard("abc", (WorkUnit("q2", 2.0), WorkUnit("q3", 2.0)), "")
     adapter.run_shard(shard, reserved())
     subset = Path(runner.calls[0]["input_path"])
+    # The kernel's scores arrive in the cache, along with pairs of other queries.
+    cache = score_cache(cache_path)
+    for query in QUERIES:
+        score_query(cache, artifact.data_path, query)
     job = stage_job(subset.parent, stage=StageName.RERANK, model=MODEL)
     job = replace(job, input_bundle=_bundle(subset), expected_total=2)
 

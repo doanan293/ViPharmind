@@ -196,15 +196,28 @@ class RerankShardAdapter:
         wanted = {unit.key for unit in shard.units}
         directory = self._work_dir / f"shard-{shard.shard_id}"
         directory.mkdir(parents=True, exist_ok=True)
+        cache = self._cache()
+        have = cache.records
         lines: list[str] = []
         pairs = 0
         for raw in self._candidates.read_text(encoding="utf-8").splitlines():
             if not raw.strip():
                 continue
             row = json.loads(raw)
-            if str(row["query_id"]) in wanted:
-                lines.append(raw)
-                pairs += len(row["candidates"])
+            if str(row["query_id"]) not in wanted:
+                continue
+            # The kernel scores every pair it receives; pairs are scored one by one, so
+            # only the ones the cache lacks are sent.
+            missing = [
+                item
+                for item in row["candidates"]
+                if cache.item_key(self.model, row, item) not in have
+            ]
+            if missing:
+                lines.append(
+                    json.dumps({**row, "candidates": missing}, ensure_ascii=False)
+                )
+                pairs += len(missing)
         data = directory / self._candidates.name
         data.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
         source = load_manifest(self._candidates.with_name("manifest.json"))

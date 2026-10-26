@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -257,23 +258,29 @@ class RerankScoreCache:
                 f"Missing rerank score for {key.query_id}/{key.chunk_id}"
             ) from exc
 
+    def item_key(
+        self, reranker: str, record: Mapping[str, Any], item: Mapping[str, Any]
+    ) -> RerankKey:
+        """The key of one candidate of a candidate-artifact row."""
+        candidate = RetrievalCandidate(
+            chunk_id=item["chunk_id"],
+            score=float(item["retrieval_score"]),
+            rank=int(item["retrieval_rank"]),
+            source=str(item["source"]),
+            payload=dict(item.get("payload") or {}),
+            document_text=str(item["document_text"]),
+            document_hash=str(item["document_hash"]),
+        )
+        query_row = {"query_id": record["query_id"], "query": record["query"]}
+        return self.key_for(reranker, query_row, candidate)
+
     def expected_keys_from_candidates(
         self,
         candidate_data_path: Path,
         reranker: str,
     ) -> builtins.set[RerankKey]:
-        expected: set[RerankKey] = set()
-        for record in CandidateArtifactReader.from_data_path(candidate_data_path):
-            query_row = {"query_id": record["query_id"], "query": record["query"]}
-            for item in record["candidates"]:
-                candidate = RetrievalCandidate(
-                    chunk_id=item["chunk_id"],
-                    score=float(item["retrieval_score"]),
-                    rank=int(item["retrieval_rank"]),
-                    source=str(item["source"]),
-                    payload=dict(item.get("payload") or {}),
-                    document_text=str(item["document_text"]),
-                    document_hash=str(item["document_hash"]),
-                )
-                expected.add(self.key_for(reranker, query_row, candidate))
-        return expected
+        return {
+            self.item_key(reranker, record, item)
+            for record in CandidateArtifactReader.from_data_path(candidate_data_path)
+            for item in record["candidates"]
+        }
