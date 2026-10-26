@@ -1,6 +1,9 @@
 # Run các ablation retrieval của Phụ lục C (S2, D1, D2, D6 rrf60, D7) và tập judge §3.3
 
-**Trạng thái:** đang chạy (2026-10-26). Plan vận hành: không có mã mới, chỉ chạy lệnh có sẵn và ghi số.
+**Trạng thái (2026-10-26 23:00):** việc 1 xong (S2 chọn Qwen3-Reranker-4B sau khi S1 chạy lại trên
+Qdrant sạch chọn hybrid Qwen3-Embedding-4B; quy ước bên dưới nay áp với 4B, không phải 8B), việc 2, 3, 5,
+6 xong; việc 4 (D2) đang rerank trên acc3; việc 7 xong trừ dòng D2. Plan vận hành: không có mã mới ngoài
+hai bản sửa (`e125655` import khôi phục point, `5e7043b` shard chỉ gửi cặp còn thiếu).
 
 **Goal:** Chốt S2, rồi có đủ số retrieval cho D1, D2, D6 (rrf60), D7 trên golden `9c6e4de6…`, judgments
 rules_version 2, cùng embedding và reranker mà §3.4 chọn; dựng tập judge 300 câu của §3.3.

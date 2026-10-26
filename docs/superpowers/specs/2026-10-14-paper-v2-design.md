@@ -4,7 +4,7 @@
 "Lịch sử gộp" cuối bảng tiến độ). Nhánh: `v2.0.0`. Nền: release v1.0.0 (bản nộp SoICT 2026),
 tag `v1.1.0` (camera-ready) và ghi chú nghiên cứu trong `docs/research/paper-v2/`.
 
-## Bảng tiến độ (cập nhật 2026-10-25)
+## Bảng tiến độ (cập nhật 2026-10-26)
 
 Mỗi pha có một plan trong `docs/superpowers/plans/`. Plan chỉ tồn tại khi pha đã được triển khai;
 pha chưa tới thì chưa có plan, tới lúc đó mới viết (brainstorm, viết plan, làm). "Mã" là code đã
@@ -14,10 +14,10 @@ merge vào `v2.0.0` kèm test; "chạy" là thí nghiệm đã có số trong `p
 | --- | --- | --- | --- | --- |
 | Nền: quy tắc kiến trúc (`AGENTS.md`, import-linter, vị trí test) | Xong | Không áp dụng | `2026-10-16-architecture-rules.md` | Không |
 | Nền: bản camera-ready SoICT (tag `v1.1.0`) | Xong | Xong | `2026-10-19-camera-ready.md` | Dọn nhánh `camera-ready` giữ đến sau buổi trình bày |
-| Nền: chuẩn hoá đánh giá (Phụ lục C: luật chọn, judgments mọi nhóm, golden 1.000 câu, tập giữ lại) | Xong (mã, dữ liệu) | Golden v4 chốt (1.000 câu, sha `1dae2820…`) và guard set 300 lượt chốt, cả hai qua hai vòng duyệt bằng model và dược sĩ xem lướt; tập judge §3.3 chờ S2 | `2026-10-25-retrieval-eval-standardization.md`, `2026-10-25-golden-e2e-v4.md` | Xem hai plan |
+| Nền: chuẩn hoá đánh giá (Phụ lục C: luật chọn, judgments mọi nhóm, golden 1.000 câu, tập giữ lại) | Xong (mã, dữ liệu) | Golden v4 chốt (1.000 câu, sha `1dae2820…`) và guard set 300 lượt chốt, cả hai qua hai vòng duyệt bằng model và dược sĩ xem lướt; tập judge §3.3 dựng xong (300 câu) | `2026-10-25-retrieval-eval-standardization.md`, `2026-10-25-golden-e2e-v4.md` | Xem hai plan |
 | Nền: Kaggle chạy trọn trong kernel, bỏ tunnel | Xong | Xong, hai vòng nghiệm thu trên Kaggle thật (Phụ lục B) | `2026-10-20-kaggle-batch-e2e.md`, `2026-10-23-kaggle-resumable-runs.md` | Không |
-| Pha D: dữ liệu (tách leaflet, chunk là đơn vị đọc, benchmark 10.000 câu, golden v3) | Xong | Giai đoạn 1 của §3.4 xong trên golden `9c6e…` (chọn hybrid-qwen8b); giai đoạn 2 tạm (chưa có reranker 8B) | `2026-10-14-paper-v2-phase-d-data.md`, `2026-10-15-chunk-reading-unit.md`, `2026-10-18-unified-benchmark.md`, `2026-10-18-eval-data-v3.md`, `2026-10-25-retrieval-eval-standardization.md` | Rerank 8B trên hybrid-qwen8b rồi chốt S2; các run Kaggle của Phụ lục C (D1, D2, D5, D7, rrf60); viết `08-phase-d-results.md` |
-| Pha 0: hạ tầng đo (reasoning token, giây, USD, `compare`, `--latency-run`) | Xong (Task 1–9) | Chưa: chọn xong cặp retrieval của agent; A1 Gemini, A2 Qwen và run latency chưa chạy | `2026-10-16-paper-v2-phase-0-measurement.md` | Task 10 (judge `none` so với nhãn dược sĩ v1), Task 11 (các run A1, A2), viết `09-phase-0-results.md` |
+| Pha D: dữ liệu (tách leaflet, chunk là đơn vị đọc, benchmark 10.000 câu, golden v3) | Xong | Cặp agent chốt: hybrid Qwen3-Embedding-4B + Qwen3-Reranker-4B (§3.4). Có số D1, D6 (rrf60), D7; D2 đang rerank; D4, D5 chưa | `2026-10-14-paper-v2-phase-d-data.md`, `2026-10-15-chunk-reading-unit.md`, `2026-10-18-unified-benchmark.md`, `2026-10-18-eval-data-v3.md`, `2026-10-25-retrieval-eval-standardization.md`, `2026-10-26-retrieval-ablation-runs.md` | D2 xong rồi cập nhật `08-phase-d-results.md`; D5 (thiết kế nháp `2026-10-26-d5-conversational-rewrite-design.md`); D4 |
+| Pha 0: hạ tầng đo (reasoning token, giây, USD, `compare`, `--latency-run`) | Xong (Task 1–9) | Chưa: cặp retrieval đã chốt; A1 Gemini, A2 Qwen và run latency chưa chạy (chờ quota 2026-10-31) | `2026-10-16-paper-v2-phase-0-measurement.md` | Task 10 (judge `none` so với nhãn dược sĩ v1), Task 11 (các run A1, A2), viết `09-phase-0-results.md` |
 | Pha 1: decision model (Jev) và refinement theo độ tin cậy | Xong (Task 1–10) | Chưa: chưa có kết quả đo token Jev, tập hiệu chuẩn, ngưỡng τ | `2026-10-16-paper-v2-phase-1-decision-model.md` | Task 4 (đo token), Task 10 (chạy hiệu chuẩn), Task 11 (run A2, A3, A4, quét τ), `10-phase-1-results.md`; cần API key Jev |
 | Pha 2: agent ReAct | Xong (Task 1–6) | Chưa | `2026-10-16-paper-v2-phase-2-react.md` | Task 7 (ma trận C), `11-phase-2-results.md`; chờ run của pha 1 |
 | Pha 3: retrieval (§3.1, D1–D7, enrichment) | Một phần: công tắc enrichment đã có (§2.6) | Chưa | Chưa viết | Brainstorm, viết plan, làm |
@@ -33,30 +33,52 @@ nối tiếp (exit 10 là tạm dừng do quota, 11 là có cặp bị kẹt). X
 Model thương mại (Gemini, Opus) chạy qua `cli-proxy-api` trong kernel với `--with-proxy-credentials`.
 Judge, `report`, `compare`, `calibration`, `decision-set` và `decision-probe` chạy local.
 
+### Tiếp phiên sau (ghi 2026-10-26 23:00)
+
+Đọc theo thứ tự: mục này, `docs/research/paper-v2/08-phase-d-results.md`, bản nháp D5
+`docs/superpowers/specs/2026-10-26-d5-conversational-rewrite-design.md`.
+
+1. **Job còn chạy:** tmux `d2acc3` rerank D2 (`hybrid-qwen4b-v3-plain-p50-k20-rrf2`, Qwen3-Reranker-4B)
+   trên acc3, log `pharma-lab/data/work/logs-d2-acc3.log`; xong thì tự chạy `metrics`. Nếu dừng giữa
+   chừng (quota, máy tắt), chạy lại đúng lệnh trong `pharma-lab/data/work/d2-continue-acc3.sh` (bỏ dòng
+   chờ) là nối tiếp. Khi xong: chạy lại `uv run python ../docs/research/paper-v2/08-phase-d-tables.py`
+   từ `pharma-lab/` để thay phần bảng tự động trong `08-phase-d-results.md`, thêm kiểm định D2, commit.
+2. **Quota Kaggle (2026-10-26 23:00):** acc1 3,3 h, acc2 3,1 h, acc3 10 h; làm mới 2026-10-31. Thứ tự
+   dùng quota đã chốt: ưu tiên theo pha, đủ 1.000 câu (A1, A2 rồi A3, A4 rồi B rồi C, sau cùng D6, E;
+   đo độ trễ concurrency 1 trên mẫu 200 câu). Ước tính Qwen3.5-9B: full khoảng 14 GPU-giờ cho 1.000
+   câu, one-step khoảng 7, closed-book khoảng 4; Gemini full khoảng 9.
+3. **D5 đang brainstorm:** người dùng đã đồng ý kết luận và các dòng của bảng; còn chờ đúng một
+   quyết định (rewriter Qwen qua OpenRouter hay chờ quota Kaggle). Sau đó: hoàn thiện tài liệu thiết
+   kế, builder check, plan (superpowers:writing-plans), làm.
+4. **Pha 0 Task 11 (A1, A2):** cấu hình mặc định `E2E_MODELS` đã đúng cặp 4B/4B; lệnh theo
+   `pharma-lab/docs/guides/e2e-evaluation.md` (`e2e run --backend kaggle`, `--llm gemini
+   --with-proxy-credentials` cho A1). Chạy thử 20 câu mỗi model trước khi chạy đủ. Tên run gợi ý
+   `e2e-v4-qwen9b`, `e2e-v4-gemini`. Proxy local: `docker compose -f compose.yaml -f
+   compose.llm-proxy.yaml up -d cli-proxy-api` (sau khi máy khởi động lại cần `--force-recreate`).
+5. **Stack:** đánh giá `vipharmind-eval` (Postgres 5434, Qdrant 6335; mỗi collection chỉ corpus
+   `formulary`; biến môi trường ở `pharma-lab/data/work/eval-env-4b.sh`). Stack tạm `vipharmind-d2`
+   (5436/6337) và `vipharmind-d7` (5437/6338) đã dừng, giữ volume; xoá được khi D2 xong. Stack v1
+   `vipharmind-v1_*` của camera-ready: không đụng.
+6. **Việc nhỏ còn để lại:** `metrics select` chưa nhận report `--gold-only` (D7 kiểm định đang tính
+   bằng script `08-phase-d-tables.py`); các minor của lần review (ledger lưu ở
+   `pharma-lab/data/work/sdd-ledgers-2026-10-25/`); lỗi gắn lại shard cũ trên account khác
+   (`generator raised StopIteration`, tool tự chia lại nên không chặn).
+
 ### Việc đang mở
 
-1. **Golden retrieval chốt `9c6e4de6…`; judgments rules_version 2** (1.704 câu, mọi nhóm). Chỉ còn 8
-   run `-v3-` trên golden này; 26 run cũ chuyển sang `pharma-lab/data/work/retired-runs/`. Kết quả
-   luật §3.4 ghi ở §3.4. Còn: rerank Qwen3-Reranker-8B trên `hybrid-qwen8b-v3-p50-k20-rrf2` để chốt
-   S2, rồi các run Kaggle của Phụ lục C.4 (D1 dense + reranker S2, D2 `plain`, `rrf60` cho D6, D5
-   Q0–Q6, D7, D4 đo encode) trên golden này.
-2. **Mọi run e2e trước đây bị bỏ** (`e2e-v2-qwen9b`, `e2e-v2-qwen9b-c1-c1`, `e2e-v2-gemini`): chạy trước
-   khi cặp retrieval được chọn bằng luật và trên golden e2e cũ (chuyển sang
-   `pharma-lab/data/work/retired-e2e-runs/`). Golden v4 đã build 1.000 câu (sha `38508761…`): 557 câu
-   mới do gemini-3.1-flash-lite nháp, Claude audit (8 câu loại, soạn bù); kiểm thiên lệch: Hit@5 mỗi
-   tầng khớp mức chọn ngẫu nhiên trong nhóm. Duyệt (2026-10-26): dược sĩ xem lướt và thấy tạm được;
-   vòng duyệt đầy đủ là của model: Claude Sonnet audit từng lô nháp, rồi Claude Opus duyệt lại cả
-   1.000 câu (908 giữ, 92 sửa, 0 loại; tỉ lệ sửa natural 7,5 %, slice 3,3 %, multi_hop 11,5 %,
-   multi_turn 16,9 %, safety 0 %) và 300 lượt guard (256 giữ, 44 sửa, 0 loại). Golden chốt sha
-   `1dae2820…`; verdict ghi ở `authoring/pharmacist/verdicts.jsonl` với nhãn `[model-review]`. Tập judge
-   §3.3 dựng 2026-10-26 từ hybrid-qwen4b + Qwen3-Reranker-4B: 300 câu, 265 đủ bằng chứng, 35 thiếu,
-   không trùng câu nguồn golden; 35 mẫu âm cho khoảng AUROC rộng, cân nhắc lấy thêm câu thiếu bằng
-   chứng (phân tầng theo nhãn) trước khi chạy hiệu chuẩn.
-3. **Bất thường cần kiểm:** dense Qwen3-Embedding-4B (Hit@20 91,1) kém cả 0,6B (95,9) trên tập chọn,
-   trong khi hybrid 4B vẫn 98,5; cần kiểm cache vector query và collection của 4B trước khi đưa vào
-   bảng D.
-4. **Chờ quyết định:** đẩy nhánh `v2.0.0`; xoá dataset đầu vào còn sót trên Kaggle (`pipeline-static-*`,
-   `pipeline-input-*`); dọn Postgres local; chạy lại Opus khi Claude hết giới hạn tốc độ.
+1. **Retrieval:** golden `9c6e4de6…`, judgments rules_version 2. Cặp agent chốt (§3.4). Run dense và
+   hybrid 4B trước 2026-10-26 bị đo trên Qdrant bẩn và đã chạy lại; bất thường "dense 4B kém 0,6B"
+   là do Qdrant, đã giải quyết (`08-phase-d-results.md`). Còn D2 (đang chạy), D4, D5.
+2. **E2E:** mọi run e2e trước đây bị bỏ (chuyển sang `pharma-lab/data/work/retired-e2e-runs/`). Golden
+   v4 chốt sha `1dae2820…`: dược sĩ xem lướt và thấy tạm được; vòng duyệt đầy đủ là của model (Claude
+   Sonnet audit từng lô nháp, rồi Claude Opus duyệt lại cả 1.000 câu: 908 giữ, 92 sửa, 0 loại; tỉ lệ sửa
+   natural 7,5 %, slice 3,3 %, multi_hop 11,5 %, multi_turn 16,9 %, safety 0 %) và 300 lượt guard (256
+   giữ, 44 sửa); bài phải ghi đúng như vậy. Tập judge §3.3: 300 câu, 265 đủ bằng chứng, 35 thiếu, không
+   trùng golden; 35 mẫu âm cho khoảng AUROC rộng, cân nhắc lấy thêm câu thiếu bằng chứng trước khi
+   hiệu chuẩn.
+3. **Chờ quyết định:** đẩy nhánh `v2.0.0`; `pharma-lab data push` để lưu golden, authoring và tập giữ
+   lại (thư mục này bị git ignore, hiện chỉ có ở máy); xoá dataset đầu vào còn sót trên Kaggle
+   (`pipeline-static-*`, `pipeline-input-*`); chạy lại Opus khi Claude hết giới hạn tốc độ.
 
 ### Lịch sử gộp
 
