@@ -17,6 +17,12 @@
     "sample_seed": null
   },
   "origin": "backend",
-  "rerank_variants": {},
+  "rerank_variants": {
+    "qwen3_reranker_4b_q8_0": {
+      "artifact_dir": "rerank/qwen3_reranker_4b_q8_0",
+      "model": "qwen3-reranker:4b-q8_0",
+      "variant_sha256": "082599d1bc8b6fb208fa159a52be36dba9ee8fbb40186ef7c8c210b83377fab9"
+    }
+  },
   "schema_version": 3
 }
