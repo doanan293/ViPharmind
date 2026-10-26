@@ -10,7 +10,7 @@
     "limit": null,
     "prefetch_k": null,
     "query_embeddings_sha256": null,
-    "release_id": "e006f693-268f-4ac0-8bf0-e3424e1b32c9",
+    "release_id": "a1b56105-9611-4eef-b5de-f62191ac46f2",
     "retriever": "bm25",
     "rrf_k": 2,
     "sample": null,

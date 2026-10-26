@@ -491,12 +491,20 @@ chạy bằng `pharma-lab metrics select`.
 7. Bảng retrieval của bài báo cáo mọi cấu hình đã chạy, theo nhóm và theo lát, kể cả cấu hình không
    được chọn và nhóm mà cấu hình thắng bị tụt.
 
-Kết quả (2026-10-25, 8.470 câu, `pharma-lab metrics select`):
+Kết quả (2026-10-26, 8.470 câu, `pharma-lab metrics select`, Qdrant đã dọn):
 
-| Giai đoạn | Chỉ số | Trung bình (%) | Cấu hình thắng | Chênh với cấu hình gần nhất | Lý do |
+| Giai đoạn | Chỉ số | Trung bình (%) | Cấu hình chọn | So với cấu hình gần nhất | Lý do |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Hit@20 | hybrid-qwen8b 99,17; hybrid-qwen4b 98,51; dense bge-m3 97,17; dense qwen8b 97,06; dense qwen06b 95,89; dense gemma300m 95,02; BM25 94,34; dense qwen4b 91,11 | hybrid-qwen8b | +0,66 (KTC +0,47 đến +0,86; p Holm 0,0007) so với hybrid-qwen4b; thắng rõ cả 7 | chỉ số chính |
-| 2 (tạm, chưa có 8B) | Hit@5 | qwen 4B 98,29; qwen 0,6B 97,86; bge-v2-m3 96,75 | Qwen3-Reranker-4B | +0,43 (KTC +0,18 đến +0,67; p Holm 0,0007) so với 0,6B | chỉ số chính |
+| 1 | Hit@20 | hybrid-qwen8b 99,17; hybrid-qwen4b 99,09; dense qwen4b 97,28; dense bge-m3 97,17; dense qwen8b 97,06; dense qwen06b 95,89; BM25 95,30; dense gemma300m 95,02 | **hybrid-qwen4b** | hybrid-qwen8b hơn +0,08 (KTC −0,04 đến +0,21; p Holm 0,27); Hit@5 +0,30 (KTC 0,00 đến +0,59; p Holm 0,063) | hoà cả hai chỉ số, chọn cấu hình rẻ hơn |
+| 2 | Hit@5 | đang chạy bốn reranker trên hybrid-qwen4b | | | |
+
+Sự cố đo (2026-10-26): collection Qdrant của Qwen3-Embedding-4B trong stack đánh giá còn 51.000 point
+của hai corpus thử nghiệm cũ (`formulary_plain`, `formulary_sections`). HNSW mặc định với bộ lọc
+release mất recall (dense 4B Hit@20 90,0 % trên mẫu 400 câu, tìm chính xác 97,2 %) và IDF của BM25
+tính trên cả point thừa. Đã xoá hai corpus đó, dựng lại collection 4B từ vector của bundle, chạy lại
+`bm25-v3`, `dense-qwen4b-v3`, `hybrid-qwen4b-v3`; số giai đoạn 1 ngày 2026-10-25 (chọn hybrid-qwen8b) bị
+thay. Từ nay mỗi collection Qdrant của stack đánh giá chỉ chứa corpus `formulary`; biến thể D2, D7
+chạy trên stack tạm riêng.
 
 Lịch sử: bản 2026-10-18 dùng bootstrap 1.000 lần không kèm kiểm định, thêm vế "không tụt quá 1 điểm ở
 lát hay nhóm nào", chấm trên cả nhóm hội thoại, và judgments chỉ áp cho hai nhóm formulary và

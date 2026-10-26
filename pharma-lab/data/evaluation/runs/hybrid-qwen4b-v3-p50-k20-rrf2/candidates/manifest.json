@@ -1,8 +1,8 @@
 {
   "artifact_type": "retrieval_candidates",
-  "created_at": "2026-10-24T09:13:51.992018+00:00",
+  "created_at": "2026-10-26T03:06:58.038905+00:00",
   "data_filename": "candidates.jsonl",
-  "data_sha256": "726651a40453910e9830287c849f89379809c969fafeeaf4ad6c29ddc62b9916",
+  "data_sha256": "1bfacefdcada8d939946fe6061e818ef4b85afcca6fb6a84f8c31ed9642b2de6",
   "identity": {
     "candidate_k": 20,
     "chunker_version": "chunker-v2",
@@ -14,7 +14,7 @@
     "pair_count": 199400,
     "prefetch_k": 50,
     "query_embeddings_sha256": "44370885abf363427a6786349522aab62729d5ade1187f22447547a24830ac96",
-    "release_id": "e006f693-268f-4ac0-8bf0-e3424e1b32c9",
+    "release_id": "a1b56105-9611-4eef-b5de-f62191ac46f2",
     "retriever": "hybrid",
     "rrf_k": 2,
     "sample": null,

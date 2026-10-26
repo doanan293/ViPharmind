@@ -10,7 +10,7 @@
     "limit": null,
     "prefetch_k": 50,
     "query_embeddings_sha256": "44370885abf363427a6786349522aab62729d5ade1187f22447547a24830ac96",
-    "release_id": "e006f693-268f-4ac0-8bf0-e3424e1b32c9",
+    "release_id": "a1b56105-9611-4eef-b5de-f62191ac46f2",
     "retriever": "hybrid",
     "rrf_k": 2,
     "sample": null,

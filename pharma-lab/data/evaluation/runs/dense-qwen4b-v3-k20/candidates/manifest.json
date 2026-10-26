@@ -1,8 +1,8 @@
 {
   "artifact_type": "retrieval_candidates",
-  "created_at": "2026-10-24T08:40:43.108094+00:00",
+  "created_at": "2026-10-26T03:01:05.570052+00:00",
   "data_filename": "candidates.jsonl",
-  "data_sha256": "4fe9c16bb057f2732f1f72bb0c49a3084eb557a49f1f806f301b832d878f435d",
+  "data_sha256": "857911ffb6a1042c1fcbb80ec68f395752624ec97998cdab8ae5e56eb9d1361e",
   "identity": {
     "candidate_k": 20,
     "chunker_version": "chunker-v2",
