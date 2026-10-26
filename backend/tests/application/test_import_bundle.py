@@ -104,7 +104,8 @@ async def test_publish_then_same_bundle_is_no_change() -> None:
     assert again.outcome is ImportOutcome.NO_CHANGE
     assert again.release == first.release
     assert adapters.repository.stage_calls == 1
-    assert adapters.index.ensure_calls == 1
+    # The unchanged import checks the index still holds the release (no vectors read).
+    assert adapters.index.ensure_calls == 2
     assert again_embedder.batches == []
     collection = await adapters.repository.get_collection("formulary")
     assert collection is not None and collection.current_release_id == first.release.id
@@ -289,3 +290,40 @@ async def test_index_writer_rejects_a_wrong_dimension() -> None:
     )
     with pytest.raises(CorpusImportError):
         await writer.write([index_item("x")], bundled={})
+
+
+async def test_an_unchanged_import_restores_points_lost_from_the_index() -> None:
+    # The vector index can lose a release's points (a dropped Qdrant collection); an
+    # import of the unchanged bundle must write them back from the bundle's vectors.
+    adapters = CorpusAdapters()
+    first = await build_importer(adapters, FakeEmbedder())(
+        small_bundle(), embeddings=small_bundle_embeddings, publish=True
+    )
+    expected = len(adapters.index.points)
+    adapters.index.points.clear()
+    embedder = FakeEmbedder()
+
+    again = await build_importer(adapters, embedder)(
+        small_bundle(), embeddings=small_bundle_embeddings, publish=True
+    )
+
+    assert again.release.id == first.release.id
+    assert len(adapters.index.points) == expected
+    assert await adapters.index.count_release(first.release.id) == expected
+    assert embedder.batches == []
+
+
+async def test_a_reused_release_restores_points_lost_from_the_index() -> None:
+    adapters = CorpusAdapters()
+    first = await build_importer(adapters, FakeEmbedder())(
+        small_bundle(), embeddings=small_bundle_embeddings, publish=False
+    )
+    expected = len(adapters.index.points)
+    adapters.index.points.clear()
+
+    second = await build_importer(adapters, FakeEmbedder())(
+        small_bundle(), embeddings=small_bundle_embeddings, publish=True
+    )
+
+    assert second.outcome is ImportOutcome.REUSED
+    assert await adapters.index.count_release(first.release.id) == expected

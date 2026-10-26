@@ -99,7 +99,8 @@ class ImportKnowledgeBundle:
         publish: bool,
         on_step: StepCallback | None = None,
     ) -> ImportReport:
-        """Import `bundle`; `embeddings` is not called when the bundle is unchanged.
+        """Import `bundle`; an unchanged bundle reuses its release, and its vectors are read
+        only to restore points the index lost.
 
         `on_step` hears each stage as it starts, for progress shown to a user.
         """
@@ -119,6 +120,7 @@ class ImportKnowledgeBundle:
             current.chunker_version,
             current.embedding_model,
         ) == (snapshot.bundle_digest, snapshot.chunker_version, model):
+            await self._restore_points(snapshot, embeddings, current)
             return ImportReport(
                 outcome=ImportOutcome.NO_CHANGE,
                 collection_key=key,
@@ -136,6 +138,7 @@ class ImportKnowledgeBundle:
         )
         if existing is not None and existing.status is ReleaseStatus.READY:
             release, outcome = existing, ImportOutcome.REUSED
+            await self._restore_points(snapshot, embeddings, release)
         else:
             release = await self._repository.stage_release(
                 snapshot,
@@ -156,6 +159,20 @@ class ImportKnowledgeBundle:
         return ImportReport(
             outcome=outcome, collection_key=key, release=stored, published=publish
         )
+
+    async def _restore_points(
+        self, snapshot: CorpusSnapshot, embeddings: BundleEmbeddings, release: Release
+    ) -> None:
+        """Write back, from the bundle's vectors, the points of a ready release that the
+        vector index lost (a dropped or rebuilt collection)."""
+        await self._index.ensure_collection()
+        if await self._index.count_release(release.id) == len(snapshot.release_chunks):
+            return
+        vectors = bundle_vectors(
+            embeddings, self._embedder.model, self._embedder.dimension
+        )
+        items = await self._repository.index_items([release.id])
+        await self._writer.write(items, bundled=vectors)
 
     async def _current_release(self, collection_key: str) -> Release | None:
         collection = await self._repository.get_collection(collection_key)
