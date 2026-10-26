@@ -47,9 +47,10 @@ Judge, `report`, `compare`, `calibration`, `decision-set` và `decision-probe` c
    dùng quota đã chốt: ưu tiên theo pha, đủ 1.000 câu (A1, A2 rồi A3, A4 rồi B rồi C, sau cùng D6, E;
    đo độ trễ concurrency 1 trên mẫu 200 câu). Ước tính Qwen3.5-9B: full khoảng 14 GPU-giờ cho 1.000
    câu, one-step khoảng 7, closed-book khoảng 4; Gemini full khoảng 9.
-3. **D5 đang brainstorm:** người dùng đã đồng ý kết luận và các dòng của bảng; còn chờ đúng một
-   quyết định (rewriter Qwen qua OpenRouter hay chờ quota Kaggle). Sau đó: hoàn thiện tài liệu thiết
-   kế, builder check, plan (superpowers:writing-plans), làm.
+3. **D5:** người dùng đã đồng ý kết luận, các dòng của bảng, và rewriter Qwen chạy trên Kaggle
+   (OpenRouter chỉ dành cho Jev). Bước tiếp: builder check bản thiết kế, người dùng duyệt, plan
+   (superpowers:writing-plans), làm; phần Gemini và tìm kiếm chạy được trước 2026-10-31, Q2-qwen và
+   rerank chờ quota.
 4. **Pha 0 Task 11 (A1, A2):** cấu hình mặc định `E2E_MODELS` đã đúng cặp 4B/4B; lệnh theo
    `pharma-lab/docs/guides/e2e-evaluation.md` (`e2e run --backend kaggle`, `--llm gemini
    --with-proxy-credentials` cho A1). Chạy thử 20 câu mỗi model trước khi chạy đủ. Tên run gợi ý
@@ -76,7 +77,9 @@ Judge, `report`, `compare`, `calibration`, `decision-set` và `decision-probe` c
    giữ, 44 sửa); bài phải ghi đúng như vậy. Tập judge §3.3: 300 câu, 265 đủ bằng chứng, 35 thiếu, không
    trùng golden; 35 mẫu âm cho khoảng AUROC rộng, cân nhắc lấy thêm câu thiếu bằng chứng trước khi
    hiệu chuẩn.
-3. **Chờ quyết định:** đẩy nhánh `v2.0.0`; `pharma-lab data push` để lưu golden, authoring và tập giữ
+3. **Quy tắc hạ tầng:** mọi model tự host (Qwen3.5-9B, embedding, reranker) chạy trên Kaggle; chỉ Jev
+   dùng OpenRouter (quyết định của người dùng 2026-10-26).
+4. **Chờ quyết định:** đẩy nhánh `v2.0.0`; `pharma-lab data push` để lưu golden, authoring và tập giữ
    lại (thư mục này bị git ignore, hiện chỉ có ở máy); xoá dataset đầu vào còn sót trên Kaggle
    (`pipeline-static-*`, `pipeline-input-*`); chạy lại Opus khi Claude hết giới hạn tốc độ.
 

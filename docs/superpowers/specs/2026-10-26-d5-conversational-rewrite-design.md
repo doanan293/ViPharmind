@@ -1,8 +1,7 @@
 # D5: chiến lược truy vấn cho câu hỏi hội thoại (bản nháp thiết kế)
 
-**Trạng thái:** đang brainstorm, CHƯA DUYỆT (dừng 2026-10-26). Còn một quyết định của người dùng
-(mục "Còn chờ"). Sau khi chốt: hoàn thiện tài liệu, cho builder check, rồi viết plan bằng
-superpowers:writing-plans. Spec mẹ: `2026-10-14-paper-v2-design.md` Phụ lục C.4 dòng D5.
+**Trạng thái:** brainstorm xong phần quyết định (2026-10-26), CHƯA DUYỆT bản viết. Bước tiếp: cho
+builder check, người dùng duyệt tài liệu, rồi viết plan bằng superpowers:writing-plans. Spec mẹ: `2026-10-14-paper-v2-design.md` Phụ lục C.4 dòng D5.
 
 ## Vì sao
 
@@ -54,10 +53,12 @@ noisy_followup).
 - Ghi lượt gọi, token, giây mỗi lần viết lại từ usage của LLM.
 - Judgments: dựng cho từng file biến thể (`evaluation judgments --evaluation <file>`), cùng luật.
 
-## Còn chờ (quyết định của người dùng)
+## Quyết định của người dùng (2026-10-26)
 
-1. Rewriter Qwen3.5-9B cho Q2-qwen: qua OpenRouter (khoảng 1.500 lượt gọi, ước tính dưới 1 USD, chạy
-   ngay) hay chờ quota Kaggle (sau 2026-10-31, tốn một phiên GPU)?
+1. Rewriter Qwen3.5-9B của Q2-qwen chạy trên Kaggle như mọi run Qwen khác, không qua OpenRouter
+   (OpenRouter chỉ dùng cho Jev). Vì vậy Q2-qwen chờ quota sau 2026-10-31 và xếp vào hàng đợi quota.
+
+Không còn quyết định nào mở; bước tiếp theo là builder check rồi plan.
 
 ## Ngoài phạm vi
 
