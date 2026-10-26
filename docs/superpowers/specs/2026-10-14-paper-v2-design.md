@@ -48,8 +48,10 @@ Judge, `report`, `compare`, `calibration`, `decision-set` và `decision-probe` c
    vòng duyệt đầy đủ là của model: Claude Sonnet audit từng lô nháp, rồi Claude Opus duyệt lại cả
    1.000 câu (908 giữ, 92 sửa, 0 loại; tỉ lệ sửa natural 7,5 %, slice 3,3 %, multi_hop 11,5 %,
    multi_turn 16,9 %, safety 0 %) và 300 lượt guard (256 giữ, 44 sửa, 0 loại). Golden chốt sha
-   `1dae2820…`; verdict ghi ở `authoring/pharmacist/verdicts.jsonl` với nhãn `[model-review]`. Còn:
-   tập judge 300 câu dựng sau S2; run e2e bắt đầu sau đó.
+   `1dae2820…`; verdict ghi ở `authoring/pharmacist/verdicts.jsonl` với nhãn `[model-review]`. Tập judge
+   §3.3 dựng 2026-10-26 từ hybrid-qwen4b + Qwen3-Reranker-4B: 300 câu, 265 đủ bằng chứng, 35 thiếu,
+   không trùng câu nguồn golden; 35 mẫu âm cho khoảng AUROC rộng, cân nhắc lấy thêm câu thiếu bằng
+   chứng (phân tầng theo nhãn) trước khi chạy hiệu chuẩn.
 3. **Bất thường cần kiểm:** dense Qwen3-Embedding-4B (Hit@20 91,1) kém cả 0,6B (95,9) trên tập chọn,
    trong khi hybrid 4B vẫn 98,5; cần kiểm cache vector query và collection của 4B trước khi đưa vào
    bảng D.
@@ -496,7 +498,9 @@ Kết quả (2026-10-26, 8.470 câu, `pharma-lab metrics select`, Qdrant đã d�
 | Giai đoạn | Chỉ số | Trung bình (%) | Cấu hình chọn | So với cấu hình gần nhất | Lý do |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Hit@20 | hybrid-qwen8b 99,17; hybrid-qwen4b 99,09; dense qwen4b 97,28; dense bge-m3 97,17; dense qwen8b 97,06; dense qwen06b 95,89; BM25 95,30; dense gemma300m 95,02 | **hybrid-qwen4b** | hybrid-qwen8b hơn +0,08 (KTC −0,04 đến +0,21; p Holm 0,27); Hit@5 +0,30 (KTC 0,00 đến +0,59; p Holm 0,063) | hoà cả hai chỉ số, chọn cấu hình rẻ hơn |
-| 2 | Hit@5 | đang chạy bốn reranker trên hybrid-qwen4b | | | |
+| 2 | Hit@5 | qwen 8B 98,38; qwen 4B 98,22; qwen 0,6B 97,84; bge-v2-m3 96,79 | **Qwen3-Reranker-4B** | 8B hơn +0,17 (KTC −0,02 đến +0,35; p Holm 0,11); MRR@10 4B hơn +0,06 (KTC −0,33 đến +0,45); cả hai thắng rõ 0,6B và bge | hoà cả hai chỉ số, chọn cấu hình rẻ hơn |
+
+Cặp retrieval của agent: hybrid RRF k=2, prefetch 50, giữ 20, Qwen3-Embedding-4B, rerank Qwen3-Reranker-4B.
 
 Sự cố đo (2026-10-26): collection Qdrant của Qwen3-Embedding-4B trong stack đánh giá còn 51.000 point
 của hai corpus thử nghiệm cũ (`formulary_plain`, `formulary_sections`). HNSW mặc định với bộ lọc

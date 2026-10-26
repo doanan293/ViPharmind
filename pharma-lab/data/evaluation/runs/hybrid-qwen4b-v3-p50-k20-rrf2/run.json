@@ -17,6 +17,27 @@
     "sample_seed": null
   },
   "origin": "backend",
-  "rerank_variants": {},
+  "rerank_variants": {
+    "bge_reranker_v2_m3_q8_0": {
+      "artifact_dir": "rerank/bge_reranker_v2_m3_q8_0",
+      "model": "bge-reranker-v2-m3:q8_0",
+      "variant_sha256": "67c6c24c160a6162fb3369e8bea44107cf4ffd5425aa2e2a0670b9a711502ea0"
+    },
+    "qwen3_reranker_0_6b_q8_0": {
+      "artifact_dir": "rerank/qwen3_reranker_0_6b_q8_0",
+      "model": "qwen3-reranker:0.6b-q8_0",
+      "variant_sha256": "4421b581874a9b871ace43e566f077c1283b9b60ff90bcb45455fc3ea6394415"
+    },
+    "qwen3_reranker_4b_q8_0": {
+      "artifact_dir": "rerank/qwen3_reranker_4b_q8_0",
+      "model": "qwen3-reranker:4b-q8_0",
+      "variant_sha256": "e3075b0c7a12818c798a166896681eeb6bf0608d5a024bcdbddd559820e432e7"
+    },
+    "qwen3_reranker_8b_q8_0": {
+      "artifact_dir": "rerank/qwen3_reranker_8b_q8_0",
+      "model": "qwen3-reranker:8b-q8_0",
+      "variant_sha256": "7ff644456547b07f62b6ff4c99e08387e7b814cb473e3f31b69048714cf1a0d4"
+    }
+  },
   "schema_version": 3
 }
