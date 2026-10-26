@@ -14,7 +14,7 @@ merge vào `v2.0.0` kèm test; "chạy" là thí nghiệm đã có số trong `p
 | --- | --- | --- | --- | --- |
 | Nền: quy tắc kiến trúc (`AGENTS.md`, import-linter, vị trí test) | Xong | Không áp dụng | `2026-10-16-architecture-rules.md` | Không |
 | Nền: bản camera-ready SoICT (tag `v1.1.0`) | Xong | Xong | `2026-10-19-camera-ready.md` | Dọn nhánh `camera-ready` giữ đến sau buổi trình bày |
-| Nền: chuẩn hoá đánh giá (Phụ lục C: luật chọn, judgments mọi nhóm, golden 1.000 câu, tập giữ lại) | Xong (mã) | Golden v4 đã build (1.000 câu, sha `38508761…`, model audit xong) và guard set 300 lượt đã nháp; cả hai chờ dược sĩ duyệt; tập judge §3.3 chờ S2 | `2026-10-25-retrieval-eval-standardization.md`, `2026-10-25-golden-e2e-v4.md` | Xem hai plan |
+| Nền: chuẩn hoá đánh giá (Phụ lục C: luật chọn, judgments mọi nhóm, golden 1.000 câu, tập giữ lại) | Xong (mã, dữ liệu) | Golden v4 chốt (1.000 câu, sha `1dae2820…`) và guard set 300 lượt chốt, cả hai qua hai vòng duyệt bằng model và dược sĩ xem lướt; tập judge §3.3 chờ S2 | `2026-10-25-retrieval-eval-standardization.md`, `2026-10-25-golden-e2e-v4.md` | Xem hai plan |
 | Nền: Kaggle chạy trọn trong kernel, bỏ tunnel | Xong | Xong, hai vòng nghiệm thu trên Kaggle thật (Phụ lục B) | `2026-10-20-kaggle-batch-e2e.md`, `2026-10-23-kaggle-resumable-runs.md` | Không |
 | Pha D: dữ liệu (tách leaflet, chunk là đơn vị đọc, benchmark 10.000 câu, golden v3) | Xong | Giai đoạn 1 của §3.4 xong trên golden `9c6e…` (chọn hybrid-qwen8b); giai đoạn 2 tạm (chưa có reranker 8B) | `2026-10-14-paper-v2-phase-d-data.md`, `2026-10-15-chunk-reading-unit.md`, `2026-10-18-unified-benchmark.md`, `2026-10-18-eval-data-v3.md`, `2026-10-25-retrieval-eval-standardization.md` | Rerank 8B trên hybrid-qwen8b rồi chốt S2; các run Kaggle của Phụ lục C (D1, D2, D5, D7, rrf60); viết `08-phase-d-results.md` |
 | Pha 0: hạ tầng đo (reasoning token, giây, USD, `compare`, `--latency-run`) | Xong (Task 1–9) | Chưa: chọn xong cặp retrieval của agent; A1 Gemini, A2 Qwen và run latency chưa chạy | `2026-10-16-paper-v2-phase-0-measurement.md` | Task 10 (judge `none` so với nhãn dược sĩ v1), Task 11 (các run A1, A2), viết `09-phase-0-results.md` |
@@ -44,10 +44,12 @@ Judge, `report`, `compare`, `calibration`, `decision-set` và `decision-probe` c
    khi cặp retrieval được chọn bằng luật và trên golden e2e cũ (chuyển sang
    `pharma-lab/data/work/retired-e2e-runs/`). Golden v4 đã build 1.000 câu (sha `38508761…`): 557 câu
    mới do gemini-3.1-flash-lite nháp, Claude audit (8 câu loại, soạn bù); kiểm thiên lệch: Hit@5 mỗi
-   tầng khớp mức chọn ngẫu nhiên trong nhóm. Còn: dược sĩ duyệt toàn bộ qua `golden pharmacist-pack`
-   (`authoring/pharmacist/`) tới khi `pharmacist-score` complete; dược sĩ duyệt 300 lượt
-   `data/evaluation/calibration/guard_set.todo.jsonl` rồi đổi tên `guard_set.jsonl`; tập judge 300 câu
-   dựng sau S2. Run e2e bắt đầu sau ba việc này.
+   tầng khớp mức chọn ngẫu nhiên trong nhóm. Duyệt (2026-10-26): dược sĩ xem lướt và thấy tạm được;
+   vòng duyệt đầy đủ là của model: Claude Sonnet audit từng lô nháp, rồi Claude Opus duyệt lại cả
+   1.000 câu (908 giữ, 92 sửa, 0 loại; tỉ lệ sửa natural 7,5 %, slice 3,3 %, multi_hop 11,5 %,
+   multi_turn 16,9 %, safety 0 %) và 300 lượt guard (256 giữ, 44 sửa, 0 loại). Golden chốt sha
+   `1dae2820…`; verdict ghi ở `authoring/pharmacist/verdicts.jsonl` với nhãn `[model-review]`. Còn:
+   tập judge 300 câu dựng sau S2; run e2e bắt đầu sau đó.
 3. **Bất thường cần kiểm:** dense Qwen3-Embedding-4B (Hit@20 91,1) kém cả 0,6B (95,9) trên tập chọn,
    trong khi hybrid 4B vẫn 98,5; cần kiểm cache vector query và collection của 4B trước khi đưa vào
    bảng D.
@@ -114,7 +116,7 @@ retrieval đã tốt, giữ chất lượng đó với độ trễ và chi phí 
    định dạng trả lời; chỉ khác ai điều khiển. Với mỗi model, kiến trúc nào cho chất lượng cao nhất
    trên mỗi USD và mỗi giây, và model nặng có đổi kết luận không.
 4. **Benchmark và đánh giá.** Benchmark retrieval 10.000 câu thêm lớp hội thoại; bộ e2e 1.000 item
-   (Phụ lục C.2) có 200 câu cần tra nhiều lượt theo cấu tạo, dược sĩ duyệt toàn bộ; mọi cấu hình báo
+   (Phụ lục C.2) có 200 câu cần tra nhiều lượt theo cấu tạo, duyệt hai vòng bằng model; mọi cấu hình báo
    chất lượng, giây và USD.
 
 Bài cố ý chỉ dùng ba LLM: cặp của v1 gồm một model mở rẻ (Qwen3.5-9B) và một model thương mại rẻ
@@ -1298,8 +1300,9 @@ thử bằng gì, nhạy tới đâu". Mọi ablation phải ra một trong hai 
 Item đã soạn ở golden v3 được giữ khi dòng benchmark của nó vẫn thuộc tầng mới; tầng "trượt vòng 1"
 (retrieval_miss, noisy_retry, chọn từ lỗi của hybrid + rerank 4B) bỏ hẳn. Đáp án mới: LLM soạn nháp,
 máy kiểm mọi `evidence_quote` có nguyên văn trong section gold, một model khác hãng audit toàn bộ
-theo rubric, rồi dược sĩ duyệt toàn bộ 1.000 câu (quyết định 2026-10-25); bài báo tỉ lệ câu
-dược sĩ phải sửa ở mỗi tầng. Tầng tự nhiên có trọng số chuẩn về tỉ lệ benchmark để báo số tái trọng số cạnh số thô.
+theo rubric, rồi một model mạnh hơn duyệt lại toàn bộ 1.000 câu; dược sĩ xem lướt (2026-10-26).
+Bài báo nêu đúng như vậy, không gọi đây là duyệt bởi dược sĩ, và báo tỉ lệ câu vòng duyệt cuối phải
+sửa ở mỗi tầng. Nhãn dược sĩ chấm mù (C.1) vẫn là nguồn hiệu chuẩn judge duy nhất từ người. Tầng tự nhiên có trọng số chuẩn về tỉ lệ benchmark để báo số tái trọng số cạnh số thô.
 
 ### C.3 Độ nhạy (power 80%, α sau Holm khoảng 0,005; phương sai từ ablation v1)
 
