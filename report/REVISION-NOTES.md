@@ -23,7 +23,7 @@ nguyên như bản đã review; mọi phân tích mới truy được về file 
   BM25 dẫn ở chunk-level và câu kiểu bệnh nhân), hybrid giữ nửa tốt hơn ở năm trên sáu nhóm.
 - Bug đọc trích dẫn dạng gộp `[1, 2]` đã sửa trong code chấm; Table 3 giữ số đã công bố, đoạn phân
   tích citation dùng bộ đọc đã sửa.
-- Corresponding author (✉) chỉ Quoc-Tuan Nguyen (SoICT chỉ cho một người, người này ký copyright consent); Acknowledgments ghi tài trợ HUST T2025-PC-019.
+- Corresponding author (✉) chỉ Tuan Quoc Nguyen (SoICT chỉ cho một người, người này ký copyright consent); Acknowledgments ghi tài trợ HUST T2025-PC-019.
 - Table 5 dòng Guard dùng p Holm 0,014 như các dòng khác (trước ghi p thô 0,002).
 - Disclosure of Interests theo hướng dẫn Springer CCIS; copyright consent ký tay nộp riêng (trang camera-ready SoICT).
 - Abstract camera-ready chép sang `abstract.txt` để cập nhật EasyChair.
