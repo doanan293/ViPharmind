@@ -670,11 +670,34 @@ def p06():
 
 
 # ====================================================================== 07 pipeline
+def robot(cx, cy, size):
+    """Friendly robot mark drawn on a 24-unit grid, centred on (cx, cy)."""
+    u = size / 24
+    glow = "#9FE7FF"
+    parts = [
+        '<line x1="0" y1="-11" x2="0" y2="-7.5" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round"/>',
+        f'<circle cx="0" cy="-11.6" r="1.9" fill="{ORA}"/>',
+        f'<rect x="-11.4" y="-3.2" width="3" height="6" rx="1.4" fill="{LAV}"/>',
+        f'<rect x="8.4" y="-3.2" width="3" height="6" rx="1.4" fill="{LAV}"/>',
+        '<rect x="-9" y="-8" width="18" height="14.5" rx="5" fill="#FFFFFF"/>',
+        f'<rect x="-6.6" y="-5.2" width="13.2" height="8.6" rx="3.6" fill="{IND}"/>',
+        f'<circle cx="-2.9" cy="-1.6" r="1.45" fill="{glow}"/>',
+        f'<circle cx="2.9" cy="-1.6" r="1.45" fill="{glow}"/>',
+        f'<path d="M -2.3 1 Q 0 2.9 2.3 1" fill="none" stroke="{glow}" stroke-width="1" stroke-linecap="round"/>',
+        f'<rect x="-4.6" y="7.3" width="9.2" height="3.4" rx="1.6" fill="{LAV}"/>',
+    ]
+    return (
+        f'<g transform="translate({cx} {cy}) scale({u:.4f})">' + "".join(parts) + "</g>"
+    )
+
+
 def p07():
     def node(cx, cy, ic, name, sub, r=28, dashed=False, fill=LAV2, ink=IND, label=True):
         k = [
             circle(cx, cy, r, fill, IND if ink != ORA else ORA, 1.6),
-            icon(ic, cx, cy, r * 1.15, WHITE if fill == IND else ink),
+            robot(cx, cy + 1, r * 1.5)
+            if ic == "robot"
+            else icon(ic, cx, cy, r * 1.15, WHITE if fill == IND else ink),
         ]
         if dashed:
             k[0] = (
@@ -747,7 +770,7 @@ def p07():
     ]
     # row 2: answer -> response, exits join the response line
     k += node(
-        820, R2, "article", "Answer", ["cites sources,", "drops invalid ones"], fill=IND
+        820, R2, "robot", "Answer", ["cites sources,", "drops invalid ones"], fill=IND
     )
     k += node(
         106,
