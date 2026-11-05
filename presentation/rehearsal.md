@@ -1,6 +1,6 @@
 # Tập dượt: SoICT 2026, paper 1360 (15 phút gồm Q&A)
 
-Mục tiêu: nói khoảng 11:30, để lại khoảng 3:30 cho Q&A. Speaker notes tiếng Anh nằm trong file PPTX, tổng khoảng 1.540 từ, tương đương 11–12 phút nếu nói khoảng 130 từ/phút.
+Mục tiêu: nói khoảng 11:30, để lại khoảng 3:30 cho Q&A. Speaker notes tiếng Anh nằm trong file PPTX, tổng khoảng 1.570 từ, tương đương 11–12 phút nếu nói khoảng 130 từ/phút.
 
 | # | Slide | Thời lượng | Mốc cộng dồn |
 |---|---|---|---|
