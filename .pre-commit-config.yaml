@@ -17,6 +17,8 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=2000]
+        # The talk deck and its Slidesgo template are binary deliverables (about 10 MB).
+        exclude: ^presentation/.*\.pptx$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.7
