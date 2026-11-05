@@ -102,4 +102,4 @@ D. (20) Limitations: on slide 16 as one strip, in full in backup.
 
 - Every number on every slide is matched against the `.tex` sources; the only unmatched tokens are axis ticks, page numbers, model-name digits, row counts and percentages converted from table fractions.
 - Every slide is rendered (LibreOffice and Chromium) and inspected for overflow, clipping and overlaps. LibreOffice shifts some auto-fit text boxes sideways; PowerPoint is the reference renderer.
-- The quality gate and the delivery check pass. Speaker notes total about 1,540 words, about 11:30 at 130 words per minute.
+- The quality gate and the delivery check pass. Speaker notes total about 1,570 words, about 11:30 at 130 words per minute.
