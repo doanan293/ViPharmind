@@ -35,6 +35,7 @@ from lib import (
     footer,
     group,
     header,
+    icon,
     image,
     line,
     mtext,
@@ -670,160 +671,146 @@ def p06():
 
 # ====================================================================== 07 pipeline
 def p07():
-    nodes = [
-        ("Guard", ["regex + LLM:", "attack? medicine?"], False),
-        ("Rephrase", ["standalone query", "summary + 4 turns"], True),
-        ("Search", ["BM25 50 + dense 50", "RRF k=2 → top 30"], False),
-        ("Rerank", ["Qwen3-Reranker-4B", "top 5 + context"], True),
-        ("Judge", ["enough evidence?", "lists what's missing"], True),
-        ("Answer", ["cites sources,", "drops invalid ones"], False),
-    ]
-    W, H, G, X0, Y = 118, 76, 20, 76, 200
-    kids = []
-    pos = {}
-    for i, (name, d, ab) in enumerate(nodes):
-        x = X0 + i * (W + G)
-        pos[name] = x
-        fill = IND if name == "Answer" else WHITE
-        tc = WHITE if name == "Answer" else IND
-        kids.append(rect(x, Y, W, H, fill, IND, 1.6, 10, dash="5 4" if ab else None))
-        kids.append(
-            text(x + W / 2, Y + 25, name, 15, tc, "bold", MONO, anchor="middle")
-        )
-        kids.append(
-            mtext(
-                x + W / 2,
-                Y + 45,
-                d,
-                10.5,
-                1.35,
-                WHITE if name == "Answer" else INK,
-                anchor="middle",
+    def node(cx, cy, ic, name, sub, r=28, dashed=False, fill=LAV2, ink=IND, label=True):
+        k = [
+            circle(cx, cy, r, fill, IND if ink != ORA else ORA, 1.6),
+            icon(ic, cx, cy, r * 1.15, WHITE if fill == IND else ink),
+        ]
+        if dashed:
+            k[0] = (
+                f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{fill}" stroke="{ink}" '
+                f'stroke-width="1.6" stroke-dasharray="5 4"/>'
             )
-        )
-        if i:
-            kids.append(
-                line(x - G + 1, Y + H / 2, x - 3, Y + H / 2, IND, 1.6, marker="ah")
+        if label:
+            k.append(
+                text(cx, cy + r + 18, name, 13, ink, "bold", MONO, anchor="middle")
             )
-    # input arrow
-    kids.append(text(X0 - 6, Y - 10, "user turn", 10.5, MUT, anchor="start"))
-    # refine node below rerank
-    rx, ry = pos["Rerank"], 330
-    kids += [
-        rect(rx, ry, W, 62, WHITE, ORA, 1.6, 10, dash="5 4"),
-        text(rx + W / 2, ry + 25, "Refine", 15, ORA, "bold", MONO, anchor="middle"),
-        text(rx + W / 2, ry + 45, "1–3 new queries", 10.5, INK, anchor="middle"),
+            for j, ln in enumerate(sub):
+                k.append(text(cx, cy + r + 32 + 13 * j, ln, 10, MUT, anchor="middle"))
+        return k
+
+    R1, R2 = 165, 352
+    k = []
+    # row 1: user -> guard -> rephrase -> hybrid search -> rerank -> judge
+    k += node(106, R1, "user", "User turn", ["question + history"])
+    k += node(220, R1, "shield-check", "Guard", ["attack? medicine?"])
+    k += node(
+        340, R1, "pencil-simple-line", "Rephrase", ["standalone query"], dashed=True
+    )
+    # hybrid search container
+    k += [
+        rect(410, 112, 196, 136, LAV2, None, 1, 14, opacity=0.55),
+        text(418, 106, "Hybrid search", 12, IND, "bold", MONO),
     ]
-    jx = pos["Judge"] + W / 2
-    kids.append(
-        path(
-            f"M {jx} {Y + H} L {jx} {ry + 31} L {rx + W + 3} {ry + 31}",
-            ORA,
-            1.6,
-            marker="ao",
-        )
-    )
-    kids.append(text(jx + 6, Y + H + 22, "no", 11, ORA, "bold"))
-    kids.append(
-        text(pos["Judge"] + W + G / 2, Y - 6, "yes", 11, IND, "bold", anchor="middle")
-    )
-    sx = pos["Search"] + W / 2
-    kids.append(
-        path(
-            f"M {rx - 3} {ry + 31} L {sx} {ry + 31} L {sx} {Y + H + 4}",
-            ORA,
-            1.6,
-            marker="ao",
-        )
-    )
-    kids.append(
-        text(sx - 8, ry + 52, "≤ 3 search rounds", 11, ORA, "bold", anchor="end")
-    )
-    # exits above
-    gx = pos["Guard"] + W / 2
-    ax = pos["Answer"] + W / 2
-    kids.append(
-        path(
-            f"M {gx} {Y - 2} L {gx} {Y - 48} L {ax + 20} {Y - 48} L {ax + 20} {Y - 4}",
-            SOFT,
-            1.3,
-            marker="ag",
-        )
-    )
-    kids.append(
-        text(gx + 10, Y - 54, "attack → blocked · off-topic → redirected", 11, MUT)
-    )
-    px = pos["Rephrase"] + W / 2
-    kids.append(
-        path(
-            f"M {px} {Y - 2} L {px} {Y - 24} L {ax - 20} {Y - 24} L {ax - 20} {Y - 4}",
-            SOFT,
-            1.3,
-            marker="ag",
-        )
-    )
-    kids.append(
-        text(px + 10, Y - 30, "small talk → answered without retrieval", 11, MUT)
-    )
-    kids.append(
-        text(
-            pos["Answer"] + W / 2,
-            Y + H + 20,
-            "grounded, partial",
-            10.5,
-            MUT,
-            anchor="middle",
-        )
-    )
-    kids.append(
-        text(
-            pos["Answer"] + W / 2, Y + H + 35, "or abstain", 10.5, MUT, anchor="middle"
-        )
-    )
-    kids += [
-        rect(660, 382, 16, 10, WHITE, IND, 1.3, 2, dash="4 3"),
-        text(682, 391, "dashed = removed in ablations", 10.5, MUT),
+    k += node(446, 144, "text-aa", "", [], r=20, fill=WHITE, label=False)
+    k += [text(474, 142, "BM25", 12, IND, "bold"), text(474, 156, "top 50", 10, MUT)]
+    k += node(446, 214, "vector-three", "", [], r=20, fill=WHITE, label=False)
+    k += [text(474, 212, "Dense", 12, IND, "bold"), text(474, 226, "top 50", 10, MUT)]
+    k += node(568, 168, "git-merge", "", [], r=20, fill=WHITE, label=False)
+    k += [
+        text(568, 204, "RRF k = 2", 10.5, IND, "bold", anchor="middle"),
+        text(568, 217, "→ top 30", 10, MUT, anchor="middle"),
+        path("M 520 146 L 545 160", IND, 1.3, marker="ah"),
+        path("M 520 212 L 545 178", IND, 1.3, marker="ah"),
     ]
-    defs = arrow_marker("ah", IND) + arrow_marker("ao", ORA) + arrow_marker("ag", SOFT)
+    k += node(
+        680,
+        R1,
+        "funnel",
+        "Rerank",
+        ["Qwen3-Reranker-4B", "top 5 + context"],
+        dashed=True,
+    )
+    k += node(820, R1, "scales", "Judge", ["enough evidence?"], dashed=True)
+    for x1, x2 in [(136, 190), (250, 310), (370, 406), (608, 650), (710, 790)]:
+        k.append(line(x1, R1, x2, R1, IND, 1.6, marker="ah"))
+    # judge -> answer (yes) and judge -> refine (no)
+    k += [
+        line(820, 238, 820, R2 - 32, IND, 1.6, marker="ah"),
+        text(828, 296, "yes", 11, IND, "bold"),
+        path("M 800 236 L 712 280", ORA, 1.6, marker="ao"),
+        text(752, 250, "no", 11, ORA, "bold"),
+    ]
+    k += node(
+        690,
+        290,
+        "arrows-clockwise",
+        "",
+        [],
+        r=22,
+        fill=WHITE,
+        ink=ORA,
+        dashed=True,
+        label=False,
+    )
+    k += [
+        text(690, 328, "Refine", 12, ORA, "bold", MONO, anchor="middle"),
+        text(690, 341, "1–3 new queries", 10, MUT, anchor="middle"),
+        path("M 666 290 L 508 290 L 508 252", ORA, 1.6, marker="ao"),
+        text(520, 308, "≤ 3 search rounds", 10.5, ORA, "bold"),
+    ]
+    # row 2: answer -> response, exits join the response line
+    k += node(
+        820, R2, "robot", "Answer", ["cites sources,", "drops invalid ones"], fill=IND
+    )
+    k += node(
+        106,
+        R2,
+        "chat-teardrop-text",
+        "Response",
+        ["grounded, partial", "or abstain"],
+        fill=WHITE,
+    )
+    k += [
+        line(790, R2, 138, R2, IND, 1.6, marker="ah"),
+        line(220, 236, 220, R2 - 4, SOFT, 1.3, dash="4 3"),
+        text(228, 282, "attack → blocked", 10, MUT),
+        text(228, 295, "off-topic → redirected", 10, MUT),
+        line(340, 236, 340, R2 - 4, SOFT, 1.3, dash="4 3"),
+        text(348, 288, "small talk", 10, MUT),
+        f'<circle cx="772" cy="104" r="7" fill="{WHITE}" stroke="{IND}" stroke-width="1.3" stroke-dasharray="3 2"/>',
+        text(784, 108, "removed in ablations", 10.5, MUT),
+    ]
+    defs = arrow_marker("ah", IND) + arrow_marker("ao", ORA)
     boxes = [
         (
-            "Code, not the model, owns control",
-            [
-                "Routing, loop limits, duplicate queries.",
-                "Budget per turn: 10 LLM calls,",
-                "40,000 tokens, 24,000 chars of evidence.",
-            ],
+            60,
+            240,
+            "Code owns control",
+            ["routing, loop limits · per turn:", "10 LLM calls, 40,000 tokens"],
         ),
         (
+            316,
+            328,
             "Gemini setting",
             [
-                "guard, rephrase: gemini-3.1-flash-lite",
-                "judge, refine, answer:",
-                "gemini-3.8-flash-high",
+                "gemini-3.1-flash-lite: guard, rephrase",
+                "gemini-3.8-flash-high: judge, refine, answer",
             ],
         ),
         (
+            660,
+            240,
             "Open-weight setting",
-            ["every step: Qwen3.5-9B", "open weights (Apache 2.0),", "self-hosted"],
+            ["Qwen3.5-9B for every step", "open weights (Apache 2.0), self-hosted"],
         ),
     ]
     bg = []
-    for i, (t, ls) in enumerate(boxes):
-        x = 60 + i * 285
+    for i, (x, w, t, ls) in enumerate(boxes):
         bg.append(
             group(
                 f"setting-{i + 1}",
-                (x, 408, 270, 98),
+                (x, 446, w, 60),
                 [
-                    rect(x, 410, 270, 94, LAV2 if i else "#FDF0DC", None, 1, 8),
-                    text(x + 14, 432, t, 13, IND if i else "#8A4D00", "bold"),
-                    mtext(x + 14, 452, ls, 11.5, 1.4, INK),
+                    rect(x, 448, w, 56, LAV2 if i else "#FDF0DC", None, 1, 8),
+                    text(x + 12, 466, t, 12, IND if i else "#8A4D00", "bold"),
+                    mtext(x + 12, 482, ls, 10.5, 1.35, INK),
                 ],
             )
         )
     g = [
         header("METHOD · PIPELINE", "Code drives, the LLM makes small decisions"),
-        group("pipeline-diagram", (56, 126, 848, 276), kids),
+        group("pipeline-diagram", (56, 96, 848, 344), k),
         *bg,
     ]
     page(21, "p07_pipeline", g, defs=defs)
