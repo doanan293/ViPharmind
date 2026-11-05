@@ -1,2 +1,6 @@
 # Generated round-trip workspace; make.sh rebuilds it from template.pptx
 projects/
+# Build outputs; make.sh and render_pdf.py rebuild them. The final deck is
+# attached to a GitHub Release instead of being versioned.
+SoICT2026_ViPharmInd_talk.pptx
+SoICT2026_ViPharmInd_talk_backup.pdf
