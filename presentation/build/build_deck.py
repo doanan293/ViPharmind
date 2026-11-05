@@ -747,7 +747,7 @@ def p07():
     ]
     # row 2: answer -> response, exits join the response line
     k += node(
-        820, R2, "robot", "Answer", ["cites sources,", "drops invalid ones"], fill=IND
+        820, R2, "article", "Answer", ["cites sources,", "drops invalid ones"], fill=IND
     )
     k += node(
         106,
@@ -760,8 +760,8 @@ def p07():
     k += [
         line(790, R2, 138, R2, IND, 1.6, marker="ah"),
         line(220, 236, 220, R2 - 4, SOFT, 1.3, dash="4 3"),
-        text(228, 282, "attack → blocked", 10, MUT),
-        text(228, 295, "off-topic → redirected", 10, MUT),
+        text(212, 282, "attack → blocked", 10, MUT, anchor="end"),
+        text(212, 295, "off-topic → redirected", 10, MUT, anchor="end"),
         line(340, 236, 340, R2 - 4, SOFT, 1.3, dash="4 3"),
         text(348, 288, "small talk", 10, MUT),
     ]
