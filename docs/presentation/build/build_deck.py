@@ -1721,66 +1721,53 @@ def g_steps():
 
 # ====================================================================== 11 concat
 def g_concat():
-    pts = [
-        ("Full agent", 5.3, 0.923, "G"),
-        ("One-step RAG", 2.0, 0.816, "G"),
-        ("Concat RAG", 2.0, 0.863, "G"),
-        ("Closed-book", 1.0, 0.268, "G"),
-        ("Full agent", 5.2, 0.913, "Q"),
-        ("One-step RAG", 2.0, 0.792, "Q"),
-        ("Concat RAG", 2.0, 0.777, "Q"),
-        ("Closed-book", 1.0, -0.060, "Q"),
+    # Dot plot: one row per system, Gemini (circle) above Qwen (square).
+    rows = [
+        ("Full agent", "5.3 · 5.2 calls / turn", 0.923, 0.913),
+        ("Concat RAG", "2.0 calls / turn", 0.863, 0.777),
+        ("One-step RAG", "2.0 calls / turn", 0.816, 0.792),
+        ("Closed-book", "1.0 call / turn", 0.268, -0.060),
     ]
-    x, y, w, h = 104, 136, 330, 300
-    xs, ys = (0.5, 6.0), (-0.2, 1.0)
+    x0, w = 180, 216
+    vmin, vmax = -0.2, 1.0
 
     def X(v):
-        return x + w * (v - xs[0]) / (xs[1] - xs[0])
+        return x0 + w * (v - vmin) / (vmax - vmin)
 
-    def Y(v):
-        return y + h - h * (v - ys[0]) / (ys[1] - ys[0])
-
-    k = [rect(x, y, w, h, WHITE, None, 1, 0)]
+    k = [
+        text(60, 132, "Truthfulness by system", 13, IND, "bold", MONO),
+        circle(66, 153, 5, IND),
+        text(76, 157, "Gemini 3.8 Flash", 11, INK),
+        rect(196, 148, 10, 10, ORA, None, 1, 1),
+        text(212, 157, "Qwen3.5-9B", 11, INK),
+    ]
     for t in [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0]:
         k += [
-            line(x, Y(t), x + w, Y(t), GRID, 0.8),
-            text(x - 6, Y(t) + 4, f"{t:.1f}", 10, MUT, anchor="end"),
+            line(X(t), 176, X(t), 440, GRID, 0.8),
+            text(X(t), 456, f"{t:.1f}".replace("-", "−"), 10.5, MUT, anchor="middle"),
         ]
-    for t in [1, 2, 3, 4, 5, 6]:
-        k.append(text(X(t), y + h + 15, str(t), 10, MUT, anchor="middle"))
-    k += [
-        line(x, y + h, x + w, y + h, SOFT, 1),
-        line(x, y, x, y + h, SOFT, 1),
-        text(x + w / 2, y + h + 32, "LLM calls per turn", 11, INK, anchor="middle"),
-        text(
-            x - 40, y - 12, "Truthfulness vs cost, all eight systems", 11, INK, "bold"
-        ),
-    ]
-    lab = {
-        ("Full agent", "G"): ("Full agent", "end", -9, -8),
-        ("Full agent", "Q"): ("", "end", -9, 14),
-        ("One-step RAG", "G"): ("One-step", "end", -9, 4),
-        ("Concat RAG", "G"): ("Concat", "start", 9, -4),
-        ("One-step RAG", "Q"): ("", "start", 9, 6),
-        ("Concat RAG", "Q"): ("", "start", 9, 14),
-        ("Closed-book", "G"): ("Closed-book", "start", 9, 4),
-        ("Closed-book", "Q"): ("Closed-book", "start", 9, 4),
-    }
-    for n, cx, cy, s in pts:
-        col = IND if s == "G" else ORA
-        if s == "G":
-            k.append(circle(X(cx), Y(cy), 5.5, col))
-        else:
-            k.append(rect(X(cx) - 5, Y(cy) - 5, 10, 10, col, None, 1, 1))
-        lb, anc, dx, dy = lab[(n, s)]
-        if lb:
-            k.append(text(X(cx) + dx, Y(cy) + dy, lb, 10.5, INK, anchor=anc))
-    k += [
-        circle(X(3.2), Y(0.50), 5, IND),
-        text(X(3.2) + 10, Y(0.50) + 4, "Gemini 3.8 Flash", 10.5, INK),
-        rect(X(3.2) - 5, Y(0.40) - 5, 10, 10, ORA, None, 1, 1),
-        text(X(3.2) + 10, Y(0.40) + 4, "Qwen3.5-9B", 10.5, INK),
-    ]
+    k.append(line(X(0), 176, X(0), 440, SOFT, 1))
+    y = 206
+    for name, calls, g, q in rows:
+        hl = name == "Full agent"
+        k += [
+            text(60, y - 2, name, 12.5, ORA if hl else IND, "bold"),
+            text(60, y + 15, calls, 10, MUT),
+            line(X(min(g, q)), y, X(max(g, q)), y, LAV, 2),
+            circle(X(g), y - 8, 5.5, IND),
+            text(X(g) + 9, y - 4, f"{g:.3f}", 11, IND, "bold", MONO),
+            rect(X(q) - 5, y + 3, 10, 10, ORA, None, 1, 1),
+            text(
+                X(q) + 9,
+                y + 12,
+                f"{q:.3f}".replace("-", "−"),
+                11,
+                "#B36B00",
+                "bold",
+                MONO,
+            ),
+        ]
+        y += 66
     tb = [
         text(470, 132, "On the 50 multi-turn follow-ups", 14, IND, "bold", MONO),
         text(700, 156, "Full agent", 11, IND, "bold", anchor="end"),
