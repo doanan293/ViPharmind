@@ -689,14 +689,12 @@ def p07():
                 k.append(text(cx, cy + r + 32 + 13 * j, ln, 10, MUT, anchor="middle"))
         return k
 
-    R1, R2 = 165, 352
+    R1, R2 = 165, 392
     k = []
     # row 1: user -> guard -> rephrase -> hybrid search -> rerank -> judge
     k += node(106, R1, "user", "User turn", ["question + history"])
     k += node(220, R1, "shield-check", "Guard", ["attack? medicine?"])
-    k += node(
-        340, R1, "pencil-simple-line", "Rephrase", ["standalone query"], dashed=True
-    )
+    k += node(340, R1, "pencil-simple-line", "Rephrase", ["standalone query"])
     # hybrid search container
     k += [
         rect(410, 112, 196, 136, LAV2, None, 1, 14, opacity=0.55),
@@ -718,10 +716,9 @@ def p07():
         R1,
         "funnel",
         "Rerank",
-        ["Qwen3-Reranker-4B", "top 5 + context"],
-        dashed=True,
+        ["top 5 + context"],
     )
-    k += node(820, R1, "scales", "Judge", ["enough evidence?"], dashed=True)
+    k += node(820, R1, "scales", "Judge", ["enough evidence?"])
     for x1, x2 in [(136, 190), (250, 310), (370, 406), (608, 650), (710, 790)]:
         k.append(line(x1, R1, x2, R1, IND, 1.6, marker="ah"))
     # judge -> answer (yes) and judge -> refine (no)
@@ -740,7 +737,6 @@ def p07():
         r=22,
         fill=WHITE,
         ink=ORA,
-        dashed=True,
         label=False,
     )
     k += [
@@ -768,50 +764,11 @@ def p07():
         text(228, 295, "off-topic → redirected", 10, MUT),
         line(340, 236, 340, R2 - 4, SOFT, 1.3, dash="4 3"),
         text(348, 288, "small talk", 10, MUT),
-        f'<circle cx="772" cy="104" r="7" fill="{WHITE}" stroke="{IND}" stroke-width="1.3" stroke-dasharray="3 2"/>',
-        text(784, 108, "removed in ablations", 10.5, MUT),
     ]
     defs = arrow_marker("ah", IND) + arrow_marker("ao", ORA)
-    boxes = [
-        (
-            60,
-            240,
-            "Code owns control",
-            ["routing, loop limits · per turn:", "10 LLM calls, 40,000 tokens"],
-        ),
-        (
-            316,
-            328,
-            "Gemini setting",
-            [
-                "gemini-3.1-flash-lite: guard, rephrase",
-                "gemini-3.8-flash-high: judge, refine, answer",
-            ],
-        ),
-        (
-            660,
-            240,
-            "Open-weight setting",
-            ["Qwen3.5-9B for every step", "open weights (Apache 2.0), self-hosted"],
-        ),
-    ]
-    bg = []
-    for i, (x, w, t, ls) in enumerate(boxes):
-        bg.append(
-            group(
-                f"setting-{i + 1}",
-                (x, 446, w, 60),
-                [
-                    rect(x, 448, w, 56, LAV2 if i else "#FDF0DC", None, 1, 8),
-                    text(x + 12, 466, t, 12, IND if i else "#8A4D00", "bold"),
-                    mtext(x + 12, 482, ls, 10.5, 1.35, INK),
-                ],
-            )
-        )
     g = [
         header("METHOD · PIPELINE", "Code drives, the LLM makes small decisions"),
-        group("pipeline-diagram", (56, 96, 848, 344), k),
-        *bg,
+        group("pipeline-diagram", (56, 96, 848, 400), k),
     ]
     page(21, "p07_pipeline", g, defs=defs)
 
