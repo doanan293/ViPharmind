@@ -93,7 +93,7 @@ D. (20) Limitations: on slide 16 as one strip, in full in backup.
 
 ## 8. Build
 
-- `presentation/build/make.sh` builds everything: it regenerates the ppt-master round-trip workspace from `template.pptx` when `presentation/projects/` is missing (the workspace is about 145 MB and not versioned), writes the slide SVGs and notes (`build_deck.py`, `notes.py`), runs the quality checker and exports the native PPTX to `presentation/SoICT2026_ViPharmInd_talk.pptx`. `render_pdf.py` writes the PDF backup.
+- `presentation/build/make.sh` builds everything: it regenerates the ppt-master round-trip workspace from `template.pptx` when `presentation/projects/` is missing (the workspace is about 145 MB and not versioned), writes the slide SVGs and notes (`build_deck.py`, `notes.py`), runs the quality checker and exports the native PPTX to `presentation/SoICT2026_ViPharmInd_talk.pptx`. `render_pdf.py` writes the PDF backup. Neither output is versioned (they are rebuilt from the sources); the final deck goes on a GitHub Release.
 - Run Python with `/usr/bin/python3` (ppt-master dependencies are in `~/.local`); no extra virtualenvs.
 - The presenting machine needs Poppins and IBM Plex Mono (`presentation/fonts/`); otherwise use the PDF backup.
 - `presentation/rehearsal.md` holds per-slide timings and the backup index.
