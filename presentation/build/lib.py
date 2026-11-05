@@ -241,3 +241,29 @@ def table_marker(id, payload: dict, fallback: list[str], bounds):
         + "".join(fallback)
         + "</g>"
     )
+
+
+ICON_DIR = (
+    __import__("pathlib").Path(__file__).resolve().parents[2]
+    / ".claude/skills/ppt-master/templates/icons/phosphor-duotone"
+)
+
+
+def icon(name, cx, cy, size, color):
+    """Inline a Phosphor duotone icon (MIT) centred on (cx, cy)."""
+    import re
+
+    svg = (ICON_DIR / f"{name}.svg").read_text()
+    s = size / 256
+    parts = []
+    for m in re.finditer(r"<path ([^>]*?)/?>", svg):
+        attrs = m.group(1)
+        d = re.search(r'd="([^"]+)"', attrs).group(1)
+        op = ' fill-opacity="0.2"' if 'opacity="0.2"' in attrs else ""
+        parts.append(f'<path d="{d}" fill="{color}"{op}/>')
+    x, y = cx - size / 2, cy - size / 2
+    return (
+        f'<g transform="translate({fmt(x)} {fmt(y)}) scale({s:.5f})">'
+        + "".join(parts)
+        + "</g>"
+    )
