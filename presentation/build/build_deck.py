@@ -560,7 +560,7 @@ def p05():
         group("glossary", (668, 104, 236, 344), gl),
         band,
     ]
-    page(23, "p05_enrichment", g, defs=defs)
+    page(27, "p05_enrichment", g, defs=defs)
 
 
 # ====================================================================== 06 evaluation sets
@@ -1978,7 +1978,7 @@ def b_limits():
         )
     )
     g = [header("BACKUP · LIMITATIONS", "Limitations we report in the paper"), *gs]
-    page(20, "b1_limitations", g)
+    page(27, "b1_limitations", g)
 
 
 # ====================================================================== 16 takeaways + thank you
@@ -2042,7 +2042,7 @@ def p16():
         )
     )
     g = [header("CONCLUSION · TAKEAWAYS", "Takeaways"), *gs]
-    page(24, "p16_takeaways", g)
+    page(27, "p16_takeaways", g)
 
 
 # ====================================================================== 17 thank you
@@ -2834,7 +2834,7 @@ def b6():
             y += 13.3 * len(en) + 12
         gs.append(group(f"example-{i + 1}", (x - 2, 108, 274, 396), kids))
     g = [header("BACKUP · EXAMPLES", "Example transcripts from the released runs"), *gs]
-    page(24, "b6_examples", g)
+    page(27, "b6_examples", g)
 
 
 def main():
