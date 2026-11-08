@@ -1099,20 +1099,6 @@ def p08():
             11.5,
             INK,
         ),
-        text(704, 422, "Three lessons", 13, ORA, "bold", MONO),
-        mtext(
-            704,
-            444,
-            [
-                "1  self-host the embedder",
-                "2  tune the fusion constant",
-                "3  a mid-size reranker",
-            ],
-            12,
-            1.45,
-            IND,
-            "bold",
-        ),
     ]
     g = [
         header("RESULTS · RETRIEVAL", "Retrieval: 14 methods on 10,000 questions"),
@@ -1136,172 +1122,59 @@ def p08():
 
 
 def p09():
-    a = scatter_panel(
-        104,
-        146,
-        300,
-        270,
-        (500, 4500),
-        (0.60, 0.90),
-        [
-            (768, 0.640, "Gemma-300M", "start", 9, 4),
-            (1024, 0.776, "BGE-M3", "start", 9, -3),
-            (1024, 0.753, "Qwen3-0.6B", "start", 9, 13),
-            (2560, 0.820, "Qwen3-Emb-4B", "end", -10, -7),
-            (3072, 0.800, "OpenAI-3-large", "middle", 0, 23),
-            (4096, 0.834, "Qwen3-8B", "end", -9, -8),
-        ],
-        "Embedding dimension",
-        "Dense retrievers alone · nDCG@10",
-        [(1000, "1k"), (2000, "2k"), (3000, "3k"), (4000, "4k")],
-        [(0.6, "0.60"), (0.7, "0.70"), (0.8, "0.80"), (0.9, "0.90")],
-        hline=(0.621, "BM25 0.621"),
-        colors={"Qwen3-Emb-4B": ORA, "OpenAI-3-large": PUR},
-    )
-    h2h = [
-        card(450, 112, 450, 202),
-        text(466, 140, "Head to head", 14, IND, "bold", MONO),
-        text(728, 138, "Qwen3-Emb-4B", 13, ORA, "bold", anchor="end"),
-        text(884, 138, "OpenAI-3-large", 13, PUR, "bold", anchor="end"),
-        text(728, 155, "self-hosted", 10.5, MUT, anchor="end"),
-        text(884, 155, "commercial API", 10.5, MUT, anchor="end"),
-    ]
-    y = 182
-    for lab, q, o in [
-        ("Dimension", "2,560", "3,072"),
-        ("Hit@10 (%)", "95.4", "95.0"),
-        ("nDCG@10", "0.820", "0.800"),
-        ("MRR@10", "0.779", "0.754"),
-        ("CER@10 (%)", "98.4", "97.8"),
-    ]:
-        h2h += [
-            line(466, y - 16, 884, y - 16, LAV, 0.8),
-            text(466, y, lab, 12.5, INK),
-            text(728, y, q, 14, ORA, "bold", MONO, anchor="end"),
-            text(884, y, o, 14, PUR, "bold", MONO, anchor="end"),
-        ]
-        y += 22
-    h2h.append(
-        text(
-            466, 300, "…and it matches Qwen3-Emb-8B in Hit@10 (95.4).", 12, IND, "bold"
-        )
-    )
-    fus = [
-        card(450, 326, 450, 178),
-        text(466, 352, "Fusion: the default k = 60 hurts", 14, IND, "bold", MONO),
-        text(668, 376, "Dense (4B)", 11.5, MUT, "bold", anchor="end"),
-        text(776, 376, "RRF k = 60", 11.5, MUT, "bold", anchor="end"),
-        text(884, 376, "RRF k = 2", 11.5, ORA, "bold", anchor="end"),
-    ]
-    y = 400
-    for lab, d, k60, k2, hot in [
-        ("nDCG@10", "0.820", "0.747", "0.784", False),
-        ("Hit@10 (%)", "95.4", "93.7", "95.9", True),
-        ("Hit@30 (%)", "98.6", "98.9", "99.2", True),
-    ]:
-        fus += [
-            line(466, y - 16, 884, y - 16, LAV, 0.8),
-            text(466, y, lab, 12.5, INK),
-            text(668, y, d, 13.5, IND, "bold", MONO, anchor="end"),
-            text(
-                776,
-                y,
-                k60,
-                13.5,
-                RED if lab == "nDCG@10" else MUT,
-                "bold",
-                MONO,
-                anchor="end",
-            ),
-            text(884, y, k2, 13.5, ORA if hot else MUT, "bold", MONO, anchor="end"),
-        ]
-        y += 22
-    fus.append(
-        mtext(
-            466,
-            468,
+    cols = [
+        (
+            "Self-host the embedder",
+            "0.820 vs 0.800",
+            ["nDCG@10, Qwen3-Emb-4B (self-hosted)", "vs OpenAI text-embedding-3-large"],
             [
-                "k = 2 gives the best Hit@10 and Hit@30 before reranking,",
-                "and wins again on a held-out half: 96.1% vs 93.8%.",
+                [
+                    "Higher than OpenAI in every metric",
+                    "of the table, with a smaller vector",
+                ],
+                ["Matches Qwen3-Emb-8B in Hit@10", "(95.4)"],
             ],
-            11.5,
-            1.4,
-            INK,
-        )
-    )
-    g = [
-        header("RESULTS · RETRIEVAL", "Self-hosted embeddings match a commercial API"),
-        group("dense-plot", (56, 112, 372, 356), a),
-        group("head-to-head", (446, 108, 458, 210), h2h),
-        group("fusion", (446, 322, 458, 186), fus),
-    ]
-    page(27, "p09_embeddings", g)
-
-
-def p10():
-    b = scatter_panel(
-        104,
-        146,
-        300,
-        220,
-        (0.6, 400),
-        (88.6, 96.5),
-        [
-            (1.5, 95.2, "Qwen3-8B · 95.2", "start", 10, 4),
-            (4.0, 94.4, "Qwen3-4B · 94.4", "start", 11, 5),
-            (12.3, 92.0, "Qwen3-0.6B · 92.0", "end", -10, 17),
-            (31.2, 92.1, "BGE-v2-m3 · 92.1", "start", 10, 4),
-            (8.2, 90.7, "BGE-v2-gemma · 90.7", "start", 10, 19),
-        ],
-        "Pairs scored per second (log scale)",
-        "Rerankers on the hybrid top 30 · Hit@5 (%)",
-        [(1, "1"), (10, "10"), (100, "100")],
-        [(90, "90"), (92, "92"), (94, "94"), (96, "96")],
-        logx=True,
-        hline=(90.7, "hybrid, no reranker · 90.7"),
-        colors={"Qwen3-4B · 94.4": ORA},
-    )
-    facts = [
-        (
-            "+3.7",
-            ORA,
-            "Hit@5 over the hybrid input",
-            "90.7 → 94.4 with Qwen3-Reranker-4B",
         ),
         (
-            "2.7×",
-            IND,
-            "the throughput of the 8B model",
-            "4.0 vs 1.5 pairs/s, only 0.8 lower in Hit@5",
+            "Tune the fusion constant",
+            "k = 2",
+            ["RRF constant used in the pipeline"],
+            [
+                [
+                    "k = 60, the common default: nDCG@10",
+                    "0.747, below dense alone (0.820)",
+                ],
+                ["k = 2: best Hit@10 (95.9) and Hit@30", "(99.2) before reranking"],
+                ["Held-out half: 96.1% vs 93.8%"],
+            ],
         ),
         (
-            "8×",
-            SOFT,
-            "faster: BGE-reranker-v2-m3",
-            "but Hit@10 unchanged (95.8 vs 95.9)",
-        ),
-        (
-            "90.7",
-            SOFT,
-            "Hit@5 with BGE-reranker-v2-gemma",
-            "no gain over the hybrid input",
-        ),
-        (
-            "0.804",
-            PUR,
-            "MRR@30, 0.6B reranker + Vietnamese",
-            "medical instruction (0.761 without), held-out",
+            "Use a mid-size reranker",
+            "+3.7 Hit@5",
+            ["Qwen3-Reranker-4B over the", "hybrid input (90.7 → 94.4)"],
+            [
+                ["0.8 below the 8B in Hit@5, at 2.7×", "its throughput"],
+                ["BGE-v2-m3: eight times faster, but", "Hit@10 unchanged"],
+                ["BGE-v2-gemma: no gain"],
+                ["Vietnamese instruction: MRR@30", "of the 0.6B 0.761 → 0.804"],
+            ],
         ),
     ]
-    r = []
-    y = 142
-    for n, c, t1, t2 in facts:
-        r += [
-            text(452, y + 8, n, 24, c, "bold", MONO),
-            text(552, y, t1, 13, INK, "bold"),
-            text(552, y + 19, t2, 12, MUT),
+    gs = []
+    for i, (title, big, cap, bullets) in enumerate(cols):
+        x = 60 + i * 284
+        k = [
+            card(x, 108, 272, 300),
+            text(x + 16, 138, str(i + 1), 22, ORA, "bold", MONO),
+            text(x + 42, 136, title, 14, IND, "bold", MONO),
+            text(x + 16, 184, big, 26, ORA if i != 1 else IND, "bold", MONO),
+            mtext(x + 16, 206, cap, 11, 1.4, MUT),
         ]
-        y += 56
+        y = 254
+        for bl in bullets:
+            k += [circle(x + 20, y - 4, 2.6, ORA), mtext(x + 30, y, bl, 11.5, 1.4, INK)]
+            y += 16 * len(bl) + 9
+        gs.append(group(f"lesson-{i + 1}", (x - 2, 106, 276, 304), k))
     band = [
         rect(60, 422, 840, 84, LAV2, None, 1, 8),
         text(
@@ -1335,15 +1208,13 @@ def p10():
         ),
     ]
     g = [
-        header("RESULTS · RETRIEVAL", "Rerankers: the 4B model is the sweet spot"),
-        group("rerank-plot", (56, 112, 372, 302), b),
-        group("rerank-facts", (446, 108, 458, 300), r),
+        header("RESULTS · RETRIEVAL", "Three lessons from the retrieval benchmark"),
+        *gs,
         group("retrieval-slices", (56, 418, 848, 90), band),
     ]
-    page(27, "p10_rerankers", g)
+    page(27, "p09_retrieval_lessons", g)
 
 
-# ====================================================================== 09 grounding (native chart)
 def g_grounding():
     cats = ["Gemini 3.8 Flash", "Qwen3.5-9B"]
     series = [
@@ -2828,7 +2699,6 @@ def main():
         p07,
         p08,
         p09,
-        p10,
         g_grounding,
         p12,
         g_steps,

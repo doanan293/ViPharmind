@@ -11,8 +11,8 @@ The deck must look like a scientific-conference talk: clean, evidence-first, hig
 ## 2. Goals, non-goals, anti-goals
 
 **Goals**
-- About 11:30 of talk and about 3:30 of Q&A.
-- About 16 content slides (author's limit) plus a Thank-you slide; backup slides after it answer likely questions with full tables.
+- About 11:00 of talk and about 4:00 of Q&A.
+- About 15 content slides (author's limit was about 16) plus a Thank-you slide; backup slides after it answer likely questions with full tables.
 - Every one of the 20 insights in §6 appears in the deck, the important ones as their own slides.
 - Slides and speaker notes in **English**.
 
@@ -46,7 +46,7 @@ Exact wording of model names: Gemini 3.8 Flash (guard/rephrase use gemini-3.1-fl
 
 **Editorial rules from the author's review**
 - No infrastructure details: no "2× T4", "llama.cpp" or "thinking disabled" on slides, in notes or in backup.
-- No filler captions: no item ids, "taken verbatim" notes, "Paper Table N" source lines, subtitles that restate the title, or implementation lines (Qdrant, LangGraph). A short line stays only where a chart or table cannot be read without it (the Cost column of slide 8, the closed-book / one-step definitions of slide 11, the 480-item denominator of slide 14).
+- No filler captions: no item ids, "taken verbatim" notes, "Paper Table N" source lines, subtitles that restate the title, or implementation lines (Qdrant, LangGraph). A short line stays only where a chart or table cannot be read without it (the Cost column of slide 8, the closed-book / one-step definitions of slide 10, the 480-item denominator of slide 13).
 - No credit lines: no product-photo credit and no Slidesgo template credit (author's decision; the free Slidesgo licence asks for one, so this assumes the author's own licence covers it).
 - The QR codes appear once, on the Thank-you slide.
 - Vietnamese questions are shown in sentence case with full diacritics, each with an English gloss for the international audience. Answers are quoted verbatim, with "…" for cuts.
@@ -62,18 +62,17 @@ Exact wording of model names: Gemini 3.8 Flash (guard/rephrase use gemini-3.1-fl
 | 5 | Resources | Search the way patients talk | Panadol đỏ → Panadol Extra, "thuốc bao tử chữ Y" → Yumangel, "chữ P" → Phosphalugel with product photos; the real Yumangel chunk with header and colloquial mapping; glossary TKTW / ADR / GFR; 2,409 mappings on 13,790 leaflet chunks, 71-term glossary on 11,031 chunks, no LLM call at query time |
 | 6 | Resources | Two evaluation sets | 10,000-question benchmark by group; 500-item golden set (420 / 50 / 10 / 10 / 10) |
 | 7 | Method | Code drives, the LLM makes small decisions | Icon pipeline diagram only: user → guard → rephrase → hybrid search (BM25 + dense, RRF k = 2) → rerank → judge, refine loop ≤ 3 rounds, answer → response, guard and small-talk exits. No model names, ablation legend or setting boxes; the two model settings are spoken in the notes |
-| 8 | Results | Retrieval: 14 methods on 10,000 questions | Native table (Method, Cost, Hit@5, Hit@10, Hit@30, nDCG@10, MRR@10), pipeline rows highlighted, best values bold; 97.5% Hit@10, 99.2% Hit@30; "Three lessons" |
-| 9 | Results | Self-hosted embeddings match a commercial API | Dense scatter; head-to-head Qwen3-Emb-4B vs OpenAI-3-large (2,560 vs 3,072 dims, Hit@10 95.4 vs 95.0, nDCG@10 0.820 vs 0.800, MRR@10 0.779 vs 0.754, CER@10 98.4 vs 97.8), matches the 8B in Hit@10; fusion block: k = 60 gives 0.747 nDCG@10, below dense alone, k = 2 best Hit@10 / Hit@30 before reranking, held-out 96.1% vs 93.8% |
-| 10 | Results | Rerankers: the 4B model is the sweet spot | Reranker scatter; +3.7 Hit@5, 2.7× the 8B's throughput at 0.8 lower Hit@5, BGE-v2-m3 eight times faster with Hit@10 unchanged, BGE-v2-gemma no gain, Vietnamese instruction 0.761 → 0.804; band: BM25 2.2× on 3,657 rare-word questions, reranker 1.4× on 846 sibling-product questions |
-| 11 | Results | Grounding is the big lever | Native truthfulness chart (closed-book / one-step / full × two models); 18× and 25× fewer hallucinations; nugget recall and severe harm, closed-book → full agent |
-| 12 | Results | One open 9B model can run every step | Native table of the two full agents (12 metrics incl. safety and cost); 0.010 truthfulness gap; −0.060 → 0.913 for the same Qwen3.5-9B; why a small model copes |
-| 13 | Results | Averages hide what each step does | Per-step effect on targeted groups (rephrase 0.920 → 0.020, judge–refine 1.000 → 0.657, reranker 0.771 → 0.607 borderline, guard 10/10 → 0/10); one-step RAG leaves 96% / 88% of follow-ups unanswered |
-| 14 | Results | What the extra LLM calls buy | Truthfulness dot plot by system (Gemini circle, Qwen square, LLM calls per turn under each name); follow-up comparison full agent vs Concat RAG; Concat 2.0 vs 5.3 calls, >40% fewer calls and tokens, 4.0% hallucination with Qwen3.5-9B; judge–refine bar 295 accepted / 185 refined (+4.8 calls each) |
-| 15 | Results | Can we trust the automatic judge? | κ / AC1 / ρ tiles for both settings; PPI: slightly strict, favours no system; citations: 96.5% supported, 25.7% uncited, 10.8% untraceable |
-| 16 | Conclusion | Takeaways | Five takeaways (resource; self-hosted retrieval is enough; grounding; small decisions suit small models; judge each step where needed) and a two-line Limits strip |
-| 17 | – | Thank you! Questions? | Contacts and the two QR codes (GitHub v1.1.0, Kaggle); stays on screen during Q&A. Built on the title-slide layout, because the template's thank-you layout carries a locked Slidesgo credit |
+| 8 | Results | Retrieval: 14 methods on 10,000 questions | Native table (Method, Cost, Hit@5, Hit@10, Hit@30, nDCG@10, MRR@10), pipeline rows highlighted, best values bold; 97.5% Hit@10, 99.2% Hit@30 |
+| 9 | Results | Three lessons from the retrieval benchmark | Three cards: self-host the embedder (0.820 vs 0.800 nDCG@10, higher than OpenAI in every metric, matches the 8B in Hit@10); tune the fusion constant (k = 60 gives 0.747, below dense alone 0.820; k = 2 best Hit@10 95.9 / Hit@30 99.2 before reranking; held-out 96.1% vs 93.8%); use a mid-size reranker (+3.7 Hit@5, 0.8 below the 8B at 2.7× its throughput, BGE-v2-m3 eight times faster with Hit@10 unchanged, BGE-v2-gemma no gain, Vietnamese instruction 0.761 → 0.804). Band: BM25 2.2× on 3,657 rare-word questions, reranker 1.4× on 846 sibling-product questions. Replaces the earlier separate embedding and reranker slides, whose scatter plots repeated the table |
+| 10 | Results | Grounding is the big lever | Native truthfulness chart (closed-book / one-step / full × two models); 18× and 25× fewer hallucinations; nugget recall and severe harm, closed-book → full agent |
+| 11 | Results | One open 9B model can run every step | Native table of the two full agents (12 metrics incl. safety and cost); 0.010 truthfulness gap; −0.060 → 0.913 for the same Qwen3.5-9B; why a small model copes |
+| 12 | Results | Averages hide what each step does | Per-step effect on targeted groups (rephrase 0.920 → 0.020, judge–refine 1.000 → 0.657, reranker 0.771 → 0.607 borderline, guard 10/10 → 0/10); one-step RAG leaves 96% / 88% of follow-ups unanswered |
+| 13 | Results | What the extra LLM calls buy | Truthfulness dot plot by system (Gemini circle, Qwen square, LLM calls per turn under each name); follow-up comparison full agent vs Concat RAG; Concat 2.0 vs 5.3 calls, >40% fewer calls and tokens, 4.0% hallucination with Qwen3.5-9B; judge–refine bar 295 accepted / 185 refined (+4.8 calls each) |
+| 14 | Results | Can we trust the automatic judge? | κ / AC1 / ρ tiles for both settings; PPI: slightly strict, favours no system; citations: 96.5% supported, 25.7% uncited, 10.8% untraceable |
+| 15 | Conclusion | Takeaways | Five takeaways (resource; self-hosted retrieval is enough; grounding; small decisions suit small models; judge each step where needed) and a two-line Limits strip |
+| 16 | – | Thank you! Questions? | Contacts and the two QR codes (GitHub v1.1.0, Kaggle); stays on screen during Q&A. Built on the title-slide layout, because the template's thank-you layout carries a locked Slidesgo credit |
 
-**Backup (18–25):** divider; full limitations (template questions, one pharmacist, Wilson [0.722, 1.000]); full retrieval table; full end-to-end table; ablation table; nugget recall by question type; retrieval slices and metric definitions; three example transcripts (follow-up rephrased, unanswerable declined, injection blocked) with English glosses.
+**Backup (17–24):** divider; full limitations (template questions, one pharmacist, Wilson [0.722, 1.000]); full retrieval table; full end-to-end table; ablation table; nugget recall by question type; retrieval slices and metric definitions; three example transcripts (follow-up rephrased, unanswerable declined, injection blocked) with English glosses.
 
 ## 6. The 20 insights (approved by the author)
 
@@ -102,4 +101,4 @@ D. (20) Limitations: on slide 16 as one strip, in full in backup.
 
 - Every number on every slide is matched against the `.tex` sources; the only unmatched tokens are axis ticks, page numbers, model-name digits, row counts and percentages converted from table fractions.
 - Every slide is rendered (LibreOffice and Chromium) and inspected for overflow, clipping and overlaps. LibreOffice shifts some auto-fit text boxes sideways; PowerPoint is the reference renderer.
-- The quality gate and the delivery check pass. Speaker notes total about 1,570 words, about 11:30 at 130 words per minute.
+- The quality gate and the delivery check pass. Speaker notes total about 1,470 words, about 11:00 at 130 words per minute.
