@@ -79,7 +79,7 @@ Exact wording of model names: Gemini 3.8 Flash (guard/rephrase use gemini-3.1-fl
 A. What it does: (1) first Vietnamese drug corpus from the National Formulary + 2,406 real leaflets; (2) 10,000-question benchmark with answer location known by construction; (3) 500-item golden set incl. multi-turn and safety cases; (4) deterministic enrichment, context header + 71-term glossary + 2,409 colloquial mappings; (5) agentic pipeline for low-cost models with small structured decisions and hard budgets; (6) everything released.
 B. Retrieval: (7) 97.5% Hit@10, hybrid 99.2% Hit@30; (8) self-hosted Qwen3-Emb-4B beats OpenAI-3-large; (9) RRF k=60 hurts, k=2 wins, holds on held-out; (10) 4B reranker ≈ 8B at 2.7× speed, BGE-gemma no gain; (11) BM25 for rare words (2.2×), reranker for sibling products (1.4×).
 C. End-to-end: (12) grounding: 18× / 25× fewer hallucinations, closed-book Qwen negative; (13) open 9B within 0.010 of Gemini; (14) per-step effect on targeted groups; (15) one-step RAG leaves 96% of follow-ups unanswered; (16) Concat RAG cheap but rephrase better, Qwen Concat hallucination 4.0%; (17) judge–refine acts as conditional refinement (295 of 480 accepted at first search); (18) judge agrees with blind pharmacist; (19) citation precision high, uncited sentences the weakness.
-D. (20) Limitations: on slide 16 as one strip, in full in backup.
+D. (20) Limitations: on slide 15 as one strip, in full in backup.
 
 ## 7. Assets
 
