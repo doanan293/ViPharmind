@@ -627,7 +627,7 @@ def p06():
         ("Answerable", 420, IND),
         ("Multi-turn", 50, PUR),
         ("Unanswerable", 10, ORA),
-        ("Out-of-scope", 10, "#C77700"),
+        ("Out-of-scope", 10, SOFT),
         ("Injection", 10, RED),
     ]
     x = 520
@@ -636,12 +636,18 @@ def p06():
         w = tot * n / 500
         right.append(rect(x, 186, w, 26, c, None, 1, 0))
         x += w
-    right += [
-        text(520, 232, "420 answerable", 11.5, IND, "bold"),
-        text(828, 232, "50 multi-turn", 11.5, PUR, "bold", anchor="end"),
-        text(880, 232, "10·10·10", 11.5, RED, "bold", anchor="end"),
-        text(880, 249, "unanswerable · off-topic · injection", 10, MUT, anchor="end"),
+    legend = [
+        (520, 238, IND, "420", " answerable"),
+        (700, 238, PUR, "50", " multi-turn follow-ups"),
+        (520, 262, ORA, "10", " unanswerable"),
+        (640, 262, SOFT, "10", " out-of-scope"),
+        (760, 262, RED, "10", " prompt injection"),
     ]
+    for lx, ly, c, n, lab in legend:
+        right += [
+            rect(lx, ly - 9, 10, 10, c, None, 1, 2),
+            runs_text(lx + 16, ly, [(n, {"font-weight": "bold"}), (lab, {})], 11, INK),
+        ]
     bl = [
         [
             "70 answerable items per benchmark group,",
@@ -657,7 +663,7 @@ def p06():
             "absent from the corpus",
         ],
     ]
-    yy = 288
+    yy = 300
     for b in bl:
         right += [circle(524, yy - 5, 3, ORA), mtext(536, yy, b, 12, 1.45, INK)]
         yy += 18 * len(b) + 16
