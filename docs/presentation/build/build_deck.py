@@ -582,7 +582,7 @@ def p06():
             164,
             [
                 ("10,000", {"font-weight": "bold", "fill": ORA}),
-                (" Vietnamese questions · 17 intents · 3 levels", {}),
+                (" Vietnamese questions", {}),
             ],
             13,
             INK,
