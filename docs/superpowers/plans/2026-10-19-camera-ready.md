@@ -219,11 +219,11 @@ Trên test, report ghi cho cả hai option của từng quyết định: `hit@10
 
 ### Task 12: Ngân sách trang, hồ sơ nộp, trả data
 
-**Files:** `report/` (các section), `report/REVISION-NOTES.md` (mới), `report/README.md`.
+**Files:** `report/` (các section), `report/README.md`.
 
 - [ ] **Step 1:** Cắt theo thứ tự spec §4 (Methodology, Related Work, bảng corpus, Discussion) tới khi `pdfinfo report/SoICT2026_…pdf | grep Pages` ≤ 15; không bỏ trích dẫn, không cắt bảng retrieval.
 - [ ] **Step 2:** Corresponding author có ký hiệu phong bì; kiểm hướng dẫn CCIS về permission statement và thêm nếu yêu cầu. Cập nhật câu "tối đa 12 trang không tính references" trong `report/README.md` thành giới hạn camera-ready.
-- [ ] **Step 3:** `REVISION-NOTES.md`: bảng điểm review → chỗ sửa (section, bảng, câu).
+- [ ] **Step 3:** Ghi chú riêng (giữ ngoài repo): bảng điểm review → chỗ sửa (section, bảng, câu).
 - [ ] **Step 4:** Tạo ZIP `Source` theo lệnh trong `report/README.md` mục Overleaf, cộng file text corresponding author; form copyright do tác giả ký tay và thêm vào.
 - [ ] **Step 5:** Lưu data của run mới: `uv run pharma-lab data push --dataset vipharmind-camera-ready-data --message "camera-ready runs"` (dataset riêng tư mới, không thêm version vào `vipharmind-data`).
 - [ ] **Step 6:** Trả môi trường: `docker compose -p vipharmind-v1 stop`; `mv pharma-lab/data pharma-lab/data.v1 && mv pharma-lab/data.v2 pharma-lab/data` chỉ khi tác giả chuyển lại sang `v2.0.0`; `docker start vipharmind-eval-postgres-1 vipharmind-eval-qdrant-1` cùng lúc.

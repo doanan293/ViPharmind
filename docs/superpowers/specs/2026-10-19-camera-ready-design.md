@@ -170,8 +170,8 @@ bỏ trích dẫn, không cắt bảng retrieval.
 
 Hành chính: đánh dấu corresponding author bằng ký hiệu phong bì; permission statement nếu template
 CCIS yêu cầu; ZIP gồm thư mục `Source`, file text corresponding author và form đã ký tay (tác giả
-ký); sửa tên hoặc email trên EasyChair trước khi ký. `report/REVISION-NOTES.md` ghi từng điểm review
-và chỗ sửa.
+ký); sửa tên hoặc email trên EasyChair trước khi ký. Ghi chú riêng, giữ ngoài repo, ghi từng điểm
+review và chỗ sửa.
 
 ## 5. Thứ tự
 
