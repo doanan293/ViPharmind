@@ -19,7 +19,7 @@
 - Run v1 không được chạy lại hay sửa; identity trong `run.json` của run v1 không đổi.
 - `AGENTS.md`: test trong `tests/` theo cây gương; không `# noqa`, `# type: ignore`, `ignore_imports`; ruff, pyrefly, `uv run lint-imports`, pytest pass trong project bị sửa.
 - Data v2 nằm ở `pharma-lab/data.v2` suốt quá trình và được đổi tên lại ở Task 12.
-- Commit theo từng task, message kết thúc bằng dòng `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Commit theo từng task.
 
 ## Review Focus
 

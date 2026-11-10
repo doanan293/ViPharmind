@@ -37,7 +37,7 @@ bài build sạch bằng `latexmk` và không quá 15 trang; mọi số mới tr
 | Novelty của pipeline hạn chế; nên định vị là tài nguyên và đánh giá | R1, R2, R3 | Viết lại contribution (§4) |
 | Phần lớn lợi thế đến từ rephrase; judge–refine lợi ít, tốn khoảng 40% token và gần gấp đôi lời gọi; bỏ reranker không đổi metric e2e | R1, R2 | Viết lại Discussion từ số có sẵn (§4) |
 | Safety chỉ 10 câu mỗi loại | R1, R2, R3 | Hạ tuyên bố, nêu CI (§4) |
-| Benchmark sinh từ template, enrichment dùng cùng mapping; golden và chấm mù chỉ một dược sĩ | R1, R2, R3 | Limitations nêu rõ hơn (§4) |
+| Benchmark sinh từ template, enrichment dùng cùng mapping nên điểm gần bão hoà; golden và chấm mù chỉ một dược sĩ, cần đánh giá lâm sàng độc lập hơn | R1, R2, R3 | Limitations nêu rõ hơn (§4) |
 
 Pilot instruction đã kiểm: run `hybrid-qwen4b-p50-k30-rrf2-sample1000` lấy 1.000 câu từ chính
 benchmark (`sample_seed` 0), không tách rời.
