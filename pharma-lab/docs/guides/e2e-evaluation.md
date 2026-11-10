@@ -157,7 +157,7 @@ uv run pharma-lab e2e report --run e2e-gemini
 - `by_group.csv`;
 - `calibration.csv|tex`;
 
-Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation`, `tab:e2e-calibration`) và tên metric/cấu hình dễ đọc, để copy thẳng vào `report/tables/` (xem `report/README.md`).
+Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation`, `tab:e2e-calibration`) và tên metric/cấu hình dễ đọc, để copy thẳng vào `docs/report/tables/` (xem `docs/report/README.md`).
 - `errors.md` (20 câu tệ nhất của `full`, gắn nhãn lỗi retrieval / citation / answer).
 
 **Citation recall mất ở đâu.** Judge chỉ lưu tỉ lệ câu được hỗ trợ của từng câu trả lời, nên citation recall được tách theo câu từ câu trả lời và đoạn trích:
