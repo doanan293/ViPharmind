@@ -244,7 +244,7 @@ def table_marker(id, payload: dict, fallback: list[str], bounds):
 
 
 ICON_DIR = (
-    __import__("pathlib").Path(__file__).resolve().parents[2]
+    __import__("pathlib").Path(__file__).resolve().parents[3]
     / ".claude/skills/ppt-master/templates/icons/phosphor-duotone"
 )
 

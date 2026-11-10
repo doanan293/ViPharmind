@@ -35,5 +35,5 @@ Nếu bị cắt giờ: slide 11 và 14 mỗi slide chỉ nói một câu, slide
 
 ## Trước buổi trình bày
 
-- Máy trình chiếu phải có font **Poppins** và **IBM Plex Mono**, đã kèm trong `presentation/fonts/`. Không có font thì PowerPoint sẽ thay font khác và chữ có thể bị lệch.
+- Máy trình chiếu phải có font **Poppins** và **IBM Plex Mono**, có trong `docs/presentation/fonts/` (chỉ lưu trên máy, không đưa lên git). Không có font thì PowerPoint sẽ thay font khác và chữ có thể bị lệch.
 - Nếu máy không cài được font, dùng `SoICT2026_ViPharmInd_talk_backup.pdf`. Bản PDF render đúng thiết kế nhưng không có speaker notes.

@@ -1,7 +1,7 @@
 """Build the SoICT 2026 deck pages into the ppt-master round-trip workspace.
 
-Every number on a slide is copied from report/ (tables, figures, sections).
-Run with /usr/bin/python3 presentation/build/build_deck.py
+Every number on a slide is copied from docs/report/ (tables, figures, sections).
+Run with /usr/bin/python3 docs/presentation/build/build_deck.py
 """
 
 from __future__ import annotations

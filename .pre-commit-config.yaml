@@ -18,7 +18,7 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=2000]
         # The talk deck and its Slidesgo template are binary deliverables (about 10 MB).
-        exclude: ^presentation/.*\.pptx$
+        exclude: ^docs/presentation/.*\.pptx$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.7
@@ -88,13 +88,13 @@ repos:
 
   - repo: local
     hooks:
-      # Builds the paper with report/.latexmkrc, which fails on any LaTeX warning
-      # or undefined citation. Needs TeX Live (see report/README.md).
+      # Builds the paper with docs/report/.latexmkrc, which fails on any LaTeX warning
+      # or undefined citation. Needs TeX Live (see docs/report/README.md).
       - id: report-build
         name: latexmk (report)
-        entry: bash -c 'cd report && latexmk -quiet'
+        entry: bash -c 'cd docs/report && latexmk -quiet'
         language: system
-        files: ^report/
+        files: ^docs/report/
         pass_filenames: false
         require_serial: true
 

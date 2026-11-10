@@ -15,7 +15,7 @@ sudo apt install latexmk texlive-latex-recommended texlive-latex-extra \
   texlive-pictures texlive-lang-other zip
 ```
 
-Mọi thiết lập build nằm trong `.latexmkrc`, nên chỉ cần chạy `latexmk` trong `report/`:
+Mọi thiết lập build nằm trong `.latexmkrc`, nên chỉ cần chạy `latexmk` trong `docs/report/`:
 
 ```bash
 cd report
@@ -24,11 +24,11 @@ latexmk -pvc   # build lại mỗi lần lưu file
 latexmk -C     # xóa mọi file sinh ra, kể cả PDF
 ```
 
-Kết quả là `report/SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.pdf` (file `.tex` chính mang luôn tên bản nộp, nên PDF dùng để nộp ngay). Build thất bại nếu còn citation hoặc reference chưa định nghĩa, hay bất kỳ warning nào của LaTeX, class hoặc package. Không build bằng một lượt `pdflatex` đơn lẻ: lượt đó không chạy BibTeX nên mọi trích dẫn hiện thành `[?]`.
+Kết quả là `docs/report/SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.pdf` (file `.tex` chính mang luôn tên bản nộp, nên PDF dùng để nộp ngay). Build thất bại nếu còn citation hoặc reference chưa định nghĩa, hay bất kỳ warning nào của LaTeX, class hoặc package. Không build bằng một lượt `pdflatex` đơn lẻ: lượt đó không chạy BibTeX nên mọi trích dẫn hiện thành `[?]`.
 
 Trong VS Code, LaTeX Workshop dùng recipe mặc định `latexmk`, recipe này đọc `.latexmkrc` nên cho cùng kết quả. File `.tex` không có magic comment `% !TEX program`, vì magic comment khiến LaTeX Workshop bỏ qua recipe và chỉ chạy một lượt `pdflatex`.
 
-Hook `report-build` trong `.pre-commit-config.yaml` ở gốc repo chạy `latexmk` mỗi khi commit đụng tới `report/`, nên bài luôn build sạch trước khi vào git.
+Hook `report-build` trong `.pre-commit-config.yaml` ở gốc repo chạy `latexmk` mỗi khi commit đụng tới `docs/report/`, nên bài luôn build sạch trước khi vào git.
 
 ## Overleaf
 
@@ -42,14 +42,14 @@ Overleaf biên dịch ngay với compiler mặc định (pdfLaTeX) và tự ch�
 
 ## Camera-ready
 
-`report/` là nguồn duy nhất của bài; không giữ bản sao nguồn nào khác. `submission/` (không vào git) chỉ chứa những thứ không sinh ra được từ nguồn: email hướng dẫn của BTC, form Licence to Publish, bản scan đã ký và `Corresponding_Author.txt`. Bản scan là file PDF duy nhất trong `submission/` có tên chứa `signed` (không phân biệt hoa thường, ví dụ `LTP_signed.pdf` hay `LTP_signed_scan.pdf`; tên chứa `unsigned` không được tính). Trong ZIP nó luôn có tên `LTP_signed.pdf`:
+`docs/report/` là nguồn duy nhất của bài; không giữ bản sao nguồn nào khác. `submission/` (không vào git) chỉ chứa những thứ không sinh ra được từ nguồn: email hướng dẫn của BTC, form Licence to Publish, bản scan đã ký và `Corresponding_Author.txt`. Bản scan là file PDF duy nhất trong `submission/` có tên chứa `signed` (không phân biệt hoa thường, ví dụ `LTP_signed.pdf` hay `LTP_signed_scan.pdf`; tên chứa `unsigned` không được tính). Trong ZIP nó luôn có tên `LTP_signed.pdf`:
 
 ```bash
 cd report && ./package.sh camera-ready && cd ..          # chưa có bản scan: vẫn tạo ZIP, kèm cảnh báo
 cd report && ./package.sh camera-ready --final && cd ..  # bản nộp: dừng nếu thiếu bản scan
 ```
 
-Script build lại bài, dựng thư mục `Source/` trong một thư mục tạm, rồi nén `Source/`, `Corresponding_Author.txt` và bản scan thành `submission/SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents_camera_ready.zip` (File B). Nó dừng khi có hai file `signed` để không nộp nhầm. File A là `SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.pdf` ở gốc `report/`.
+Script build lại bài, dựng thư mục `Source/` trong một thư mục tạm, rồi nén `Source/`, `Corresponding_Author.txt` và bản scan thành `submission/SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents_camera_ready.zip` (File B). Nó dừng khi có hai file `signed` để không nộp nhầm. File A là `SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.pdf` ở gốc `docs/report/`.
 
 ## Bảng end-to-end
 
@@ -62,4 +62,4 @@ uv run pharma-lab e2e report --run e2e-qwen35-9b
 cd ..
 ```
 
-Kiểm tra số trong `report/tables/` với CSV sau mỗi lần sinh lại.
+Kiểm tra số trong `docs/report/tables/` với CSV sau mỗi lần sinh lại.

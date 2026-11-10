@@ -4,3 +4,7 @@ projects/
 # attached to a GitHub Release instead of being versioned.
 SoICT2026_ViPharmInd_talk.pptx
 SoICT2026_ViPharmInd_talk_backup.pdf
+# Heavy inputs kept on the author's machine only, not in git
+template.pptx
+assets-src/
+fonts/

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build → stamp → check → export → render the SoICT 2026 deck.
-# Usage: presentation/build/make.sh [render_dir]
+# Usage: docs/presentation/build/make.sh [render_dir]
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PRES="$(dirname "$HERE")"
