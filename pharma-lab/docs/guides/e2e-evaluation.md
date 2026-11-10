@@ -177,7 +177,7 @@ uv run pharma-lab e2e report --run e2e-gemini
 - `calibration.csv|tex`;
 - `cost.csv|tex`: USD mỗi lượt và mỗi 1.000 lượt (CI bootstrap), cost of pass, giây theo bước, latency p50/p95;
 
-Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation`, `tab:e2e-calibration`, `tab:e2e-cost`) và tên metric/cấu hình dễ đọc, để copy thẳng vào `report/tables/` (xem `report/README.md`).
+Các file `.tex` dùng booktabs, có `\label` (`tab:e2e-main`, `tab:e2e-ablation`, `tab:e2e-calibration`, `tab:e2e-cost`) và tên metric/cấu hình dễ đọc, để copy thẳng vào `docs/report/tables/` (xem `docs/report/README.md`).
 - `errors.md` (20 câu tệ nhất của `full`, gắn nhãn lỗi retrieval / citation / answer).
 
 ## 4. Độ trễ, chi phí và so sánh hai run
