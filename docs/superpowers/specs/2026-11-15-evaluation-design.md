@@ -1,7 +1,7 @@
 # Đánh giá retrieval và end-to-end: benchmark, golden, luật chọn và ablation
 
 Ngày: 2026-11-15. Trạng thái: hiện hành, mô tả mã và dữ liệu của nhánh `v2.0.0` (commit `9732e8e`).
-Riêng mục 3.7 (D5) là thiết kế chưa duyệt, chưa có mã.
+Mục 3.7 (D5) là thiết kế nháp đã bỏ cùng paper v2 (2026-11-15), giữ làm lịch sử.
 
 Spec này gom mười bản spec và plan về đánh giá (danh sách ở mục 6) và phần hạ tầng đo của plan pha 0
 paper v2. Nó trả lời ba câu: đánh giá đang dùng bộ dữ liệu nào, đo bằng công cụ nào của `pharma-lab`,
@@ -130,11 +130,11 @@ bản 2.
 | S1 | Chọn retriever | `bm25-v3-k20`, `dense-{gemma300m,bge-m3,qwen06b,qwen4b,qwen8b}-v3-k20`, `hybrid-qwen{4b,8b}-v3-p50-k20-rrf2` | xong |
 | S2 | Chọn reranker | bốn reranker trên `hybrid-qwen4b-v3-p50-k20-rrf2` và trên `hybrid-qwen8b-v3-p50-k20-rrf2` | xong |
 | D1 | Sao phải hybrid | `dense-qwen4b-v3-k20` + rerank 4B so với hybrid + rerank 4B | xong |
-| D2 | Enrichment giúp gì | `hybrid-qwen4b-v3-plain-p50-k20-rrf2` (bundle `formulary-plain`) | có baseline; **chưa có rerank 4B** trong repo |
+| D2 | Enrichment giúp gì | `hybrid-qwen4b-v3-plain-p50-k20-rrf2` (bundle `formulary-plain`) | có baseline, chưa có rerank 4B; bỏ cùng paper v2 (2026-11-15) |
 | rrf60 | RRF k=60 so với k=2 | `hybrid-qwen4b-v3-p50-k20-rrf60`, `hybrid-qwen8b-v3-p50-k20-rrf60` | xong (mức retrieval; D6 e2e thuộc ma trận paper) |
 | D7 | Vì sao chunk khoảng 1.024 token | `hybrid-qwen4b-v3-sections-p50-k20-rrf2` + rerank 4B, chấm `--gold-only` | xong |
 | D4 | Chi phí encode embedding trên T4 | không có | chưa thiết kế đo |
-| D5 | Viết lại câu hỏi hội thoại | không có | thiết kế nháp (mục 3.7), chưa có mã |
+| D5 | Viết lại câu hỏi hội thoại | không có | thiết kế nháp (mục 3.7), bỏ cùng paper v2 (2026-11-15) |
 
 `metrics select` chưa đọc được report `--gold-only`, nên kiểm định D7 hiện tính bằng script
 `docs/research/paper-v2/08-phase-d-tables.py`.
@@ -170,7 +170,7 @@ Hạn ngạch ở `pharma_lab/e2e/golden.py`; tổng các hạn ngạch là 1.00
   Lệnh `golden pharmacist-pack` và `golden pharmacist-score` (`golden_audit.py`) có sẵn cho vòng duyệt
   dược sĩ đầy đủ nhưng chưa dùng.
 
-### 3.7 D5: chiến lược truy vấn cho câu hội thoại (thiết kế nháp, chưa duyệt)
+### 3.7 D5: chiến lược truy vấn cho câu hội thoại (thiết kế nháp, đã bỏ cùng paper v2)
 
 Trên 1.500 câu `conversational`, tìm bằng câu cuối để nguyên chỉ đạt khoảng 22% Hit@5 với cặp agent.
 D5 đo viết lại câu hỏi giúp bao nhiêu và tốn bao nhiêu. Giả thuyết (An đồng ý 2026-10-26, số đo quyết
@@ -274,6 +274,7 @@ Trên `v2.0.0` chưa có run e2e nào trên golden v4. Các run v2 trước đó
 | 2026-10-26 | Giai đoạn 1 chạy lại trên Qdrant sạch chọn hybrid Qwen3-Embedding-4B; giai đoạn 2 chọn Qwen3-Reranker-4B; mọi ablation so với cặp này | Kết quả 2026-10-25 chọn hybrid Qwen3-Embedding-8B | Collection 4B còn 51.000 point của hai corpus thử nghiệm: HNSW có lọc mất recall, IDF BM25 sai. Từ đó mỗi collection chỉ chứa `formulary` | `e9d214f`, `c18334e`, `9732e8e:docs/superpowers/plans/2026-10-26-retrieval-ablation-runs.md` |
 | 2026-10-26 | Bỏ các run e2e v2 (`e2e-v2-qwen9b`, `e2e-v2-qwen9b-c1-c1`, `e2e-v2-gemini`) | Run e2e trên golden v3 | Golden đổi; run e2e chỉ bắt đầu khi S1, S2 chốt và golden v4 build xong | `730b9e4` |
 | 2026-10-26 | Thiết kế nháp D5 (Q0, Q1, Q2-gemini, Q2-qwen, Q3-gemini, Q5, Q6); rewriter Qwen chạy trên Kaggle, OpenRouter chỉ cho Jev | Q1b, Q3a, Q3b, Q4 bị bỏ | Biến thể không thêm kết luận | `9732e8e:docs/superpowers/specs/2026-10-26-d5-conversational-rewrite-design.md`, `1b73f5b` |
+| 2026-11-15 | Không chạy tiếp D2, D4, D5 | Plan ablation còn dở | Các ablation phục vụ paper v2; bài báo của repo dừng ở camera-ready (spec `soict-paper`) | file này |
 
 ## 6. Nguồn đã gom
 

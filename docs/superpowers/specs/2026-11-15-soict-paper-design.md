@@ -1,4 +1,4 @@
-# Spec: Bài báo SoICT 2026 (paper v1, camera-ready, paper v2) và bài thuyết trình
+# Spec: Bài báo SoICT 2026 (paper v1, camera-ready) và bài thuyết trình
 
 Ngày: 2026-11-15. Nguồn sự thật: nhánh `v2.0.0` (`9732e8e`, sau khi gộp `camera-ready`). File này thay
 cho mười spec và plan cũ của mảng bài báo (xem §6). Mọi `sha:path` ở §6 đọc lại được bằng
@@ -6,17 +6,16 @@ cho mười spec và plan cũ của mảng bài báo (xem §6). Mọi `sha:path`
 
 ## 1. Mục tiêu và phạm vi
 
-Một chỗ duy nhất trả lời ba câu hỏi: bài nào đang ở trạng thái nào, nguồn của mỗi bài nằm ở đâu, và
-paper v2 còn phải làm gì. Phạm vi gồm:
+Một chỗ duy nhất trả lời hai câu hỏi: bài nào đang ở trạng thái nào, và nguồn của mỗi bài nằm ở đâu.
+Bài báo của repo này dừng ở bản camera-ready (quyết định 2026-11-15); paper v2 không làm tiếp ở đây.
+Phạm vi gồm:
 
 - **Paper v1**: bài nộp SoICT 2026, paper 1360, *Agentic Retrieval-Augmented Generation for
   Vietnamese Pharmaceutical Documents* (Van-An Doan, Tuan Quoc Nguyen), được nhận trình bày oral.
 - **Camera-ready** của paper v1 (tag `v1.1.0`).
 - **Bài thuyết trình** 15 phút tại SoICT 2026 (4–5/12/2026, TP Hồ Chí Minh).
-- **Paper v2**: bản mở rộng về chất lượng, độ trễ và chi phí của agentic RAG trên model rẻ, phát
-  triển trên nhánh `v2.0.0`.
-- Mã phục vụ bài: `docs/report/`, `docs/presentation/`, và phần agent, harness của paper v2 trong
-  `backend/` và `pharma-lab/`, chỉ ở mức nó phục vụ bài.
+- **Paper v2** chỉ ở mức lịch sử (§3.4): đã dừng, phần mã đã làm vẫn còn trong repo.
+- Mã phục vụ bài: `docs/report/`, `docs/presentation/`.
 
 Thiết kế agent (graph, decision model, ReAct) thuộc spec
 [`backend-agent-api`](2026-11-15-backend-agent-api-design.md). Benchmark, golden, luật chọn
@@ -32,7 +31,7 @@ retrieval, thống kê và các ablation retrieval thuộc spec
 | Paper v1 (bản nộp) | Đã nộp, được nhận oral | tag `v1.0.0` (`93c5863`, 2026-10-13, đóng băng sau khi nộp) | Không |
 | Camera-ready | Đã nộp trước hạn 30/10/2026 | tag `v1.1.0` (commit `a9954db`, 2026-10-22) | Không về nội dung. Nguồn ở `docs/report/` đã đổi sau tag (§3.1), xem câu hỏi mở 1 |
 | Thuyết trình | Deck xong, chưa trình bày | `dcca0d1` (2026-11-08) | Tập dượt, trình bày 4–5/12, đính deck vào GitHub Release, rồi dọn nhánh `camera-ready` |
-| Paper v2 | Đang phát triển, tạm dừng từ 2026-10-26 | `1b73f5b` là commit v2 cuối trước khi gộp camera-ready | Mã pha 0–2 xong; dữ liệu và cặp retrieval đã chốt; chưa có run e2e v2 nào; chưa viết bài. Phần còn lại ở plan [`2026-11-15-paper-v2-experiments-and-writing.md`](../plans/2026-11-15-paper-v2-experiments-and-writing.md) |
+| Paper v2 | Dừng, không làm tiếp trong repo này (2026-11-15) | `1b73f5b` là commit v2 cuối | Không. Mã pha 0–2 còn trong repo (§3.4) |
 
 Từ 2026-10-26 đến 2026-11-15 nhánh `v2.0.0` không có commit nào của paper v2; mọi commit là của
 camera-ready và thuyết trình, gộp vào bằng `9732e8e`.
@@ -41,9 +40,9 @@ camera-ready và thuyết trình, gộp vào bằng `9732e8e`.
 
 ### 3.1 Nguồn bài và cách build (`docs/report/`)
 
-- `docs/report/` là nguồn duy nhất của bài đang có trong repo, hiện là **bản camera-ready của paper
-  v1** cộng một bản nháp v2 chưa được `\input` (`drafts/methods-v2.tex`). Không giữ bản sao nguồn
-  nào khác.
+- `docs/report/` là nguồn duy nhất của bài trong repo: **bản camera-ready của paper v1**. Bản nháp
+  `drafts/methods-v2.tex` của paper v2 chưa từng được `\input` và đã lỗi thời (§3.4). Không giữ bản
+  sao nguồn nào khác.
 - File chính `SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.tex`, các mục trong
   `sections/{abstract,introduction,related-work,methodology,results,conclusion}.tex`, bảng trong
   `tables/{corpus,retrieval,e2e-main,e2e-ablation,e2e-layers}.tex`, hình TikZ trong
@@ -118,131 +117,30 @@ link này) và dataset riêng tư `vipharmind-data-v1` (version 1 ghép với `v
   deck cuối đính vào GitHub Release. `rehearsal.md` giữ thời lượng từng slide.
 - Thiết kế chi tiết từng slide và 20 insight đã duyệt: `dcca0d1:docs/superpowers/specs/2026-11-04-soict-presentation-design.md`.
 
-### 3.4 Paper v2
+### 3.4 Paper v2 (đã dừng)
 
-#### 3.4.1 Mục tiêu và đóng góp
+Paper v2 được mở ngày 2026-10-14 trên nhánh `v2.0.0`: giữ chất lượng của v1 với độ trễ và chi phí
+thấp nhất, bằng bốn đóng góp (tách quyết định khỏi sinh văn bản qua decision model Jev, refinement
+theo ngưỡng tin cậy τ, so graph routing với ReAct trên model rẻ, benchmark và golden v4 báo ba trục
+chất lượng, giây, USD). Công việc tạm dừng từ 2026-10-26 và ngày 2026-11-15 An quyết định không làm
+tiếp trong repo này.
 
-Paper v2 không nhắm một venue cụ thể. Câu hỏi: khi retrieval đã tốt (v1: Hit@10 97,5 %, grounding
-cắt hallucination 18 đến 25 lần), giữ chất lượng đó với độ trễ và chi phí thấp nhất bằng cách nào.
-Bốn đóng góp, mỗi cái cần bảng hoặc hình riêng có kiểm định ghép cặp:
-
-1. **Tách quyết định khỏi sinh văn bản.** Guard và judge đủ bằng chứng chạy trên decision model Jev
-   (TypeSafe, trả xác suất, không sinh văn bản); rephrase, refine, answer chạy trên LLM.
-2. **Refinement theo độ tin cậy.** Vòng retrieve-more chỉ chạy khi xác suất "đủ bằng chứng" dưới
-   ngưỡng τ; quét τ cho đường Pareto chất lượng so với USD và giây.
-3. **Graph routing so với ReAct trên model rẻ**, cùng tool, retriever, ngân sách và định dạng trả
-   lời; chỉ khác ai điều khiển.
-4. **Benchmark và đánh giá**: benchmark retrieval 10.000 câu có lớp hội thoại, golden e2e 1.000 câu;
-   mọi cấu hình báo đủ ba trục chất lượng, giây mỗi lượt (p50, p95) và USD mỗi 1.000 lượt.
-
-Nguyên tắc: v2 chỉ tối ưu hiệu quả, không giữ thiết kế hay dữ liệu nào chỉ để so được với v1; bài
-không có phần "so với v1". Không huấn luyện model nào. Điểm yếu reviewer có thể bắt được trả lời bằng
-thí nghiệm, không bằng cách hạ tuyên bố.
-
-#### 3.4.2 Model và đường gọi
-
-| Vai | Model | Giá USD mỗi 1M token vào/ra (2026-10-14) | Đường gọi |
-| --- | --- | --- | --- |
-| Model mở, rẻ | Qwen3.5-9B Q8_0 | 0,10 / 0,15 (giá OpenRouter DeepInfra) | tự host trong kernel Kaggle |
-| Model thương mại, rẻ | Gemini 3.8 Flash (`gemini-3.8-flash-high`, thinking low) | 0,75 / 3,75 | `cli-proxy-api` |
-| Trần tham chiếu | Claude Opus 5.5 (`claude-opus-5-5`, effort minimal) | 4 / 20 | `cli-proxy-api` |
-| Decision model | Jev (`~typesafe/jev-latest`) | 0,042 / 0 | OpenRouter, dịch vụ trả tiền thật duy nhất |
-| Judge đánh giá | gemini-3.1-flash-lite, reasoning `none` | 0,25 / 1,50 | `cli-proxy-api` |
-
-- Chỉ ba LLM: đóng góp nằm ở kiến trúc, không ở xếp hạng model. Mỗi phát hiện về kiến trúc được
-  kiểm trên một model mở và một model thương mại; Opus trả lời câu "lợi thế còn không khi generator
-  đã mạnh".
-- Reasoning tắt hoặc thấp nhất ở mọi model; bài báo số token reasoning thực tế (Opus không tắt được
-  thinking).
-- Chi phí luôn là giá niêm yết nhân token, kể cả model tự host và model đi qua proxy thuê bao; không
-  có mô hình giờ GPU. Bảng giá ở `pharma-lab/src/pharma_lab/e2e/pricing.py`; giá embedding và
-  reranker hiện là cận trên (giá vào của Qwen3.5-9B) vì OpenRouter chưa công bố.
-- Độ trễ lấy từ run concurrency 1 riêng (`e2e run --latency`, ghi vào run `<run>-c1`); chỉ so độ
-  trễ giữa kiến trúc trên cùng một model, không xếp hạng độ trễ giữa model.
-- Mọi model tự host chạy trong kernel Kaggle (cách chạy: spec `kaggle-runs`); chỉ Jev đi qua OpenRouter (quyết định 2026-10-26). Kernel hiện từ chối vai `systemone` (`check_no_decision_roles` trong `pharma-lab/src/pharma_lab/e2e/kaggle_shards.py`), nên A3, A4, B với Qwen cần thêm đường đưa khoá Jev vào kernel (plan Task 2).
-- Cặp retrieval của agent, chọn theo luật của spec `evaluation`: hybrid RRF k=2, prefetch 50, giữ
-  20, Qwen3-Embedding-4B; rerank Qwen3-Reranker-4B, giữ 5. Chunk là đơn vị đọc (khoảng 1.024
-  token), tối đa 3 vòng tìm, `max_evidence_chars = 60_000`.
-
-#### 3.4.3 Ma trận thí nghiệm e2e của bài
-
-Mọi run e2e dùng golden v4 (1.000 câu, sha `1dae2820…`) và cùng judge. Bộ dữ liệu, kiểm định, độ
-nhạy và họ so sánh của từng dòng nằm ở spec `evaluation`; bảng dưới chỉ nói bài cần gì và trạng thái.
-
-| Mã | Câu hỏi của bài | Cấu hình | Mã | Run |
-| --- | --- | --- | --- | --- |
-| A1 | Mốc v1 trên dữ liệu v2 | Gemini chia vai như v1 (guard, rephrase trên 3.1-flash-lite; judge, refine, answer trên 3.8-flash) | Có | Chưa |
-| A2 | Mọi vai trên một LLM | `full`, `one-step`, `closed-book` cho mỗi model trong ba model | Có | Chưa |
-| A3 | Jev thay LLM ở guard và judge | Jev + refine template + τ đã chọn, mỗi model | Có | Chưa; Qwen cần Jev gọi được từ kernel |
-| A4 | Tác dụng của refine template | Jev + Qwen + refine LLM | Có | Chưa |
-| B | Refinement theo τ | τ ∈ {0; 0,3; 0,5; 0,7; 0,9; 1} trên A3 Qwen và A3 Gemini; cùng dải với độ tin cậy nói ra trên A2 Qwen; không quét trên Opus | Có | Chưa |
-| C | Graph routing so với ReAct | cấu hình `react` so với `full` của A2, mỗi model | Có (smoke `e2e-smoke-react`) | Chưa |
-| D6 | Retrieval tốt hơn có thành e2e tốt hơn | 5 retriever × {one-step, full} trên 720 câu tự nhiên và multi_hop | Có | Chưa |
-| E1–E4 | Ablation rephrase, judge-refine, rerank, guard | trên A3 Qwen (E4 trên A2 và A3) | Có | Chưa |
-| E5 | Jev làm judge đánh giá | Jev per-key-fact so với gemini-3.1-flash-lite trên 450 item có nhãn dược sĩ | Một phần | Chưa |
-| H | Hiệu chuẩn Jev | AUROC, ECE, Brier, tỉ lệ lật khi gọi 3 lần, xoay thứ tự, trên tập giữ lại 300 câu judge và 300 lượt guard | Có (`e2e decision-set`) | Chưa (cần khoá OpenRouter) |
-
-Các ablation retrieval của bài (D1, D2, D3, D4, D5, D7) do spec `evaluation` giữ. Ngày 2026-10-26
-đã có số D1 (hybrid hơn dense +1,58 điểm Hit@5), D6 mức retrieval (k=2 hơn k=60 +1,83), D7 (chunk gộp
-hơn chunk theo mục +2,19); D2 đang rerank; D4 và D5 chưa làm (`docs/research/paper-v2/08-phase-d-results.md`).
-
-Nhãn dược sĩ: 50 item mỗi cấu hình chính (A2, A3, ReAct × 3 model), chấm mù theo giao thức v1, dùng
-cho PPI và κ của judge. Đây là nguồn hiệu chuẩn duy nhất từ người. Golden v4 do model soạn và duyệt
-hai vòng, dược sĩ chỉ xem lướt; bài phải ghi đúng như vậy.
-
-#### 3.4.4 Bài viết
-
-- Cấu trúc IMRaD tạp chí: Introduction, Related Work, Materials and Methods, Results, Discussion
-  (principal findings, comparison with prior work, implications, limitations), Conclusion. Tiêu đề
-  chốt khi có kết quả.
-- Related Work thêm: workflow so với agent (Anthropic 2024, Ferrazzi et al. 2026, Kumar et al.
-  2026); dừng vòng lặp và gating (TASR, HALT, Stop-RAG, Tiny-Critic RAG); decision model (REFLEX,
-  Ibrahim và Zaki 2026, Rao và Callison-Burch 2026); viết lại và RAG hội thoại (Ma et al. 2023, CHIQ,
-  MTRAG, CORAL); tiếng Việt (ViRE, ViMedAQA). Danh sách đầy đủ ở `docs/research/paper-v2/05-literature-survey.md` §I.
-  Mỗi mục trong `references.bib` kiểm từ DOI, arXiv hoặc DBLP.
-- Limitations: Jev closed weights và early access, giá có thể được trợ, hiệu chuẩn do vendor tự khai,
-  tấn công kênh lựa chọn và chèn ngữ cảnh (Azizi et al., Xu et al. 2026), decision model không bao
-  giờ là cổng an toàn duy nhất (regex screen chạy trước), độ trễ đo từ datacenter Kaggle, kết quả
-  kiến trúc chỉ trên ba model, Opus chạy ở mức thinking thấp nhất, golden do model duyệt.
-- Bản nháp Methods v2 (`docs/report/drafts/methods-v2.tex`) viết ngày 2026-10-16 đến 18 và đã lỗi
-  thời ở mục golden (500 câu, năm loại multi-hop) và tập guard (100 lượt); khi viết phải theo golden v4
-  (1.000 câu, ba loại multi-hop) và tập guard 300 lượt.
-- Bản công khai dữ liệu của v2 là một dataset Kaggle công khai mới, link riêng, để link của bài SoICT
-  luôn trỏ đúng dữ liệu đã nộp.
-- Tiêu chí mỗi pha: lint, type, test xanh; mỗi run có `run.json` đủ identity; bảng sinh bằng lệnh có
-  sẵn; số vào bài chỉ từ file báo cáo; build sạch warning.
-
-#### 3.4.5 Rủi ro còn hiệu lực
-
-- `~typesafe/jev-latest` không ghim được phiên bản: mỗi run ghi phiên bản trả về và dừng khi phiên bản
-  đổi; lưu phản hồi thô trong `answers.jsonl` (`decisions`).
-- Jev tiếng Việt chưa có số công bố: tập hiệu chuẩn là bằng chứng trong bài. Nếu AUROC của judge dưới
-  0,70 thì LLM judge (A2) là đối chứng và kết quả vẫn được báo.
-- Tập judge chỉ có 35 mẫu "thiếu bằng chứng" trên 300, nên khoảng tin cậy của AUROC rộng.
-- Quota GPU Kaggle (30 giờ mỗi tuần mỗi tài khoản) và hạn mức thuê bao Claude: chạy theo thứ tự ưu
-  tiên A1, A2 rồi A3, A4 rồi B rồi C, sau cùng D6, E; Opus xếp sau hai model rẻ. Ước tính Qwen trên
-  1.000 câu: full khoảng 14 GPU-giờ, one-step khoảng 7, closed-book khoảng 4; Gemini full khoảng 9.
-- Model rẻ gọi tool kém trong ReAct là kết quả, nhưng phải tách lỗi harness khỏi lỗi model bằng bảng
-  thất bại theo loại.
-- Điều khoản của Jev về công bố benchmark: kiểm Master Customer Agreement trước khi công bố.
+Đã làm và còn trong repo: mã pha D (dữ liệu, benchmark v3, golden v4), pha 0 (đo đạc, giá, độ trễ),
+pha 1 (decision model, `refine_threshold`) và pha 2 (agent ReAct); cặp retrieval của agent đã chốt
+(spec `evaluation`). Chưa có run e2e v2 nào và chưa viết bài. Thiết kế đầy đủ, ma trận thí nghiệm
+(A1–A4, B, C, D6, E1–E5, H), rủi ro và danh sách tài liệu đọc lại được ở
+`1b73f5b:docs/superpowers/specs/2026-10-14-paper-v2-design.md`; ghi chú nghiên cứu nền ở
+`docs/research/paper-v2/`. Muốn mở lại thì viết spec mới từ hai nguồn đó.
 
 ## 4. Ngoài phạm vi
 
-Huấn luyện hoặc fine-tune model; corpus mới hay câu hỏi người dùng thật; kiến trúc đa agent;
-benchmark decision model ngoài miền thuốc; decision model thứ hai (kể cả open weights); sửa nội dung
-khoa học của paper v1 hay dữ liệu đã đóng băng của nó.
+Paper v2 và mọi thí nghiệm e2e mới cho bài báo; sửa nội dung khoa học của paper v1 hay dữ liệu đã
+đóng băng của nó.
 
 ## 5. Câu hỏi mở cho An
 
 1. Bản PDF thầy sửa (`105fce4`, 2026-11-04) có được gửi lại cho ban tổ chức không? Nếu có, nên gắn
    tag (ví dụ `v1.1.1`) để mốc của bản in khớp nguồn; nếu không, `docs/report/` đang khác bản đã nộp.
-2. Paper v2 viết ở đâu: thay dần nội dung `docs/report/` (bản v1 vẫn còn ở tag `v1.1.0`) hay một thư
-   mục mới? Plan mặc định giữ `docs/report/` nguyên đến sau buổi trình bày 4–5/12 và viết v2 ở
-   `docs/report-v2/`.
-3. Khoá OpenRouter cho Jev đã có chưa, và có đồng ý đưa khoá lên Kaggle bằng dataset riêng tư xoá sau
-   lượt chạy (như credential của proxy) để A3, A4, B chạy được với Qwen trong kernel?
-4. Có lấy thêm câu "thiếu bằng chứng" cho tập judge trước khi hiệu chuẩn không (hiện 35 trên 300)?
-5. Paper v2 vẫn tiếp tục theo ma trận trên, hay thu hẹp (ví dụ bỏ Opus, bỏ D6) vì đã tạm dừng ba tuần?
 
 ## 6. Lịch sử quyết định
 
@@ -265,14 +163,15 @@ khoa học của paper v1 hay dữ liệu đã đóng băng của nó.
 | 2026-10-26 | Chỉ Jev dùng OpenRouter; rewriter của D5 và mọi model tự host chạy trên Kaggle | OpenRouter cho cả rewriter | Quyết định của An | `1b73f5b` |
 | 2026-11-04 | Thiết kế bài thuyết trình; 2026-11-05 sửa theo deck đã giao; 2026-11-08 gộp slide embedding và reranker | Chưa có | Hội nghị 4–5/12 | `dcca0d1:docs/superpowers/specs/2026-11-04-soict-presentation-design.md` |
 | 2026-11-10 | `report/` và `presentation/` chuyển vào `docs/` | Thư mục ở gốc repo | Gom tài liệu | `54a9be9`, `642b578` |
-| 2026-11-15 | Gộp mười spec và plan của mảng bài báo vào spec này và một plan còn việc | Spec paper v1, spec v2 1.383 dòng, spec camera-ready, spec thuyết trình, plan pha D, pha 0, 1, 2, plan v1, plan camera-ready | Ít file, không mâu thuẫn | file này |
+| 2026-11-15 | Bài báo của repo dừng ở camera-ready; không làm tiếp paper v2 | Plan thí nghiệm e2e và viết paper v2 | Quyết định của An | file này |
+| 2026-11-15 | Gộp mười spec và plan của mảng bài báo vào spec này | Spec paper v1, spec v2 1.383 dòng, spec camera-ready, spec thuyết trình, plan pha D, pha 0, 1, 2, plan v1, plan camera-ready | Ít file, không mâu thuẫn | file này |
 
 Plan đã chạy xong và bị bỏ (kết quả nằm trong mã): plan paper v1, plan camera-ready, plan pha D
 (`414e317:docs/superpowers/plans/2026-10-14-paper-v2-phase-d-data.md`, Task 1–7b xong; Task 8 được
 thay bằng `08-phase-d-results.md`), phần mã của plan pha 0 (Task 1–9), pha 1 (Task 1–10) và pha 2
 (Task 1–6) (`414e317:docs/superpowers/plans/2026-10-16-paper-v2-phase-{0-measurement,1-decision-model,2-react}.md`).
-Các bước chạy còn lại của ba plan này được viết lại trong plan mới, với lệnh `e2e run --backend
-kaggle` thay cho `e2e llm-server`, `rerank-server`, `embed-server` đã gỡ.
+Các bước chạy còn lại của ba plan này (hiệu chuẩn Jev, ma trận e2e, viết bài) không làm, vì paper v2
+đã dừng.
 
 ## 7. Liên kết
 
@@ -284,5 +183,4 @@ kaggle` thay cho `e2e llm-server`, `rerank-server`, `embed-server` đã gỡ.
   proxy trong kernel.
 - [`corpus-data-pipeline`](2026-11-15-corpus-data-pipeline-design.md): chunk là đơn vị đọc, corpus.
 - [`architecture-rules`](2026-11-15-architecture-rules-design.md): quy tắc `AGENTS.md`.
-- Ghi chú nghiên cứu nền: `docs/research/paper-v2/` (`README.md` liệt kê).
-- Plan còn việc: [`2026-11-15-paper-v2-experiments-and-writing.md`](../plans/2026-11-15-paper-v2-experiments-and-writing.md).
+- Ghi chú nghiên cứu nền của paper v2: `docs/research/paper-v2/` (`README.md` liệt kê).
