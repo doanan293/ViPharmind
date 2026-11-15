@@ -31,7 +31,7 @@ Phạm vi là `pharma-lab/` (gói `pharma_lab.evaluation`, `pharma_lab.e2e`, cá
 | Relevance judgments | `section_retrieval_eval.judgments.jsonl`, `rules_version: 2` | áp cho mọi nhóm | archive; manifest ghi sha của benchmark |
 | Tập chọn retrieval | benchmark trừ `conversational` và `safety` | 8.470 câu | lọc khi chạy `metrics select --exclude-group` |
 | Golden e2e | v4, `data/evaluation/e2e/golden_e2e.jsonl`, sha256 `1dae2820…`, schema `e2e-golden-v3`, dựng 2026-10-26 | 1.000 câu | manifest trong git; file golden và thư mục `authoring/` chỉ có ở máy (chưa `data push`) |
-| Tập giữ lại cho judge | `data/evaluation/calibration/judge_set.jsonl` | 300 câu (265 đủ bằng chứng, 35 thiếu) | git |
+| Tập giữ lại cho judge | `data/evaluation/calibration/judge_set.jsonl` | 300 câu (265 đủ bằng chứng, 35 thiếu) | archive Kaggle `vipharmind-data-v2` (6,3 MiB, quá giới hạn 5 MiB của git); dựng lại bằng `e2e decision-set build`, `jev.json` ghi sha256 |
 | Tập giữ lại cho guard | `data/evaluation/calibration/guard_set.jsonl`, `guard_review.jsonl` | 300 lượt (150 tấn công, 150 không) | git |
 
 Phiên bản cũ không còn dùng cho số liệu mới: benchmark 10.000 câu sinh bằng luật (run `-v2-` và
