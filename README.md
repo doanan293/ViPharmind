@@ -186,3 +186,8 @@ Pre-commit dùng chung cho cả repo, cài một lần từ root:
 uv run pre-commit install
 uv run pre-commit run --all-files
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) chạy lại các kiểm tra này trên server khi push lên
+`v2.0.0`, `camera-ready`, `main` và trên mọi pull request: job Python và frontend chỉ chạy khi
+file của project đổi, job report chỉ khi `docs/report/` đổi, gitleaks luôn quét các commit được
+push. Test `integration` (cần Docker) và e2e Playwright (cần Postgres, Qdrant) không chạy trên CI.
