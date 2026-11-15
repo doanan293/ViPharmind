@@ -73,6 +73,19 @@ jobs:
         working-directory: ${{ matrix.project }}
     steps:
       - uses: actions/checkout@v4
+      # pharma-lab's Kaggle worker tests call _discover_cuda_library_paths(), which rglobs
+      # /usr/local for libcudart; on the runner image /usr/local holds tens of GB of SDKs
+      # (Android, Haskell...) and the walk takes longer than the job. Rename them out of the
+      # way (same filesystem, instant); this job uses only uv and the system Python.
+      - name: Shrink /usr/local for the CUDA library scan
+        if: matrix.project == 'pharma-lab'
+        run: |
+          sudo mkdir -p /opt/runner-usr-local
+          for entry in /usr/local/* /usr/local/.[!.]*; do
+            case "$entry" in /usr/local/bin|/usr/local/sbin|/usr/local/etc) continue ;; esac
+            if [ -e "$entry" ]; then sudo mv "$entry" /opt/runner-usr-local/; fi
+          done
+          du -sh /usr/local
       - uses: astral-sh/setup-uv@v6
         with:
           version: ${{ env.UV_VERSION }}
@@ -93,7 +106,11 @@ jobs:
       # (tests/test_layout.py, test_worker_bundle_imports.py...) are part of this run.
       - name: pytest
         timeout-minutes: 15
-        run: uv run pytest -v -o faulthandler_timeout=120
+        env:
+          # Typer forces Rich's terminal mode when GITHUB_ACTIONS is set, and the styled error
+          # panel breaks pharma-lab's CLI output assertions; TERM=dumb keeps the plain output.
+          TERM: dumb
+        run: uv run pytest -q -o faulthandler_timeout=300
 
   frontend:
     needs: changes
