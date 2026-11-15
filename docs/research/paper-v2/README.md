@@ -2,7 +2,8 @@
 
 Ghi chú nghiên cứu được thực hiện ngày 2026-10-14, sau khi bản SoICT 2026 được đóng băng ở release
 [v1.0.0](https://github.com/doanan293/ViPharmind/releases/tag/v1.0.0). Sáu file dưới đây là tài liệu
-gốc cho spec `docs/superpowers/specs/2026-10-14-paper-v2-design.md`. Mỗi mục trong các file ghi rõ
+gốc cho spec paper v2, nay gom vào `docs/superpowers/specs/2026-11-15-soict-paper-design.md` (bản cũ
+`2026-10-14-paper-v2-design.md` tra trong lịch sử git). Mỗi mục trong các file ghi rõ
 nguồn đã mở và mức xác minh (VERIFIED / PARTIAL / UNVERIFIED hoặc [V] vendor / [I] độc lập / [D] suy ra).
 
 | File | Nội dung | Dùng cho |
