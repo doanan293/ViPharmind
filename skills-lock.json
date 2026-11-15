@@ -19,6 +19,12 @@
       "skillPath": "SKILL.md",
       "computedHash": "aa677a51432adffa70093d894da74cc4469fe5b2ef3a12b97da42726c50d7f31"
     },
+    "ppt-master": {
+      "source": "hugohe3/ppt-master",
+      "sourceType": "github",
+      "skillPath": "skills/ppt-master/SKILL.md",
+      "computedHash": "1fec3386cf95269841e1f0b4145fba834dac261d5fbb6932ddbea7b71ef0bc3a"
+    },
     "react-router": {
       "source": "remix-run/react-router",
       "sourceType": "github",

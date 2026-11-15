@@ -7,3 +7,9 @@ description = "fastapi-users' documented example JWT (expired 2019), copied into
 regexes = [
   '''eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9\.eyJ1c2VyX2lkIjoiOTIyMWZmYzktNjQwZi00MzcyLTg2ZDMtY2U2NDJjYmE1NjAzIiwiYXVkIjoiZmFzdGFwaS11c2VyczphdXRoIiwiZXhwIjoxNTcxNTA0MTkzfQ\.M10bjOe45I5Ncu_uXvOmVV8QxnL-nZfcH96U90JaocI''',
 ]
+
+[[allowlists]]
+description = "ppt-master's animation presets name each effect under a \"key\" field (e.g. emphasis_3d_swing)"
+paths = [
+  '''^\.agents/skills/ppt-master/scripts/pptx_animation_presets\.json$''',
+]

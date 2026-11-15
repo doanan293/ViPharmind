@@ -51,3 +51,7 @@ ai-models/
 # Vercel CLI: project link and `vercel build` output (backend/_uv is its uv cache)
 .vercel/
 backend/_uv/
+
+# Third-party agent skills: reinstall from skills-lock.json
+.agents/skills/
+.claude/skills/
