@@ -1,0 +1,214 @@
+# Server-side copy of the checks in README.md ("Kiểm tra") and .pre-commit-config.yaml.
+# Each job runs only when its paths change; gitleaks always runs on the pushed or PR range.
+name: CI
+
+on:
+  push:
+    branches: [v2.0.0, camera-ready, main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.12.13" # matches the uv-lock hook and backend/Dockerfile
+  NODE_VERSION: "24.15.0" # frontend/package.json engines floor
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      report: ${{ steps.filter.outputs.report }}
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            workflow: &workflow
+              - .github/workflows/ci.yml
+            python:
+              - *workflow
+              - backend/**
+              - pharma-lab/**
+              - pyproject.toml
+              - uv.lock
+              - ruff.toml
+              - .python-version
+              # pharma-lab's data-policy test greps frontend/app.
+              - frontend/app/**
+            frontend:
+              - *workflow
+              - frontend/**
+              # The UI stream contract test reads the backend's recorded SSE fixtures.
+              - backend/tests/contract/fixtures/**
+            report:
+              - *workflow
+              - docs/report/**
+            docker:
+              - *workflow
+              - "**/Dockerfile"
+
+  python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [backend, pharma-lab]
+    defaults:
+      run:
+        working-directory: ${{ matrix.project }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: uv sync --locked
+        working-directory: .
+        run: uv sync --locked
+      - name: ruff check
+        run: uv run ruff check src tests
+      - name: ruff format --check
+        run: uv run ruff format --check src tests
+      - name: pyrefly
+        run: uv run pyrefly check --min-severity warn
+      - name: lint-imports
+        run: uv run lint-imports
+      # Default addopts deselect `integration` (needs Docker). Architecture and layout tests
+      # (tests/test_layout.py, test_worker_bundle_imports.py...) are part of this run.
+      - name: pytest
+        run: uv run pytest -q
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: lint (oxlint)
+        run: npm run lint
+      - name: format (prettier)
+        run: npm run format
+      - name: typecheck
+        run: npm run typecheck
+      - name: orval output matches openapi.json
+        run: npm run api:check
+      # Includes app/architecture.test.ts (import boundaries, test placement).
+      - name: unit tests
+        run: npm run test:unit
+
+  # Vitest browser project: headless Chromium with MSW, no backend needed.
+  # Playwright e2e (npm run e2e) is not run: it starts the backend against Postgres and Qdrant.
+  frontend-browser:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Install Chromium headless shell
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: browser tests
+        run: npm run test:browser
+
+  report:
+    needs: changes
+    if: needs.changes.outputs.report == 'true' || github.event_name == 'workflow_dispatch'
+    # Ubuntu 24.04 ships TeX Live 2023, the version the paper is built with locally;
+    # .latexmkrc turns every LaTeX warning into an error, so the TeX version matters.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install TeX Live (packages from docs/report/README.md)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends latexmk texlive-latex-recommended \
+            texlive-latex-extra texlive-pictures texlive-lang-other
+      - name: latexmk
+        working-directory: docs/report
+        run: latexmk -quiet
+      - uses: actions/upload-artifact@v4
+        with:
+          name: report-pdf
+          path: docs/report/SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.pdf
+
+  hadolint:
+    needs: changes
+    if: needs.changes.outputs.docker == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: hadolint (same pinned image as pre-commit)
+        run: |
+          git ls-files -z -- '*Dockerfile' | grep -z -E '(^|/)Dockerfile$' \
+            | xargs -0 docker run --rm -v "$PWD:/w" -w /w ghcr.io/hadolint/hadolint:v2.15.1 hadolint
+
+  gitleaks:
+    runs-on: ubuntu-24.04
+    env:
+      GITLEAKS_VERSION: "8.30.1" # matches the pre-commit hook
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" gitleaks
+      - name: Scan the pushed or PR commits
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            range="$PR_BASE..$PR_HEAD"
+          elif [ "$EVENT" = push ] && [ -n "$PUSH_BEFORE" ] && ! [[ "$PUSH_BEFORE" =~ ^0+$ ]]; then
+            range="$PUSH_BEFORE..$PUSH_AFTER"
+          else
+            # New branch or manual run: commits not reachable from any other remote branch.
+            others=$({ git for-each-ref --format='%(refname)' refs/remotes/origin \
+              | grep -v -x -e "refs/remotes/origin/$GITHUB_REF_NAME" -e refs/remotes/origin/HEAD \
+              || true; } | paste -sd ' ' -)
+            range="HEAD --not $others"
+          fi
+          # gitleaks exits 0 when git rejects the range, so check the range first.
+          # shellcheck disable=SC2086
+          count=$(git rev-list --count $range)
+          echo "Scanning $count commits: $range"
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --config .gitleaks.toml \
+            --log-opts="$range" .
