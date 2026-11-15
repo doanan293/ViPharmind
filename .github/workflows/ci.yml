@@ -92,7 +92,8 @@ jobs:
       # Default addopts deselect `integration` (needs Docker). Architecture and layout tests
       # (tests/test_layout.py, test_worker_bundle_imports.py...) are part of this run.
       - name: pytest
-        run: uv run pytest -q
+        timeout-minutes: 15
+        run: uv run pytest -v -o faulthandler_timeout=120
 
   frontend:
     needs: changes
@@ -140,8 +141,10 @@ jobs:
       - run: npm ci
       - name: Install Chromium headless shell
         run: npx playwright install --with-deps --only-shell chromium
+      # --retry: SessionsList "cannot be loaded, and retries" is flaky (an unhandled MSW request
+      # races the handler reset); vitest still lists retried tests in its report.
       - name: browser tests
-        run: npm run test:browser
+        run: npm run test:browser -- --retry=2
 
   report:
     needs: changes
@@ -154,11 +157,15 @@ jobs:
       - name: Install TeX Live (packages from docs/report/README.md)
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends latexmk texlive-latex-recommended \
+          sudo apt-get install -y latexmk texlive-latex-recommended \
             texlive-latex-extra texlive-pictures texlive-lang-other
       - name: latexmk
         working-directory: docs/report
-        run: latexmk -quiet
+        run: |
+          latexmk -quiet || {
+            tail -n 60 SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.log
+            exit 1
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: report-pdf
