@@ -26,7 +26,7 @@ def group_text(gid: str) -> str:
     for g in root.iter():
         if g.attrib.get("id") == gid:
             return " ".join(
-                "".join(e.itertext()) for e in g.iter() if e.tag.endswith("text")
+                " ".join(e.itertext()) for e in g.iter() if e.tag.endswith("text")
             )
     raise AssertionError(f"no group {gid}")
 
@@ -44,6 +44,24 @@ def test_hook_strings_in_pdf():
         "SoICT 2026 · Paper 1360",
     ]:
         assert s in text, s
+
+
+def test_resources_and_pipeline_in_pdf():
+    text = pdf_text()
+    for s in [
+        "24,946",
+        "13,790",
+        "11,031",
+        "5,000",
+        "2,500",
+        "420 answerable",
+        "≤ 3",
+        "RRF k = 2",
+        "A Vietnamese drug-information corpus and benchmark, all released",
+    ]:
+        assert s in text, s
+    head = " ".join(group_text("pipeline-heading").split())
+    assert head.endswith("each model call makes one small decision"), head
 
 
 def test_leaflet_card_is_not_a_model_answer():

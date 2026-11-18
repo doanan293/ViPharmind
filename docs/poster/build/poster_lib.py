@@ -37,7 +37,7 @@ CHEEK = "#FFB4A8"
 ORANGE_TXT = "#B05F00"
 
 # type sizes in px (spec §4; pt = px × 0.75)
-T_TITLE, T_AUTH, T_BIG, T_HEAD, T_BODY, T_SMALL = 133, 53, 72, 62, 40, 32
+T_TITLE, T_AUTH, T_BIG, T_HEAD, T_BODY, T_SMALL = 133, 50, 68, 54, 37, 30
 LH = 1.32
 # ppt-master's quality gate estimates text wider than Poppins really is; wrap with headroom
 WRAP_SAFETY = 1.12

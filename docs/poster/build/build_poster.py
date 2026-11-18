@@ -15,7 +15,19 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1] / "presentation" / "build"))
 
-from lib import group, image, mtext, text  # noqa: E402
+from lib import (  # noqa: E402
+    arrow_marker,
+    circle,
+    fmt,
+    group,
+    icon,
+    image,
+    line,
+    mtext,
+    path,
+    rect,
+    text,
+)
 
 ROOT = HERE.parent
 WS = ROOT / "projects" / "poster_a0"
@@ -216,6 +228,171 @@ def hook_block(y0: float) -> tuple[list[str], float]:
     return [card, gs_head, *gs], bottom
 
 
+GAP = 60  # gap between blocks
+COLW = (CW - GAP) / 2
+PAD = 60  # inner card padding
+
+
+def card_block(gid: str, x: float, y: float, w: float, bottom: float) -> str:
+    import poster_lib as P
+
+    return group(gid, (x, y, w, bottom - y), [P.soft_card(x, y, w, bottom - y)])
+
+
+def resources_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
+    import content as C
+    import poster_lib as P
+
+    R = C.RESOURCES
+    ix, iw = x + PAD, w - 2 * PAD
+    gs: list[str] = []
+    h, y = P.block_heading(ix, y0 + PAD, iw, 2, R["heading"])
+    gs.append(group("resources-heading", (ix, y0 + PAD - 10, iw, y - y0 - PAD), [h]))
+
+    def kv(gid, label, body, y):
+        a, yy = P.para(ix, y, label, P.T_BODY, iw, P.PUR, bold=True)
+        b, yy = P.para(ix, yy, body, P.T_BODY, iw, P.INK)
+        gs.append(group(gid, (ix, y, iw, yy - y), [a, b]))
+        return yy + 24
+
+    y = kv("resources-corpus", *R["corpus"], y)
+    y = kv("resources-enrichment", *R["enrichment"], y)
+    y = kv("resources-benchmark", *R["benchmark"], y)
+    # stacked bar of the six benchmark groups
+    total = sum(n for _, n, _ in R["groups"])
+    fills = ["#BFBEF7", "#FFD3A8", "#BFE8D6", "#FFC2B8", "#FFE7A3", "#D8C2F5"]
+    bar_h, bx = 90, ix
+    kids = []
+    for i, (name, n, lab) in enumerate(R["groups"]):
+        bw_ = iw * n / total
+        kids.append(rect(bx, y, bw_, bar_h, fills[i], None, 1, 0))
+        if n >= 1000:
+            s = f"{name} {lab}" if n > 1000 else lab
+            kids.append(
+                text(bx + bw_ / 2, y + 58, s, P.T_SMALL, P.INK, "bold", anchor="middle")
+            )
+        bx += bw_
+    gs.append(group("resources-bar", (ix, y, iw, bar_h), kids))
+    y += bar_h + 24
+    # legend for the three 500-question groups
+    leg = []
+    lx = ix
+    for i, (name, _n, lab) in enumerate(R["groups"][3:], start=3):
+        leg.append(rect(lx, y + 4, 32, 32, fills[i], None, 1, 8))
+        s = f"{name} {lab}"
+        leg.append(text(lx + 44, y + 32, s, P.T_SMALL, P.INK))
+        lx += 44 + P.text_width(s, P.T_SMALL) + 50
+    gs.append(group("resources-legend", (ix, y, iw, 44), leg))
+    y += 60
+    note, y = P.para(ix, y, R["groups_note"], P.T_SMALL, iw, P.MUT, italic=True)
+    gs.append(group("resources-note", (ix, y - 50, iw, 60), [note]))
+    y = kv("resources-golden", *R["golden"], y + 24)
+    bottom = y + PAD - 24
+    return [card_block("resources-card", x, y0, w, bottom), *gs], bottom
+
+
+def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
+    """Pipeline as two rows of icon nodes; refine loop from Judge back to search."""
+    import content as C
+    import poster_lib as P
+
+    PL = C.PIPELINE
+    ix, iw = x + PAD, w - 2 * PAD
+    gs: list[str] = []
+    h, y = P.block_heading(ix, y0 + PAD, iw, 3, PL["heading"])
+    gs.append(group("pipeline-heading", (ix, y0 + PAD - 10, iw, y - y0 - PAD), [h]))
+    rows = [PL["nodes"][:3], PL["nodes"][3:]]
+    r = 54
+    slot = iw / 4
+    row_h = 2 * r + 30 + P.T_BODY * 1.3 + 2 * P.T_SMALL * P.LH + 20
+    row_gap = 100
+    centers = []
+    for ri, row in enumerate(rows):
+        cy = y + r + ri * (row_h + row_gap)
+        for ci, (name, sub, ic) in enumerate(row):
+            cx = ix + slot * ci + slot / 2
+            centers.append((cx, cy))
+            last = ri == 1 and ci == len(row) - 1
+            fill = P.PEACH if last else P.LAV
+            sub_lines = (
+                list(sub)
+                if isinstance(sub, tuple)
+                else P.wrap(sub, P.T_SMALL, slot - 20)
+            )
+            kids = [
+                circle(cx, cy, r, fill),
+                icon(ic, cx, cy, r * 1.15, P.IND),
+                text(cx, cy + r + 52, name, P.T_BODY, P.IND, "bold", anchor="middle"),
+                mtext(
+                    cx,
+                    cy + r + 52 + P.T_SMALL * 1.35,
+                    sub_lines,
+                    P.T_SMALL,
+                    P.LH,
+                    P.MUT,
+                    anchor="middle",
+                ),
+            ]
+            gs.append(
+                group(
+                    f"pipeline-node-{ri}-{ci}",
+                    (cx - slot / 2 + 4, cy - r, slot - 8, row_h),
+                    kids,
+                )
+            )
+    label_bottom = lambda cy: cy - r + row_h - 10  # noqa: E731
+    arrows = []
+    for i in range(len(centers) - 1):
+        (x1, y1), (x2, y2) = centers[i], centers[i + 1]
+        if y1 == y2:
+            arrows.append(line(x1 + r + 12, y1, x2 - r - 18, y2, P.IND, 5, marker="pa"))
+        else:  # Rephrase (end of row 1) down to Hybrid search (start of row 2)
+            ymid = label_bottom(y1) + row_gap / 2
+            arrows.append(
+                path(
+                    f"M{fmt(x1)} {fmt(label_bottom(y1))} V{fmt(ymid)} H{fmt(x2)} V{fmt(y2 - r - 16)}",
+                    P.IND,
+                    5,
+                    marker="pa",
+                )
+            )
+    gs.append(group("pipeline-arrows", (ix, y, iw, 2 * row_h + row_gap), arrows))
+    # refine loop under row 2: Judge back to Hybrid search
+    (hx, hy), (jx, jy) = centers[3], centers[5]
+    ylow = label_bottom(jy) + 50
+    loop = [
+        path(
+            f"M{fmt(jx)} {fmt(label_bottom(jy))} V{fmt(ylow)} H{fmt(hx)} V{fmt(label_bottom(hy) + 14)}",
+            P.PUR,
+            5,
+            marker="pp",
+        ),
+        text(
+            (hx + jx) / 2,
+            ylow + P.T_SMALL + 14,
+            PL["loop_label"],
+            P.T_SMALL,
+            P.PUR,
+            "bold",
+            anchor="middle",
+        ),
+    ]
+    gs.append(group("pipeline-loop", (ix, label_bottom(jy) - 10, iw, 130), loop))
+    y = ylow + P.T_SMALL + 50
+    for gid, s in (
+        ("pipeline-exits", PL["exits"]),
+        ("pipeline-settings", PL["settings"]),
+    ):
+        tx, yy = P.para(ix, y, s, P.T_SMALL, iw, P.MUT)
+        gs.append(group(gid, (ix, y, iw, yy - y), [tx]))
+        y = yy + 10
+    bottom = y + PAD - 10
+    return [card_block("pipeline-card", x, y0, w, bottom), *gs], bottom
+
+
+PIPE_DEFS = arrow_marker("pa", "#0C0A9E") + arrow_marker("pp", "#8208D5")
+
+
 def build() -> tuple[str, list[str]]:
     import poster_lib as P
 
@@ -225,7 +402,12 @@ def build() -> tuple[str, list[str]]:
     gs += hg
     kg, y = hook_block(y + 40)
     gs += kg
-    return P.GRAD_DEFS, gs
+    y += GAP
+    rg, ry = resources_block(M, y, COLW)
+    pg, py = pipeline_block(M + COLW + GAP, y, COLW)
+    gs += rg + pg
+    y = max(ry, py)
+    return P.GRAD_DEFS + PIPE_DEFS, gs
 
 
 def main() -> None:
