@@ -17,6 +17,7 @@ sys.path.insert(0, str(HERE.parents[1] / "presentation" / "build"))
 
 from lib import (  # noqa: E402
     arrow_marker,
+    chart_marker,
     circle,
     fmt,
     group,
@@ -26,6 +27,7 @@ from lib import (  # noqa: E402
     mtext,
     path,
     rect,
+    runs_text,
     text,
 )
 
@@ -61,7 +63,7 @@ def page(groups: list[str], defs: str = "") -> None:
     )
 
 
-M = 110  # page margin
+M = 90  # page margin
 CW = W - 2 * M  # content width
 IMAGES = {
     "panadol": "panadol-extra-thumb.jpg",
@@ -90,28 +92,38 @@ def img(key: str) -> str:
 
 
 def header_block() -> tuple[list[str], float]:
+    """Title, authors on the left, the three big numbers on the right."""
     import content as C
     import poster_lib as P
 
     size = 128
-    title = mtext(M, 70 + size, C.HEADER["title"], size, 1.12, P.IND, "bold")
-    y = 70 + size + size * 1.12 + 110
+    title = mtext(M, 60 + size, C.HEADER["title"], size, 1.1, P.IND, "bold")
+    y = 60 + size + size * 1.1 + 88
     auth = [
         text(M, y, C.HEADER["authors"], P.T_AUTH, P.INK, "bold"),
-        text(M, y + 66, C.HEADER["affiliation"], P.T_BODY, P.MUT),
-        text(M, y + 124, C.HEADER["venue"], P.T_BODY, P.PUR, "bold"),
-    ]
-    bottom = y + 230
-    gs = [
-        group("title", (M - 4, 60, CW + 8, size * 2.3 + 20), [title]),
-        group("authors", (M - 4, y - 60, 2200, 200), auth),
-        group(
-            "mascot",
-            (W - M - 470, y - 70, 470, 330),
-            [P.mascot(W - M - 450, y - 70, 430)],
+        mtext(M, y + 58, C.HEADER["affiliation"], P.T_BODY, 1.25, P.MUT),
+        text(
+            M, y + 58 + P.T_BODY * 1.25 * 2, C.HEADER["venue"], P.T_BODY, P.PUR, "bold"
         ),
     ]
-    return gs, bottom
+    gs = [
+        group("title", (M - 4, 40, CW + 8, size * 2.6), [title]),
+        group("authors", (M - 4, y - 55, 1080, 240), auth),
+    ]
+    sx0 = M + 1100
+    sw = (W - M - sx0 - 2 * 30) / 3
+    sy, sh = y - 70, 225
+    fills = [P.LAV, P.CORAL, P.MINT]
+    for i, (v, lab) in enumerate(C.HOOK["stats"]):
+        sx = sx0 + i * (sw + 30)
+        gs.append(
+            group(
+                f"stat-{i}",
+                (sx, sy, sw, sh),
+                [P.stat_card(sx, sy, sw, sh, v, lab, fills[i])],
+            )
+        )
+    return gs, sy + sh
 
 
 def hook_block(y0: float) -> tuple[list[str], float]:
@@ -119,7 +131,7 @@ def hook_block(y0: float) -> tuple[list[str], float]:
     import poster_lib as P
 
     H_ = C.HOOK
-    x0, pad = M, 70
+    x0, pad = M, 48
     inner = CW - 2 * pad
     gs: list[str] = []
     head, y = P.block_heading(x0 + pad, y0 + pad, inner, 1, H_["heading"])
@@ -208,29 +220,16 @@ def hook_block(y0: float) -> tuple[list[str], float]:
         gs.append(group(f"hook-mini-{i}", (mx, my, mw, 170), kids))
     col_bottom = max(ly3, my + 170)
 
-    # three big numbers
-    sy = col_bottom + 50
-    sw = (inner - 2 * 40) / 3
-    fills = [P.LAV, P.CORAL, P.MINT]
-    for i, (v, lab_) in enumerate(H_["stats"]):
-        sx = lx + i * (sw + 40)
-        gs.append(
-            group(
-                f"stat-{i}",
-                (sx, sy, sw, 300),
-                [P.stat_card(sx, sy, sw, 300, v, lab_, fills[i])],
-            )
-        )
-    bottom = sy + 300 + pad
+    bottom = col_bottom + pad
     card = group(
         "hook-card", (x0, y0, CW, bottom - y0), [P.soft_card(x0, y0, CW, bottom - y0)]
     )
     return [card, gs_head, *gs], bottom
 
 
-GAP = 60  # gap between blocks
+GAP = 40  # gap between blocks
 COLW = (CW - GAP) / 2
-PAD = 60  # inner card padding
+PAD = 50  # inner card padding
 
 
 def card_block(gid: str, x: float, y: float, w: float, bottom: float) -> str:
@@ -302,10 +301,10 @@ def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     h, y = P.block_heading(ix, y0 + PAD, iw, 3, PL["heading"])
     gs.append(group("pipeline-heading", (ix, y0 + PAD - 10, iw, y - y0 - PAD), [h]))
     rows = [PL["nodes"][:3], PL["nodes"][3:]]
-    r = 54
+    r = 48
     slot = iw / 4
     row_h = 2 * r + 30 + P.T_BODY * 1.3 + 2 * P.T_SMALL * P.LH + 20
-    row_gap = 100
+    row_gap = 64
     centers = []
     for ri, row in enumerate(rows):
         cy = y + r + ri * (row_h + row_gap)
@@ -379,10 +378,7 @@ def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     ]
     gs.append(group("pipeline-loop", (ix, label_bottom(jy) - 10, iw, 130), loop))
     y = ylow + P.T_SMALL + 50
-    for gid, s in (
-        ("pipeline-exits", PL["exits"]),
-        ("pipeline-settings", PL["settings"]),
-    ):
+    for gid, s in (("pipeline-exits", PL["exits"]),):
         tx, yy = P.para(ix, y, s, P.T_SMALL, iw, P.MUT)
         gs.append(group(gid, (ix, y, iw, yy - y), [tx]))
         y = yy + 10
@@ -393,6 +389,222 @@ def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
 PIPE_DEFS = arrow_marker("pa", "#0C0A9E") + arrow_marker("pp", "#8208D5")
 
 
+def retrieval_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
+    import content as C
+    import poster_lib as P
+    from build_deck import simple_table
+
+    ix, iw = x + PAD, w - 2 * PAD
+    gs: list[str] = []
+    h, y = P.block_heading(ix, y0 + PAD, iw, 4, C.RETRIEVAL_HEADING)
+    gs.append(group("retrieval-heading", (ix, y0 + PAD - 10, iw, y - y0 - PAD), [h]))
+    rows = [list(r[:5]) for r in C.RETRIEVAL_ROWS]
+    hl = [i for i, r in enumerate(C.RETRIEVAL_ROWS) if r[5]]
+    first = iw - 4 * 205
+    colw = [first, 205, 205, 205, 205]
+    rowh = 58
+    best = {(i, j) for i in hl for j in range(5)}
+    gs.append(
+        simple_table(
+            "retrieval-table",
+            ix,
+            y,
+            colw,
+            rowh,
+            C.RETRIEVAL_COLUMNS,
+            rows,
+            font=P.T_BODY,
+            hfont=P.T_BODY,
+            best=best,
+            fills=dict.fromkeys(hl, P.PEACH),
+        )
+    )
+    y += rowh * (len(rows) + 1) + 16
+    note, y = P.para(ix, y, C.RETRIEVAL_NOTE, P.T_SMALL, iw, P.MUT, italic=True)
+    gs.append(group("retrieval-note", (ix, y - 60, iw, 60), [note]))
+    for i, s in enumerate(C.RETRIEVAL_LESSONS):
+        tip, yy = P.para(ix + 30, y + 22, s, P.T_BODY, iw - 60, P.INK)
+        gs.append(
+            group(
+                f"retrieval-lesson-{i}",
+                (ix, y + 6, iw, yy - y + 6),
+                [rect(ix, y + 6, iw, yy - y + 6, P.LAV, None, 1, 28), tip],
+            )
+        )
+        y = yy + 30
+    bottom = y + PAD - 30
+    return [card_block("retrieval-card", x, y0, w, bottom), *gs], bottom
+
+
+def grounding_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
+    import content as C
+    import poster_lib as P
+
+    G = C.GROUNDING
+    ix, iw = x + PAD, w - 2 * PAD
+    gs: list[str] = []
+    h, y = P.block_heading(ix, y0 + PAD, iw, 5, G["heading"])
+    gs.append(group("grounding-heading", (ix, y0 + PAD - 10, iw, y - y0 - PAD), [h]))
+    cats, series = G["categories"], G["series"]
+    colors = [P.GEM, P.QWN]
+    cy0 = y
+    px, pw = ix + 110, iw - 130
+    py, ph = cy0 + 80, 360
+    vmin, vmax = -0.2, 1.0
+
+    def Y(v):
+        return py + ph - ph * (v - vmin) / (vmax - vmin)
+
+    fb = [rect(px, py, pw, ph, P.WHITE, None, 1, 0)]
+    for tk in [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0]:
+        fb.append(line(px, Y(tk), px + pw, Y(tk), "#E6E4F2", 2))
+        fb.append(
+            text(px - 16, Y(tk) + 11, f"{tk:.1f}", P.T_SMALL, P.MUT, anchor="end")
+        )
+    fb.append(line(px, Y(0), px + pw, Y(0), P.MUT, 3, id="grounding-zero"))
+    slot = pw / len(cats)
+    bar = slot / 3
+    notes = []
+    for ci, c in enumerate(cats):
+        x0 = px + ci * slot + (slot - 2 * bar) / 2
+        fb.append(
+            text(
+                px + ci * slot + slot / 2,
+                py + ph + 52,
+                c,
+                P.T_BODY,
+                P.INK,
+                "bold",
+                anchor="middle",
+            )
+        )
+        for si, (sn, vals) in enumerate(series):
+            v = vals[ci]
+            y1, y2 = Y(max(v, 0)), Y(min(v, 0))
+            bx = x0 + si * bar
+            fb.append(
+                rect(
+                    bx,
+                    y1,
+                    bar - 8,
+                    y2 - y1,
+                    colors[si],
+                    None,
+                    1,
+                    0,
+                    id=f"grounding-bar-{sn}-{ci}",
+                )
+            )
+            lab = f"{v:.3f}".replace("-", "−")
+            ly = y1 - 14 if v >= 0 else y2 + P.T_SMALL + 6
+            fb.append(
+                text(
+                    bx + (bar - 8) / 2,
+                    ly,
+                    lab,
+                    P.T_SMALL,
+                    P.INK,
+                    "bold",
+                    anchor="middle",
+                )
+            )
+            notes.append(
+                {"text": lab, "font_size": P.T_SMALL, "bold": True, "width": 140}
+            )
+    lx = px
+    for si, (sn, _v) in enumerate(series):
+        fb.append(rect(lx, cy0 + 14, 34, 34, colors[si], None, 1, 8))
+        fb.append(text(lx + 48, cy0 + 44, sn, P.T_BODY, P.INK))
+        lx += 48 + P.text_width(sn, P.T_BODY) + 60
+    payload = {
+        "name": "grounding-truthfulness",
+        "type": "column",
+        "grouping": "clustered",
+        "x": ix,
+        "y": cy0,
+        "width": iw,
+        "height": ph + 90 + 80,
+        "plot_area": {"x": px, "y": py, "width": pw, "height": ph},
+        "categories": cats,
+        "series": [{"name": sn, "values": vals} for sn, vals in series],
+        "gap_width": 100,
+        "overlap": 0,
+        "axes": {
+            "value": {
+                "minimum": vmin,
+                "maximum": vmax,
+                "major_unit": 0.2,
+                "number_format": "0.0",
+            },
+            "category": {"label_position": "low"},
+        },
+        "show_legend": True,
+        "legend_position": "top",
+        "style": {"colors": colors},
+        "notes": notes,
+    }
+    gs.append(
+        chart_marker("grounding-truthfulness", payload, fb, (ix, cy0, iw, ph + 170))
+    )
+    y = cy0 + ph + 170 + 10
+    for gid, s, sz, col in (
+        ("grounding-scoring", G["axis_label"] + ". " + G["scoring"], P.T_SMALL, P.PUR),
+        ("grounding-halluc", G["hallucination"], P.T_BODY, P.INK),
+    ):
+        tx, yy = P.para(ix, y, s, sz, iw, col, bold=gid == "grounding-halluc")
+        gs.append(group(gid, (ix, y, iw, yy - y), [tx]))
+        y = yy + 12
+    bottom = y + PAD - 12
+    return [card_block("grounding-card", x, y0, w, bottom), *gs], bottom
+
+
+def steps_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
+    import content as C
+    import poster_lib as P
+
+    S = C.STEPS
+    ix, iw = x + PAD, w - 2 * PAD
+    gs: list[str] = []
+    h, y = P.block_heading(ix, y0 + PAD, iw, 6, S["heading"])
+    gs.append(group("steps-heading", (ix, y0 + PAD - 10, iw, y - y0 - PAD), [h]))
+    leg = [
+        rect(ix, y + 4, 34, 34, P.WITHOUT, None, 1, 8),
+        text(ix + 48, y + 32, S["legend"][0], P.T_SMALL, P.INK),
+        rect(ix + 380, y + 4, 34, 34, P.WITH, None, 1, 8),
+        text(ix + 428, y + 32, S["legend"][1], P.T_SMALL, P.INK),
+        text(ix + iw, y + 32, S["note"], P.T_SMALL, P.MUT, anchor="end"),
+    ]
+    gs.append(group("steps-legend", (ix, y, iw, 44), leg))
+    y += 54
+    name_w, val_w = 470, 330
+    bx, bw = ix + name_w, iw - name_w - val_w - 20
+    for i, (step, target, a, b, la, lb, extra) in enumerate(S["rows"]):
+        kids = [
+            text(ix, y + 34, step, P.T_BODY, P.IND, "bold"),
+            text(ix, y + 80, target, P.T_SMALL, P.MUT),
+            rect(bx, y + 12, max(bw * a, 6), 28, P.WITHOUT, None, 1, 14),
+            rect(bx, y + 48, bw * b, 28, P.WITH, None, 1, 14),
+            runs_text(
+                ix + iw,
+                y + 44,
+                [(la + " → ", {}), (lb, {"font-weight": "bold"})],
+                P.T_BODY,
+                P.INK,
+                anchor="end",
+            ),
+        ]
+        if extra:
+            kids.append(text(ix + iw, y + 84, extra, P.T_SMALL, P.MUT, anchor="end"))
+        gs.append(group(f"steps-row-{i}", (ix, y, iw, 104), kids))
+        y += 89
+    y += 14
+    top = y
+    tx, y = P.para(ix, y, S["concat"], P.T_BODY, iw, P.INK, bold=True)
+    gs.append(group("steps-concat", (ix, top, iw, y - top), [tx]))
+    bottom = y + PAD - 10
+    return [card_block("steps-card", x, y0, w, bottom), *gs], bottom
+
+
 def build() -> tuple[str, list[str]]:
     import poster_lib as P
 
@@ -400,13 +612,21 @@ def build() -> tuple[str, list[str]]:
     gs = [group("background", (0, 0, W, H), [P.background(W, H)])]
     hg, y = header_block()
     gs += hg
-    kg, y = hook_block(y + 40)
+    kg, y = hook_block(y + 34)
     gs += kg
     y += GAP
-    rg, ry = resources_block(M, y, COLW)
-    pg, py = pipeline_block(M + COLW + GAP, y, COLW)
-    gs += rg + pg
-    y = max(ry, py)
+    # two independent columns
+    lx, rx = M, M + COLW + GAP
+    ly = ry = y
+    for f in (resources_block, retrieval_block):
+        g, ly = f(lx, ly, COLW)
+        gs += g
+        ly += GAP
+    for f in (pipeline_block, grounding_block, steps_block):
+        g, ry = f(rx, ry, COLW)
+        gs += g
+        ry += GAP
+    print("bottoms: left", round(ly - GAP), "right", round(ry - GAP), "page", round(H))
     return P.GRAD_DEFS + PIPE_DEFS, gs
 
 

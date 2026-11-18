@@ -64,6 +64,74 @@ def test_resources_and_pipeline_in_pdf():
     assert head.endswith("each model call makes one small decision"), head
 
 
+def _shapes():
+    from pptx import Presentation
+
+    def walk(shapes):
+        for sh in shapes:
+            yield sh
+            if sh.shape_type == 6:  # group
+                yield from walk(sh.shapes)
+
+    return list(walk(Presentation(PPTX).slides[0].shapes))
+
+
+def native_chart_values() -> dict:
+    for sh in _shapes():
+        if getattr(sh, "has_chart", False) and sh.has_chart:
+            return {
+                s.name: [round(v, 3) for v in s.values]
+                for s in sh.chart.plots[0].series
+            }
+    raise AssertionError("no native chart")
+
+
+def native_table_cells() -> list[list[str]]:
+    for sh in _shapes():
+        if getattr(sh, "has_table", False) and sh.has_table:
+            return [[c.text for c in row.cells] for row in sh.table.rows]
+    raise AssertionError("no native table")
+
+
+def test_grounding_chart_values():
+    v = native_chart_values()
+    assert v["Qwen3.5-9B"] == [-0.06, 0.792, 0.913], v
+    assert v["Gemini 3.8 Flash"] == [0.268, 0.816, 0.923], v
+
+
+def test_retrieval_table_row():
+    rows = native_table_cells()
+    assert ["+ Qwen3-Reranker-4B", "4.0/s", "97.5", "99.2", "0.859"] in rows, rows
+    assert len(rows) == 8, rows
+
+
+def test_results_text_in_pdf():
+    text = pdf_text()
+    for s in [
+        "k = 2 gives the best Hit@10 (95.9) and Hit@30 (99.2) before reranking",
+        "wrong −1",
+        "Each step pays off on the questions it targets",
+        "0.020",
+        "10/10",
+        "p = 0.056",
+        "0.920 vs 0.750",
+    ]:
+        assert s in text, s
+
+
+def test_negative_bar_hangs_below_zero_line():
+    root = ET.parse(SVG).getroot()
+    zero = bar = None
+    for el in root.iter():
+        i = el.attrib.get("id", "")
+        if i == "grounding-zero":
+            zero = float(el.attrib["y1"])
+        if i == "grounding-bar-Qwen3.5-9B-0":
+            bar = float(el.attrib["y"]), float(el.attrib["height"])
+    assert zero is not None and bar is not None, (zero, bar)
+    assert abs(bar[0] - zero) < 0.5 and bar[1] > 0, (zero, bar)
+
+
 def test_leaflet_card_is_not_a_model_answer():
     t = group_text("hook-leaflet")
     assert "Yumangel leaflet" in t

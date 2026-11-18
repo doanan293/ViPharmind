@@ -37,8 +37,8 @@ CHEEK = "#FFB4A8"
 ORANGE_TXT = "#B05F00"
 
 # type sizes in px (spec §4; pt = px × 0.75)
-T_TITLE, T_AUTH, T_BIG, T_HEAD, T_BODY, T_SMALL = 133, 50, 68, 54, 37, 30
-LH = 1.32
+T_TITLE, T_AUTH, T_BIG, T_HEAD, T_BODY, T_SMALL = 133, 48, 68, 44, 32, 29
+LH = 1.25
 # ppt-master's quality gate estimates text wider than Poppins really is; wrap with headroom
 WRAP_SAFETY = 1.12
 
@@ -127,12 +127,12 @@ def verdict_card(
     fill, stroke, col = (
         (CORAL, "#E8796B", RED) if kind == "bad" else (MINT, "#55B58C", GREEN)
     )
-    pad = 36
+    pad = 30
     parts = []
     t0, yy = para(x + pad, y + pad - 12, label, T_BODY, w - 2 * pad, col, bold=True)
     t1, yy = para(x + pad, yy, en, T_BODY, w - 2 * pad, INK)
     t2, yy = para(x + pad, yy + 2, vi, T_SMALL, w - 2 * pad, MUT, italic=True)
-    t3, yy = para(x + pad, yy + 6, verdict, T_BODY * 0.9, w - 2 * pad, col, bold=True)
+    t3, yy = para(x + pad, yy + 6, verdict, T_SMALL, w - 2 * pad, col, bold=True)
     h = yy - y + pad - 10
     parts.append(rect(x, y, w, h, fill, stroke, 4, 36))
     parts += [t0, t1, t2, t3]
@@ -140,10 +140,10 @@ def verdict_card(
 
 
 def stat_card(x, y, w, h, value: str, label: str, fill) -> str:
-    lines = wrap(label, T_BODY * 0.9, w - 60)
+    lines = wrap(label, T_SMALL, w - 60)
     vy = y + h * 0.42 - (len(lines) - 1) * 22
-    v = text(x + w / 2, vy, value, T_BIG * 1.15, IND, "bold", anchor="middle")
-    lab = mtext(x + w / 2, vy + 75, lines, T_BODY * 0.9, LH, MUT, anchor="middle")
+    v = text(x + w / 2, vy, value, T_BIG * 1.06, IND, "bold", anchor="middle")
+    lab = mtext(x + w / 2, vy + 75, lines, T_SMALL, LH, MUT, anchor="middle")
     return rect(x, y, w, h, fill, None, 1, 40) + v + lab
 
 

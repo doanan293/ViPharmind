@@ -11,8 +11,10 @@ HEADER = {
         "for Vietnamese Pharmaceutical Documents",
     ],
     "authors": "Van-An Doan · Tuan Quoc Nguyen ✉",
-    "affiliation": "School of Information and Communication Technology, "
-    "Hanoi University of Science and Technology",
+    "affiliation": [
+        "School of Information and Communication Technology",
+        "Hanoi University of Science and Technology",
+    ],
     "venue": "SoICT 2026 · Paper 1360",
 }
 
@@ -107,7 +109,6 @@ PIPELINE = {
     ],
     "loop_label": "not enough evidence: refine the query, ≤ 3 rounds",
     "exits": "Attacks are blocked and off-topic requests redirected by the guard",
-    "settings": "Run with Gemini 3.8 Flash and with the open-weight Qwen3.5-9B",
 }
 
 RETRIEVAL_HEADING = (
@@ -150,6 +151,7 @@ GROUNDING = {
 STEPS = {
     "heading": "Each step pays off on the questions it targets",
     "note": "Truthfulness with and without each step, Gemini agent",
+    "legend": ("without the step", "with it"),
     # tables/e2e-layers.tex: (step, targeted questions, without, with, without label, with label, extra)
     "rows": [
         ("Rephrase", "50 follow-up questions", 0.020, 0.920, "0.020", "0.920", ""),
