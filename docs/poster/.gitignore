@@ -1,0 +1,6 @@
+# Generated round-trip workspace; make.sh rebuilds it
+projects/
+build/template-a0.pptx
+# Build outputs; make.sh rebuilds them
+SoICT2026_ViPharmInd_poster.pptx
+SoICT2026_ViPharmInd_poster.pdf
