@@ -318,7 +318,7 @@ def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     r = 48
     slot = iw / 4
     row_h = 2 * r + 30 + P.T_BODY * 1.3 + 2 * P.T_SMALL * P.LH + 20
-    row_gap = 64
+    row_gap = 90
     centers = []
     for ri, row in enumerate(rows):
         cy = y + r + ri * (row_h + row_gap)
@@ -360,10 +360,10 @@ def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
         if y1 == y2:
             arrows.append(line(x1 + r + 12, y1, x2 - r - 18, y2, P.IND, 5, marker="pa"))
         else:  # Rephrase (end of row 1) down to Hybrid search (start of row 2)
-            ymid = label_bottom(y1) + row_gap / 2
+            ymid = label_bottom(y1) + 22
             arrows.append(
                 path(
-                    f"M{fmt(x1)} {fmt(label_bottom(y1))} V{fmt(ymid)} H{fmt(x2)} V{fmt(y2 - r - 16)}",
+                    f"M{fmt(x1)} {fmt(label_bottom(y1))} V{fmt(ymid)} H{fmt(x2)} V{fmt(y2 - r - 8)}",
                     P.IND,
                     5,
                     marker="pa",
@@ -372,10 +372,10 @@ def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     gs.append(group("pipeline-arrows", (ix, y, iw, 2 * row_h + row_gap), arrows))
     # refine loop under row 2: Judge back to Hybrid search
     (hx, hy), (jx, jy) = centers[3], centers[5]
-    ylow = label_bottom(jy) + 50
+    ylow = label_bottom(jy) + 64
     loop = [
         path(
-            f"M{fmt(jx)} {fmt(label_bottom(jy))} V{fmt(ylow)} H{fmt(hx)} V{fmt(label_bottom(hy) + 14)}",
+            f"M{fmt(jx)} {fmt(label_bottom(jy))} V{fmt(ylow)} H{fmt(hx)} V{fmt(label_bottom(hy) + 6)}",
             P.PUR,
             5,
             marker="pp",
@@ -463,7 +463,7 @@ def grounding_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     colors = [P.GEM, P.QWN]
     cy0 = y
     px, pw = ix + 110, iw - 130
-    py, ph = cy0 + 80, 345
+    py, ph = cy0 + 80, 310
     vmin, vmax = -0.2, 1.0
 
     def Y(v):
@@ -610,7 +610,7 @@ def steps_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
         if extra:
             kids.append(text(ix + iw, y + 72, extra, P.T_SMALL, P.MUT, anchor="end"))
         gs.append(group(f"steps-row-{i}", (ix, y, iw, 104), kids))
-        y += 89
+        y += 87
     y += 14
     top = y
     tx, y = P.para(ix, y, S["concat"], P.T_BODY, iw, P.INK, bold=True)

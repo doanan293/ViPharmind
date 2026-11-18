@@ -223,6 +223,25 @@ def test_leaflet_card_is_not_a_model_answer():
     assert "Qwen" not in t and "Gemini" not in t, t
 
 
+def _last_leg(gid: str) -> float:
+    """Length of the final vertical leg of the bent path in group gid."""
+    root = ET.parse(SVG).getroot()
+    for g in root.iter():
+        if g.attrib.get("id") == gid:
+            for e in g.iter():
+                d = e.attrib.get("d", "")
+                if e.tag.endswith("path") and "H" in d:
+                    vs = [float(v) for v in re.findall(r"V\s*(-?[\d.]+)", d)]
+                    return abs(vs[-1] - vs[-2])
+    raise AssertionError(f"no bent path in {gid}")
+
+
+def test_bent_arrows_leave_room_for_the_head():
+    # arrowhead is 7 x stroke 5 = 35 px; the last leg must show line above it
+    for gid in ("pipeline-arrows", "pipeline-loop"):
+        assert _last_leg(gid) >= 50, (gid, _last_leg(gid))
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for f in fns:
