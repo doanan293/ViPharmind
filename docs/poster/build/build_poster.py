@@ -15,7 +15,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1] / "presentation" / "build"))
 
-from lib import chart_marker, group, rect, text  # noqa: E402
+from lib import group, text  # noqa: E402
 
 ROOT = HERE.parent
 WS = ROOT / "projects" / "poster_a0"
@@ -49,86 +49,78 @@ def page(groups: list[str], defs: str = "") -> None:
     )
 
 
-def spike() -> list[str]:
-    from build_deck import simple_table
+def style_sheet() -> tuple[str, list[str]]:
+    """One of each style A component, to check the look before the real blocks."""
+    import poster_lib as P
 
-    defs = (
-        '<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">'
-        '<stop offset="0" stop-color="#F3EFFF"/><stop offset="1" stop-color="#FFF6EC"/>'
-        "</linearGradient>"
+    gs = [group("background", (0, 0, W, H), [P.background(W, H)])]
+    gs.append(group("mascot", (2700, 80, 400, 300), [P.mascot(2700, 80, 400)]))
+    gs.append(
+        group(
+            "title",
+            (120, 120, 2500, 340),
+            [text(140, 260, "Style sheet", P.T_TITLE, P.IND, "bold")],
+        )
     )
-    bg = group(
-        "background",
-        (0, 0, W, H),
-        [f'<rect x="0" y="0" width="{W}" height="{H}" fill="url(#bg)"/>'],
+    gs.append(
+        group("card", (120, 500, 2940, 1500), [P.soft_card(120, 500, 2940, 1500)])
     )
-    card = group(
-        "card",
-        (120, 500, 2940, 1800),
-        [rect(120, 500, 2940, 1800, "#FFFFFF", None, 1, 48)],
+    h, _ = P.block_heading(
+        180, 560, 2800, 1, "A block heading that states one finding in plain words"
     )
-    title = group(
-        "title",
-        (120, 120, 2940, 340),
-        [
-            text(140, 260, "Agentic RAG for Vietnamese", 133, "#0C0A9E", "bold"),
-            text(140, 400, "Pharmaceutical Documents", 133, "#0C0A9E", "bold"),
-        ],
+    gs.append(group("heading", (180, 560, 2800, 200), [h]))
+    b, by = P.bubble(
+        180,
+        800,
+        1300,
+        "Is metformin OK while breastfeeding?",
+        "Đang cho con bú dùng metformin có sao không?",
     )
-    table = simple_table(
-        "spike-table",
-        200,
-        600,
-        [900, 400, 400],
-        80,
-        ["Method", "Hit@10", "nDCG@10"],
-        [["BM25", "81.3", "0.621"], ["Hybrid", "95.9", "0.784"]],
-        font=40,
-        hfont=40,
+    gs.append(group("bubble", (180, 800, 1300, by - 800), [b]))
+    v, vy = P.verdict_card(
+        1600,
+        800,
+        1380,
+        "bad",
+        "✗  Gemini 3.8 Flash, no documents",
+        "Breastfeeding women CAN USE metformin…",
+        "Phụ nữ đang cho con bú CÓ THỂ DÙNG ĐƯỢC Metformin…",
+        "Contradicts the formulary",
     )
-    cats = ["Gemini 3.8 Flash", "Qwen3.5-9B"]
-    payload = {
-        "name": "spike-chart",
-        "type": "column",
-        "grouping": "clustered",
-        "x": 200,
-        "y": 1000,
-        "width": 2700,
-        "height": 1200,
-        "plot_area": {"x": 400, "y": 1100, "width": 2400, "height": 1000},
-        "categories": cats,
-        "series": [
-            {"name": "Closed-book", "values": [0.268, -0.060]},
-            {"name": "Full agent", "values": [0.923, 0.913]},
-        ],
-        "gap_width": 80,
-        "overlap": 0,
-        "axes": {
-            "value": {
-                "minimum": -0.2,
-                "maximum": 1.0,
-                "major_unit": 0.2,
-                "number_format": "0.0",
-            },
-            "category": {"label_position": "low"},
-        },
-        "show_legend": True,
-        "legend_position": "top",
-        "style": {"colors": ["#8F8CF0", "#FFB27A"]},
-    }
-    fb = [
-        rect(400, 1100, 2400, 1000, "#FFFFFF", None, 1, 0),
-        text(400, 1080, "Closed-book", 40, "#1D1D1D"),
-        text(900, 1080, "Full agent", 40, "#1D1D1D"),
-        text(1000, 2160, "Gemini 3.8 Flash", 40, "#1D1D1D", anchor="middle"),
-        text(2200, 2160, "Qwen3.5-9B", 40, "#1D1D1D", anchor="middle"),
-    ]
-    chart = chart_marker("spike-chart", payload, fb, (200, 1000, 2700, 1200))
-    return defs, [bg, card, title, table, chart]
+    gs.append(group("verdict-bad", (1600, 800, 1380, vy - 800), [v]))
+    v2, vy2 = P.verdict_card(
+        1600,
+        vy + 30,
+        1380,
+        "good",
+        "✓  Same model in our pipeline",
+        "Metformin passes into breast milk [2, 3]…",
+        "Metformin có bài tiết vào sữa mẹ [2, 3]…",
+        "Matches the formulary, with citations",
+    )
+    gs.append(group("verdict-good", (1600, vy + 30, 1380, vy2 - vy - 30), [v2]))
+    gs.append(
+        group(
+            "stat",
+            (180, 1500, 900, 400),
+            [
+                P.stat_card(
+                    180,
+                    1500,
+                    900,
+                    400,
+                    "2,409",
+                    "everyday nicknames mapped to products",
+                    P.LAV,
+                )
+            ],
+        )
+    )
+    return P.GRAD_DEFS, gs
 
 
 def main() -> None:
-    defs, groups = spike()
+    defs, groups = style_sheet()
     page(groups, defs)
     print("poster:", SVG_DIR / "poster.svg")
 

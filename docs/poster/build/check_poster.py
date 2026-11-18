@@ -40,6 +40,30 @@ def _font_px(el, inherited=None):
     return float(v) if v is not None else None
 
 
+def _fit_problems(root) -> list[str]:
+    from poster_lib import text_width
+
+    probs = []
+    for g in root.iter():
+        b = g.attrib.get("data-pptx-bounds")
+        if not b or g.attrib.get("data-pptx-replace-with"):
+            continue
+        bx, _by, bw, _bh = (float(v) for v in b.split())
+        for el in g.iter():
+            if el.tag.split("}")[-1] != "text":
+                continue
+            s = "".join(el.itertext())
+            size = float(el.attrib.get("font-size", "16"))
+            bold = el.attrib.get("font-weight") in ("bold", "700", "800")
+            w = text_width(s, size, bold)
+            x = float(el.attrib.get("x", "0"))
+            anchor = el.attrib.get("text-anchor", "start")
+            x0 = x - w if anchor == "end" else x - w / 2 if anchor == "middle" else x
+            if x0 < bx - 2 or x0 + w > bx + bw + 2:
+                probs.append(f"text overflow in group {g.attrib.get('id')}: {s[:50]!r}")
+    return probs
+
+
 def check_svg(path) -> list[str]:
     probs: list[str] = []
     root = ET.parse(path).getroot()
@@ -65,6 +89,7 @@ def check_svg(path) -> list[str]:
         for b in BANNED:
             if b in low:
                 probs.append(f"banned phrase {b!r}: {s[:60]!r}")
+    probs += _fit_problems(root)
     return probs
 
 

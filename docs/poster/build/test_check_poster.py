@@ -57,6 +57,22 @@ def test_svg_banned_phrase():
     assert any("big lever" in p for p in check_svg(svg("ban", t("the big lever"))))
 
 
+def grp(bw, s):
+    return (
+        f'<g id="g" data-pptx-bounds="100 0 {bw} 200">'
+        f'<text x="100" y="50" font-size="40">{s}</text></g>'
+    )
+
+
+def test_svg_text_overflows_group():
+    p = svg("over", grp(300, "A sentence far too long for a narrow box"))
+    assert any("overflow" in m for m in check_svg(p))
+
+
+def test_svg_text_fits_group():
+    assert check_svg(svg("fit", grp(2000, "Short line"))) == []
+
+
 def test_pptx_wrong_size():
     p = TMP / "d.pptx"
     prs = Presentation()
