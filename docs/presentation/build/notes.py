@@ -51,7 +51,7 @@ All of this relies on an automatic judge, so we validated it. A pharmacist grade
 On citations, ninety-six and a half percent of cited sentences are supported. The weakness is sentences without any citation: about a quarter, and ten point eight percent state a fact a reader cannot trace.
 """,
     "p16_takeaways": """
-To summarise. We release a Vietnamese drug resource built from the national formulary and real leaflets, with the colloquial names patients use. Self-hosted retrieval is enough: open embeddings beat a commercial API, and we reach ninety-seven point five percent Hit at ten. Grounding does the heavy lifting. Small structured decisions let a nine-billion open model run every step at almost the quality of Gemini. And each step should be judged on the questions it targets.
+To summarise. We release a Vietnamese drug resource built from the national formulary and real leaflets, with the colloquial names patients use. Self-hosted retrieval is enough: open embeddings beat a commercial API, and we reach ninety-seven point five percent Hit at ten. Grounding gives most of the gain. Small structured decisions let a nine-billion open model run every step at almost the quality of Gemini. And each step should be measured on the questions it targets.
 Our main limits are template-generated questions, a single pharmacist, and small safety sets.
 """,
     "p17_thanks": """

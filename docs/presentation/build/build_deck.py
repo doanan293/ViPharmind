@@ -659,8 +659,8 @@ def p06():
         ],
         [
             "Multi-turn follow-ups name the drug only by",
-            "a pronoun; unanswerable items are real drugs",
-            "absent from the corpus",
+            "a pronoun. Unanswerable items are real drugs",
+            "absent from the corpus.",
         ],
     ]
     yy = 300
@@ -796,7 +796,7 @@ def p07():
     ]
     defs = arrow_marker("ah", IND) + arrow_marker("ao", ORA)
     g = [
-        header("METHOD · PIPELINE", "Code drives, the LLM makes small decisions"),
+        header("METHOD · PIPELINE", "Code-driven flow with small LLM decisions"),
         group("pipeline-diagram", (56, 96, 848, 400), k),
     ]
     page(21, "p07_pipeline", g, defs=defs)
@@ -1334,7 +1334,7 @@ def g_grounding():
     g = [
         header(
             "RESULTS · END-TO-END",
-            "Grounding is the big lever",
+            "Grounding gives most of the gain",
             "Truthfulness (−1 … 1) on the 500-item golden set: a wrong answer scores below no answer",
         ),
         chart,
@@ -1543,8 +1543,7 @@ def g_steps():
             [
                 "Over all items, removing the",
                 "reranker changes no quality",
-                "metric significantly: the average",
-                "hides what each step does.",
+                "metric significantly.",
             ],
             12,
             1.45,
@@ -1830,14 +1829,14 @@ def p16():
     items = [
         (
             "A public Vietnamese drug resource",
-            "Formulary + 2,406 real leaflets with colloquial names; 10,000-question benchmark.",
+            "Formulary + 2,406 real leaflets with colloquial names, and a 10,000-question benchmark.",
         ),
         (
             "Self-hosted retrieval is enough",
-            "Qwen3-Emb-4B beats OpenAI-3-large; + Qwen3-Reranker-4B: 97.5% Hit@10.",
+            "Qwen3-Emb-4B beats OpenAI-3-large. With Qwen3-Reranker-4B: 97.5% Hit@10.",
         ),
         (
-            "Grounding does the heavy lifting",
+            "Grounding gives most of the gain",
             "18× (Gemini) and 25× (Qwen3.5-9B) fewer hallucinated answers.",
         ),
         (
@@ -1845,8 +1844,8 @@ def p16():
             "Open-weight Qwen3.5-9B runs every step: truthfulness 0.913 vs 0.923.",
         ),
         (
-            "Judge each step where it is needed",
-            "Follow-ups: 0.920 with rephrasing, 0.020 without; averages hide this.",
+            "Measure each step on the questions it targets",
+            "Follow-ups: 0.920 with rephrasing, 0.020 without.",
         ),
     ]
     gs = []
