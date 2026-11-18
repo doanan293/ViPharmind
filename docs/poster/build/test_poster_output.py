@@ -195,8 +195,13 @@ def test_pptx_embeds_only_poster_fonts():
 
     with zipfile.ZipFile(PPTX) as z:
         fonts = [n for n in z.namelist() if n.startswith("ppt/fonts/")]
-    extra = [f for f in fonts if not any(k in f for k in ("Poppins", "IBMPlexMono"))]
+    extra = [
+        f
+        for f in fonts
+        if not any(k in f for k in ("Poppins", "IBMPlexMono", "Montserrat"))
+    ]
     assert not extra, extra
+    assert any("Montserrat" in f for f in fonts), fonts  # Vietnamese lines
 
 
 def test_pptx_text_boxes_fit_their_text():
