@@ -590,7 +590,7 @@ def steps_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     ]
     gs.append(group("steps-legend", (ix, y, iw, 44), leg))
     y += 54
-    name_w, val_w = 470, 330
+    name_w, val_w = 470, 400
     bx, bw = ix + name_w, iw - name_w - val_w - 20
     for i, (step, target, a, b, la, lb, extra) in enumerate(S["rows"]):
         kids = [

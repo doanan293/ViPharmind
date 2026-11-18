@@ -187,7 +187,8 @@ def test_vietnamese_text_uses_a_vietnamese_font():
 def test_review_wording_fixes():
     text = pdf_text()
     assert "truthfulness, open Qwen3.5-9B vs Gemini 3.8 Flash" in text
-    assert "redirect rate" in text and "without reranker" in text
+    assert "redirect rate, no reranker" in text
+    assert "Guard: redirect rate" not in text  # the legend note stays short
     assert "nếu có chỉ định của bác sĩ" in text
     assert "if prescribed by a doctor" in text
 

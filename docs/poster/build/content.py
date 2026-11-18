@@ -155,7 +155,7 @@ GROUNDING = {
 
 STEPS = {
     "heading": "Each step pays off on the questions it targets",
-    "note": "Gemini agent, truthfulness. Guard: redirect rate, agent without reranker.",
+    "note": "Gemini agent, truthfulness",
     "legend": ("without", "with"),
     # tables/e2e-layers.tex: (step, targeted questions, without, with, without label, with label, extra)
     "rows": [
@@ -178,7 +178,15 @@ STEPS = {
             "0.771",
             "p = 0.056, borderline",
         ),
-        ("Guard", "10 out-of-scope requests", 0.0, 1.0, "0/10", "10/10", "redirected"),
+        (
+            "Guard",
+            "10 out-of-scope requests",
+            0.0,
+            1.0,
+            "0/10",
+            "10/10",
+            "redirect rate, no reranker",
+        ),
     ],
     "concat": "Rephrasing also beats concatenating earlier questions "
     "(0.920 vs 0.750 on follow-ups).",
