@@ -29,6 +29,7 @@ grep -E "Round-trip export summary|\[POSTFLIGHT\] status|\[PPTX\]" "$W/validatio
 EXPORT="$(ls -t "$W"/exports/*.pptx | head -1)"
 cp "$EXPORT" "$POSTER/SoICT2026_ViPharmInd_poster.pptx"
 echo "pptx: $POSTER/SoICT2026_ViPharmInd_poster.pptx"
+$PY "$HERE/render_pdf.py"
 if [ -n "$OUT" ]; then
   rm -rf "$OUT"; mkdir -p "$OUT"
   cp "$EXPORT" "$OUT/poster.pptx"
