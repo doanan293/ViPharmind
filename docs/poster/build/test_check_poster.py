@@ -73,6 +73,15 @@ def test_svg_text_fits_group():
     assert check_svg(svg("fit", grp(2000, "Short line"))) == []
 
 
+def test_svg_multiline_text_measured_per_line():
+    body = (
+        '<g id="g" data-pptx-bounds="100 0 400 300">'
+        '<text x="100" y="50" font-size="40">Short line one'
+        '<tspan x="100" dy="50">Short line two</tspan></text></g>'
+    )
+    assert check_svg(svg("multi", body)) == []
+
+
 def test_pptx_wrong_size():
     p = TMP / "d.pptx"
     prs = Presentation()

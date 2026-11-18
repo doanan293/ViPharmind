@@ -39,6 +39,8 @@ ORANGE_TXT = "#B05F00"
 # type sizes in px (spec §4; pt = px × 0.75)
 T_TITLE, T_AUTH, T_BIG, T_HEAD, T_BODY, T_SMALL = 133, 53, 72, 62, 40, 32
 LH = 1.32
+# ppt-master's quality gate estimates text wider than Poppins really is; wrap with headroom
+WRAP_SAFETY = 1.12
 
 GRAD_DEFS = (
     f'<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">'
@@ -68,7 +70,7 @@ def wrap(s: str, size: float, width: float, bold: bool = False) -> list[str]:
     cur = ""
     for word in s.split():
         cand = f"{cur} {word}".strip()
-        if cur and text_width(cand, size, bold) > width:
+        if cur and text_width(cand, size, bold) * WRAP_SAFETY > width:
             lines.append(cur)
             cur = word
         else:
@@ -138,11 +140,10 @@ def verdict_card(
 
 
 def stat_card(x, y, w, h, value: str, label: str, fill) -> str:
-    v = text(x + w / 2, y + h * 0.5, value, T_BIG * 1.15, IND, "bold", anchor="middle")
     lines = wrap(label, T_BODY * 0.9, w - 60)
-    lab = mtext(
-        x + w / 2, y + h * 0.5 + 70, lines, T_BODY * 0.9, LH, MUT, anchor="middle"
-    )
+    vy = y + h * 0.42 - (len(lines) - 1) * 22
+    v = text(x + w / 2, vy, value, T_BIG * 1.15, IND, "bold", anchor="middle")
+    lab = mtext(x + w / 2, vy + 75, lines, T_BODY * 0.9, LH, MUT, anchor="middle")
     return rect(x, y, w, h, fill, None, 1, 40) + v + lab
 
 

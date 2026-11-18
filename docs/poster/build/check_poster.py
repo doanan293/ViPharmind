@@ -52,15 +52,31 @@ def _fit_problems(root) -> list[str]:
         for el in g.iter():
             if el.tag.split("}")[-1] != "text":
                 continue
-            s = "".join(el.itertext())
             size = float(el.attrib.get("font-size", "16"))
             bold = el.attrib.get("font-weight") in ("bold", "700", "800")
-            w = text_width(s, size, bold)
-            x = float(el.attrib.get("x", "0"))
             anchor = el.attrib.get("text-anchor", "start")
-            x0 = x - w if anchor == "end" else x - w / 2 if anchor == "middle" else x
-            if x0 < bx - 2 or x0 + w > bx + bw + 2:
-                probs.append(f"text overflow in group {g.attrib.get('id')}: {s[:50]!r}")
+            # one entry per rendered line: the direct text, then each tspan with its own x
+            lines = [(el.attrib.get("x", "0"), el.text or "")]
+            line_x = lines[0][0]
+            for ts in el:
+                if "x" in ts.attrib:
+                    line_x = ts.attrib["x"]
+                    lines.append((line_x, "".join(ts.itertext())))
+                else:
+                    lines[-1] = (lines[-1][0], lines[-1][1] + "".join(ts.itertext()))
+                lines[-1] = (lines[-1][0], lines[-1][1] + (ts.tail or ""))
+            for xs, s in lines:
+                if not s.strip():
+                    continue
+                w = text_width(s, size, bold)
+                x = float(xs)
+                x0 = (
+                    x - w if anchor == "end" else x - w / 2 if anchor == "middle" else x
+                )
+                if x0 < bx - 2 or x0 + w > bx + bw + 2:
+                    probs.append(
+                        f"text overflow in group {g.attrib.get('id')}: {s[:50]!r}"
+                    )
     return probs
 
 
