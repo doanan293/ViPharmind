@@ -68,7 +68,7 @@ def _fit_problems(root) -> list[str]:
             for xs, s in lines:
                 if not s.strip():
                     continue
-                w = text_width(s, size, bold)
+                w = text_width(s, size, bold, el.attrib.get("font-family"))
                 x = float(xs)
                 x0 = (
                     x - w if anchor == "end" else x - w / 2 if anchor == "middle" else x

@@ -194,7 +194,16 @@ def hook_block(y0: float) -> tuple[list[str], float]:
     tw = rx + rw - 36 - tx
     lab, yy = P.para(tx, ly_ + 26, H_["leaflet_label"], P.T_SMALL, tw, P.PUR, bold=True)
     en, yy = P.para(tx, yy, H_["leaflet_en"], P.T_BODY, tw, P.INK)
-    vi, yy = P.para(tx, yy + 2, H_["leaflet_vi"], P.T_SMALL, tw, P.MUT, italic=True)
+    vi, yy = P.para(
+        tx,
+        yy + 2,
+        H_["leaflet_vi"],
+        P.T_SMALL,
+        tw,
+        P.MUT,
+        italic=True,
+        family=P.VI_FAMILY,
+    )
     lh = max(yy - ly_ + 30, photo + 60)
     leaf = [
         P.soft_card(rx, ly_, rw, lh, P.WHITE, 40),
@@ -218,7 +227,7 @@ def hook_block(y0: float) -> tuple[list[str], float]:
         kids = [
             P.soft_card(mx, my, mw, 170, P.WHITE, 36),
             image(img(key), mx + 20, my + 20, 130, 130, preserve="xMidYMid meet"),
-            text(mx + 170, my + 60, nick, P.T_SMALL, P.INK, "bold"),
+            text(mx + 170, my + 60, nick, P.T_SMALL, P.INK, "bold", P.VI_FAMILY),
             text(mx + 170, my + 100, gloss, P.T_SMALL, P.MUT, italic=True),
             text(mx + 170, my + 142, "→ " + prod, P.T_SMALL, P.ORANGE_TXT, "bold"),
         ]
@@ -270,18 +279,18 @@ def resources_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     for i, (name, n, lab) in enumerate(R["groups"]):
         bw_ = iw * n / total
         kids.append(rect(bx, y, bw_, bar_h, fills[i], None, 1, 0))
-        if n >= 1000:
-            s = f"{name} {lab}" if n > 1000 else lab
+        if n > 1000:
+            s = f"{name} {lab}"
             kids.append(
                 text(bx + bw_ / 2, y + 58, s, P.T_SMALL, P.INK, "bold", anchor="middle")
             )
         bx += bw_
     gs.append(group("resources-bar", (ix, y, iw, bar_h), kids))
     y += bar_h + 24
-    # legend for the three 500-question groups
+    # legend for the groups too narrow to label inside the bar
     leg = []
     lx = ix
-    for i, (name, _n, lab) in enumerate(R["groups"][3:], start=3):
+    for i, (name, _n, lab) in enumerate(R["groups"][2:], start=2):
         leg.append(rect(lx, y + 4, 32, 32, fills[i], None, 1, 8))
         s = f"{name} {lab}"
         leg.append(text(lx + 44, y + 32, s, P.T_SMALL, P.INK))

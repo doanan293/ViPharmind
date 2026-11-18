@@ -23,6 +23,33 @@ FACES = [
     ("IBM Plex Mono", "IBMPlexMono-Regular.ttf", 400, "normal"),
     ("IBM Plex Mono", "IBMPlexMono-Bold.ttf", 700, "normal"),
 ]
+# Vietnamese lines (Poppins lacks Vietnamese glyphs): Montserrat variable fonts
+VI_DIR = Path.home() / ".local" / "share" / "fonts" / "Montserrat"
+VI_STATIC = [
+    # (variable source, weight, style, static file)
+    ("Montserrat-Variable.ttf", 400, "normal", "Montserrat-Regular.ttf"),
+    ("Montserrat-Variable.ttf", 700, "normal", "Montserrat-Bold.ttf"),
+    ("Montserrat-Italic-Variable.ttf", 400, "italic", "Montserrat-Italic.ttf"),
+]
+
+
+def vi_static_fonts() -> list[tuple[str, int, str, Path]]:
+    """Static Montserrat instances, so Chromium embeds a named TrueType font, not Type3."""
+    from fontTools.ttLib import TTFont
+    from fontTools.varLib.instancer import instantiateVariableFont
+
+    out = WS / "fonts"
+    out.mkdir(exist_ok=True)
+    faces = []
+    for src, w, s, name in VI_STATIC:
+        dst = out / name
+        if not dst.exists():
+            inst = instantiateVariableFont(
+                TTFont(VI_DIR / src), {"wght": w}, updateFontNames=True
+            )
+            inst.save(dst)
+        faces.append(("Montserrat", w, s, dst))
+    return faces
 
 
 def main() -> None:
@@ -33,6 +60,10 @@ def main() -> None:
         f"@font-face{{font-family:'{fam}';src:url('{(FONTS / f).as_uri()}');"
         f"font-weight:{w};font-style:{s}}}"
         for fam, f, w, s in FACES
+    ) + "".join(
+        f"@font-face{{font-family:'{fam}';src:url('{p.as_uri()}');"
+        f"font-weight:{w};font-style:{s}}}"
+        for fam, w, s, p in vi_static_fonts()
     )
     html = (
         f"<html><head><style>{faces}@page{{size:841mm 1189mm;margin:0}}"

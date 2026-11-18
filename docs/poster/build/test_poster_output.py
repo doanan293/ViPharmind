@@ -55,6 +55,7 @@ def test_resources_and_pipeline_in_pdf():
         "5,000",
         "2,500",
         "420 answerable",
+        "Chunk 1,000",
         "≤ 3",
         "RRF k = 2",
         "A Vietnamese drug-information corpus and benchmark, all released",
@@ -164,6 +165,21 @@ def test_qr_codes_decode():
         "https://github.com/doanan293/ViPharmind/tree/v1.1.0",
         "https://www.kaggle.com/datasets/doanvanan0209/vipharma-rag",
     }, qr_decodes()
+
+
+VI_ONLY = set("ạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹđơưĐƠƯ")
+
+
+def test_vietnamese_text_uses_a_vietnamese_font():
+    import pymupdf
+
+    bad = set()
+    for b in pymupdf.open(PDF)[0].get_text("dict")["blocks"]:
+        for ln in b.get("lines", []):
+            for sp in ln["spans"]:
+                if set(sp["text"].lower()) & VI_ONLY and "Montserrat" not in sp["font"]:
+                    bad.add((sp["font"], sp["text"][:30]))
+    assert not bad, sorted(bad)[:8]
 
 
 def test_leaflet_card_is_not_a_model_answer():

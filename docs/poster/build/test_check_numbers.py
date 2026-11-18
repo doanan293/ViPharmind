@@ -34,6 +34,24 @@ def test_allow_list():
     assert unmatched({"1360"}, REPORT_TEX, {"1360"}) == set()
 
 
+def test_leaflet_quote_is_from_the_mapped_yumangel_section():
+    import json
+
+    import content
+
+    data = Path(__file__).resolve().parents[3] / "pharma-lab" / "data"
+    maps = json.loads((data / "corpus/formulary/colloquial_mappings.json").read_text())
+    entry = next(m for m in maps if "thuốc bao tử chữ Y" in m["aliases"])
+    (key,) = entry["section_keys"]
+    for line in (data / "corpus/rag-final/sections.jsonl").open(encoding="utf-8"):
+        sec = json.loads(line)
+        if key in (sec.get("key"), sec.get("section_id"), sec.get("id")):
+            body = json.dumps(sec, ensure_ascii=False)
+            break
+    quote = content.HOOK["leaflet_vi"].strip("“”")
+    assert quote in body, quote
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for f in fns:

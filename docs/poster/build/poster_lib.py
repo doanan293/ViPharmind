@@ -15,6 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "presentation" / "b
 from lib import circle, fmt, mtext, path, rect, text
 
 FONTS = Path(__file__).resolve().parents[2] / "presentation" / "fonts"
+# Poppins has no Vietnamese glyphs (ụ ữ ơ ệ …); Vietnamese lines use Montserrat
+VI_FONT_DIR = Path.home() / ".local" / "share" / "fonts" / "Montserrat"
+VI_FAMILY = "Montserrat"
 
 # palette (spec §4)
 BG_TOP, BG_BOTTOM = "#F3EFFF", "#FFF6EC"
@@ -52,25 +55,35 @@ GRAD_DEFS = (
 
 
 @lru_cache(maxsize=64)
-def _font(size: float, bold: bool):
+def _font(size: float, bold: bool, vi: bool = False):
     from PIL import ImageFont
 
+    px = max(1, round(size * 4))
+    if vi:
+        f = ImageFont.truetype(str(VI_FONT_DIR / "Montserrat-Variable.ttf"), px)
+        f.set_variation_by_name("Bold" if bold else "Regular")
+        return f
     name = "Poppins-Bold.ttf" if bold else "Poppins-Regular.ttf"
-    return ImageFont.truetype(str(FONTS / name), max(1, round(size * 4)))
+    return ImageFont.truetype(str(FONTS / name), px)
 
 
-def text_width(s: str, size: float, bold: bool = False) -> float:
-    """Rendered width of s in Poppins at size px (measured at 4x for precision)."""
-    return _font(size, bold).getlength(s) / 4
+def text_width(
+    s: str, size: float, bold: bool = False, family: str | None = None
+) -> float:
+    """Rendered width of s at size px, in Poppins or the Vietnamese font (measured at 4x)."""
+    vi = bool(family) and VI_FAMILY in family
+    return _font(size, bold, vi).getlength(s) / 4
 
 
-def wrap(s: str, size: float, width: float, bold: bool = False) -> list[str]:
+def wrap(
+    s: str, size: float, width: float, bold: bool = False, family=None
+) -> list[str]:
     """Greedy word wrap so every line fits width in Poppins."""
     lines: list[str] = []
     cur = ""
     for word in s.split():
         cand = f"{cur} {word}".strip()
-        if cur and text_width(cand, size, bold) * WRAP_SAFETY > width:
+        if cur and text_width(cand, size, bold, family) * WRAP_SAFETY > width:
             lines.append(cur)
             cur = word
         else:
@@ -80,11 +93,19 @@ def wrap(s: str, size: float, width: float, bold: bool = False) -> list[str]:
     return lines
 
 
-def para(x, y, s, size, width, fill=INK, bold=False, italic=False, lh=LH):
+def para(x, y, s, size, width, fill=INK, bold=False, italic=False, lh=LH, family=None):
     """Wrapped paragraph whose first baseline is y + size; returns (svg, bottom y)."""
-    lines = wrap(s, size, width, bold)
+    lines = wrap(s, size, width, bold, family)
     svg = mtext(
-        x, y + size, lines, size, lh, fill, "bold" if bold else None, italic=italic
+        x,
+        y + size,
+        lines,
+        size,
+        lh,
+        fill,
+        "bold" if bold else None,
+        family,
+        italic=italic,
     )
     return svg, y + size + size * lh * (len(lines) - 1) + size * 0.35
 
@@ -115,7 +136,9 @@ def bubble(x, y, w, en: str, vi: str, fill=LAV, size=T_BIG * 0.7) -> tuple[str, 
     """Chat bubble: bold English question, small Vietnamese original under it."""
     pad = 40
     t1, y1 = para(x + pad, y + pad - 10, en, size, w - 2 * pad, INK, bold=True)
-    t2, y2 = para(x + pad, y1 + 4, vi, T_SMALL, w - 2 * pad, MUT, italic=True)
+    t2, y2 = para(
+        x + pad, y1 + 4, vi, T_SMALL, w - 2 * pad, MUT, italic=True, family=VI_FAMILY
+    )
     h = y2 - y + pad - 6
     tail = path(f"M{fmt(x + 40)} {fmt(y + h - 2)} l-24 40 l70 -40 z", "none", 0, fill)
     return rect(x, y, w, h, fill, None, 1, 44) + tail + t1 + t2, y + h + 40
@@ -131,7 +154,9 @@ def verdict_card(
     parts = []
     t0, yy = para(x + pad, y + pad - 12, label, T_BODY, w - 2 * pad, col, bold=True)
     t1, yy = para(x + pad, yy, en, T_BODY, w - 2 * pad, INK)
-    t2, yy = para(x + pad, yy + 2, vi, T_SMALL, w - 2 * pad, MUT, italic=True)
+    t2, yy = para(
+        x + pad, yy + 2, vi, T_SMALL, w - 2 * pad, MUT, italic=True, family=VI_FAMILY
+    )
     t3, yy = para(x + pad, yy + 6, verdict, T_SMALL, w - 2 * pad, col, bold=True)
     h = yy - y + pad - 10
     parts.append(rect(x, y, w, h, fill, stroke, 4, 36))

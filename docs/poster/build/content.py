@@ -49,9 +49,9 @@ HOOK = {
     "nick_map": "nickname  →  Yumangel",
     # Yumangel leaflet, section 3 (rag-final/sections.jsonl). Leaflet text, not a model answer.
     "leaflet_label": "Yumangel leaflet · §3 Dosage",
-    "leaflet_en": "“Adults: 1 sachet per dose, 3 times a day, 1–2 hours after "
+    "leaflet_en": "“Adults: 1 sachet per dose, 4 times a day, 1–2 hours after "
     "meals and at bedtime.”",
-    "leaflet_vi": "“Người lớn: uống 1 gói hỗn dịch/lần, 3 lần/ngày, sau khi ăn "
+    "leaflet_vi": "“Người lớn: uống 1 gói hỗn dịch/ lần x 4 lần/ ngày, sau khi ăn "
     "1 - 2 giờ và trước khi đi ngủ.”",
     "minis": [
         ("“Panadol đỏ”", "red Panadol", "Panadol Extra", "panadol"),

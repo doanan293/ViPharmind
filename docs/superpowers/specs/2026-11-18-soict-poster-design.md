@@ -81,7 +81,7 @@ Portrait, read top to bottom: title band, a full-width hook card, two columns, a
 - Right, "It also understands drug nicknames":
   - Question: "Should I take the 'letter Y' stomach medicine before or after meals?" / *Thuốc bao tử chữ Y uống trước hay sau ăn?*
   - "nickname → Yumangel" (from `colloquial_mappings.json`).
-  - Leaflet card with the Yumangel photo, labelled "Yumangel leaflet · §3 Dosage": "Adults: 1 sachet, 3 times a day, 1–2 hours after meals and at bedtime." / *Người lớn: uống 1 gói hỗn dịch/lần, 3 lần/ngày, sau khi ăn 1 - 2 giờ và trước khi đi ngủ.* (verbatim from the Yumangel section in `pharma-lab/data/corpus/rag-final/sections.jsonl`). This card is the leaflet text, not a model answer, and must not be labelled as one.
+  - Leaflet card with the Yumangel photo, labelled "Yumangel leaflet · §3 Dosage": "Adults: 1 sachet per dose, 4 times a day, 1–2 hours after meals and at bedtime." / *Người lớn: uống 1 gói hỗn dịch/ lần x 4 lần/ ngày, sau khi ăn 1 - 2 giờ và trước khi đi ngủ.* (verbatim from section `leaflet:thuoc-tri-viem-loet-da-day:yumangel` in `pharma-lab/data/corpus/rag-final/sections.jsonl`, the Yumangel 1 g leaflet that the "thuốc bao tử chữ Y" mapping points to; the "3 lần/ngày" text belongs to Yumangel F and must not be used). This card is the leaflet text, not a model answer, and must not be labelled as one.
   - Two small cards: "Panadol đỏ" → Panadol Extra, "chữ P" → Phosphalugel, with photos.
 - Three big numbers: **2,409** everyday nicknames mapped to products · **18× / 25×** fewer hallucinated answers with grounding (Gemini 18.3% → 1.0%, Qwen3.5-9B 30.6% → 1.2%) · **0.913 vs 0.923** open 9B model vs Gemini 3.8 Flash.
 
