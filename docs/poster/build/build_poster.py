@@ -620,7 +620,7 @@ def steps_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
 
 
 def takeaways_block(x: float, y0: float, w: float, bottom: float) -> list[str]:
-    """Block 7: takeaways, limits, contacts and funding; QR codes stacked on the right."""
+    """Block 7: takeaways, contacts and funding; QR codes stacked on the right."""
     import content as C
     import poster_lib as P
 
@@ -637,10 +637,7 @@ def takeaways_block(x: float, y0: float, w: float, bottom: float) -> list[str]:
         tick = text(ix, y + P.T_BODY, "✓", P.T_BODY, P.GREEN, "bold")
         gs.append(group(f"takeaway-{i}", (ix, y, lw, yy - y), [tick, tx]))
         y = yy
-    top = y + 4
-    lim, y = P.para(ix, top, T["limits"], P.T_SMALL, lw, P.MUT, italic=True)
-    gs.append(group("takeaways-limits", (ix, top, lw, y - top), [lim]))
-    top = y + 6
+    top = y + 16
     lines = ["  ·  ".join(L["emails"]), *P.wrap(L["funding"], P.T_SMALL, lw)]
     foot = mtext(ix, top + P.T_SMALL, lines, P.T_SMALL, P.LH, P.MUT)
     fh = P.T_SMALL * P.LH * len(lines) + 6

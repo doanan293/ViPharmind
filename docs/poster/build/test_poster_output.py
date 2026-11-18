@@ -153,11 +153,13 @@ def test_takeaways_and_links_in_pdf():
         "T2025-PC-019",
         "an.dv252778m@sis.hust.edu.vn",
         "tuannq@soict.hust.edu.vn",
-        "template-generated questions",
-        "a single pharmacist",
         "Self-hosted retrieval is enough.",
     ]:
         assert s in text, s
+
+
+def test_no_limits_line():
+    assert "Limits" not in pdf_text()
 
 
 def test_qr_codes_decode():

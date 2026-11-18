@@ -67,7 +67,7 @@ Portrait, read top to bottom: title band, a full-width hook card, two columns, a
 │ 4  Retrieval        │ 5  Grounding & models   │
 │                     │ 6  Each step            │
 ├─────────────────────┴────────────────────────┤
-│ 7  Takeaways · limits · QR · funding          │
+│ 7  Takeaways · QR · funding                   │
 └──────────────────────────────────────────────┘
 ```
 
@@ -105,7 +105,7 @@ Portrait, read top to bottom: title band, a full-width hook card, two columns, a
 
 **6. Each step.** Heading: "Each step pays off on the questions it targets". Paired with/without bars from `tables/e2e-layers.tex` (Gemini agent): rephrase, 50 follow-ups, 0.020 → 0.920; judge–refine, 70 patient-phrased questions, 0.657 → 1.000; reranker, 70 single-chunk answers, 0.607 → 0.771 (p = 0.056, borderline); guard, 10 out-of-scope requests, 0/10 → 10/10 redirected. One line: "Rephrasing also beats concatenating earlier questions (0.920 vs 0.750)."
 
-**7. Takeaways, limits, links.** Four takeaways: grounding in official labelling removes most hallucinations; self-hosted retrieval is enough; small structured decisions suit small open models; corpus, benchmark, code and every run are released. Limits line: template-generated questions, a single pharmacist. QR codes to GitHub v1.1.0 and Kaggle (labels "Code", "Data"), the two emails, and "Funded by Hanoi University of Science and Technology, project T2025-PC-019".
+**7. Takeaways and links.** Four takeaways: grounding in official labelling removes most hallucinations; self-hosted retrieval is enough; small structured decisions suit small open models; corpus, benchmark, code and every run are released. No limits line (author's decision, 2026-11-18). QR codes to GitHub v1.1.0 and Kaggle (labels "Code", "Data"), the two emails, and "Funded by Hanoi University of Science and Technology, project T2025-PC-019".
 
 ## 6. Approaches
 

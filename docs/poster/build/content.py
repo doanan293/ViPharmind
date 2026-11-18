@@ -192,7 +192,6 @@ TAKEAWAYS = {
         "Small structured decisions suit small open models.",
         "Corpus, benchmark, code and every run are released.",
     ],
-    "limits": "Limits: template-generated questions · a single pharmacist",
 }
 
 LINKS = {
