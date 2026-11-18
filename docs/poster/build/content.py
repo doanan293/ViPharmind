@@ -27,9 +27,10 @@ HOOK = {
     "bad": {
         "label": "✗  Gemini 3.8 Flash, no documents",
         "en": "“Breastfeeding women CAN USE metformin, … rated safe and "
-        "compatible with breastfeeding…”",
+        "compatible with breastfeeding, if prescribed by a doctor.”",
         "vi": "“Phụ nữ đang cho con bú CÓ THỂ DÙNG ĐƯỢC Metformin, … đánh giá là "
-        "an toàn và tương thích với việc nuôi con bằng sữa mẹ…”",
+        "an toàn và tương thích với việc nuôi con bằng sữa mẹ, nếu có chỉ định "
+        "của bác sĩ.”",
         "verdict": "Contradicts the formulary · judged severe harm",
     },
     "good": {
@@ -60,7 +61,7 @@ HOOK = {
     "stats": [
         ("2,409", "everyday nicknames mapped to products"),
         ("18× / 25×", "fewer hallucinated answers with grounding"),
-        ("0.913 vs 0.923", "open Qwen3.5-9B vs Gemini 3.8 Flash"),
+        ("0.913 vs 0.923", ("truthfulness, open Qwen3.5-9B", "vs Gemini 3.8 Flash")),
     ],
 }
 
@@ -91,8 +92,10 @@ RESOURCES = {
     "groups_note": "Noisy: no diacritics or look-alike drug names",
     "golden": (
         "Golden set, 500 items",
-        "420 answerable · 50 multi-turn · 10 unanswerable · 10 out-of-scope · "
-        "10 prompt-injection",
+        (
+            "420 answerable · 50 multi-turn · 10 unanswerable",
+            "10 out-of-scope · 10 prompt-injection",
+        ),
     ),
 }
 
@@ -144,14 +147,16 @@ GROUNDING = {
     "axis_label": "Truthfulness on the 500-item golden set",
     "scoring": "Each answer scores perfect +1, acceptable +½, missing 0, wrong −1, "
     "so below zero means more wrong than right.",
-    "hallucination": "Hallucinated answers, closed-book → full agent: "
-    "18.3% → 1.0% (Gemini) · 30.6% → 1.2% (Qwen3.5-9B)",
+    "hallucination": (
+        "Hallucinated answers, closed-book → full agent:",
+        "18.3% → 1.0% (Gemini) · 30.6% → 1.2% (Qwen3.5-9B)",
+    ),
 }
 
 STEPS = {
     "heading": "Each step pays off on the questions it targets",
-    "note": "Truthfulness with and without each step, Gemini agent",
-    "legend": ("without the step", "with it"),
+    "note": "Gemini agent, truthfulness. Guard: redirect rate, agent without reranker.",
+    "legend": ("without", "with"),
     # tables/e2e-layers.tex: (step, targeted questions, without, with, without label, with label, extra)
     "rows": [
         ("Rephrase", "50 follow-up questions", 0.020, 0.920, "0.020", "0.920", ""),

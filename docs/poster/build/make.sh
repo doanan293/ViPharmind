@@ -28,6 +28,7 @@ $PY "$SK/svg_to_pptx.py" "$W" --roundtrip --native-charts-and-tables --primary-l
 grep -E "Round-trip export summary|\[POSTFLIGHT\] status|\[PPTX\]" "$W/validation/export.log"
 EXPORT="$(ls -t "$W"/exports/*.pptx | head -1)"
 cp "$EXPORT" "$POSTER/SoICT2026_ViPharmInd_poster.pptx"
+$PY "$HERE/fix_pptx_boxes.py" "$POSTER/SoICT2026_ViPharmInd_poster.pptx"
 echo "pptx: $POSTER/SoICT2026_ViPharmInd_poster.pptx"
 $PY "$HERE/render_pdf.py"
 SVG="$W/authoring-svg-flat/poster.svg"
@@ -41,7 +42,7 @@ $PY "$HERE/test_poster_output.py"
 echo "all checks passed"
 if [ -n "$OUT" ]; then
   rm -rf "$OUT"; mkdir -p "$OUT"
-  cp "$EXPORT" "$OUT/poster.pptx"
+  cp "$POSTER/SoICT2026_ViPharmInd_poster.pptx" "$OUT/poster.pptx"
   (cd "$OUT" && timeout 300 soffice --headless --convert-to pdf poster.pptx >/dev/null 2>&1 && pdftoppm -r 20 -png poster.pdf lo)
   echo "rendered: $OUT"
 fi

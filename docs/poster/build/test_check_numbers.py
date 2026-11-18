@@ -52,6 +52,44 @@ def test_leaflet_quote_is_from_the_mapped_yumangel_section():
     assert quote in body, quote
 
 
+def _tex_rows(name: str) -> list[list[str]]:
+    import re
+
+    rows = []
+    for line in (REPORT_TEX[0].parents[1] / "tables" / name).read_text().splitlines():
+        if "&" in line and line.rstrip().endswith("\\\\"):
+            cells = [
+                re.sub(r"\\textbf\{([^}]*)\}", r"\1", c).replace("{,}", ",").strip()
+                for c in line.rstrip("\\ ").split("&")
+            ]
+            rows.append(cells)
+    return rows
+
+
+def test_retrieval_rows_match_table_cells():
+    import content
+
+    tex = {
+        r[0].replace("$k{=}", "k = ").replace("$", ""): r
+        for r in _tex_rows("retrieval.tex")
+    }
+    # tex columns: Method, Cost, Hit@3, Hit@5, Hit@10, Hit@30, nDCG@10, ...
+    for m, cost, h10, h30, ndcg, _hl in content.RETRIEVAL_ROWS:
+        key = m.replace("text-emb-3-large", "text-emb-3-large")
+        r = tex[key]
+        assert [r[1], r[4], r[5], r[6]] == [cost, h10, h30, ndcg], (m, r)
+
+
+def test_steps_rows_match_layers_table():
+    import content
+
+    tex = _tex_rows("e2e-layers.tex")
+    for step, target, _a, _b, la, lb, _x in content.STEPS["rows"]:
+        r = next(r for r in tex if r[0].replace("--", "–") == step)
+        assert r[2] in target, (step, r)
+        assert (r[4], r[5]) == (lb, la), (step, r)
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for f in fns:

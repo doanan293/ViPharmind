@@ -41,6 +41,10 @@ def test_svg_small_text():
     assert any("29" in p for p in check_svg(svg("small", t("tiny", 20))))
 
 
+def test_svg_text_below_22pt_is_flagged():
+    assert any("below" in p for p in check_svg(svg("21pt", t("almost", 29))))
+
+
 def test_svg_semicolon():
     assert any(";" in p for p in check_svg(svg("semi", t("a; b"))))
 

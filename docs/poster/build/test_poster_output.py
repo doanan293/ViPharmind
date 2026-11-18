@@ -182,6 +182,33 @@ def test_vietnamese_text_uses_a_vietnamese_font():
     assert not bad, sorted(bad)[:8]
 
 
+def test_review_wording_fixes():
+    text = pdf_text()
+    assert "truthfulness, open Qwen3.5-9B vs Gemini 3.8 Flash" in text
+    assert "redirect rate" in text and "without reranker" in text
+    assert "nếu có chỉ định của bác sĩ" in text
+    assert "if prescribed by a doctor" in text
+
+
+def test_pptx_embeds_only_poster_fonts():
+    import zipfile
+
+    with zipfile.ZipFile(PPTX) as z:
+        fonts = [n for n in z.namelist() if n.startswith("ppt/fonts/")]
+    extra = [f for f in fonts if not any(k in f for k in ("Poppins", "IBMPlexMono"))]
+    assert not extra, extra
+
+
+def test_pptx_text_boxes_fit_their_text():
+    import sys
+
+    sys.path.insert(0, str(HERE))
+    from fix_pptx_boxes import box_problems
+
+    probs = box_problems(PPTX)
+    assert not probs, probs[:5]
+
+
 def test_leaflet_card_is_not_a_model_answer():
     t = group_text("hook-leaflet")
     assert "Yumangel leaflet" in t

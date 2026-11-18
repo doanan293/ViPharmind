@@ -40,7 +40,7 @@ CHEEK = "#FFB4A8"
 ORANGE_TXT = "#B05F00"
 
 # type sizes in px (spec §4; pt = px × 0.75)
-T_TITLE, T_AUTH, T_BIG, T_HEAD, T_BODY, T_SMALL = 133, 48, 68, 44, 32, 29
+T_TITLE, T_AUTH, T_BIG, T_HEAD, T_BODY, T_SMALL = 133, 48, 68, 44, 32, 29.5
 LH = 1.25
 # ppt-master's quality gate estimates text wider than Poppins really is; wrap with headroom
 WRAP_SAFETY = 1.12
@@ -94,8 +94,11 @@ def wrap(
 
 
 def para(x, y, s, size, width, fill=INK, bold=False, italic=False, lh=LH, family=None):
-    """Wrapped paragraph whose first baseline is y + size; returns (svg, bottom y)."""
-    lines = wrap(s, size, width, bold, family)
+    """Wrapped paragraph whose first baseline is y + size; returns (svg, bottom y).
+
+    A tuple of strings is taken as explicit lines.
+    """
+    lines = list(s) if isinstance(s, tuple) else wrap(s, size, width, bold, family)
     svg = mtext(
         x,
         y + size,
@@ -165,10 +168,12 @@ def verdict_card(
 
 
 def stat_card(x, y, w, h, value: str, label: str, fill) -> str:
-    lines = wrap(label, T_SMALL, w - 60)
-    vy = y + h * 0.42 - (len(lines) - 1) * 22
-    v = text(x + w / 2, vy, value, 64, IND, "bold", anchor="middle")
-    lab = mtext(x + w / 2, vy + 75, lines, T_SMALL, LH, MUT, anchor="middle")
+    lines = list(label) if isinstance(label, tuple) else wrap(label, T_SMALL, w - 60)
+    vsize, gap = 64, 22
+    block = vsize + gap + T_SMALL * LH * len(lines)
+    vy = y + (h - block) / 2 + vsize * 0.82  # value baseline, block centred in the card
+    v = text(x + w / 2, vy, value, vsize, IND, "bold", anchor="middle")
+    lab = mtext(x + w / 2, vy + gap + T_SMALL, lines, T_SMALL, LH, MUT, anchor="middle")
     return rect(x, y, w, h, fill, None, 1, 40) + v + lab
 
 

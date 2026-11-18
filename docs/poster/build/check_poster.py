@@ -12,7 +12,7 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 VIEWBOX = (3178.58, 4493.86)  # A0 at 96 px/in
-MIN_FONT_PX = 29
+MIN_FONT_PX = 29.33  # 22 pt
 SLIDE_EMU = (30_276_000, 42_804_000)
 EMU_TOL = 36_000  # 1 mm
 PDF_PT = (2383.9, 3370.4)

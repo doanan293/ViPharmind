@@ -416,7 +416,7 @@ def retrieval_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     hl = [i for i, r in enumerate(C.RETRIEVAL_ROWS) if r[5]]
     first = iw - 4 * 205
     colw = [first, 205, 205, 205, 205]
-    rowh = 58
+    rowh = 56
     best = {(i, j) for i in hl for j in range(5)}
     gs.append(
         simple_table(
@@ -463,7 +463,7 @@ def grounding_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     colors = [P.GEM, P.QWN]
     cy0 = y
     px, pw = ix + 110, iw - 130
-    py, ph = cy0 + 80, 360
+    py, ph = cy0 + 80, 345
     vmin, vmax = -0.2, 1.0
 
     def Y(v):
@@ -584,8 +584,8 @@ def steps_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     leg = [
         rect(ix, y + 4, 34, 34, P.WITHOUT, None, 1, 8),
         text(ix + 48, y + 32, S["legend"][0], P.T_SMALL, P.INK),
-        rect(ix + 380, y + 4, 34, 34, P.WITH, None, 1, 8),
-        text(ix + 428, y + 32, S["legend"][1], P.T_SMALL, P.INK),
+        rect(ix + 200, y + 4, 34, 34, P.WITH, None, 1, 8),
+        text(ix + 248, y + 32, S["legend"][1], P.T_SMALL, P.INK),
         text(ix + iw, y + 32, S["note"], P.T_SMALL, P.MUT, anchor="end"),
     ]
     gs.append(group("steps-legend", (ix, y, iw, 44), leg))
@@ -600,7 +600,7 @@ def steps_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
             rect(bx, y + 48, bw * b, 28, P.WITH, None, 1, 14),
             runs_text(
                 ix + iw,
-                y + 44,
+                y + 36,
                 [(la + " → ", {}), (lb, {"font-weight": "bold"})],
                 P.T_BODY,
                 P.INK,
@@ -608,7 +608,7 @@ def steps_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
             ),
         ]
         if extra:
-            kids.append(text(ix + iw, y + 84, extra, P.T_SMALL, P.MUT, anchor="end"))
+            kids.append(text(ix + iw, y + 72, extra, P.T_SMALL, P.MUT, anchor="end"))
         gs.append(group(f"steps-row-{i}", (ix, y, iw, 104), kids))
         y += 89
     y += 14
@@ -631,13 +631,13 @@ def takeaways_block(x: float, y0: float, w: float, bottom: float) -> list[str]:
     gs: list[str] = []
     h, y = P.block_heading(ix, y0 + PAD, lw, 7, T["heading"])
     gs.append(group("takeaways-heading", (ix, y0 + PAD - 10, lw, y - y0 - PAD), [h]))
-    y -= 14
+    y -= 22
     for i, s in enumerate(T["items"]):
         tx, yy = P.para(ix + 44, y, s, P.T_BODY, lw - 44, P.INK)
         tick = text(ix, y + P.T_BODY, "✓", P.T_BODY, P.GREEN, "bold")
         gs.append(group(f"takeaway-{i}", (ix, y, lw, yy - y), [tick, tx]))
-        y = yy + 2
-    top = y + 6
+        y = yy
+    top = y + 4
     lim, y = P.para(ix, top, T["limits"], P.T_SMALL, lw, P.MUT, italic=True)
     gs.append(group("takeaways-limits", (ix, top, lw, y - top), [lim]))
     top = y + 6
