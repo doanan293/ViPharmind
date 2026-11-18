@@ -132,6 +132,40 @@ def test_negative_bar_hangs_below_zero_line():
     assert abs(bar[0] - zero) < 0.5 and bar[1] > 0, (zero, bar)
 
 
+def qr_decodes() -> set[str]:
+    import cv2
+    import numpy as np
+    import pymupdf
+
+    page = pymupdf.open(PDF)[0]
+    pix = page.get_pixmap(dpi=150)
+    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
+        pix.height, pix.width, pix.n
+    )
+    ok, texts, _pts, _ = cv2.QRCodeDetector().detectAndDecodeMulti(img[:, :, :3].copy())
+    return {s for s in texts if s} if ok else set()
+
+
+def test_takeaways_and_links_in_pdf():
+    text = pdf_text()
+    for s in [
+        "T2025-PC-019",
+        "an.dv252778m@sis.hust.edu.vn",
+        "tuannq@soict.hust.edu.vn",
+        "template-generated questions",
+        "a single pharmacist",
+        "Self-hosted retrieval is enough.",
+    ]:
+        assert s in text, s
+
+
+def test_qr_codes_decode():
+    assert qr_decodes() == {
+        "https://github.com/doanan293/ViPharmind/tree/v1.1.0",
+        "https://www.kaggle.com/datasets/doanvanan0209/vipharma-rag",
+    }, qr_decodes()
+
+
 def test_leaflet_card_is_not_a_model_answer():
     t = group_text("hook-leaflet")
     assert "Yumangel leaflet" in t

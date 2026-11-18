@@ -142,7 +142,7 @@ def verdict_card(
 def stat_card(x, y, w, h, value: str, label: str, fill) -> str:
     lines = wrap(label, T_SMALL, w - 60)
     vy = y + h * 0.42 - (len(lines) - 1) * 22
-    v = text(x + w / 2, vy, value, T_BIG * 1.06, IND, "bold", anchor="middle")
+    v = text(x + w / 2, vy, value, 64, IND, "bold", anchor="middle")
     lab = mtext(x + w / 2, vy + 75, lines, T_SMALL, LH, MUT, anchor="middle")
     return rect(x, y, w, h, fill, None, 1, 40) + v + lab
 

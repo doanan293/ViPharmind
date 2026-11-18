@@ -110,8 +110,9 @@ def header_block() -> tuple[list[str], float]:
         group("title", (M - 4, 40, CW + 8, size * 2.6), [title]),
         group("authors", (M - 4, y - 55, 1080, 240), auth),
     ]
-    sx0 = M + 1100
-    sw = (W - M - sx0 - 2 * 30) / 3
+    sx0 = M + 1080
+    mascot_w = 300
+    sw = (W - M - mascot_w - 20 - sx0 - 2 * 30) / 3
     sy, sh = y - 70, 225
     fills = [P.LAV, P.CORAL, P.MINT]
     for i, (v, lab) in enumerate(C.HOOK["stats"]):
@@ -123,6 +124,10 @@ def header_block() -> tuple[list[str], float]:
                 [P.stat_card(sx, sy, sw, sh, v, lab, fills[i])],
             )
         )
+    mx = W - M - mascot_w
+    gs.append(
+        group("mascot", (mx, sy + 10, mascot_w, 210), [P.mascot(mx, sy + 10, mascot_w)])
+    )
     return gs, sy + sh
 
 
@@ -605,6 +610,57 @@ def steps_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     return [card_block("steps-card", x, y0, w, bottom), *gs], bottom
 
 
+def takeaways_block(x: float, y0: float, w: float, bottom: float) -> list[str]:
+    """Block 7: takeaways, limits, contacts and funding; QR codes stacked on the right."""
+    import content as C
+    import poster_lib as P
+
+    T, L = C.TAKEAWAYS, C.LINKS
+    ix, iw = x + PAD, w - 2 * PAD
+    qr = 165
+    lw = iw - qr - 50
+    gs: list[str] = []
+    h, y = P.block_heading(ix, y0 + PAD, lw, 7, T["heading"])
+    gs.append(group("takeaways-heading", (ix, y0 + PAD - 10, lw, y - y0 - PAD), [h]))
+    y -= 14
+    for i, s in enumerate(T["items"]):
+        tx, yy = P.para(ix + 44, y, s, P.T_BODY, lw - 44, P.INK)
+        tick = text(ix, y + P.T_BODY, "✓", P.T_BODY, P.GREEN, "bold")
+        gs.append(group(f"takeaway-{i}", (ix, y, lw, yy - y), [tick, tx]))
+        y = yy + 2
+    top = y + 6
+    lim, y = P.para(ix, top, T["limits"], P.T_SMALL, lw, P.MUT, italic=True)
+    gs.append(group("takeaways-limits", (ix, top, lw, y - top), [lim]))
+    top = y + 6
+    lines = ["  ·  ".join(L["emails"]), *P.wrap(L["funding"], P.T_SMALL, lw)]
+    foot = mtext(ix, top + P.T_SMALL, lines, P.T_SMALL, P.LH, P.MUT)
+    fh = P.T_SMALL * P.LH * len(lines) + 6
+    gs.append(group("takeaways-footer", (ix, top, lw, fh), [foot]))
+    used = top + fh
+    assert used <= bottom - PAD + 25, (
+        f"takeaways overflow by {used - (bottom - PAD)} px"
+    )
+    qx = ix + iw - qr
+    kids = []
+    qy = y0 + PAD
+    for lab, fname, _url in L["qr"]:
+        kids.append(image(img(fname), qx, qy, qr, qr, preserve="xMidYMid meet"))
+        kids.append(
+            text(
+                qx + qr / 2,
+                qy + qr + 34,
+                lab,
+                P.T_SMALL,
+                P.IND,
+                "bold",
+                anchor="middle",
+            )
+        )
+        qy += qr + 60
+    gs.append(group("takeaways-qr", (qx, y0 + PAD, qr, qy - y0 - PAD), kids))
+    return [card_block("takeaways-card", x, y0, w, bottom), *gs]
+
+
 def build() -> tuple[str, list[str]]:
     import poster_lib as P
 
@@ -627,6 +683,7 @@ def build() -> tuple[str, list[str]]:
         gs += g
         ry += GAP
     print("bottoms: left", round(ly - GAP), "right", round(ry - GAP), "page", round(H))
+    gs += takeaways_block(lx, ly, COLW, ry - GAP)
     return P.GRAD_DEFS + PIPE_DEFS, gs
 
 
