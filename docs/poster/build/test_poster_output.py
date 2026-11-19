@@ -126,6 +126,26 @@ def test_columns_end_level():
     assert abs((ry + rh) - (fy + fh)) < 2, (round(ry + rh), round(fy + fh))
 
 
+def group_lines(gid: str) -> list[str]:
+    """Rendered lines of the texts in group gid (direct text and each tspan)."""
+    root = ET.parse(SVG).getroot()
+    for g in root.iter():
+        if g.attrib.get("id") == gid:
+            out = []
+            for e in g.iter():
+                is_text = e.tag.endswith("text") or e.tag.endswith("tspan")
+                if is_text and e.text and e.text.strip():
+                    out.append(e.text.strip())
+            return out
+    raise AssertionError(f"no group {gid}")
+
+
+def test_principle_panel_has_no_orphan_word():
+    lines = group_lines("pipeline-principle")
+    orphans = [ln for ln in lines if len(ln.split()) < 2]
+    assert not orphans, (orphans, lines)
+
+
 def test_resources_and_pipeline_in_pdf():
     text = pdf_text()
     for s in [
@@ -233,7 +253,7 @@ def test_future_work_and_links_in_pdf():
         "T2025-PC-019",
         "an.dv252778m@sis.hust.edu.vn",
         "tuannq@soict.hust.edu.vn",
-        "linear-algebraic logic rules",
+        "linear-algebraic logic programming",  # the paper's term (conclusion)
         "to cut cost and latency",
         "a ReAct agent",
     ]:

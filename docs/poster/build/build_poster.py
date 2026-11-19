@@ -244,6 +244,9 @@ def hook_block(y0: float) -> tuple[list[str], float]:
 GAP = 30  # gap between blocks
 COLW = (CW - GAP) / 2
 PAD = 44  # inner card padding
+DIAGRAM_SHARE = 0.64  # share of the pipeline block's inner width for the diagram
+QR = 150  # QR code side, px (40 mm at A0); 140 no longer decodes the Kaggle link
+QR_STEP = 50  # QR side to the next QR: room for its label
 
 
 def card_block(gid: str, x: float, y: float, w: float, bottom: float) -> str:
@@ -297,8 +300,9 @@ def resources_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
         lx += 44 + P.text_width(s, P.T_SMALL) + 50
     gs.append(group("resources-legend", (ix, y, iw, 44), leg))
     y += 60
+    top = y
     note, y = P.para(ix, y, R["groups_note"], P.T_SMALL, iw, P.MUT, italic=True)
-    gs.append(group("resources-note", (ix, y - 50, iw, 60), [note]))
+    gs.append(group("resources-note", (ix, top, iw, y - top + 10), [note]))
     y = kv("resources-golden", *R["golden"], y + 24)
     bottom = y + PAD - 24
     return [card_block("resources-card", x, y0, w, bottom), *gs], bottom
@@ -387,8 +391,9 @@ def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
         )
     )
     yd = ylow + 40
+    top = yd
     tx, yd = P.para(ix, yd, PL["exits"], P.T_SMALL, dw, P.MUT)
-    gs.append(group("pipeline-exits", (ix, yd - P.T_SMALL * P.LH - 10, dw, 60), [tx]))
+    gs.append(group("pipeline-exits", (ix, top, dw, yd - top + 10), [tx]))
     # design-principle panel
     px = ix + dw + 50
     pw = ix + iw - px
@@ -411,7 +416,6 @@ def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     return [card_block("pipeline-card", x, y0, w, bottom), *gs], bottom
 
 
-DIAGRAM_SHARE = 0.66  # share of the pipeline block's inner width for the diagram
 PIPE_DEFS = arrow_marker("pa", "#0C0A9E") + arrow_marker("pp", "#8208D5")
 
 
@@ -683,10 +687,6 @@ def future_block(
     return [card_block("future-card", x, y0, w, bottom), *gs], bottom
 
 
-QR = 150  # QR code side, px (40 mm at A0); 140 no longer decodes the Kaggle link
-QR_STEP = 50  # QR side to the next QR: room for its label
-
-
 def build() -> tuple[str, list[str]]:
     import poster_lib as P
 
@@ -717,6 +717,10 @@ def build() -> tuple[str, list[str]]:
     g, ly = retrieval_block(lx, ly, COLW, ry)
     gs += g
     print("column bottoms", round(ly), round(ry), "limit", round(H - M))
+    if max(ly, ry) > H - M:
+        raise SystemExit(
+            f"poster overflows the bottom margin by {max(ly, ry) - (H - M):.0f} px"
+        )
     return P.GRAD_DEFS + PIPE_DEFS, gs
 
 

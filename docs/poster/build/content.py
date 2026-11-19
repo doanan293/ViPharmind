@@ -216,7 +216,8 @@ STEPS = {
 FUTURE = {
     "heading": "Future work",
     "items": [
-        "Cross-check answers with specialist sources and linear-algebraic logic rules",
+        "Cross-check answers with specialist sources and linear-algebraic "
+        "logic programming",
         "A decision model that skips unneeded steps, to cut cost and latency",
         "A comparison with a ReAct agent",
     ],
