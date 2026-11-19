@@ -76,10 +76,11 @@ Each item may carry a small pointer to its block (→ 3, → 4, → 2 · 5 · 6)
 
 **Block 7, takeaways and future work**
 - Takeaways unchanged.
-- New "Future work" list:
-  1. Cross-check answers against specialist sources and flag conflicts with the formulary.
-  2. Real user questions, graded by several experts.
-  3. Rule-based reasoning and verification with linear-algebraic logic programming.
+- New "Future work" list, exactly three items (author's decision, 2026-11-19):
+  1. Check answers against specialist sources and against explicit rules in linear-algebraic logic programming, and flag conflicts with the formulary. (Merges the advisor's concern with the paper's own future work, which cites the advisor's work `nguyen2022sparse`.)
+  2. A decision model that picks the steps each question needs, to cut cost and latency. (Author's idea. The paper shows refine calls go almost entirely to the 39% of questions whose first search is incomplete.)
+  3. A comparison with a ReAct agent that plans its own tool calls. (Author's idea. ReAct is already cited in related work.)
+- "Real user questions, graded by several experts" is dropped to keep three items.
 - QR codes, emails and funding unchanged.
 
 ## 5. Left to the builder
