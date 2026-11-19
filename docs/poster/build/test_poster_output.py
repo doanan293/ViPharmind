@@ -65,7 +65,7 @@ def test_open_model_score_in_grounding_heading():
 
 def test_hook_wording_is_cautious():
     text = pdf_text()
-    assert "it follows the national formulary and cites it" in text
+    assert "Grounded in official labelling, it follows the formulary." in text
     assert "dangerous" not in text
     assert "gets them right" not in text
     assert "judged severe harm" not in text
@@ -106,6 +106,22 @@ def test_badges_follow_reading_order():
         ("steps-heading", "6"),
     ]:
         assert group_text(gid).split()[0] == n, (gid, group_text(gid)[:20])
+
+
+def test_cards_inside_page():
+    root = ET.parse(SVG).getroot()
+    page_h = float(root.attrib["viewBox"].split()[3])
+    for g in root.iter():
+        gid = g.attrib.get("id", "")
+        if gid.endswith("-card"):
+            _, y, _, h = (float(v) for v in g.attrib["data-pptx-bounds"].split())
+            assert y + h <= page_h - 90 + 0.5, (gid, round(y + h), round(page_h - 90))
+
+
+def test_columns_end_level():
+    _, ry, _, rh = bounds("retrieval-card")
+    _, fy, _, fh = bounds("future-card")
+    assert abs((ry + rh) - (fy + fh)) < 2, (round(ry + rh), round(fy + fh))
 
 
 def test_resources_and_pipeline_in_pdf():

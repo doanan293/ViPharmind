@@ -241,9 +241,9 @@ def hook_block(y0: float) -> tuple[list[str], float]:
     return [card, gs_head, *gs], bottom
 
 
-GAP = 40  # gap between blocks
+GAP = 30  # gap between blocks
 COLW = (CW - GAP) / 2
-PAD = 50  # inner card padding
+PAD = 44  # inner card padding
 
 
 def card_block(gid: str, x: float, y: float, w: float, bottom: float) -> str:
@@ -362,7 +362,7 @@ def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     # refine loop under the row: Judge (node 5) back to Hybrid search (node 3)
     hx, jx = centers[3], centers[5]
     label_bottom = cy - r + row_h
-    ylow = label_bottom + 70  # last leg 64 px, room for the 35 px arrowhead
+    ylow = label_bottom + 58  # last leg 52 px, room for the 35 px arrowhead
     loop = [
         path(
             f"M{fmt(jx)} {fmt(label_bottom)} V{fmt(ylow)} H{fmt(hx)} "
@@ -371,18 +371,22 @@ def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
             5,
             marker="pp",
         ),
-        text(
-            ix + dw / 2,
-            ylow + P.T_SMALL + 14,
+        text(  # beside the loop's bottom leg, left of Hybrid search
+            hx - 30,
+            ylow + P.T_SMALL * 0.35,
             PL["loop_label"],
             P.T_SMALL,
             P.PUR,
             "bold",
-            anchor="middle",
+            anchor="end",
         ),
     ]
-    gs.append(group("pipeline-loop", (ix, label_bottom - 10, dw, 130), loop))
-    yd = ylow + P.T_SMALL + 50
+    gs.append(
+        group(
+            "pipeline-loop", (ix, label_bottom - 10, dw, ylow - label_bottom + 40), loop
+        )
+    )
+    yd = ylow + 40
     tx, yd = P.para(ix, yd, PL["exits"], P.T_SMALL, dw, P.MUT)
     gs.append(group("pipeline-exits", (ix, yd - P.T_SMALL * P.LH - 10, dw, 60), [tx]))
     # design-principle panel
@@ -411,7 +415,9 @@ DIAGRAM_SHARE = 0.66  # share of the pipeline block's inner width for the diagra
 PIPE_DEFS = arrow_marker("pa", "#0C0A9E") + arrow_marker("pp", "#8208D5")
 
 
-def retrieval_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
+def retrieval_block(
+    x: float, y0: float, w: float, min_bottom: float = 0
+) -> tuple[list[str], float]:
     import content as C
     import poster_lib as P
     from build_deck import simple_table
@@ -444,17 +450,20 @@ def retrieval_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     y += rowh * (len(rows) + 1) + 16
     note, y = P.para(ix, y, C.RETRIEVAL_NOTE, P.T_SMALL, iw, P.MUT, italic=True)
     gs.append(group("retrieval-note", (ix, y - 60, iw, 60), [note]))
-    for i, s in enumerate(C.RETRIEVAL_LESSONS):
-        tip, yy = P.para(ix + 30, y + 22, s, P.T_BODY, iw - 60, P.INK)
-        gs.append(
-            group(
-                f"retrieval-lesson-{i}",
-                (ix, y + 6, iw, yy - y + 6),
-                [rect(ix, y + 6, iw, yy - y + 6, P.LAV, None, 1, 28), tip],
-            )
+    top, yy, tips = y + 6, y + 22, []
+    for s in C.RETRIEVAL_LESSONS:  # both lessons share one lavender box
+        tip, yy = P.para(ix + 30, yy, s, P.T_BODY, iw - 60, P.INK)
+        tips.append(tip)
+        yy += 14
+    bh = yy - 14 - top + 16
+    gs.append(
+        group(
+            "retrieval-lessons",
+            (ix, top, iw, bh),
+            [rect(ix, top, iw, bh, P.LAV, None, 1, 28), *tips],
         )
-        y = yy + 30
-    bottom = y + PAD - 30
+    )
+    bottom = max(top + bh + PAD, min_bottom)  # stretched to end level with column 2
     return [card_block("retrieval-card", x, y0, w, bottom), *gs], bottom
 
 
@@ -471,7 +480,7 @@ def grounding_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     colors = [P.GEM, P.QWN]
     cy0 = y
     px, pw = ix + 110, iw - 130
-    py, ph = cy0 + 80, 310
+    py, ph = cy0 + 80, 280
     vmin, vmax = -0.2, 1.0
 
     def Y(v):
@@ -643,8 +652,8 @@ def future_block(
     gs.append(group("future-heading", (ix, y0 + PAD - 10, lw, y - y0 - PAD), [h]))
     y -= 22
     for i, s in enumerate(F["items"]):
-        tx, yy = P.para(ix + 44, y, s, P.T_BODY, lw - 44, P.INK)
-        num = text(ix + 8, y + P.T_BODY, str(i + 1), P.T_BODY, P.PUR, "bold")
+        tx, yy = P.para(ix + 44, y, s, P.T_SMALL, lw - 44, P.INK)
+        num = text(ix + 8, y + P.T_SMALL, str(i + 1), P.T_SMALL, P.PUR, "bold")
         gs.append(group(f"future-{i}", (ix, y, lw, yy - y), [num, tx]))
         y = yy
     top = y + 16
@@ -668,13 +677,14 @@ def future_block(
                 anchor="middle",
             )
         )
-        qy += qr + 60
+        qy += qr + QR_STEP
     gs.append(group("future-qr", (qx, y0 + PAD, qr, qy - y0 - PAD), kids))
-    bottom = max(top + fh + PAD - 10, qy - 60 + 34 + PAD, min_bottom)
+    bottom = max(top + fh + PAD - 10, qy - QR_STEP + 34 + PAD, min_bottom)
     return [card_block("future-card", x, y0, w, bottom), *gs], bottom
 
 
-QR = 165  # QR code side, px
+QR = 150  # QR code side, px (40 mm at A0); 140 no longer decodes the Kaggle link
+QR_STEP = 50  # QR side to the next QR: room for its label
 
 
 def build() -> tuple[str, list[str]]:
@@ -684,7 +694,7 @@ def build() -> tuple[str, list[str]]:
     gs = [group("background", (0, 0, W, H), [P.background(W, H)])]
     hg, y = header_block()
     gs += hg
-    kg, y = hook_block(y + 34)
+    kg, y = hook_block(y + 28)
     gs += kg
     y += GAP
     g, y = pipeline_block(M, y, CW)
@@ -693,18 +703,20 @@ def build() -> tuple[str, list[str]]:
     # two independent columns
     lx, rx = M, M + COLW + GAP
     ly = ry = y
-    for f in (resources_block, retrieval_block):
-        g, ly = f(lx, ly, COLW)
-        gs += g
-        ly += GAP
+    g, ly = resources_block(lx, ly, COLW)
+    gs += g
+    ly += GAP
+    # column 2 first, so the last card of column 1 can end level with it
     for f in (grounding_block, steps_block):
         g, ry = f(rx, ry, COLW)
         gs += g
         ry += GAP
-    print("bottoms: left", round(ly - GAP), "right", round(ry - GAP), "page", round(H))
-    g, ry = future_block(rx, ry, COLW, ly - GAP)
+    _, left_natural = retrieval_block(lx, ly, COLW)
+    g, ry = future_block(rx, ry, COLW, left_natural)
     gs += g
-    print("future work ends", round(ry), "limit", round(H - M))
+    g, ly = retrieval_block(lx, ly, COLW, ry)
+    gs += g
+    print("column bottoms", round(ly), round(ry), "limit", round(H - M))
     return P.GRAD_DEFS + PIPE_DEFS, gs
 
 

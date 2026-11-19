@@ -20,7 +20,7 @@ HEADER = {
 
 HOOK = {
     "heading": "Without documents, the model answers from memory. Grounded in "
-    "official labelling, it follows the national formulary and cites it.",
+    "official labelling, it follows the formulary.",
     # golden item e2e-ans-0260; answers from e2e-gemini-cr/{closed-book,full}
     "question_en": "Is metformin OK while breastfeeding?",
     "question_vi": "Đang cho con bú dùng metformin có sao không?",
