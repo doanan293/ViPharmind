@@ -92,7 +92,7 @@ def img(key: str) -> str:
 
 
 def header_block() -> tuple[list[str], float]:
-    """Title, authors on the left, the three big numbers on the right."""
+    """Title, authors on the left, the three contribution cards on the right."""
     import content as C
     import poster_lib as P
 
@@ -113,15 +113,15 @@ def header_block() -> tuple[list[str], float]:
     sx0 = M + 1080
     mascot_w = 300
     sw = (W - M - mascot_w - 20 - sx0 - 2 * 30) / 3
-    sy, sh = y - 70, 225
+    sy, sh = y - 70, 265
     fills = [P.LAV, P.CORAL, P.MINT]
-    for i, (v, lab) in enumerate(C.HOOK["stats"]):
+    for i, (tag, v, lab) in enumerate(C.CONTRIBUTIONS):
         sx = sx0 + i * (sw + 30)
         gs.append(
             group(
-                f"stat-{i}",
+                f"contribution-{i}",
                 (sx, sy, sw, sh),
-                [P.stat_card(sx, sy, sw, sh, v, lab, fills[i])],
+                [P.stat_card(sx, sy, sw, sh, v, lab, fills[i], tag)],
             )
         )
     mx = W - M - mascot_w

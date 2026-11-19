@@ -167,14 +167,21 @@ def verdict_card(
     return "".join(parts), y + h
 
 
-def stat_card(x, y, w, h, value: str, label: str, fill) -> str:
+def stat_card(x, y, w, h, value: str, label, fill, tag: str | None = None) -> str:
+    """Big value over a short label; an optional purple tag sits above them."""
     lines = list(label) if isinstance(label, tuple) else wrap(label, T_SMALL, w - 60)
     vsize, gap = 64, 22
+    top, tg = y, ""
+    if tag:
+        tg = text(
+            x + w / 2, y + 24 + T_SMALL, tag, T_SMALL, PUR, "bold", anchor="middle"
+        )
+        top = y + 24 + T_SMALL
     block = vsize + gap + T_SMALL * LH * len(lines)
-    vy = y + (h - block) / 2 + vsize * 0.82  # value baseline, block centred in the card
+    vy = top + (y + h - top - block) / 2 + vsize * 0.82  # value baseline, block centred
     v = text(x + w / 2, vy, value, vsize, IND, "bold", anchor="middle")
     lab = mtext(x + w / 2, vy + gap + T_SMALL, lines, T_SMALL, LH, MUT, anchor="middle")
-    return rect(x, y, w, h, fill, None, 1, 40) + v + lab
+    return rect(x, y, w, h, fill, None, 1, 40) + tg + v + lab
 
 
 def mascot(x, y, w) -> str:

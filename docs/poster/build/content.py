@@ -19,8 +19,8 @@ HEADER = {
 }
 
 HOOK = {
-    "heading": "Without documents, the model gives dangerous answers. "
-    "Grounded in official labelling, it gets them right.",
+    "heading": "Without documents, the model answers from memory. Grounded in "
+    "official labelling, it follows the national formulary and cites it.",
     # golden item e2e-ans-0260; answers from e2e-gemini-cr/{closed-book,full}
     "question_en": "Is metformin OK while breastfeeding?",
     "question_vi": "Đang cho con bú dùng metformin có sao không?",
@@ -31,7 +31,7 @@ HOOK = {
         "vi": "“Phụ nữ đang cho con bú CÓ THỂ DÙNG ĐƯỢC Metformin, … đánh giá là "
         "an toàn và tương thích với việc nuôi con bằng sữa mẹ, nếu có chỉ định "
         "của bác sĩ.”",
-        "verdict": "Contradicts the formulary · judged severe harm",
+        "verdict": "Contradicts the formulary",
     },
     "good": {
         "label": "✓  Same model in our pipeline",
@@ -58,12 +58,26 @@ HOOK = {
         ("“Panadol đỏ”", "red Panadol", "Panadol Extra", "panadol"),
         ("“chữ P”", "the “P” one", "Phosphalugel", "phosphalugel"),
     ],
-    "stats": [
-        ("2,409", "everyday nicknames mapped to products"),
-        ("18× / 25×", "fewer hallucinated answers with grounding"),
-        ("0.913 vs 0.923", ("truthfulness, open Qwen3.5-9B", "vs Gemini 3.8 Flash")),
-    ],
 }
+
+# Header cards, one per contribution (paper §1): (tag, value, two label lines)
+CONTRIBUTIONS = [
+    (
+        "Contribution 1",
+        "10,000",
+        ("benchmark questions on a", "released Vietnamese corpus"),
+    ),
+    (
+        "Contribution 2",
+        "97.5%",
+        ("relevant passage in top 10,", "retrieval vs cost compared"),
+    ),
+    (
+        "Contribution 3",
+        "18× / 25×",
+        ("fewer hallucinated answers,", "Gemini / open Qwen3.5-9B"),
+    ),
+]
 
 RESOURCES = {
     "heading": "A Vietnamese drug-information corpus and benchmark, all released",
@@ -137,8 +151,8 @@ RETRIEVAL_LESSONS = [
 ]
 
 GROUNDING = {
-    "heading": "Grounding gives most of the gain, and the open 9B model comes "
-    "within 0.010 of Gemini",
+    "heading": "Grounding gives most of the gain, and the open 9B model reaches "
+    "0.913 against Gemini's 0.923",
     "categories": ["Closed-book", "One-step RAG", "Full agent"],
     "series": [
         ("Gemini 3.8 Flash", [0.268, 0.816, 0.923]),
@@ -241,6 +255,7 @@ def all_texts() -> list[str]:
     for v in (
         HEADER,
         HOOK,
+        CONTRIBUTIONS,
         RESOURCES,
         PIPELINE,
         RETRIEVAL_HEADING,

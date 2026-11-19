@@ -38,12 +38,38 @@ def test_hook_strings_in_pdf():
         "Đang cho con bú dùng metformin có sao không?",
         "Yumangel leaflet",
         "Contradicts the formulary",
-        "2,409",
-        "0.913 vs 0.923",
         "Panadol đỏ",
         "SoICT 2026 · Paper 1360",
     ]:
         assert s in text, s
+
+
+def test_contributions_in_header():
+    text = pdf_text()
+    for s in [
+        "Contribution 1",
+        "Contribution 2",
+        "Contribution 3",
+        "10,000",
+        "97.5%",
+        "18× / 25×",
+        "fewer hallucinated answers,",
+    ]:
+        assert s in text, s
+
+
+def test_open_model_score_in_grounding_heading():
+    head = " ".join(group_text("grounding-heading").split())
+    assert "reaches 0.913 against Gemini's 0.923" in head, head
+
+
+def test_hook_wording_is_cautious():
+    text = pdf_text()
+    assert "it follows the national formulary and cites it" in text
+    assert "dangerous" not in text
+    assert "gets them right" not in text
+    assert "judged severe harm" not in text
+    assert "Contradicts the formulary" in text
 
 
 def test_resources_and_pipeline_in_pdf():
@@ -186,7 +212,6 @@ def test_vietnamese_text_uses_a_vietnamese_font():
 
 def test_review_wording_fixes():
     text = pdf_text()
-    assert "truthfulness, open Qwen3.5-9B vs Gemini 3.8 Flash" in text
     assert "redirect rate, no reranker" in text
     assert "Guard: redirect rate" not in text  # the legend note stays short
     assert "nếu có chỉ định của bác sĩ" in text
