@@ -53,11 +53,11 @@ The numbered circles follow the new reading order (my call).
 **Header: contributions replace the three number cards.** Three cards with the same fills as today's number cards. Each card has a small purple tag "Contribution 1/2/3" at the top, then a big value and a two-line label (each line at most about 28 characters, so it fits the card), using only numbers from the paper:
 1. **10,000** · "benchmark questions on a" / "released Vietnamese corpus"
 2. **97.5%** · "relevant passage in top 10," / "retrieval vs cost compared"
-3. **0.913 vs 0.923** · "open Qwen3.5-9B pipeline" / "vs Gemini 3.8 Flash"
+3. **18× / 25×** · "fewer hallucinated answers," / "Gemini / open Qwen3.5-9B"
 
 The cards grow about 40 px taller to fit the tag. A caption above the cards would collide with the second title line.
 
-2,409 nicknames stays in block 3 and the hallucination rates stay in block 5. The "18× / 25×" figure leaves the poster.
+2,409 nicknames stays in block 3 and the hallucination rates stay in block 5. The 0.913 vs 0.923 score moves into the block 5 heading: "Grounding gives most of the gain, and the open 9B model reaches 0.913 against Gemini's 0.923" (author's decision, 2026-11-19, to keep both highlights).
 
 **Block 1, hook**
 - Heading: "Without documents, the model answers from memory. Grounded in official labelling, it follows the national formulary and cites it."
@@ -76,12 +76,12 @@ The cards grow about 40 px taller to fit the tag. A caption above the cards woul
 
 **Block 4, retrieval (compact)**: same table; the two lessons share one lavender box.
 
-**Blocks 5, 6**: unchanged.
+**Block 5**: new heading as above, content unchanged. **Block 6**: unchanged.
 
-**Block 7, future work** (right column under block 6), heading "Future work", exactly three items (author's decision, 2026-11-19):
-1. Check answers against specialist sources and against explicit rules in linear-algebraic logic programming, and flag conflicts with the formulary. (Merges the advisor's concern with the paper's own future work, which cites the advisor's work `nguyen2022sparse`.)
-2. A decision model that picks the steps each question needs, to cut cost and latency. (Author's idea. The paper shows refine calls go almost entirely to the 39% of questions whose first search is incomplete.)
-3. A comparison with a ReAct agent that plans its own tool calls. (Author's idea. ReAct is already cited in related work.)
+**Block 7, future work** (right column under block 6), heading "Future work", exactly three short one-line items (author's decision, 2026-11-19: future work matters less than the results, so it takes little space):
+1. "Cross-check answers with specialist sources and linear-algebraic logic rules" (the advisor's concern plus the paper's own future work, which cites the advisor's work `nguyen2022sparse`)
+2. "A decision model that skips unneeded steps, to cut cost and latency" (author's idea. Refine calls go almost entirely to the 39% of questions whose first search is incomplete.)
+3. "A comparison with a ReAct agent" (author's idea. ReAct is already cited in related work.)
 
 QR codes, emails and funding stay in this block. The takeaways list is removed. "Real user questions, graded by several experts" is dropped to keep three items.
 

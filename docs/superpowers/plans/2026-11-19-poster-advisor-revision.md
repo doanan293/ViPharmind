@@ -44,7 +44,7 @@
 
 - [ ] **Step 1: Update the tests**
 
-In `test_hook_strings_in_pdf`, remove `"2,409"` from the list. That number now only appears in block 3, where `test_resources_and_pipeline_in_pdf` checks it. Add these tests:
+In `test_hook_strings_in_pdf`, remove `"2,409"` and `"0.913 vs 0.923"` from the list. 2,409 now only appears in block 3, where `test_resources_and_pipeline_in_pdf` checks it, and the 0.913 score moves to the block 5 heading. In `test_review_wording_fixes`, delete the assert on `"truthfulness, open Qwen3.5-9B vs Gemini 3.8 Flash"` (that label leaves with the number cards). Add these tests:
 
 ```python
 def test_contributions_in_header():
@@ -55,11 +55,15 @@ def test_contributions_in_header():
         "Contribution 3",
         "10,000",
         "97.5%",
-        "0.913 vs 0.923",
-        "open Qwen3.5-9B pipeline",
+        "18× / 25×",
+        "fewer hallucinated answers,",
     ]:
         assert s in text, s
-    assert "18× / 25×" not in text
+
+
+def test_open_model_score_in_grounding_heading():
+    head = " ".join(group_text("grounding-heading").split())
+    assert "reaches 0.913 against Gemini's 0.923" in head, head
 
 
 def test_hook_wording_is_cautious():
@@ -96,12 +100,13 @@ CONTRIBUTIONS = [
     ),
     (
         "Contribution 3",
-        "0.913 vs 0.923",
-        ("open Qwen3.5-9B pipeline", "vs Gemini 3.8 Flash"),
+        "18× / 25×",
+        ("fewer hallucinated answers,", "Gemini / open Qwen3.5-9B"),
     ),
 ]
 ```
 
+- `GROUNDING["heading"]` = `"Grounding gives most of the gain, and the open 9B model reaches 0.913 against Gemini's 0.923"`
 - Add `CONTRIBUTIONS` to the tuple walked in `all_texts()`.
 
 - [ ] **Step 4: Add the `tag` parameter to `stat_card`**
@@ -239,9 +244,7 @@ git commit -m "feat(poster): full-width one-row pipeline with the design princip
 Rename `test_takeaways_and_links_in_pdf` to `test_future_work_and_links_in_pdf`. Replace `"Self-hosted retrieval is enough."` with the three checks below, and keep the funding and email checks:
 
 ```python
-("linear-algebraic logic programming",)
-("to cut cost and latency",)
-("ReAct agent",)
+checks = ["linear-algebraic logic rules", "to cut cost and latency", "a ReAct agent"]
 ```
 
 Then add:
@@ -270,10 +273,9 @@ Use the exact copy from the spec. Update `all_texts()` to walk `FUTURE` instead 
 FUTURE = {
     "heading": "Future work",
     "items": [
-        "Check answers against specialist sources and against explicit rules in "
-        "linear-algebraic logic programming, and flag conflicts with the formulary.",
-        "A decision model that picks the steps each question needs, to cut cost and latency.",
-        "A comparison with a ReAct agent that plans its own tool calls.",
+        "Cross-check answers with specialist sources and linear-algebraic logic rules",
+        "A decision model that skips unneeded steps, to cut cost and latency",
+        "A comparison with a ReAct agent",
     ],
 }
 ```
@@ -282,7 +284,7 @@ FUTURE = {
 
 Base it on `takeaways_block`, with these changes:
 - **Markers.** Each item gets a purple bold number marker (`"1"`, `"2"`, `"3"`) instead of the ✓.
-- **Layout.** Keep the QR stack on the right and the email and funding footer under the items.
+- **Layout.** Each item is one line at `T_BODY`; if one wraps at the block width, the fit check will not catch it, so read the rendered poster in Task 4. Keep the QR stack on the right and the email and funding footer under the items.
 - **Bottom.** Return `max(content bottom, min_bottom)`, and drop the overflow assert.
 - **In `build()`.** Call it under `steps_block` in the right column, with `min_bottom = left column bottom`.
 - **Cleanup.** Delete `takeaways_block`.
