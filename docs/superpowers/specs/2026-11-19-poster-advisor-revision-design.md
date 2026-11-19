@@ -50,10 +50,12 @@ Point 3 hits the metformin example directly. The closed-book Gemini answer ("can
 ```
 The numbered circles follow the new reading order (my call).
 
-**Header: contributions replace the three number cards.** A small purple caption "Contributions" above three cards, same size and fills as today's number cards. Each card: big value and a short label, using only numbers from the paper:
-1. **10,000 questions** · "Vietnamese drug corpus and benchmark, released"
-2. **97.5% in top 10** · "Retrieval compared against deployment cost"
-3. **0.913 vs 0.923** · "Pipeline a small open model can run (Qwen3.5-9B vs Gemini)"
+**Header: contributions replace the three number cards.** Three cards with the same fills as today's number cards. Each card has a small purple tag "Contribution 1/2/3" at the top, then a big value and a two-line label (each line at most about 28 characters, so it fits the card), using only numbers from the paper:
+1. **10,000** · "benchmark questions on a" / "released Vietnamese corpus"
+2. **97.5%** · "relevant passage in top 10," / "retrieval vs cost compared"
+3. **0.913 vs 0.923** · "open Qwen3.5-9B pipeline" / "vs Gemini 3.8 Flash"
+
+The cards grow about 40 px taller to fit the tag. A caption above the cards would collide with the second title line.
 
 2,409 nicknames stays in block 3 and the hallucination rates stay in block 5. The "18× / 25×" figure leaves the poster.
 
