@@ -94,6 +94,8 @@ def test_pipeline_principle_panel():
     t = " ".join(group_text("pipeline-principle").split())
     assert "Is the evidence enough?" in t, t
     assert "Qwen3.5-9B runs every step" in t, t
+    # paper: "at most three search rounds", "lets each step be ablated"
+    assert "caps search at 3 rounds and lets each step be ablated" in t, t
 
 
 def test_badges_follow_reading_order():

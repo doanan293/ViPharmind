@@ -128,8 +128,7 @@ PIPELINE = {
     "principle": [
         "Each model call answers one narrow question: Is this an attack? "
         "Is the evidence enough?",
-        "Code runs the flow, caps the refine loop at 3 rounds and can switch "
-        "any step off.",
+        "Code runs the flow, caps search at 3 rounds and lets each step be ablated.",
         "Narrow decisions suit small models: the open Qwen3.5-9B runs every "
         "step, like Gemini 3.8 Flash.",
     ],
