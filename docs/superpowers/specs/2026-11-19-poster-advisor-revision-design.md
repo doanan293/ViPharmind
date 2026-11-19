@@ -15,7 +15,7 @@ Point 3 hits the metformin example directly. The closed-book Gemini answer ("can
 ## 2. Goals, non-goals, anti-goals
 
 **Goals**
-- A reader sees the three contributions right after the hook, and the pipeline block is the widest, most prominent block after it.
+- A reader sees the three contributions in the header row, and the pipeline block is the widest, most prominent block right after the hook.
 - The hook keeps the metformin example (author's decision) with wording that claims agreement with the formulary, not clinical correctness.
 - Future work appears on the poster, including the advisor's concern.
 
@@ -37,51 +37,53 @@ Point 3 hits the metformin example directly. The closed-book Gemini answer ("can
 
 ## 4. Changes
 
+**Space (found while planning, 2026-11-19).** The current poster has no free height. The new content (contributions, principle panel, future work) and a full-width pipeline need about 15–20 cm more than the page has, so the author approved four cuts: contributions replace the three header number cards, the takeaways list goes, the pipeline becomes one row of nodes with the principle panel beside it, and blocks 3 and 4 get more compact.
+
 **New layout (top to bottom)**
 ```
-│ Header (unchanged)                                  │
-│ 1  Hook: metformin before/after │ nicknames         │
-│ Contributions strip (three items, full width)       │
-│ 2  Pipeline, full width: diagram + design principle │
-│ 3  Resources        │ 5  Grounding & models         │
-│ 4  Retrieval        │ 6  Each step                  │
-│ 7  Takeaways · Future work · QR · funding           │
+│ Title · authors │ Contributions ① ② ③ (replace the 3 number cards) · mascot │
+│ 1  Hook: metformin before/after │ nicknames                                │
+│ 2  Pipeline, full width: 7 nodes in one row │ design-principle panel        │
+│ 3  Resources (compact)     │ 5  Grounding & models                         │
+│ 4  Retrieval (compact)     │ 6  Each step                                  │
+│                            │ 7  Future work · QR · emails · funding        │
 ```
-The numbered circles follow the new reading order, so the pipeline becomes 2 and resources becomes 3 (my call; the numbers mark reading order).
+The numbered circles follow the new reading order (my call).
+
+**Header: contributions replace the three number cards.** A small purple caption "Contributions" above three cards, same size and fills as today's number cards. Each card: big value and a short label, using only numbers from the paper:
+1. **10,000 questions** · "Vietnamese drug corpus and benchmark, released"
+2. **97.5% in top 10** · "Retrieval compared against deployment cost"
+3. **0.913 vs 0.923** · "Pipeline a small open model can run (Qwen3.5-9B vs Gemini)"
+
+2,409 nicknames stays in block 3 and the hallucination rates stay in block 5. The "18× / 25×" figure leaves the poster.
 
 **Block 1, hook**
 - Heading: "Without documents, the model answers from memory. Grounded in official labelling, it follows the national formulary and cites it."
 - Red card verdict: "Contradicts the formulary" (drop "judged severe harm").
-- Green card verdict unchanged: "Matches the formulary, with citations".
-- Everything else unchanged. The hook may lose some height if the reshuffle needs it.
-
-**Contributions strip (new)**, heading "Contributions", three numbered items taken from the paper's introduction:
-1. A Vietnamese drug-information corpus and a 10,000-question benchmark with known answer locations, all released.
-2. A comparison of sparse, dense, hybrid and reranked retrieval that weighs effectiveness against deployment cost.
-3. An agentic pipeline that a small open model can run, evaluated step by step with ablations and safety cases.
-
-Each item may carry a small pointer to its block (→ 3, → 4, → 2 · 5 · 6).
+- Everything else unchanged.
 
 **Block 2, pipeline (full width)**
 - Heading unchanged: "Code controls the flow, and each model call makes one small decision".
-- The existing icon diagram, laid out wider.
-- A design-principle panel beside or below the diagram, roughly:
+- The seven nodes in one row on the left (about two thirds of the width), refine loop under the row from Judge back to Hybrid search, exits line under it.
+- Design-principle panel on the right (lavender rounded box), three lines:
   - "Each model call answers one narrow question: Is this an attack? Is the evidence enough?"
-  - "Code runs the flow, caps the refine loop at 3 rounds and can switch any step off for ablation."
-  - "Narrow decisions suit small models: the open Qwen3.5-9B runs every step, as does Gemini 3.8 Flash."
+  - "Code runs the flow, caps the refine loop at 3 rounds and can switch any step off."
+  - "Narrow decisions suit small models: the open Qwen3.5-9B runs every step, like Gemini 3.8 Flash."
 
-**Block 3, resources** (was 2): content unchanged, made more compact to free height (tighter spacing, smaller benchmark bar; the noisy-group note may go if space is short).
+**Block 3, resources (compact)**: same facts, tighter spacing; the "Noisy: …" note goes.
 
-**Blocks 4, 5, 6**: content unchanged.
+**Block 4, retrieval (compact)**: same table; the two lessons share one lavender box.
 
-**Block 7, takeaways and future work**
-- Takeaways unchanged.
-- New "Future work" list, exactly three items (author's decision, 2026-11-19):
-  1. Check answers against specialist sources and against explicit rules in linear-algebraic logic programming, and flag conflicts with the formulary. (Merges the advisor's concern with the paper's own future work, which cites the advisor's work `nguyen2022sparse`.)
-  2. A decision model that picks the steps each question needs, to cut cost and latency. (Author's idea. The paper shows refine calls go almost entirely to the 39% of questions whose first search is incomplete.)
-  3. A comparison with a ReAct agent that plans its own tool calls. (Author's idea. ReAct is already cited in related work.)
-- "Real user questions, graded by several experts" is dropped to keep three items.
-- QR codes, emails and funding unchanged.
+**Blocks 5, 6**: unchanged.
+
+**Block 7, future work** (right column under block 6), heading "Future work", exactly three items (author's decision, 2026-11-19):
+1. Check answers against specialist sources and against explicit rules in linear-algebraic logic programming, and flag conflicts with the formulary. (Merges the advisor's concern with the paper's own future work, which cites the advisor's work `nguyen2022sparse`.)
+2. A decision model that picks the steps each question needs, to cut cost and latency. (Author's idea. The paper shows refine calls go almost entirely to the 39% of questions whose first search is incomplete.)
+3. A comparison with a ReAct agent that plans its own tool calls. (Author's idea. ReAct is already cited in related work.)
+
+QR codes, emails and funding stay in this block. The takeaways list is removed. "Real user questions, graded by several experts" is dropped to keep three items.
+
+**Fit rule.** Every card ends at least 90 px (the page margin) above the page bottom. If the first build overflows, cut in this order until it fits, and report each cut used (my calls, delegated by the author): (a) GAP 40 → 30 and PAD 50 → 44; (b) the pipeline exits line moves into the principle panel as a fourth line; (c) QR codes 165 → 150 px; (d) drop the Qwen3-Reranker-8B row from the retrieval table. Never shrink text below the checker's minimum.
 
 ## 5. Left to the builder
 
