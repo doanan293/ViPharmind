@@ -627,33 +627,31 @@ def steps_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     return [card_block("steps-card", x, y0, w, bottom), *gs], bottom
 
 
-def takeaways_block(x: float, y0: float, w: float, bottom: float) -> list[str]:
-    """Block 7: takeaways, contacts and funding; QR codes stacked on the right."""
+def future_block(
+    x: float, y0: float, w: float, min_bottom: float
+) -> tuple[list[str], float]:
+    """Block 7: future work, contacts and funding; QR codes stacked on the right."""
     import content as C
     import poster_lib as P
 
-    T, L = C.TAKEAWAYS, C.LINKS
+    F, L = C.FUTURE, C.LINKS
     ix, iw = x + PAD, w - 2 * PAD
-    qr = 165
+    qr = QR
     lw = iw - qr - 50
     gs: list[str] = []
-    h, y = P.block_heading(ix, y0 + PAD, lw, 7, T["heading"])
-    gs.append(group("takeaways-heading", (ix, y0 + PAD - 10, lw, y - y0 - PAD), [h]))
+    h, y = P.block_heading(ix, y0 + PAD, lw, 7, F["heading"])
+    gs.append(group("future-heading", (ix, y0 + PAD - 10, lw, y - y0 - PAD), [h]))
     y -= 22
-    for i, s in enumerate(T["items"]):
+    for i, s in enumerate(F["items"]):
         tx, yy = P.para(ix + 44, y, s, P.T_BODY, lw - 44, P.INK)
-        tick = text(ix, y + P.T_BODY, "✓", P.T_BODY, P.GREEN, "bold")
-        gs.append(group(f"takeaway-{i}", (ix, y, lw, yy - y), [tick, tx]))
+        num = text(ix + 8, y + P.T_BODY, str(i + 1), P.T_BODY, P.PUR, "bold")
+        gs.append(group(f"future-{i}", (ix, y, lw, yy - y), [num, tx]))
         y = yy
     top = y + 16
     lines = ["  ·  ".join(L["emails"]), *P.wrap(L["funding"], P.T_SMALL, lw)]
     foot = mtext(ix, top + P.T_SMALL, lines, P.T_SMALL, P.LH, P.MUT)
     fh = P.T_SMALL * P.LH * len(lines) + 6
-    gs.append(group("takeaways-footer", (ix, top, lw, fh), [foot]))
-    used = top + fh
-    assert used <= bottom - PAD + 25, (
-        f"takeaways overflow by {used - (bottom - PAD)} px"
-    )
+    gs.append(group("future-footer", (ix, top, lw, fh), [foot]))
     qx = ix + iw - qr
     kids = []
     qy = y0 + PAD
@@ -671,8 +669,12 @@ def takeaways_block(x: float, y0: float, w: float, bottom: float) -> list[str]:
             )
         )
         qy += qr + 60
-    gs.append(group("takeaways-qr", (qx, y0 + PAD, qr, qy - y0 - PAD), kids))
-    return [card_block("takeaways-card", x, y0, w, bottom), *gs]
+    gs.append(group("future-qr", (qx, y0 + PAD, qr, qy - y0 - PAD), kids))
+    bottom = max(top + fh + PAD - 10, qy - 60 + 34 + PAD, min_bottom)
+    return [card_block("future-card", x, y0, w, bottom), *gs], bottom
+
+
+QR = 165  # QR code side, px
 
 
 def build() -> tuple[str, list[str]]:
@@ -700,7 +702,9 @@ def build() -> tuple[str, list[str]]:
         gs += g
         ry += GAP
     print("bottoms: left", round(ly - GAP), "right", round(ry - GAP), "page", round(H))
-    gs += takeaways_block(rx, ry, COLW, max(ly - GAP, ry + 700))
+    g, ry = future_block(rx, ry, COLW, ly - GAP)
+    gs += g
+    print("future work ends", round(ry), "limit", round(H - M))
     return P.GRAD_DEFS + PIPE_DEFS, gs
 
 

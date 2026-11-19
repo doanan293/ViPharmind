@@ -209,15 +209,28 @@ def qr_decodes() -> set[str]:
     return {s for s in texts if s} if ok else set()
 
 
-def test_takeaways_and_links_in_pdf():
+def test_future_work_and_links_in_pdf():
     text = pdf_text()
     for s in [
         "T2025-PC-019",
         "an.dv252778m@sis.hust.edu.vn",
         "tuannq@soict.hust.edu.vn",
-        "Self-hosted retrieval is enough.",
+        "linear-algebraic logic rules",
+        "to cut cost and latency",
+        "a ReAct agent",
     ]:
         assert s in text, s
+
+
+def test_takeaways_list_removed():
+    text = pdf_text()
+    assert "Takeaways" not in text
+    assert "Self-hosted retrieval is enough." not in text
+    assert "Real user questions" not in text
+
+
+def test_future_badge_is_seven():
+    assert group_text("future-heading").split()[0] == "7"
 
 
 def test_no_limits_line():

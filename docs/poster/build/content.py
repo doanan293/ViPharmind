@@ -214,13 +214,12 @@ STEPS = {
     "(0.920 vs 0.750 on follow-ups).",
 }
 
-TAKEAWAYS = {
-    "heading": "Takeaways",
+FUTURE = {
+    "heading": "Future work",
     "items": [
-        "Grounding in official labelling removes most hallucinated answers.",
-        "Self-hosted retrieval is enough.",
-        "Small structured decisions suit small open models.",
-        "Corpus, benchmark, code and every run are released.",
+        "Cross-check answers with specialist sources and linear-algebraic logic rules",
+        "A decision model that skips unneeded steps, to cut cost and latency",
+        "A comparison with a ReAct agent",
     ],
 }
 
@@ -273,7 +272,7 @@ def all_texts() -> list[str]:
         RETRIEVAL_LESSONS,
         GROUNDING,
         STEPS,
-        TAKEAWAYS,
+        FUTURE,
         LINKS["emails"],
         LINKS["funding"],
     ):
