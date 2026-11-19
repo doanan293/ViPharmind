@@ -125,6 +125,14 @@ PIPELINE = {
         ("Answer", "with citations", "chat-circle-text"),
     ],
     "loop_label": "not enough evidence: refine the query, ≤ 3 rounds",
+    "principle": [
+        "Each model call answers one narrow question: Is this an attack? "
+        "Is the evidence enough?",
+        "Code runs the flow, caps the refine loop at 3 rounds and can switch "
+        "any step off.",
+        "Narrow decisions suit small models: the open Qwen3.5-9B runs every "
+        "step, like Gemini 3.8 Flash.",
+    ],
     "exits": "Attacks are blocked and off-topic requests redirected by the guard",
 }
 

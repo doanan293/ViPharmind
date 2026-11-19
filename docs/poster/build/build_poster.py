@@ -259,7 +259,7 @@ def resources_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
     R = C.RESOURCES
     ix, iw = x + PAD, w - 2 * PAD
     gs: list[str] = []
-    h, y = P.block_heading(ix, y0 + PAD, iw, 2, R["heading"])
+    h, y = P.block_heading(ix, y0 + PAD, iw, 3, R["heading"])
     gs.append(group("resources-heading", (ix, y0 + PAD - 10, iw, y - y0 - PAD), [h]))
 
     def kv(gid, label, body, y):
@@ -305,83 +305,74 @@ def resources_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
 
 
 def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
-    """Pipeline as two rows of icon nodes; refine loop from Judge back to search."""
+    """Full-width block: seven icon nodes in one row, refine loop under the row
+    from Judge back to Hybrid search, design-principle panel on the right."""
     import content as C
     import poster_lib as P
 
     PL = C.PIPELINE
     ix, iw = x + PAD, w - 2 * PAD
     gs: list[str] = []
-    h, y = P.block_heading(ix, y0 + PAD, iw, 3, PL["heading"])
+    h, y = P.block_heading(ix, y0 + PAD, iw, 2, PL["heading"])
     gs.append(group("pipeline-heading", (ix, y0 + PAD - 10, iw, y - y0 - PAD), [h]))
-    rows = [PL["nodes"][:3], PL["nodes"][3:]]
+    dw = iw * DIAGRAM_SHARE
+    nodes = PL["nodes"]
+    slot = dw / len(nodes)
     r = 48
-    slot = iw / 4
-    row_h = 2 * r + 30 + P.T_BODY * 1.3 + 2 * P.T_SMALL * P.LH + 20
-    row_gap = 90
+    subs = [
+        list(sub) if isinstance(sub, tuple) else P.wrap(sub, P.T_SMALL, slot - 20)
+        for _, sub, _ in nodes
+    ]
+    n_sub = max(len(s_) for s_ in subs)
+    row_h = 2 * r + 52 + P.T_SMALL * 0.35 + P.T_SMALL * P.LH * n_sub + 10
+    cy = y + r + 10
     centers = []
-    for ri, row in enumerate(rows):
-        cy = y + r + ri * (row_h + row_gap)
-        for ci, (name, sub, ic) in enumerate(row):
-            cx = ix + slot * ci + slot / 2
-            centers.append((cx, cy))
-            last = ri == 1 and ci == len(row) - 1
-            fill = P.PEACH if last else P.LAV
-            sub_lines = (
-                list(sub)
-                if isinstance(sub, tuple)
-                else P.wrap(sub, P.T_SMALL, slot - 20)
+    for i, ((name, _sub, ic), sub_lines) in enumerate(zip(nodes, subs, strict=True)):
+        cx = ix + slot * i + slot / 2
+        centers.append(cx)
+        fill = P.PEACH if i == len(nodes) - 1 else P.LAV
+        kids = [
+            circle(cx, cy, r, fill),
+            icon(ic, cx, cy, r * 1.15, P.IND),
+            text(cx, cy + r + 52, name, P.T_BODY, P.IND, "bold", anchor="middle"),
+            mtext(
+                cx,
+                cy + r + 52 + P.T_SMALL * 1.35,
+                sub_lines,
+                P.T_SMALL,
+                P.LH,
+                P.MUT,
+                anchor="middle",
+            ),
+        ]
+        gs.append(
+            group(
+                f"pipeline-node-{i}",
+                (cx - slot / 2 + 2, cy - r, slot - 4, row_h),
+                kids,
             )
-            kids = [
-                circle(cx, cy, r, fill),
-                icon(ic, cx, cy, r * 1.15, P.IND),
-                text(cx, cy + r + 52, name, P.T_BODY, P.IND, "bold", anchor="middle"),
-                mtext(
-                    cx,
-                    cy + r + 52 + P.T_SMALL * 1.35,
-                    sub_lines,
-                    P.T_SMALL,
-                    P.LH,
-                    P.MUT,
-                    anchor="middle",
-                ),
-            ]
-            gs.append(
-                group(
-                    f"pipeline-node-{ri}-{ci}",
-                    (cx - slot / 2 + 4, cy - r, slot - 8, row_h),
-                    kids,
-                )
-            )
-    label_bottom = lambda cy: cy - r + row_h - 10  # noqa: E731
-    arrows = []
-    for i in range(len(centers) - 1):
-        (x1, y1), (x2, y2) = centers[i], centers[i + 1]
-        if y1 == y2:
-            arrows.append(line(x1 + r + 12, y1, x2 - r - 18, y2, P.IND, 5, marker="pa"))
-        else:  # Rephrase (end of row 1) down to Hybrid search (start of row 2)
-            ymid = label_bottom(y1) + 22
-            arrows.append(
-                path(
-                    f"M{fmt(x1)} {fmt(label_bottom(y1))} V{fmt(ymid)} H{fmt(x2)} V{fmt(y2 - r - 8)}",
-                    P.IND,
-                    5,
-                    marker="pa",
-                )
-            )
-    gs.append(group("pipeline-arrows", (ix, y, iw, 2 * row_h + row_gap), arrows))
-    # refine loop under row 2: Judge back to Hybrid search
-    (hx, hy), (jx, jy) = centers[3], centers[5]
-    ylow = label_bottom(jy) + 64
+        )
+    arrows = [
+        line(
+            centers[i] + r + 10, cy, centers[i + 1] - r - 16, cy, P.IND, 5, marker="pa"
+        )
+        for i in range(len(centers) - 1)
+    ]
+    gs.append(group("pipeline-arrows", (ix, cy - r, dw, 2 * r), arrows))
+    # refine loop under the row: Judge (node 5) back to Hybrid search (node 3)
+    hx, jx = centers[3], centers[5]
+    label_bottom = cy - r + row_h
+    ylow = label_bottom + 70  # last leg 64 px, room for the 35 px arrowhead
     loop = [
         path(
-            f"M{fmt(jx)} {fmt(label_bottom(jy))} V{fmt(ylow)} H{fmt(hx)} V{fmt(label_bottom(hy) + 6)}",
+            f"M{fmt(jx)} {fmt(label_bottom)} V{fmt(ylow)} H{fmt(hx)} "
+            f"V{fmt(label_bottom + 6)}",
             P.PUR,
             5,
             marker="pp",
         ),
         text(
-            (hx + jx) / 2,
+            ix + dw / 2,
             ylow + P.T_SMALL + 14,
             PL["loop_label"],
             P.T_SMALL,
@@ -390,16 +381,33 @@ def pipeline_block(x: float, y0: float, w: float) -> tuple[list[str], float]:
             anchor="middle",
         ),
     ]
-    gs.append(group("pipeline-loop", (ix, label_bottom(jy) - 10, iw, 130), loop))
-    y = ylow + P.T_SMALL + 50
-    for gid, s in (("pipeline-exits", PL["exits"]),):
-        tx, yy = P.para(ix, y, s, P.T_SMALL, iw, P.MUT)
-        gs.append(group(gid, (ix, y, iw, yy - y), [tx]))
-        y = yy + 10
-    bottom = y + PAD - 10
+    gs.append(group("pipeline-loop", (ix, label_bottom - 10, dw, 130), loop))
+    yd = ylow + P.T_SMALL + 50
+    tx, yd = P.para(ix, yd, PL["exits"], P.T_SMALL, dw, P.MUT)
+    gs.append(group("pipeline-exits", (ix, yd - P.T_SMALL * P.LH - 10, dw, 60), [tx]))
+    # design-principle panel
+    px = ix + dw + 50
+    pw = ix + iw - px
+    pad = 36
+    yy = y + pad - 6
+    parts = []
+    for s_ in PL["principle"]:
+        t, yy = P.para(px + pad, yy, s_, P.T_BODY, pw - 2 * pad, P.INK)
+        parts.append(t)
+        yy += 18
+    ph = yy - 18 - y + pad
+    gs.append(
+        group(
+            "pipeline-principle",
+            (px, y, pw, ph),
+            [rect(px, y, pw, ph, P.LAV, None, 1, 36), *parts],
+        )
+    )
+    bottom = max(yd, y + ph) + PAD - 10
     return [card_block("pipeline-card", x, y0, w, bottom), *gs], bottom
 
 
+DIAGRAM_SHARE = 0.66  # share of the pipeline block's inner width for the diagram
 PIPE_DEFS = arrow_marker("pa", "#0C0A9E") + arrow_marker("pp", "#8208D5")
 
 
@@ -677,6 +685,9 @@ def build() -> tuple[str, list[str]]:
     kg, y = hook_block(y + 34)
     gs += kg
     y += GAP
+    g, y = pipeline_block(M, y, CW)
+    gs += g
+    y += GAP
     # two independent columns
     lx, rx = M, M + COLW + GAP
     ly = ry = y
@@ -684,12 +695,12 @@ def build() -> tuple[str, list[str]]:
         g, ly = f(lx, ly, COLW)
         gs += g
         ly += GAP
-    for f in (pipeline_block, grounding_block, steps_block):
+    for f in (grounding_block, steps_block):
         g, ry = f(rx, ry, COLW)
         gs += g
         ry += GAP
     print("bottoms: left", round(ly - GAP), "right", round(ry - GAP), "page", round(H))
-    gs += takeaways_block(lx, ly, COLW, ry - GAP)
+    gs += takeaways_block(rx, ry, COLW, max(ly - GAP, ry + 700))
     return P.GRAD_DEFS + PIPE_DEFS, gs
 
 

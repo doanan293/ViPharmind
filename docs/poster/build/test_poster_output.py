@@ -72,6 +72,42 @@ def test_hook_wording_is_cautious():
     assert "Contradicts the formulary" in text
 
 
+def bounds(gid: str) -> tuple[float, ...]:
+    root = ET.parse(SVG).getroot()
+    for g in root.iter():
+        if g.attrib.get("id") == gid:
+            return tuple(float(v) for v in g.attrib["data-pptx-bounds"].split())
+    raise AssertionError(f"no group {gid}")
+
+
+def test_pipeline_is_full_width_after_hook():
+    _px, py, pw, _ph = bounds("pipeline-card")
+    _, hy, _, hh = bounds("hook-card")
+    _, ry, _, _ = bounds("resources-card")
+    assert pw > 2990, pw
+    assert hy + hh < py < ry, (hy + hh, py, ry)
+    tops = {round(bounds(f"pipeline-node-{i}")[1]) for i in range(7)}
+    assert len(tops) == 1, tops  # one row
+
+
+def test_pipeline_principle_panel():
+    t = " ".join(group_text("pipeline-principle").split())
+    assert "Is the evidence enough?" in t, t
+    assert "Qwen3.5-9B runs every step" in t, t
+
+
+def test_badges_follow_reading_order():
+    for gid, n in [
+        ("hook-heading", "1"),
+        ("pipeline-heading", "2"),
+        ("resources-heading", "3"),
+        ("retrieval-heading", "4"),
+        ("grounding-heading", "5"),
+        ("steps-heading", "6"),
+    ]:
+        assert group_text(gid).split()[0] == n, (gid, group_text(gid)[:20])
+
+
 def test_resources_and_pipeline_in_pdf():
     text = pdf_text()
     for s in [
@@ -263,7 +299,7 @@ def _last_leg(gid: str) -> float:
 
 def test_bent_arrows_leave_room_for_the_head():
     # arrowhead is 7 x stroke 5 = 35 px; the last leg must show line above it
-    for gid in ("pipeline-arrows", "pipeline-loop"):
+    for gid in ("pipeline-loop",):  # one-row diagram: only the loop is bent
         assert _last_leg(gid) >= 50, (gid, _last_leg(gid))
 
 
