@@ -329,8 +329,8 @@ def p03():
             [
                 "Code-driven pipeline: one",
                 "small decision per LLM call",
-                "Runs end-to-end with",
-                "open-weight Qwen3.5-9B",
+                "Model-agnostic: even a small",
+                "language model (Qwen3.5-9B)",
                 "Ablations, safety cases and",
                 "a calibrated judge",
             ],
@@ -1128,11 +1128,7 @@ def p09():
             "0.820 vs 0.800",
             ["nDCG@10, Qwen3-Emb-4B (self-hosted)", "vs OpenAI text-embedding-3-large"],
             [
-                [
-                    "Higher than OpenAI in every metric",
-                    "of the table, with a smaller vector",
-                ],
-                ["Matches Qwen3-Emb-8B in Hit@10", "(95.4)"],
+                ["Higher than OpenAI in every", "metric, with a smaller vector"],
             ],
         ),
         (
@@ -1140,12 +1136,7 @@ def p09():
             "k = 2",
             ["RRF constant used in the pipeline"],
             [
-                [
-                    "k = 60, the common default: nDCG@10",
-                    "0.747, below dense alone (0.820)",
-                ],
-                ["k = 2: best Hit@10 (95.9) and Hit@30", "(99.2) before reranking"],
-                ["Held-out half: 96.1% vs 93.8%"],
+                ["Default k = 60 falls below", "dense alone (0.747 vs 0.820)"],
             ],
         ),
         (
@@ -1153,10 +1144,7 @@ def p09():
             "+3.7 Hit@5",
             ["Qwen3-Reranker-4B over the", "hybrid input (90.7 → 94.4)"],
             [
-                ["0.8 below the 8B in Hit@5, at 2.7×", "its throughput"],
-                ["BGE-v2-m3: eight times faster, but", "Hit@10 unchanged"],
-                ["BGE-v2-gemma: no gain"],
-                ["Vietnamese instruction: MRR@30", "of the 0.6B 0.761 → 0.804"],
+                ["Within 0.8 Hit@5 of the 8B, at", "2.7× its throughput"],
             ],
         ),
     ]
@@ -1164,7 +1152,7 @@ def p09():
     for i, (title, big, cap, bullets) in enumerate(cols):
         x = 60 + i * 284
         k = [
-            card(x, 108, 272, 300),
+            card(x, 108, 272, 250),
             text(x + 16, 138, str(i + 1), 22, ORA, "bold", MONO),
             text(x + 42, 136, title, 14, IND, "bold", MONO),
             text(x + 16, 184, big, 26, ORA if i != 1 else IND, "bold", MONO),
@@ -1172,45 +1160,45 @@ def p09():
         ]
         y = 254
         for bl in bullets:
-            k += [circle(x + 20, y - 4, 2.6, ORA), mtext(x + 30, y, bl, 11.5, 1.4, INK)]
-            y += 16 * len(bl) + 9
-        gs.append(group(f"lesson-{i + 1}", (x - 2, 106, 276, 304), k))
+            k += [circle(x + 20, y - 5, 3, ORA), mtext(x + 33, y, bl, 14, 1.4, INK)]
+            y += 18 * len(bl) + 10
+        gs.append(group(f"lesson-{i + 1}", (x - 2, 106, 276, 254), k))
     band = [
-        rect(60, 422, 840, 84, LAV2, None, 1, 8),
+        rect(60, 376, 840, 130, LAV2, None, 1, 8),
         text(
-            80, 444, "Each part pays off where it is designed to", 13, IND, "bold", MONO
+            80, 404, "Each part pays off where it is designed to", 15, IND, "bold", MONO
         ),
-        text(80, 488, "2.2×", 26, ORA, "bold", MONO),
+        text(80, 466, "2.2×", 32, ORA, "bold", MONO),
         mtext(
-            160,
-            466,
+            170,
+            438,
             [
                 "BM25 finds a chunk dense retrieval misses",
                 "2.2× as often on the 3,657 questions that",
                 "share a rare word with their gold section",
             ],
-            11.5,
-            1.38,
+            13,
+            1.4,
             INK,
         ),
-        text(490, 488, "1.4×", 26, ORA, "bold", MONO),
+        text(490, 466, "1.4×", 32, ORA, "bold", MONO),
         mtext(
-            570,
-            466,
+            580,
+            438,
             [
                 "The 4B reranker lifts a relevant chunk into the",
                 "top 5 1.4× as often on the 846 leaflet questions",
                 "with a same-brand, same-ingredient sibling",
             ],
-            11.5,
-            1.38,
+            13,
+            1.4,
             INK,
         ),
     ]
     g = [
         header("RESULTS · RETRIEVAL", "Three lessons from the retrieval benchmark"),
         *gs,
-        group("retrieval-slices", (56, 418, 848, 90), band),
+        group("retrieval-slices", (56, 372, 848, 138), band),
     ]
     page(27, "p09_retrieval_lessons", g)
 
@@ -1622,42 +1610,31 @@ def g_concat():
         ("Gemini · hallucinated answers", "0", "2"),
         ("Qwen · nugget recall", "0.948", "0.830"),
     ]
-    yy = 180
+    yy = 188
     for a, b, c in rows:
         tb += [
-            line(470, yy - 17, 900, yy - 17, LAV, 0.8),
-            text(470, yy, a, 12, INK),
-            text(700, yy, b, 13, IND, "bold", MONO, anchor="end"),
-            text(800, yy, c, 13, MUT, "bold", MONO, anchor="end"),
+            line(470, yy - 20, 900, yy - 20, LAV, 0.8),
+            text(470, yy, a, 12.5, INK),
+            text(700, yy, b, 14, IND, "bold", MONO, anchor="end"),
+            text(800, yy, c, 14, MUT, "bold", MONO, anchor="end"),
         ]
-        yy += 26
+        yy += 34
     pts2 = [
         [
-            "Concat RAG appends the earlier user questions to the",
-            "search: 2.0 LLM calls per turn vs 5.3, and over all",
-            "Gemini items more than 40% fewer calls and tokens.",
+            "Concat RAG appends the earlier user questions",
+            "to the search: 2.0 LLM calls per turn vs 5.3,",
+            "and over all Gemini items more than 40%",
+            "fewer calls and tokens.",
         ],
         [
             "With Qwen3.5-9B, Concat hallucinates 4.0%:",
             "earlier-turn drugs pull in off-target evidence.",
         ],
     ]
-    yy = 292
+    yy = 340
     for p in pts2:
-        tb += [circle(474, yy - 4, 3, ORA), mtext(484, yy, p, 11.5, 1.4, INK)]
-        yy += 16 * len(p) + 12
-    BW = 430
-    acc = BW * 295 / 480
-    tb += [
-        text(470, 402, "The judge–refine loop is conditional", 13, IND, "bold", MONO),
-        rect(470, 412, acc, 24, IND, None, 1, 0),
-        rect(470 + acc, 412, BW - acc, 24, ORA, None, 1, 0),
-        text(478, 429, "295 accepted at first search", 11, WHITE, "bold"),
-        text(470 + acc + 8, 429, "185 refined", 11, WHITE, "bold"),
-        text(470, 454, "+1 call, answer unchanged", 11.5, IND, "bold"),
-        text(900, 454, "+4.8 calls each", 11.5, "#8A4D00", "bold", anchor="end"),
-        text(470, 474, "of the 480 items that reach the judge", 10.5, MUT),
-    ]
+        tb += [circle(474, yy - 5, 3, ORA), mtext(484, yy, p, 13, 1.4, INK)]
+        yy += 18 * len(p) + 16
     g = [
         header("RESULTS · COST", "What the extra LLM calls buy"),
         group("cost-scatter", (56, 112, 392, 364), k),
@@ -1675,8 +1652,8 @@ def g_judge():
     ]
     k = [
         text(60, 132, "Judge vs blind pharmacist grades", 14, IND, "bold", MONO),
-        text(250, 156, "Gemini", 11, MUT, "bold", anchor="middle"),
-        text(360, 156, "Open-weight", 11, MUT, "bold", anchor="middle"),
+        text(250, 156, "Gemini 3.8 Flash", 11, MUT, "bold", anchor="middle"),
+        text(360, 156, "Qwen3.5-9B", 11, MUT, "bold", anchor="middle"),
     ]
     y = 168
     for t, s, a, b in tiles:
@@ -1704,45 +1681,16 @@ def g_judge():
         ),
     ]
     c = [
-        text(470, 132, "Citations of the Gemini full agent", 14, IND, "bold", MONO),
-        text(470, 200, "96.5%", 44, ORA, "bold", MONO),
+        text(470, 245, "Citations of the Gemini full agent", 14, IND, "bold", MONO),
+        rect(470, 261, 430, 96, WHITE, LAV, 1, 8),
+        text(685, 305, "96.5%", 30, ORA, "bold", MONO, anchor="middle"),
         text(
-            470, 224, "of cited sentences are supported by the cited passage", 12, INK
-        ),
-    ]
-    bx, bw = 470, 420
-    # 100% bar: cited | uncited headings | uncited facts (10.8%)
-    cited = 1 - 0.257
-    fact = 0.108
-    c += [
-        rect(bx, 262, bw * cited, 30, IND, None, 1, 0),
-        rect(bx + bw * cited, 262, bw * (0.257 - fact), 30, LAV, None, 1, 0),
-        rect(bx + bw * (1 - fact), 262, bw * fact, 30, RED, None, 1, 0),
-        text(bx + 8, 282, "sentences with a citation", 11, WHITE, "bold"),
-        line(bx + bw * cited, 300, bx + bw * cited, 312, MUT, 1),
-        line(bx + bw, 300, bx + bw, 312, MUT, 1),
-        line(bx + bw * cited, 312, bx + bw, 312, MUT, 1),
-        text(
-            bx + bw,
-            330,
-            "25.7% of answer sentences carry no citation",
-            11.5,
-            INK,
-            "bold",
-            anchor="end",
-        ),
-        mtext(
-            bx,
-            362,
-            [
-                "More than half of them are headings or lead-ins, but",
-                "10.8% state a fact a reader cannot trace (red).",
-                "Citation recall is lost to missing citations,",
-                "not to unsupported ones.",
-            ],
+            685,
+            335,
+            "of cited sentences are supported by the passage they cite",
             12,
-            1.45,
             INK,
+            anchor="middle",
         ),
     ]
     g = [
@@ -1810,8 +1758,8 @@ def b_limits():
                     130,
                     468,
                     [
-                        "Real user questions · several expert evaluators · linear-algebraic logic programming",
-                        "for explicit rule-based reasoning and verification of pharmaceutical information",
+                        "Real user questions · several expert evaluators · a calibrated decision model",
+                        "for the guard and judge steps, so the judge–refine loop needs no LLM call",
                     ],
                     12,
                     1.45,
@@ -1841,7 +1789,7 @@ def p16():
         ),
         (
             "Small decisions suit small models",
-            "Open-weight Qwen3.5-9B runs every step: truthfulness 0.913 vs 0.923.",
+            "A small language model (Qwen3.5-9B) runs every step: truthfulness 0.913 vs 0.923.",
         ),
         (
             "Measure each step on the questions it targets",
@@ -1869,16 +1817,12 @@ def p16():
             (56, 438, 848, 66),
             [
                 rect(60, 440, 840, 62, LAV2, None, 1, 8),
-                text(76, 462, "Limits", 12.5, IND, "bold", MONO),
-                mtext(
+                text(76, 476, "Limits", 12.5, IND, "bold", MONO),
+                text(
                     140,
-                    461,
-                    [
-                        "Template-generated questions (99.2% Hit@30 is likely optimistic) ·",
-                        "one pharmacist for golden set and calibration · 10 items per safety case",
-                    ],
-                    11.5,
-                    1.45,
+                    476,
+                    "Template-generated questions · one pharmacist for golden set and calibration · 10 items per safety case",
+                    12,
                     INK,
                 ),
             ],
@@ -2476,6 +2420,68 @@ def b4():
     page(27, "b4_groups", g)
 
 
+def b7():
+    bx, bw = 60, 840
+    cited = 1 - 0.257
+    fact = 0.108
+    k = [
+        text(
+            60, 140, "Answer sentences of the Gemini full agent", 14, IND, "bold", MONO
+        ),
+        rect(bx, 160, bw * cited, 44, IND, None, 1, 0),
+        rect(bx + bw * cited, 160, bw * (0.257 - fact), 44, LAV, None, 1, 0),
+        rect(bx + bw * (1 - fact), 160, bw * fact, 44, RED, None, 1, 0),
+        text(bx + 14, 188, "74.3% carry a citation", 14, WHITE, "bold"),
+        line(bx + bw * cited, 214, bx + bw * cited, 226, MUT, 1),
+        line(bx + bw, 214, bx + bw, 226, MUT, 1),
+        line(bx + bw * cited, 226, bx + bw, 226, MUT, 1),
+        text(bx + bw, 246, "25.7% carry no citation", 13, INK, "bold", anchor="end"),
+    ]
+    cols = [
+        (
+            IND,
+            "74.3%",
+            "with a citation",
+            ["96.5% of them are supported", "by the passage they cite"],
+        ),
+        (LAV, "14.9%", "no citation: headings, lead-ins", ["need no source"]),
+        (
+            RED,
+            "10.8%",
+            "no citation: state a fact",
+            ["a reader cannot trace", "where the fact comes from"],
+        ),
+    ]
+    for i, (col, num, lab, ls) in enumerate(cols):
+        x = 60 + i * 284
+        k += [
+            rect(x, 280, 272, 140, WHITE, LAV, 1, 8),
+            rect(x + 16, 300, 14, 14, col, None, 1, 2),
+            text(x + 40, 313, lab, 12, MUT, "bold"),
+            text(x + 16, 360, num, 30, IND if col != RED else RED, "bold", MONO),
+            mtext(x + 16, 388, ls, 12, 1.4, INK),
+        ]
+    k += [
+        rect(60, 440, 840, 54, LAV2, None, 1, 8),
+        mtext(
+            80,
+            462,
+            [
+                "Citation recall (0.724) is lost to missing citations, not to unsupported ones:",
+                "74.3% cited × 96.5% supported ≈ 0.72.",
+            ],
+            12.5,
+            1.4,
+            INK,
+        ),
+    ]
+    g = [
+        header("BACKUP · CITATIONS", "Where citation recall is lost"),
+        group("citation-split", (56, 106, 848, 392), k),
+    ]
+    page(9, "b7_citations", g)
+
+
 def b5():
     sl = [text(60, 130, "Where each retrieval part helps", 14, IND, "bold", MONO)]
     pts = [
@@ -2712,6 +2718,7 @@ def main():
         b3,
         b4,
         b5,
+        b7,
         b6,
     ]:
         f()
