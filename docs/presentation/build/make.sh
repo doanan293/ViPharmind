@@ -4,7 +4,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PRES="$(dirname "$HERE")"
-SK="$(cd "$PRES/.." && pwd)/.claude/skills/ppt-master/scripts"
+SK="$(cd "$PRES/../.." && pwd)/.claude/skills/ppt-master/scripts"
 W="$PRES/projects/soict2026_20261104"
 PY=/usr/bin/python3
 OUT="${1:-}"
