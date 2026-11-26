@@ -65,3 +65,4 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 ## public
 
 - Trang giới thiệu chỉ giới thiệu 2 tính năng trong lưới 3 cột; hai tính năng nổi bật (bộ tài liệu có phân quyền, chặn câu hỏi ngoài phạm vi) không được nhắc · thêm hai thẻ, mỗi thẻ có icon lucide, lưới 2 cột (vi, en) · `LandingPage.test.tsx`.
+- Trang giới thiệu tiếng Việt và tiếng Anh, chuyển ngôn ngữ, trang chính sách: chạy đúng (chương `public`).

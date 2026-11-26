@@ -7,6 +7,7 @@ import { chat } from "./chapters/chat"
 import { collections } from "./chapters/collections"
 import { history } from "./chapters/history"
 import { orgs } from "./chapters/orgs"
+import { publicPages } from "./chapters/public"
 import { intro } from "./chapters/intro"
 import { chapterTitle, type DemoContext, switchUser } from "./support/demo"
 
@@ -31,4 +32,9 @@ test("walkthrough", async ({ page }) => {
   await account(page, ctx)
   await chapterTitle(page, "7. Quản trị")
   await admin(page, ctx)
+  await page.goto("/chat")
+  await page.getByRole("button", { name: "Menu tài khoản" }).click()
+  await page.getByRole("menuitem", { name: "Đăng xuất" }).click()
+  await chapterTitle(page, "8. Trang công khai")
+  await publicPages(page, ctx)
 })

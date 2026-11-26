@@ -7,6 +7,7 @@ import { chat } from "./chapters/chat"
 import { collections } from "./chapters/collections"
 import { history } from "./chapters/history"
 import { orgs } from "./chapters/orgs"
+import { publicPages } from "./chapters/public"
 import { intro } from "./chapters/intro"
 import { ask, type DemoContext } from "./support/demo"
 
@@ -60,4 +61,8 @@ test("admin", async ({ page }) => {
   const ctx: DemoContext = {}
   await auth(page, ctx)
   await admin(page, ctx)
+})
+
+test("public", async ({ page }) => {
+  await publicPages(page, {})
 })
