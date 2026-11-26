@@ -168,3 +168,30 @@ export async function ask(page: Page, question: string): Promise<void> {
   await page.getByRole("button", { name: "Gửi" }).click()
   await expect(done).toHaveCount(before + 1, { timeout: 180_000 })
 }
+
+/** The path of the newest invitation link emailed to `to` (log email provider). */
+export async function latestInvitationPath(
+  to: string,
+  since: Date
+): Promise<string> {
+  const escaped = to.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const pattern = new RegExp(
+    `not sent to ${escaped}:[^\\n]*?https?://[^\\s/]+(/invitations/[\\w-]+)`,
+    "g"
+  )
+  const deadline = Date.now() + 30_000
+  while (Date.now() < deadline) {
+    const logs = execFileSync(
+      STACK,
+      ["logs", "--since", since.toISOString(), "backend"],
+      {
+        encoding: "utf8",
+        maxBuffer: 64 * 1024 * 1024,
+      }
+    )
+    const found = [...logs.matchAll(pattern)].map((match) => match[1]).at(-1)
+    if (found !== undefined) return found
+    await new Promise((resolve) => setTimeout(resolve, 1_000))
+  }
+  throw new Error(`no invitation for ${to} in the backend log`)
+}

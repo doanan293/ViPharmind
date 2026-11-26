@@ -3,6 +3,7 @@ import { test } from "@playwright/test"
 import { auth } from "./chapters/auth"
 import { chat } from "./chapters/chat"
 import { history } from "./chapters/history"
+import { orgs } from "./chapters/orgs"
 import { intro } from "./chapters/intro"
 import { ask, type DemoContext } from "./support/demo"
 
@@ -30,4 +31,10 @@ test("history", async ({ page }) => {
   await page.goto("/chat")
   await ask(page, "Paracetamol người lớn uống tối đa bao nhiêu một ngày?")
   await history(page, ctx)
+})
+
+test("orgs", async ({ page }) => {
+  const ctx: DemoContext = {}
+  await auth(page, ctx)
+  await orgs(page, ctx)
 })
