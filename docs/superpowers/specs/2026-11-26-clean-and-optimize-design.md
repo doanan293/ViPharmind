@@ -1,6 +1,6 @@
 # Làm sạch và tối ưu ViPharmind trước khi quay demo
 
-Ngày: 2026-11-26. Trạng thái: thiết kế đã được chủ dự án duyệt hướng; đã qua một vòng soát của người lập kế hoạch; chờ duyệt bản viết.
+Ngày: 2026-11-26. Trạng thái: đã duyệt (chủ dự án, 2026-11-26).
 
 ## 1. Mục đích
 
@@ -122,9 +122,9 @@ nhạt. Việc cần làm:
 - Ranh giới tính năng chọn sao cho thuận cho việc chọn nhiệm vụ thí nghiệm về sau: mỗi commit một tính năng trọn
   vẹn có test, không lồng nhau.
 - Thay `main` bằng `main-new`. Force-push lên GitHub chỉ khi chủ dự án đồng ý ngay lúc đó; tag
-  `archive/main-2026-11-10` cũng được đẩy lên. Tag cũ (`v1.0.0`, `v1.1.0`, `soict-camera-ready`) giữ nguyên, vẫn trỏ
-  vào commit cũ. Số phận các nhánh remote khác (`dev`, `ci`, `v2.0.0`, `camera-ready`) hỏi chủ dự án cùng lúc với
-  force-push; video demo đưa vào một GitHub Release mới gắn với tag trên `main` mới.
+  `archive/main-2026-11-10` cũng được đẩy lên. Tag của bài báo (`v1.0.0`, `v1.1.0`, `soict-camera-ready`) giữ nguyên, vẫn trỏ
+  vào commit cũ (chủ dự án, 2026-11-26). Nhánh và tag khác dọn tùy ý cho gọn (chủ dự án: "sao cũng được"); việc xóa
+  trên remote vẫn làm cùng lúc với force-push sau khi chủ dự án đồng ý; video demo đưa vào một GitHub Release mới gắn với tag trên `main` mới.
 
 ## 4. Không làm
 
