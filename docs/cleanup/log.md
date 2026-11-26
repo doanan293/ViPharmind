@@ -20,3 +20,4 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 ## chat
 
 - Thẻ xem nhanh trích dẫn hiện markdown thô ("## Thai kỳ…") · `make_snippet` chỉ bỏ ký hiệu bảng · bỏ thêm dấu heading, trích dẫn, gạch đầu dòng, số thứ tự và dấu nhấn mạnh ở đầu dòng hoặc quanh từ · `tests/domain/test_text.py` (2 test).
+- Câu trả lời có trích dẫn gộp "[1, 2, 3, 4]", "[3; 5]" hiện thành chữ thô, không bấm được; kịch bản demo lần hai treo vì không thấy nút [1] · `CitationSanitizer` chỉ nhận "[n]" · chuẩn hóa dạng gộp thành "[1], [2]", bỏ số không hợp lệ, xử lý cả khi bị cắt giữa các delta stream · `tests/domain/test_citations.py` (3 test).

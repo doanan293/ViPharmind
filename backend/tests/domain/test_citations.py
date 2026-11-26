@@ -64,3 +64,22 @@ def test_citations_from_numbered_evidence() -> None:
     )
     assert first.snippet == make_snippet("paracetamol 500 mg", SNIPPET_CHARS)
     assert citations_from(numbered, used=[3]) == []
+
+
+def test_grouped_markers_become_separate_markers() -> None:
+    # Models also write "[1, 2, 4]"; the UI renders only "[n]" markers.
+    text, used = run_stream(["Tối đa 4 g [1, 2, 4] mỗi ngày [3; 5]."], {1, 2, 3, 4, 5})
+    assert text == "Tối đa 4 g [1], [2], [4] mỗi ngày [3], [5]."
+    assert used == [1, 2, 4, 3, 5]
+
+
+def test_grouped_marker_keeps_only_valid_indexes() -> None:
+    text, used = run_stream(["liều [2, 9]; xem [8, 9]."], {1, 2})
+    assert text == "liều [2]; xem ."
+    assert used == [2]
+
+
+def test_grouped_marker_split_across_deltas() -> None:
+    text, used = run_stream(["giảm liều [1,", " 3] khi suy gan"], {1, 3})
+    assert text == "giảm liều [1], [3] khi suy gan"
+    assert used == [1, 3]

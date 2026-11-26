@@ -8,12 +8,15 @@ from pharma_agent.domain.shared.text import make_snippet
 SNIPPET_CHARS = 200
 """Snippet length for evidence items and citations (spec A §3.3)."""
 
-_COMPLETE = re.compile(r"\[(\d{1,3})\]")
-_PARTIAL = re.compile(r"\[\d{0,3}$")
+# "[1]", and grouped "[1, 2, 4]" or "[3; 5]", which models also write.
+_COMPLETE = re.compile(r"\[(\d{1,3}(?:\s*[,;]\s*\d{1,3}){0,9})\]")
+_PARTIAL = re.compile(r"\[(?:\d{1,3}(?:\s*[,;]\s*\d{0,3}){0,9}|)\s*$")
+_INDEX = re.compile(r"\d{1,3}")
 
 
 class CitationSanitizer:
-    """Stateful filter over streamed text: keeps valid [n] markers, drops invalid ones, never leaks half markers."""
+    """Stateful filter over streamed text: keeps valid [n] markers (a grouped "[1, 2]" becomes
+    "[1], [2]"), drops invalid ones, never leaks half markers."""
 
     def __init__(self, valid_indexes: Iterable[int]) -> None:
         self._valid = set(valid_indexes)
@@ -34,9 +37,13 @@ class CitationSanitizer:
             rest = text[start:]
             match = _COMPLETE.match(rest)
             if match:
-                index = int(match.group(1))
-                if index in self._valid:
-                    out.append(f"[{index}]")
+                kept = [
+                    index
+                    for index in map(int, _INDEX.findall(match.group(1)))
+                    if index in self._valid
+                ]
+                out.append(", ".join(f"[{index}]" for index in kept))
+                for index in kept:
                     if index not in self.used:
                         self.used.append(index)
                 pos = start + match.end()
