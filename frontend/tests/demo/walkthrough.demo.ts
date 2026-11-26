@@ -2,6 +2,7 @@ import { test } from "@playwright/test"
 
 import { auth } from "./chapters/auth"
 import { chat } from "./chapters/chat"
+import { collections } from "./chapters/collections"
 import { history } from "./chapters/history"
 import { orgs } from "./chapters/orgs"
 import { intro } from "./chapters/intro"
@@ -21,4 +22,6 @@ test("walkthrough", async ({ page }) => {
   await history(page, ctx)
   await chapterTitle(page, "4. Tổ chức và phân quyền")
   await orgs(page, ctx)
+  await chapterTitle(page, "5. Bộ tài liệu có phân quyền")
+  await collections(page, ctx)
 })

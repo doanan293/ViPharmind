@@ -2,6 +2,7 @@ import { test } from "@playwright/test"
 
 import { auth } from "./chapters/auth"
 import { chat } from "./chapters/chat"
+import { collections } from "./chapters/collections"
 import { history } from "./chapters/history"
 import { orgs } from "./chapters/orgs"
 import { intro } from "./chapters/intro"
@@ -37,4 +38,12 @@ test("orgs", async ({ page }) => {
   const ctx: DemoContext = {}
   await auth(page, ctx)
   await orgs(page, ctx)
+})
+
+test("collections", async ({ page }) => {
+  test.setTimeout(900_000)
+  const ctx: DemoContext = {}
+  await auth(page, ctx)
+  await orgs(page, ctx)
+  await collections(page, ctx)
 })
