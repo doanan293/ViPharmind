@@ -82,7 +82,8 @@ xác minh, Google đã liên kết. Không thao tác nào được đưa số c�
 
 Giới hạn: gửi mã tới một địa chỉ 5 lần mỗi giờ, cách nhau tối thiểu 60 giây; từ một IP 20 lần mỗi giờ
 (`PHARMA_AUTH__CODE_SENDS_PER_IP_PER_HOUR`; stack demo local đặt 1000 vì mọi tài khoản demo gửi từ cùng một máy);
-đăng nhập sai 10 lần trong 15 phút theo tài khoản và theo IP. Vượt thì `429 RATE_LIMITED` kèm
+đăng nhập sai 10 lần trong 15 phút theo tài khoản và theo IP (`PHARMA_AUTH__LOGIN_FAILURES_PER_WINDOW`; stack demo
+đặt 1000). Vượt thì `429 RATE_LIMITED` kèm
 `Retry-After`; nút "Gửi lại" ở frontend đếm ngược theo đúng số giây đó.
 
 IP của khách: chỉ tin `X-Forwarded-For` khi request đi qua proxy của chính frontend (header secret

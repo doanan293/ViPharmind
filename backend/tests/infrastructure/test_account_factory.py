@@ -28,3 +28,12 @@ def test_per_ip_send_limit_must_be_positive(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("PHARMA_AUTH__CODE_SENDS_PER_IP_PER_HOUR", "0")
     with pytest.raises(ValueError, match="code_sends_per_ip_per_hour"):
         Settings(_env_file=None)
+
+
+def test_policy_takes_the_login_failure_limit_from_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PHARMA_AUTH__OTP_SECRET", OTP_SECRET)
+    assert account_policy(Settings(_env_file=None)).login_failures_per_window == 10
+    monkeypatch.setenv("PHARMA_AUTH__LOGIN_FAILURES_PER_WINDOW", "500")
+    assert account_policy(Settings(_env_file=None)).login_failures_per_window == 500

@@ -12,6 +12,8 @@ services:
       PHARMA_SMS__PROVIDER: "log"
       # Every demo account sends its codes from this machine's one address.
       PHARMA_AUTH__CODE_SENDS_PER_IP_PER_HOUR: "1000"
+      # The demo signs in with a wrong password on purpose, many runs an hour from one address.
+      PHARMA_AUTH__LOGIN_FAILURES_PER_WINDOW: "1000"
     volumes:
       - "${PHARMA_DATA_DIR:-./pharma-lab/data}/corpus:/data/corpus:ro"
 

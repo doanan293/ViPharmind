@@ -184,6 +184,8 @@ class AuthSettings(BaseModel):
     # One-time codes sent from one client address per hour. A local demo sends every
     # account's codes from the machine running it, so compose.demo.yaml raises it.
     code_sends_per_ip_per_hour: int = Field(default=20, ge=1)
+    # Failed sign-ins per account and per client address in the login window (15 minutes).
+    login_failures_per_window: int = Field(default=10, ge=1)
 
     @field_validator("jwt_secret", "csrf_secret", "otp_secret")
     @classmethod
