@@ -2,12 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** ViPharmind chạy local bằng một lệnh, tám tính năng đúng và có video demo, nhanh hơn có số đo, giao diện
+**Goal:** ViPharmind chạy local bằng một lệnh, tám tính năng đúng và có một video demo đi qua tất cả, nhanh hơn có số đo, giao diện
 có thương hiệu, mã gọn, rồi lịch sử `main` được viết lại theo tính năng.
 
 **Architecture:** Làm trên nhánh `clean` (worktree `~/personal/vipharmind-clean`). Stack demo là một project compose
-riêng (`vipharmind-demo`) dựng bằng `scripts/demo-stack.sh`. Demo là kịch bản Playwright trong `frontend/tests/demo/`
-có ghi video. Mỗi lỗi sửa theo TDD thành một commit. Viết lại lịch sử ở cuối bằng `git commit-tree` trên các đoạn
+riêng (`vipharmind-demo`) dựng bằng `scripts/demo-stack.sh`. Demo là một kịch bản Playwright (`frontend/tests/demo/walkthrough.demo.ts`)
+ghép các chương theo tính năng, ghi thành một video. Mỗi lỗi sửa theo TDD thành một commit. Viết lại lịch sử ở cuối bằng `git commit-tree` trên các đoạn
 liên tục của lịch sử `v2.0.0`.
 
 **Tech Stack:** Python 3.12, uv, FastAPI, LangGraph, Postgres, Qdrant, React Router, shadcn (Base UI), Tailwind,
@@ -40,7 +40,7 @@ Playwright, Docker Compose, llama.cpp, CLIProxyAPI; pharma-lab cho đo chất l�
 
 - Gemini qua proxy chậm hoặc trả 429: chat phải báo lỗi rõ trong giao diện, không treo; kịch bản demo có timeout đủ dài
   và không coi một lần 429 là lỗi của app (thử lại một lần).
-- Chạy lại kịch bản demo lần hai trên cùng database (email, tên tổ chức trùng) vẫn đạt: dữ liệu demo dùng hậu tố ngẫu nhiên.
+- Chạy lại video demo lần hai trên cùng database (email, tên tổ chức trùng) vẫn đạt: dữ liệu demo dùng hậu tố ngẫu nhiên.
 - Mã OTP đọc từ log: hai mã cho cùng một email trong log thì lấy mã mới nhất; log của lần chạy trước không được làm sai.
 - `/health` không được báo `CORPUS_NOT_READY` sau `reset-db` (reset chỉ xóa dữ liệu người dùng, không xóa corpus).
 - Gỡ mã thí nghiệm paper v2 không được làm hỏng cấu hình mặc định của agent và các test e2e của pharma-lab còn dùng.
@@ -103,22 +103,29 @@ Lỗi nào lộ ra: test tái hiện trong `backend/tests` → sửa → commit 
 
 ### Task 4: Hạ tầng quay demo
 
-**Files:** Create: `frontend/playwright.demo.config.ts`, `frontend/tests/demo/support/demo.ts`, `frontend/tests/demo/00-smoke.demo.ts`; Modify: `frontend/package.json` (script `demo`), `frontend/.gitignore` (`demo-videos/`)
+**Files:** Create: `frontend/playwright.demo.config.ts`, `frontend/tests/demo/support/demo.ts`, `frontend/tests/demo/chapters.demo.ts`, `frontend/tests/demo/walkthrough.demo.ts`, `frontend/tests/demo/chapters/intro.ts`; Modify: `frontend/package.json` (script `demo`, `demo:video`), `frontend/.gitignore` (`demo-videos/`)
 
 **Interfaces:**
-- Config: `testDir: tests/demo`, `testMatch: **/*.demo.ts`, `baseURL` `http://localhost:8080`, `video: "on"`,
-  viewport 1440×900, `launchOptions.slowMo` 150, `timeout` 300 s, `outputDir: demo-videos`, một worker, locale `vi-VN`.
+- Config: `testDir: tests/demo`, `testMatch: **/*.demo.ts`, `baseURL` `http://localhost:8080`, viewport 1440×900,
+  `launchOptions.slowMo` 150, một worker, locale `vi-VN`; `video` bật chỉ khi biến `DEMO_VIDEO=1`; `timeout` 300 s mỗi
+  chương, 3.600 s cho `walkthrough`; `outputDir: demo-videos`.
+- Chương: `export async function <mã>(page: Page, ctx: DemoContext): Promise<void>`, `DemoContext` giữ các tài khoản
+  đã tạo (`owner`, `member`, `outsider`: `{email, name, password}`) để chương sau dùng lại.
+- `chapters.demo.ts`: mỗi chương một test (tự tạo `DemoContext` riêng). `walkthrough.demo.ts`: một test gọi mọi chương
+  theo thứ tự bảng spec 3.2 trên cùng `page`, `chapterTitle(page, "<số>. <tên>")` trước mỗi chương.
+- `npm --prefix frontend run demo -- -g "<mã>"` chạy một chương; `npm --prefix frontend run demo:video` ghi video
+  (`DEMO_VIDEO=1`, chỉ `walkthrough.demo.ts`).
 - `demo.ts`: `uniqueEmail(prefix: string): string`; `latestCode(to: string): Promise<string>` (đọc
   `scripts/demo-stack.sh logs backend`, lấy mã mới nhất gửi tới `to`, chờ tối đa 30 s);
   `signUp(page: Page, opts: {email: string; name: string; password: string}): Promise<void>`;
   `caption(page: Page, text: string): Promise<void>` (dải chú thích tiếng Việt cuối màn hình 2,5 s, chèn bằng
-  `page.evaluate`, không sửa mã app).
-- `npm --prefix frontend run demo [-- <tên>]`.
+  `page.evaluate`, không sửa mã app); `chapterTitle(page: Page, title: string): Promise<void>` (màn tiêu đề chương 3 s);
+  `switchUser(page: Page, user: DemoUser): Promise<void>` (đăng xuất, đăng nhập tài khoản khác).
 
-- [ ] **Step 1: Viết `00-smoke.demo.ts`: mở `/`, `caption("ViPharmind")`, khẳng định tiêu đề trang**
-- [ ] **Step 2: Chạy** — `npm --prefix frontend run demo -- 00-smoke` — Expected: PASS, có `.webm` trong `frontend/demo-videos/`.
-- [ ] **Step 3: Viết `latestCode` và một kịch bản thử đăng ký; chạy hai lần liên tiếp; PASS cả hai**
-- [ ] **Step 4: Commit** — `test(demo): Playwright demo config with video, captions and log-read codes`
+- [ ] **Step 1: Viết chương `intro` (mở `/`, `chapterTitle`, `caption("ViPharmind")`, khẳng định tiêu đề trang) và `walkthrough.demo.ts` chỉ gọi `intro`**
+- [ ] **Step 2: Chạy** — `npm --prefix frontend run demo:video` — Expected: PASS, đúng một `.webm` trong `frontend/demo-videos/`.
+- [ ] **Step 3: Viết `latestCode`, `signUp`, `switchUser`; chương thử đăng ký hai tài khoản và chuyển qua lại; chạy hai lần liên tiếp; PASS cả hai**
+- [ ] **Step 4: Commit** — `test(demo): one-video Playwright walkthrough with chapters, captions and log-read codes`
 
 ### Task 5: Thương hiệu và theme
 
@@ -130,22 +137,22 @@ Lỗi nào lộ ra: test tái hiện trong `backend/tests` → sửa → commit 
 - [ ] **Step 4: Kiểm tra frontend đầy đủ; e2e đạt**
 - [ ] **Step 5: Commit** — `feat(ui): ViPharmind brand, logo and theme`
 
-### Task 6–13: Mỗi tính năng: review, sửa, video
+### Task 6–13: Mỗi tính năng: review, sửa, chương demo
 
 Thứ tự: `auth` (6), `chat` (7), `history` (8), `orgs` (9), `collections` (10), `account` (11), `admin` (12),
 `public` (13). Nội dung từng kịch bản theo bảng ở spec mục 3.2.
 
-**Files:** Create: `frontend/tests/demo/<NN>-<tính năng>.demo.ts`; Modify: mã và test của tính năng; `docs/cleanup/log.md`
+**Files:** Create: `frontend/tests/demo/chapters/<tính năng>.ts`; Modify: `frontend/tests/demo/chapters.demo.ts`, `walkthrough.demo.ts` (thêm chương); mã và test của tính năng; `docs/cleanup/log.md`
 
 **Interfaces:** Consumes `demo.ts` (Task 4), `demo-stack.sh` (Task 2).
 
 - [ ] **Step 1: Đọc spec hiện hành của tính năng (`2026-11-15-*-design.md`) và mã; chạy test backend và frontend của tính năng; ghi `log.md`**
 - [ ] **Step 2: Rà UI tính năng theo danh sách của skill ui-ux-pro-max (nhãn nút chỉ có icon, focus thấy được, vùng bấm ≥ 44px, lỗi cạnh trường, trạng thái rỗng dùng `Empty`, popover không đè nội dung); mỗi vấn đề là một lỗi**
-- [ ] **Step 3: Viết kịch bản demo; chạy** — `scripts/demo-stack.sh reset-db && npm --prefix frontend run demo -- <NN>-<tính năng>`
+- [ ] **Step 3: Viết chương; chạy riêng** — `scripts/demo-stack.sh reset-db && npm --prefix frontend run demo -- -g "<tính năng>"`
 - [ ] **Step 4: Mỗi lỗi (Step 1–3): test tái hiện (pytest, vitest hoặc browser test) → sửa → test đạt → commit `fix(<tính năng>): ...` → ghi `log.md`**
-- [ ] **Step 5: Kịch bản đạt hai lần liên tiếp không reset; kiểm tra đầy đủ của các project bị sửa đạt**
-- [ ] **Step 6: Review bằng subagent Opus: diff của tính năng từ `v2.0.0`, phần `log.md`, video. Kiểm: mỗi sửa có test; không xóa assert để dễ đạt; không đổi hành vi spec nêu mà không cập nhật spec; kịch bản không dựa vào dữ liệu có sẵn. Lặp Step 4–6 tới khi `ĐẠT`**
-- [ ] **Step 7: Commit kịch bản** — `test(demo): <tính năng> walkthrough`
+- [ ] **Step 5: Chương đạt hai lần liên tiếp không reset; `walkthrough` (các chương đã có) đạt; kiểm tra đầy đủ của các project bị sửa đạt**
+- [ ] **Step 6: Review bằng subagent Opus: diff của tính năng từ `v2.0.0`, phần `log.md`, ảnh chụp chương. Kiểm: mỗi sửa có test; không xóa assert để dễ đạt; không đổi hành vi spec nêu mà không cập nhật spec; kịch bản không dựa vào dữ liệu có sẵn. Lặp Step 4–6 tới khi `ĐẠT`**
+- [ ] **Step 7: Commit chương** — `test(demo): <tính năng> chapter`
 
 ### Task 14: Tối ưu hiệu năng
 
@@ -166,7 +173,7 @@ Thứ tự: `auth` (6), `chat` (7), `history` (8), `orgs` (9), `collections` (10
 
 - [ ] **Step 1: Subagent Opus đọc toàn bộ diff `v2.0.0..clean`, liệt kê vấn đề; sửa theo TDD tới khi `ĐẠT`**
 - [ ] **Step 2: Kiểm tra đầy đủ ba project, pre-commit `--all-files`, e2e Playwright: đạt, không tệ hơn `baseline.md` ở bất kỳ dòng nào**
-- [ ] **Step 3: Quay lại toàn bộ** — `scripts/demo-stack.sh reset-db && npm --prefix frontend run demo` — Expected: 9 PASS (smoke + tám tính năng). Xem từng video, ghi danh sách vào `docs/cleanup/demo.md`
+- [ ] **Step 3: Quay video** — `scripts/demo-stack.sh reset-db && npm --prefix frontend run demo:video` — Expected: PASS, một `.webm` đi qua intro và tám chương. Chạy lần hai không reset: PASS. Xem toàn bộ video, ghi mốc thời gian từng chương vào `docs/cleanup/demo.md`
 
 ### Task 17: Công cụ viết lại lịch sử
 
@@ -217,4 +224,4 @@ def test_rewrite_is_deterministic(tmp_repo):
 - [ ] **Step 2: Chạy test backend ở mọi commit `feat(...)` của `main-new` (xuất cây bằng `git archive` vào thư mục tạm); ghi `docs/cleanup/history.md`: số commit cũ và mới, bảng commit mới, commit nào trượt test nào**
 - [ ] **Step 3: Commit `history.md` lên `clean`, dựng lại `main-new` (Step 1) để có commit đó**
 - [ ] **Step 4: `git branch -f main main-new` (từ worktree `clean`); `git diff --quiet main clean`**
-- [ ] **Step 5: Hỏi chủ dự án: force-push `main`, đẩy `archive/main-2026-11-10`, xóa nhánh remote nào (`dev`, `ci`, `v2.0.0`, `camera-ready`), tạo GitHub Release gắn tag mới kèm video. Chỉ làm phần được đồng ý (`git push --force-with-lease origin main`, ...). Tag `v1.0.0`, `v1.1.0`, `soict-camera-ready` không đổi**
+- [ ] **Step 5: Hỏi chủ dự án: force-push `main`, đẩy `archive/main-2026-11-10`, xóa nhánh remote nào (`dev`, `ci`, `v2.0.0`, `camera-ready`), tạo GitHub Release gắn tag mới kèm video demo. Chỉ làm phần được đồng ý (`git push --force-with-lease origin main`, ...). Tag `v1.0.0`, `v1.1.0`, `soict-camera-ready` không đổi**

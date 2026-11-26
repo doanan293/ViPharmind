@@ -46,7 +46,7 @@ khi xong, nên không bị ràng buộc bởi lịch sử cũ hay bộ nhiệm v
   backend; kịch bản demo đọc mã từ `docker compose logs backend`. Không thêm endpoint mới vào backend.
 - `reset-db`: xóa dữ liệu người dùng, giữ corpus.
 
-### 3.2 Tính năng phải chạy đúng (mỗi tính năng có video demo)
+### 3.2 Tính năng phải chạy đúng (mỗi tính năng là một chương của video demo)
 
 | Mã | Tính năng | Nội dung chính |
 | --- | --- | --- |
@@ -107,7 +107,13 @@ nhạt. Việc cần làm:
 - Playwright với config riêng `frontend/playwright.demo.config.ts`: video bật, viewport 1440×900, `slowMo`, kịch bản
   trong `frontend/tests/demo/*.demo.ts` (đặt trong `tests/` theo quy tắc vị trí test của `AGENTS.md`), chạy trên
   stack local ở 3.1, có dải chú thích tiếng Việt từng bước.
-- Mỗi tính năng ở 3.2 một video; mỗi kịch bản chạy lại được hai lần liên tiếp trên cùng database.
+- **Một video duy nhất** đi qua mọi tính năng ở 3.2 theo thứ tự bảng (chủ dự án, 2026-11-26). Kịch bản
+  `frontend/tests/demo/walkthrough.demo.ts` là một test, một trang trình duyệt, nên một file video liền mạch; mỗi
+  tính năng là một chương (hàm trong `frontend/tests/demo/chapters/<mã>.ts`) mở đầu bằng dải tiêu đề chương. Việc cần
+  người dùng thứ hai (nhận lời mời, người ngoài tổ chức) làm bằng đăng xuất rồi đăng nhập tài khoản khác trên cùng
+  trang, để mọi thứ nằm trong một video.
+- Khi phát triển, từng chương chạy riêng được qua `frontend/tests/demo/chapters.demo.ts` (mỗi chương một test, không
+  cần video). Video cuối chạy lại được hai lần liên tiếp trên cùng database.
 - Video không vào git; lưu ngoài repo và đưa vào GitHub Release.
 
 ### 3.8 Lịch sử git
