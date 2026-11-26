@@ -63,17 +63,17 @@ HOOK = {
 # Header cards, one per contribution (paper §1): (tag, value, two label lines)
 CONTRIBUTIONS = [
     (
-        "Contribution 1",
+        "Resource",
         "10,000",
         ("benchmark questions on a", "released Vietnamese corpus"),
     ),
     (
-        "Contribution 2",
+        "Retrieval",
         "97.5%",
         ("relevant passage in top 10,", "retrieval vs cost compared"),
     ),
     (
-        "Contribution 3",
+        "Agentic RAG",
         "18× / 25×",
         ("fewer hallucinated answers,", "Gemini / open Qwen3.5-9B"),
     ),
@@ -126,11 +126,9 @@ PIPELINE = {
     ],
     "loop_label": "not enough evidence: refine the query, ≤ 3 rounds",
     "principle": [
-        "Each model call answers one narrow question: Is this an attack? "
-        "Is the evidence enough?",
-        "Code runs the flow, caps search at 3 rounds and lets each step be ablated.",
-        "Narrow decisions suit small models: the open Qwen3.5-9B runs every "
-        "step, like Gemini 3.8 Flash.",
+        "One narrow question per model call",
+        "Code runs the flow: ≤ 3 search rounds",
+        "Qwen3.5-9B runs every step",
     ],
     "exits": "Attacks are blocked and off-topic requests redirected by the guard",
 }
