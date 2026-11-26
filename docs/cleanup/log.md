@@ -55,3 +55,8 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 - Tên hiển thị "Pharma Agent" khác tên sản phẩm; không logo, không màu thương hiệu · i18n `appName` và tiêu đề trang · đổi thành ViPharmind; thêm `BrandMark` (logo viên nang, ẩn với trình đọc màn hình khi có chữ đi kèm) ở sidebar, trang giới thiệu, thẻ đăng nhập; theme "Xanh dược" qua biến màu shadcn (`--primary` green-700 sáng, green-500 tối; sidebar xanh nhạt); favicon SVG · `resources.test.ts`, `brand-mark.browser.test.tsx`.
 - Nút, ô nhập cao 32 px, dưới 44 px trên màn cảm ứng · cỡ mặc định của shadcn · thêm `pointer-coarse:h-11` (nút sm: h-10, nút icon: size-11) trong `button.tsx`, `input.tsx`; màn hình chuột không đổi · kiểm bằng ảnh chụp 390×844 có cảm ứng.
 - Hồ sơ, đổi mật khẩu, phiên đăng nhập (đăng xuất thiết bị khác từ xa), giao diện sáng và tối: chạy đúng (chương `account`). Đổi mật khẩu đăng xuất mọi phiên khác, đúng spec.
+
+## admin
+
+- Bảng tác vụ xuất bản hiện bộ tài liệu bằng 8 ký tự đầu của mã · `JobView` chỉ có `collection_id` · ô lấy tên từ danh sách bộ tài liệu mà trang quản trị đã tải (`useAdminCollectionsList`), không có tên thì vẫn hiện mã ngắn · `AdminPage.browser.test.tsx`.
+- Trang quản trị 404 với người thường; cấp superadmin bằng CLI; khoá người dùng làm phiên của họ kết thúc: chạy đúng (chương `admin`). Thêm lệnh `scripts/demo-stack.sh exec`.

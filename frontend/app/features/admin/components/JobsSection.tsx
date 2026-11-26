@@ -1,7 +1,10 @@
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 
-import { useAdminIngestJobsList } from "~/api/gen/endpoints"
+import {
+  useAdminCollectionsList,
+  useAdminIngestJobsList,
+} from "~/api/gen/endpoints"
 import type { JobStatus, JobStep, JobView } from "~/api/gen/schemas"
 import { DataTable, dataTableColumns } from "~/components/data-table"
 import { Badge } from "~/components/ui/badge"
@@ -49,19 +52,31 @@ function ProgressCell({ value }: { value: number }) {
   )
 }
 
+/** The collection's title (from the console's collection list), else its short id. */
+function CollectionCell({ id }: { id: string }) {
+  const stats = useAdminCollectionsList()
+  const title = stats.data?.find((item) => item.collection.id === id)
+    ?.collection.title
+  return (
+    <Link
+      to={`/collections/${id}/releases`}
+      className={
+        title === undefined
+          ? "font-mono text-xs underline-offset-4 hover:underline"
+          : "underline-offset-4 hover:underline"
+      }
+    >
+      {title ?? id.slice(0, 8)}
+    </Link>
+  )
+}
+
 const COLUMNS = column.columns([
   column.accessor("collection_id", {
     header: () => <AdminHeader k={LABELS.collection_id} />,
     enableHiding: false,
     enableSorting: false,
-    cell: ({ getValue }) => (
-      <Link
-        to={`/collections/${getValue()}/releases`}
-        className="font-mono text-xs underline-offset-4 hover:underline"
-      >
-        {getValue().slice(0, 8)}
-      </Link>
-    ),
+    cell: ({ getValue }) => <CollectionCell id={getValue()} />,
   }),
   column.accessor("status", {
     header: () => <AdminHeader k={LABELS.status} />,

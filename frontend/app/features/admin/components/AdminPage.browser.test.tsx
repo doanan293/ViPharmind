@@ -31,7 +31,12 @@ function user(overrides: Partial<AdminUserView> = {}): AdminUserView {
   }
 }
 
-async function open(superadmin: boolean, collections: unknown[] = []) {
+async function open(
+  superadmin: boolean,
+  collections: unknown[] = [],
+  section = "users",
+  jobs: unknown[] = []
+) {
   queryClient.clear()
   worker.use(
     http.get("*/api/v1/users/me", () =>
@@ -41,13 +46,13 @@ async function open(superadmin: boolean, collections: unknown[] = []) {
     http.get("*/api/v1/admin/collections", () =>
       HttpResponse.json(collections)
     ),
-    http.get("*/api/v1/admin/ingest-jobs", () => HttpResponse.json([]))
+    http.get("*/api/v1/admin/ingest-jobs", () => HttpResponse.json(jobs))
   )
   const Stub = createRoutesStub([
     {
       path: "/admin/:section?",
       loader: adminLoader,
-      Component: () => <AdminPage section="users" />,
+      Component: () => <AdminPage section={section} />,
       ErrorBoundary: () => <p>Không tìm thấy trang</p>,
       HydrateFallback: () => <p>Đang tải</p>,
     },
@@ -126,5 +131,44 @@ describe("AdminPage", () => {
       .element(page.getByText("1 đang có bản phát hành"))
       .toBeVisible()
     await expect.element(page.getByText("7", { exact: true })).toBeVisible()
+  })
+
+  test("publish jobs name their collection", async () => {
+    const id = "c0c0c0c0-0000-4000-8000-000000000001"
+    const stat = {
+      collection: {
+        id,
+        key: "phac-do",
+        title: "Phác đồ khoa Dược",
+        visibility: "organization",
+        owner_user_id: null,
+        owner_organization_id: null,
+        owner_name: "",
+        is_system: false,
+        can_edit: false,
+        can_set_public: false,
+        current_release_id: null,
+        current_release_number: 1,
+      },
+      documents: 1,
+      qdrant_points: 3,
+    }
+    const job = {
+      id: "j0j0j0j0-0000-4000-8000-000000000001",
+      collection_id: id,
+      status: "succeeded",
+      step: "publish",
+      progress: 100,
+      error: null,
+      attempts: 1,
+      release_number: 1,
+      created_at: "2026-11-26T05:00:00Z",
+      started_at: "2026-11-26T05:00:01Z",
+      finished_at: "2026-11-26T05:00:09Z",
+    }
+    await open(true, [stat], "jobs", [job])
+    await expect
+      .element(page.getByRole("link", { name: "Phác đồ khoa Dược" }))
+      .toBeVisible()
   })
 })
