@@ -130,6 +130,11 @@ và GitHub (chủ dự án).
   thành `feat(<tính năng>)`, đoạn chủ yếu là nghiên cứu (`pharma-lab`, bài báo, dữ liệu) thành `docs(...)` hoặc
   `chore(lab)`. Sau đó là các commit làm sạch của nhánh `clean` (phát lại theo cây của từng commit); cây cuối giống
   hệt `clean`. Chạy test ở mọi commit `feat` và ghi lại commit nào trượt, không sửa ngược.
+- **Cập nhật 2026-11-26 (chủ dự án: "cứ tối ưu viết lại lịch sử thoải mái, research topic ngon là được"):** mục tiêu
+  số một của lịch sử mới là cho nhiệm vụ thí nghiệm tốt. Được phép sắp xếp lại commit, gộp bản sửa test vào đúng commit
+  tính năng của nó, chọn lại ranh giới, miễn mỗi commit `feat` là một tính năng trọn vẹn, test backend đạt ở commit cha
+  và ở chính nó, và cây cuối vẫn giống hệt `clean`. Ràng buộc "không sắp xếp lại commit cũ" ở trên được nới theo cập
+  nhật này; commit nào vẫn trượt test thì ghi lại.
 - Ranh giới tính năng chọn sao cho thuận cho việc chọn nhiệm vụ thí nghiệm về sau: mỗi commit một tính năng trọn
   vẹn có test, không lồng nhau.
 - Thay `v2.0.0` bằng `v2-new`: force-push lên GitHub chỉ khi chủ dự án đồng ý ngay lúc đó; không tạo tag lưu
