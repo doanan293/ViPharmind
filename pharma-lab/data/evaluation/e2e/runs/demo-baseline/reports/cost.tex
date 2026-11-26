@@ -1,0 +1,12 @@
+\begin{table}[tb]
+\centering
+\caption{Cost and latency per turn: USD at list prices, seconds by step and end-to-end latency, per configuration.}\label{tab:e2e-cost}
+\footnotesize
+\begin{tabular}{l@{\hspace{1em}}r@{\hspace{1em}}r@{\hspace{1em}}r@{\hspace{1em}}r@{\hspace{1em}}r@{\hspace{1em}}r@{\hspace{1em}}r}
+\toprule
+Config & USD / 1000 turns & Cost of pass & LLM s & Retrieval s & Decision s & p50 s & p95 s \\
+\midrule
+w/o rerank & 13.7 & 0.018 & 28.2 & 0.748 & 9.8 & 23.0 & 51.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
