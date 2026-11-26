@@ -116,21 +116,24 @@ nhạt. Việc cần làm:
   cần video). Video cuối chạy lại được hai lần liên tiếp trên cùng database.
 - Video không vào git; lưu ngoài repo và đưa vào GitHub Release.
 
-### 3.8 Lịch sử git
+### 3.8 Lịch sử git và nhánh
 
-- Sau khi 3.1–3.7 xong: dựng nhánh `main-new` có lịch sử theo tính năng từ lịch sử tuyến tính của `v2.0.0` (bỏ qua
-  nhánh merge). **Không sắp xếp lại commit cũ:** mỗi commit mới gộp một đoạn liên tục của lịch sử cũ, nên cây ở mỗi
-  mốc là trạng thái cũ đã từng tồn tại. Ranh giới đoạn đặt ở chỗ chủ đề commit đổi (theo phạm vi trong tiêu đề
-  commit cũ và thư mục bị sửa); đoạn chủ yếu là app (`backend`, `frontend`) thành `feat(<tính năng>)`, đoạn chủ yếu
-  là nghiên cứu (`pharma-lab`, bài báo, poster, slide, dữ liệu) thành `docs(...)` hoặc `chore(lab)`. Tính năng trải
-  nhiều đoạn thì thành nhiều commit cùng phạm vi. Sau đó là các commit làm sạch của nhánh `clean`; cây cuối giống
+Chủ dự án (2026-11-26) chỉ giữ hai nhánh: **`main`** = bài SoICT (đầu nhánh `camera-ready` cũ cộng sửa poster cuối,
+`15b7267`, tag `soict-poster`), không đổi nữa; **`v2.0.0`** = hướng mới, nhận toàn bộ việc làm sạch này. Nhánh
+`camera-ready`, `dev`, `ci` đã xóa (thư mục worktree cũ lưu ở `~/personal/vipharmind-camera-ready-archive`).
+
+- Sau khi 3.1–3.7 xong: dựng nhánh `v2-new`. Phần lịch sử chung với `main` (tới điểm rẽ `3f0a46d`) giữ nguyên. Phần
+  riêng của `v2.0.0` (first-parent từ `3f0a46d`, bỏ các merge từ `camera-ready`/`main`) gộp theo đoạn liên tục:
+  **không sắp xếp lại commit cũ**, nên cây ở mỗi mốc là trạng thái cũ đã từng tồn tại. Ranh giới đoạn đặt ở chỗ chủ
+  đề commit đổi (phạm vi trong tiêu đề commit cũ và thư mục bị sửa); đoạn chủ yếu là app (`backend`, `frontend`)
+  thành `feat(<tính năng>)`, đoạn chủ yếu là nghiên cứu (`pharma-lab`, bài báo, dữ liệu) thành `docs(...)` hoặc
+  `chore(lab)`. Sau đó là các commit làm sạch của nhánh `clean` (phát lại theo cây của từng commit); cây cuối giống
   hệt `clean`. Chạy test ở mọi commit `feat` và ghi lại commit nào trượt, không sửa ngược.
 - Ranh giới tính năng chọn sao cho thuận cho việc chọn nhiệm vụ thí nghiệm về sau: mỗi commit một tính năng trọn
   vẹn có test, không lồng nhau.
-- Thay `main` bằng `main-new`. Force-push lên GitHub chỉ khi chủ dự án đồng ý ngay lúc đó; tag
-  `archive/main-2026-11-10` cũng được đẩy lên. Tag của bài báo (`v1.0.0`, `v1.1.0`, `soict-camera-ready`) giữ nguyên, vẫn trỏ
-  vào commit cũ (chủ dự án, 2026-11-26). Nhánh và tag khác dọn tùy ý cho gọn (chủ dự án: "sao cũng được"); việc xóa
-  trên remote vẫn làm cùng lúc với force-push sau khi chủ dự án đồng ý; video demo đưa vào một GitHub Release mới gắn với tag trên `main` mới.
+- Thay `v2.0.0` bằng `v2-new`: force-push lên GitHub chỉ khi chủ dự án đồng ý ngay lúc đó; trước đó tag
+  `archive/v2.0.0-2026-11-26` giữ `v2.0.0` cũ. Tag của bài báo (`v1.0.0`, `v1.1.0`, `soict-camera-ready`,
+  `soict-poster`) không đổi. Video demo đưa vào một GitHub Release gắn với tag trên `v2.0.0` mới.
 
 ## 4. Không làm
 

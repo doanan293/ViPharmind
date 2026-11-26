@@ -3,12 +3,12 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** ViPharmind chạy local bằng một lệnh, tám tính năng đúng và có một video demo đi qua tất cả, nhanh hơn có số đo, giao diện
-có thương hiệu, mã gọn, rồi lịch sử `main` được viết lại theo tính năng.
+có thương hiệu, mã gọn, rồi lịch sử riêng của `v2.0.0` được viết lại theo tính năng và `v2.0.0` trỏ vào kết quả.
 
 **Architecture:** Làm trên nhánh `clean` (worktree `~/personal/vipharmind-clean`). Stack demo là một project compose
 riêng (`vipharmind-demo`) dựng bằng `scripts/demo-stack.sh`. Demo là một kịch bản Playwright (`frontend/tests/demo/walkthrough.demo.ts`)
 ghép các chương theo tính năng, ghi thành một video. Mỗi lỗi sửa theo TDD thành một commit. Viết lại lịch sử ở cuối bằng `git commit-tree` trên các đoạn
-liên tục của lịch sử `v2.0.0`.
+liên tục của phần lịch sử riêng của `v2.0.0` (từ điểm rẽ `3f0a46d` với `main`).
 
 **Tech Stack:** Python 3.12, uv, FastAPI, LangGraph, Postgres, Qdrant, React Router, shadcn (Base UI), Tailwind,
 Playwright, Docker Compose, llama.cpp, CLIProxyAPI; pharma-lab cho đo chất lượng.
@@ -29,7 +29,7 @@ Playwright, Docker Compose, llama.cpp, CLIProxyAPI; pharma-lab cho đo chất l�
   `~/personal/vipharmind/pharma-lab/data`.
 - Embedding `qwen3-embedding-4b-q8_0.gguf` (`qwen3-embedding:4b-q8_0`, 2560 chiều), không đổi; không index lại.
 - Email, SMS local: `PHARMA_EMAIL__PROVIDER=log`, `PHARMA_SMS__PROVIDER=log`.
-- Tag của bài báo `v1.0.0`, `v1.1.0`, `soict-camera-ready` không được di chuyển hay xóa.
+- Tag của bài báo `v1.0.0`, `v1.1.0`, `soict-camera-ready`, `soict-poster` không được di chuyển hay xóa. `main` (bài SoICT) không đổi nữa.
 - UI chỉ dùng shadcn (thêm component bằng `npx shadcn add`) và thư viện đã có trong `frontend/package.json`.
 - Người review là Opus (`claude-opus-5-5`, medium), phiên khác người sửa. Không dùng Fable.
 - Kiểm tra đầy đủ một project Python (chạy trong `backend/` hoặc `pharma-lab/`):
@@ -184,7 +184,8 @@ Thứ tự: `auth` (6), `chat` (7), `history` (8), `orgs` (9), `collections` (10
   đi lịch sử first-parent của `old_ref` từ gốc, gom các commit liên tiếp cùng `kind` (`app` nếu đa số file thuộc
   `backend/`, `frontend/`, `compose*`, `devops/`; ngược lại `research`) và cùng `scope` (phạm vi trong tiêu đề
   conventional commit, ví dụ `chat`, `auth`; không có thì thư mục cấp hai bị sửa nhiều nhất).
-- `def rewrite(repo: Path, old_ref: str, tail_base: str, tail_ref: str, branch: str) -> list[str]`: mỗi segment một
+- `def rewrite(repo: Path, fork: str, old_ref: str, tail_base: str, tail_ref: str, branch: str) -> list[str]`: bắt đầu từ
+  commit `fork` (giữ nguyên), segment lấy first-parent của `fork..old_ref`; mỗi segment một
   commit qua `git commit-tree <tree của end> -p <commit trước>`, tiêu đề `feat(<scope>): <tóm tắt>` cho `app`,
   `docs(<scope>): ...` cho `research`, thân liệt kê tiêu đề các commit cũ đã gộp; tác giả và ngày lấy từ `end`; sau
   đó phát lại từng commit của `tail_base..tail_ref` (first-parent) bằng cây của chính nó. Trả danh sách SHA.
@@ -204,24 +205,24 @@ def test_segments_group_consecutive_scope(
 
 
 def test_rewrite_keeps_trees_and_tail(tmp_repo):
-    shas = rewrite(tmp_repo, "main", "main", "tail", "new")
+    shas = rewrite(tmp_repo, "c0", "main", "main", "tail", "new")
     assert tree("new") == tree("tail")
     assert {tree(s) for s in shas} >= {tree(c) for c in segment_ends(tmp_repo, "main")}
 
 
 def test_rewrite_is_deterministic(tmp_repo):
-    assert rewrite(tmp_repo, "main", "main", "tail", "a") == rewrite(
-        tmp_repo, "main", "main", "tail", "b"
+    assert rewrite(tmp_repo, "c0", "main", "main", "tail", "a") == rewrite(
+        tmp_repo, "c0", "main", "main", "tail", "b"
     )
 ```
 
 - [ ] **Step 2: Chạy, xác nhận hỏng; cài đặt; chạy, xác nhận đạt**
 - [ ] **Step 3: Commit** — `chore(history): rewrite tool for one commit per feature run`
 
-### Task 18: Viết lại lịch sử và thay `main`
+### Task 18: Viết lại lịch sử và thay `v2.0.0`
 
-- [ ] **Step 1: Dựng** — `uv run python devops/history/rewrite.py --old-ref v2.0.0 --tail-base v2.0.0 --tail-ref clean --branch main-new` — Expected: `git diff --quiet clean main-new` thoát 0.
-- [ ] **Step 2: Chạy test backend ở mọi commit `feat(...)` của `main-new` (xuất cây bằng `git archive` vào thư mục tạm); ghi `docs/cleanup/history.md`: số commit cũ và mới, bảng commit mới, commit nào trượt test nào**
-- [ ] **Step 3: Commit `history.md` lên `clean`, dựng lại `main-new` (Step 1) để có commit đó**
-- [ ] **Step 4: `git branch -f main main-new` (từ worktree `clean`); `git diff --quiet main clean`**
-- [ ] **Step 5: Hỏi chủ dự án: force-push `main`, đẩy `archive/main-2026-11-10`, xóa nhánh remote nào (`dev`, `ci`, `v2.0.0`, `camera-ready`), tạo GitHub Release gắn tag mới kèm video demo. Chỉ làm phần được đồng ý (`git push --force-with-lease origin main`, ...). Tag `v1.0.0`, `v1.1.0`, `soict-camera-ready` không đổi**
+- [ ] **Step 1: Dựng** — tạo tag `archive/v2.0.0-2026-11-26` = `b4f505c`, rồi `uv run python devops/history/rewrite.py --fork 3f0a46d --old-ref archive/v2.0.0-2026-11-26 --tail-base b4f505c --tail-ref clean --branch v2-new` (phát lại first-parent `b4f505c..clean`) — Expected: `git diff --quiet clean v2-new` thoát 0; `git merge-base --is-ancestor 3f0a46d v2-new` đúng.
+- [ ] **Step 2: Chạy test backend ở mọi commit `feat(...)` của `v2-new` (xuất cây bằng `git archive` vào thư mục tạm); ghi `docs/cleanup/history.md`: số commit cũ và mới, bảng commit mới, commit nào trượt test nào**
+- [ ] **Step 3: Commit `history.md` lên `clean`, dựng lại `v2-new` (Step 1) để có commit đó**
+- [ ] **Step 4: Worktree `~/personal/vipharmind` đang ở `v2.0.0` và có file chưa commit (`guard_set.todo.jsonl`): hỏi chủ dự án trước khi chuyển nhánh của worktree đó; rồi `git branch -f v2.0.0 v2-new`; `git diff --quiet v2.0.0 clean`**
+- [ ] **Step 5: Hỏi chủ dự án: force-push `v2.0.0`, đẩy tag `archive/v2.0.0-2026-11-26`, tạo GitHub Release gắn tag mới trên `v2.0.0` kèm video demo (`gh` dùng tài khoản `doanan293`: `GH_TOKEN=$(gh auth token --user doanan293)`). Chỉ làm phần được đồng ý. Tag của bài báo và `main` không đổi**
