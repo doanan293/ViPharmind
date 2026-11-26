@@ -29,7 +29,8 @@ Playwright, Docker Compose, llama.cpp, CLIProxyAPI; pharma-lab cho đo chất l�
   `~/personal/vipharmind/pharma-lab/data`.
 - Embedding `qwen3-embedding-4b-q8_0.gguf` (`qwen3-embedding:4b-q8_0`, 2560 chiều), không đổi; không index lại.
 - Email, SMS local: `PHARMA_EMAIL__PROVIDER=log`, `PHARMA_SMS__PROVIDER=log`.
-- Tag của bài báo `v1.0.0`, `v1.1.0`, `soict-camera-ready`, `soict-poster` không được di chuyển hay xóa. `main` (bài SoICT) không đổi nữa.
+- Tag `v1.1.0` (bài SoICT; chú thích trong bài trỏ vào đây) không được di chuyển hay xóa; các tag khác của bài đã gộp
+  vào Release `v1.1.0` (chủ dự án, 2026-11-26). `main` (bài SoICT) không đổi nữa. Mỗi Release mang đúng tên tag của nó.
 - UI chỉ dùng shadcn (thêm component bằng `npx shadcn add`) và thư viện đã có trong `frontend/package.json`.
 - Người review là Opus (`claude-opus-5-5`, medium), phiên khác người sửa. Không dùng Fable.
 - Kiểm tra đầy đủ một project Python (chạy trong `backend/` hoặc `pharma-lab/`):

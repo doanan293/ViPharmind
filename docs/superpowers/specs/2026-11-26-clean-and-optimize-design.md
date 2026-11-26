@@ -126,7 +126,7 @@ nhạt. Việc cần làm:
 ### 3.8 Lịch sử git và nhánh
 
 Chủ dự án (2026-11-26) chỉ giữ hai nhánh: **`main`** = bài SoICT (đầu nhánh `camera-ready` cũ cộng sửa poster cuối,
-`15b7267`, tag `soict-poster`), không đổi nữa; **`v2.0.0`** = hướng mới, nhận toàn bộ việc làm sạch này. Nhánh
+`15b7267`), không đổi nữa; **`v2.0.0`** = hướng mới, nhận toàn bộ việc làm sạch này. Nhánh
 `camera-ready`, `dev`, `ci` đã xóa cả trên GitHub lẫn trên máy. Không giữ bản lưu trữ: dữ liệu đã có trên Kaggle
 và GitHub (chủ dự án).
 
@@ -145,8 +145,9 @@ và GitHub (chủ dự án).
 - Ranh giới tính năng chọn sao cho thuận cho việc chọn nhiệm vụ thí nghiệm về sau: mỗi commit một tính năng trọn
   vẹn có test, không lồng nhau.
 - Thay `v2.0.0` bằng `v2-new`: force-push lên GitHub chỉ khi chủ dự án đồng ý ngay lúc đó; không tạo tag lưu
-  trữ cho `v2.0.0` cũ (chủ dự án: không cần archive). Tag của bài báo (`v1.0.0`, `v1.1.0`, `soict-camera-ready`,
-  `soict-poster`) không đổi. Video demo đưa vào một GitHub Release gắn với tag trên `v2.0.0` mới.
+  trữ cho `v2.0.0` cũ (chủ dự án: không cần archive). Bài SoICT chỉ còn một cặp Release và tag `v1.1.0` (chủ dự án, 2026-11-26: paper,
+  poster, slide gộp vào đó; tag `v1.0.0`, `soict-camera-ready`, `soict-poster` đã xóa); `v1.1.0` không đổi. Mỗi Release
+  mang đúng tên tag của nó. Video demo đưa vào Release `v2.0.0` gắn với tag `v2.0.0` trên nhánh `v2.0.0` mới.
 
 ## 4. Không làm
 
