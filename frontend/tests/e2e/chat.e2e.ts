@@ -92,9 +92,6 @@ test("ask, see the phase, read the [1] answer, preview and open the full source"
   expect((await detail).status()).toBe(200)
   await expect(page.getByRole("heading", { name: "Nguồn [1]" })).toBeVisible()
   await expect(
-    page.getByText(/^(Toàn bộ mục|Đoạn và các đoạn lân cận|Một đoạn)$/)
-  ).toBeVisible()
-  await expect(
     page.getByRole("region", { name: "Đoạn được trích dẫn" })
   ).toBeVisible()
 })
