@@ -27,7 +27,7 @@ from pharma_agent.domain.corpus.chunking import (
     chunk_document,
 )
 from pharma_agent.domain.retrieval.models import Hit
-from pharma_agent.domain.shared.text import make_snippet
+from pharma_agent.domain.shared.text import make_preview
 from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     ChunkVersionTable,
     CollectionTable,
@@ -341,7 +341,7 @@ def citation_for(
         section=CITED_SECTION,
         start_page=matched.start_page,
         end_page=matched.end_page,
-        snippet=make_snippet(matched.chunk_text, SNIPPET_CHARS),
+        snippet=make_preview(matched.chunk_text, SNIPPET_CHARS),
     )
 
 
