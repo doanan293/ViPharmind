@@ -115,4 +115,12 @@ describe("DocumentEditorPage", () => {
       )
       .toBeVisible()
   })
+
+  test("the upload control is a labelled button, not the browser's file picker", async () => {
+    serve()
+    await open()
+    // The native file input shows browser chrome ("Choose File") in the browser's language.
+    // Only a real button shows its label as text; the native input shows "Choose File".
+    await expect.element(page.getByText("Tải lên .md hoặc .txt")).toBeVisible()
+  })
 })

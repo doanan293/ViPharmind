@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { UploadIcon } from "lucide-react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useDocumentsUpload } from "~/api/gen/endpoints"
@@ -12,7 +13,6 @@ import {
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog"
 import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
 import { toast } from "~/components/ui/toast"
 import { apiErrorMessage } from "~/i18n/error-message"
 
@@ -30,16 +30,29 @@ export function UploadButton({
   const { t: tErrors } = useTranslation("errors")
   const upload = useDocumentsUpload()
   const [pending, setPending] = useState<UploadResult | null>(null)
+  const input = useRef<HTMLInputElement>(null)
 
   return (
     <>
-      <Input
+      {/* The native picker shows browser chrome in the browser's language: a button opens it. */}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={upload.isPending}
+        onClick={() => input.current?.click()}
+      >
+        <UploadIcon aria-hidden="true" />
+        {t("editor.upload")}
+      </Button>
+      <input
+        ref={input}
         type="file"
         accept=".md,.txt,text/markdown,text/plain"
         aria-label={t("editor.upload")}
-        title={t("editor.upload")}
+        className="sr-only"
+        tabIndex={-1}
         disabled={upload.isPending}
-        className="max-w-xs"
         onChange={(event) => {
           const file = event.target.files?.[0]
           event.target.value = ""

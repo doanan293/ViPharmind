@@ -38,3 +38,7 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 ## tooling
 
 - Hook pre-commit `frontend-api-drift` luôn trượt khi commit từ một git worktree phụ · git đặt `GIT_DIR` cho hook, `npm --prefix frontend` làm git coi `frontend/` là gốc work tree · hook đặt `GIT_WORK_TREE` trước khi chạy · kiểm bằng chạy hook với `GIT_DIR` đặt sẵn.
+
+## collections
+
+- Trình soạn tài liệu hiện ô chọn file mặc định của trình duyệt ("Choose File No file chosen", tiếng Anh, lệch kiểu) · `UploadButton` dùng `<Input type="file">` · nút `Button` của shadcn có icon và nhãn tiếng Việt mở một input ẩn (`sr-only`) · `DocumentEditorPage.browser.test.tsx` (nhãn hiện thành chữ).
