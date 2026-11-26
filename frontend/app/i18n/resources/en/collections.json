@@ -50,7 +50,8 @@
     "add": "Add a term",
     "remove": "Remove row",
     "save": "Save glossary",
-    "saved": "Glossary saved."
+    "saved": "Glossary saved.",
+    "empty": "No terms yet."
   },
   "colloquial": {
     "key": "Colloquial name",
@@ -62,7 +63,8 @@
     "remove": "Remove row",
     "save": "Save names",
     "saved": "Colloquial names saved.",
-    "noSections": "No sections."
+    "noSections": "No sections.",
+    "empty": "No colloquial names yet."
   },
   "releases": {
     "empty": "Not published yet.",

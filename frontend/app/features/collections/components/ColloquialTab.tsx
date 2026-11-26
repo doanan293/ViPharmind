@@ -11,6 +11,7 @@ import {
 import type { ColloquialMappingRecord, SectionChoice } from "~/api/gen/schemas"
 import { TagsInput } from "~/components/tags-input"
 import { Button } from "~/components/ui/button"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
 import { toast } from "~/components/ui/toast"
@@ -85,6 +86,13 @@ function ColloquialEditor({
 
   return (
     <div className="flex flex-col gap-4">
+      {rows.length === 0 ? (
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyDescription>{t("colloquial.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : null}
       <ul className="flex flex-col gap-3">
         {rows.map((row) => (
           <li

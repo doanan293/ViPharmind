@@ -9,6 +9,7 @@ import {
 } from "~/api/gen/endpoints"
 import type { GlossaryEntry } from "~/api/gen/schemas"
 import { Button } from "~/components/ui/button"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
 import { TagsInput } from "~/components/tags-input"
@@ -85,6 +86,13 @@ function GlossaryEditor({
 
   return (
     <div className="flex flex-col gap-4">
+      {rows.length === 0 ? (
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyDescription>{t("glossary.empty")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : null}
       <ul className="flex flex-col gap-3">
         {rows.map((row) => (
           <li

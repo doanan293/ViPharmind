@@ -50,7 +50,8 @@
     "add": "Thêm thuật ngữ",
     "remove": "Xoá dòng",
     "save": "Lưu thuật ngữ",
-    "saved": "Đã lưu thuật ngữ."
+    "saved": "Đã lưu thuật ngữ.",
+    "empty": "Chưa có thuật ngữ nào."
   },
   "colloquial": {
     "key": "Tên gọi dân gian",
@@ -62,7 +63,8 @@
     "remove": "Xoá dòng",
     "save": "Lưu tên gọi",
     "saved": "Đã lưu tên gọi dân gian.",
-    "noSections": "Không có mục nào."
+    "noSections": "Không có mục nào.",
+    "empty": "Chưa có tên gọi dân gian nào."
   },
   "releases": {
     "empty": "Chưa xuất bản lần nào.",

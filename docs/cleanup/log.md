@@ -42,3 +42,4 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 ## collections
 
 - Trình soạn tài liệu hiện ô chọn file mặc định của trình duyệt ("Choose File No file chosen", tiếng Anh, lệch kiểu) · `UploadButton` dùng `<Input type="file">` · nút `Button` của shadcn có icon và nhãn tiếng Việt mở một input ẩn (`sr-only`) · `DocumentEditorPage.browser.test.tsx` (nhãn hiện thành chữ).
+- Tab Thuật ngữ và Tên gọi dân gian khi rỗng chỉ có hai nút trơn · không có trạng thái rỗng · thêm `Empty` của shadcn với câu "Chưa có thuật ngữ nào.", "Chưa có tên gọi dân gian nào." (vi, en) như tab Tài liệu · `CollectionPage.browser.test.tsx` (2 test).

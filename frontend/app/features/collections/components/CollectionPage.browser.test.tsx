@@ -206,4 +206,31 @@ describe("CollectionPage", () => {
       .element(page.getByText("Đã xuất bản bản 1."), { timeout: 5000 })
       .toBeVisible()
   })
+
+  test("an empty glossary says so instead of showing bare buttons", async () => {
+    serve(collection())
+    worker.use(
+      http.get(`*/api/v1/collections/${ID}/glossary`, () =>
+        HttpResponse.json([])
+      )
+    )
+    await open("glossary")
+    await expect.element(page.getByText("Chưa có thuật ngữ nào.")).toBeVisible()
+  })
+
+  test("an empty colloquial list says so", async () => {
+    serve(collection())
+    worker.use(
+      http.get(`*/api/v1/collections/${ID}/colloquial`, () =>
+        HttpResponse.json([])
+      ),
+      http.get(`*/api/v1/collections/${ID}/sections`, () =>
+        HttpResponse.json([])
+      )
+    )
+    await open("colloquial")
+    await expect
+      .element(page.getByText("Chưa có tên gọi dân gian nào."))
+      .toBeVisible()
+  })
 })
