@@ -35,6 +35,7 @@ export async function auth(page: Page, ctx: DemoContext): Promise<void> {
 
   await caption(page, "Quên mật khẩu: nhận mã qua email rồi đặt mật khẩu mới")
   await page.getByRole("link", { name: "Quên mật khẩu?" }).click()
+  await expect(page.getByText("Quên mật khẩu", { exact: true })).toBeVisible()
   await page
     .getByRole("textbox", { name: "Email", exact: true })
     .fill(ctx.owner.email)

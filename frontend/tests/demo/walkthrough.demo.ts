@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs"
+
 import { test } from "@playwright/test"
 
 import { account } from "./chapters/account"
@@ -9,10 +11,19 @@ import { history } from "./chapters/history"
 import { orgs } from "./chapters/orgs"
 import { publicPages } from "./chapters/public"
 import { intro } from "./chapters/intro"
-import { chapterTitle, type DemoContext, switchUser } from "./support/demo"
+import {
+  chapterTitle,
+  type DemoContext,
+  logOut,
+  recording,
+  switchUser,
+} from "./support/demo"
 
 // The whole demo as one test, one page, so one continuous video.
 test("walkthrough", async ({ page }) => {
+  // The video starts with the page, just before the test body.
+  recording.startedAt = Date.now()
+  recording.waits = []
   const ctx: DemoContext = {}
   await page.goto("/")
   await chapterTitle(page, "ViPharmind")
@@ -33,8 +44,11 @@ test("walkthrough", async ({ page }) => {
   await chapterTitle(page, "7. Quản trị")
   await admin(page, ctx)
   await page.goto("/chat")
-  await page.getByRole("button", { name: "Menu tài khoản" }).click()
-  await page.getByRole("menuitem", { name: "Đăng xuất" }).click()
+  await logOut(page)
   await chapterTitle(page, "8. Trang công khai")
   await publicPages(page, ctx)
+  writeFileSync(
+    test.info().outputPath("waits.json"),
+    JSON.stringify({ waits: recording.waits }, null, 2)
+  )
 })

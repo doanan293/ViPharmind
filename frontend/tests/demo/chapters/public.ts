@@ -12,17 +12,17 @@ export async function publicPages(
   await page
     .getByRole("heading", { name: "Tính năng" })
     .scrollIntoViewIfNeeded()
-  await page.waitForTimeout(2_000)
+  await page.waitForTimeout(800)
   await page.getByRole("link", { name: "English" }).click()
   await expect(page.locator("html")).toHaveAttribute("lang", "en")
-  await page.waitForTimeout(2_000)
+  await page.waitForTimeout(800)
   await caption(
     page,
     "Chính sách quyền riêng tư nêu rõ dữ liệu nào được lưu và ai được đọc"
   )
   await page.getByRole("link", { name: "Privacy policy" }).click()
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
-  await page.waitForTimeout(2_000)
+  await page.waitForTimeout(800)
   await page.goto("/")
-  await caption(page, "ViPharmind: tra cứu thuốc có trích dẫn nguồn", 3_500)
+  await caption(page, "ViPharmind: tra cứu thuốc có trích dẫn nguồn", 2_000)
 }

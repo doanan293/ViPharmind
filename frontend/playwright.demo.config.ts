@@ -24,6 +24,6 @@ export default defineConfig({
     screenshot: "only-on-failure",
     // A wrong selector fails fast; answers wait in `ask` with their own timeout.
     actionTimeout: 30_000,
-    launchOptions: { slowMo: 150 },
+    launchOptions: { slowMo: 60 },
   },
 })

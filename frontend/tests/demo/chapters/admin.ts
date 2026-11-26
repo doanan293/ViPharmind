@@ -46,5 +46,5 @@ export async function admin(page: Page, ctx: DemoContext): Promise<void> {
   await guestPage.goto("/chat")
   await expect(guestPage).toHaveURL(/\/login/)
   await guest.close()
-  await page.waitForTimeout(1_500)
+  await page.waitForTimeout(800)
 }

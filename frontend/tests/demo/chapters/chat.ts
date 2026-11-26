@@ -17,13 +17,13 @@ export async function chat(page: Page, ctx: DemoContext): Promise<void> {
   const marker = page.getByRole("button", { name: /^\d{1,3}$/ }).first()
   await marker.hover()
   await expect(page.getByText(/^Trích từ mục /)).toBeVisible()
-  await page.waitForTimeout(1_500)
+  await page.waitForTimeout(800)
   await caption(page, "Bấm vào trích dẫn để mở nguyên văn đoạn tài liệu")
   await marker.click()
   await expect(
     page.getByRole("heading", { name: /^Nguồn \[\d+\]$/ })
   ).toBeVisible()
-  await page.waitForTimeout(2_500)
+  await page.waitForTimeout(800)
   await page.keyboard.press("Escape")
 
   await caption(page, "Câu hỏi nối tiếp hiểu ngữ cảnh của câu trước")
@@ -37,5 +37,5 @@ export async function chat(page: Page, ctx: DemoContext): Promise<void> {
     .getByRole("button", { name: "Hữu ích", exact: true })
     .first()
     .click()
-  await page.waitForTimeout(1_500)
+  await page.waitForTimeout(800)
 }

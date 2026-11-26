@@ -12,6 +12,11 @@ export async function history(page: Page, _ctx: DemoContext): Promise<void> {
     "Mở cuộc trò chuyện mới; cuộc cũ vẫn nằm trong danh sách bên trái"
   )
   await page.getByRole("link", { name: "Cuộc trò chuyện mới" }).click()
+  // Wait for the empty conversation before `ask` counts the answers on the page.
+  await expect(page).toHaveURL(/\/chat$/)
+  await expect(page.getByRole("button", { name: "Chưa hữu ích" })).toHaveCount(
+    0
+  )
   await ask(page, "Amoxicillin có dùng được cho người dị ứng penicillin không?")
 
   await caption(

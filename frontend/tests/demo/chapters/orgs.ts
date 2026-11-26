@@ -50,5 +50,5 @@ export async function orgs(page: Page, ctx: DemoContext): Promise<void> {
   await expect(
     page.getByText(new RegExp(`đã đổi vai trò của ${ctx.member.name}`))
   ).toBeVisible()
-  await page.waitForTimeout(2_000)
+  await page.waitForTimeout(800)
 }

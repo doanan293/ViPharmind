@@ -219,6 +219,18 @@ def test_rewrite_is_deterministic(tmp_repo):
 - [ ] **Step 2: Chạy, xác nhận hỏng; cài đặt; chạy, xác nhận đạt**
 - [ ] **Step 3: Commit** — `chore(history): rewrite tool for one commit per feature run`
 
+### Task 17b: Phục vụ giai đoạn 2 (bộ test chắc, danh mục tính năng)
+
+Thêm 2026-11-26 (chủ dự án duyệt): giai đoạn 2 dựng nhiệm vụ bằng cách gỡ tính năng khỏi `clean`, dùng test sẵn
+có làm test hồi quy. Làm trước Task 18 để lịch sử mới có các commit này.
+
+- [ ] **Step 1: Chạy toàn bộ test backend và frontend (unit, browser) 5 lần liền** — Expected: 5/5 xanh, không test
+  nào chập chờn. Test viết sai hoặc chập chờn thì sửa (chủ dự án cho phép sửa test), ghi vào `docs/cleanup/log.md`.
+- [ ] **Step 2: `docs/features.md`: danh mục tính năng** — mỗi tính năng: mô tả cho người dùng, file backend và
+  frontend, route API, migration, test sẵn có, cỡ (nhỏ, vừa, lớn), có nặng quy tắc không, commit `feat` tương ứng
+  trong lịch sử mới. Opus soát danh mục với code.
+- [ ] **Step 3: Commit**
+
 ### Task 18: Viết lại lịch sử và thay `v2.0.0`
 
 - [ ] **Step 1: Dựng** — tạo ref tạm `refs/rewrite/old-v2` = `b4f505c` (xóa sau Step 4), rồi `uv run python devops/history/rewrite.py --fork 3f0a46d --old-ref refs/rewrite/old-v2 --tail-base b4f505c --tail-ref clean --branch v2-new` (phát lại first-parent `b4f505c..clean`) — Expected: `git diff --quiet clean v2-new` thoát 0; `git merge-base --is-ancestor 3f0a46d v2-new` đúng.

@@ -6,6 +6,18 @@ import { type Page, expect } from "@playwright/test"
 
 export type DemoUser = { email: string; name: string; password: string }
 
+/**
+ * Waits for an answer, in milliseconds since the recording started; `scripts/demo-video.py`
+ * speeds these up in the final video. The walkthrough sets `recording.startedAt`.
+ */
+export const recording: {
+  startedAt: number | null
+  waits: [number, number][]
+} = {
+  startedAt: null,
+  waits: [],
+}
+
 /** Accounts created by earlier chapters, reused by later ones. */
 export type DemoContext = {
   owner?: DemoUser
@@ -58,7 +70,7 @@ export async function latestCode(
 export async function caption(
   page: Page,
   text: string,
-  ms = 2_500
+  ms = 1_400
 ): Promise<void> {
   await page.evaluate(
     ({ label, duration }) => {
@@ -94,7 +106,7 @@ export async function caption(
 export async function chapterTitle(
   page: Page,
   title: string,
-  ms = 3_000
+  ms = 1_500
 ): Promise<void> {
   await page.evaluate(
     ({ label, duration }) => {
@@ -172,6 +184,7 @@ export async function ask(page: Page, question: string): Promise<void> {
     .getByRole("textbox", { name: "Tin nhắn", exact: true })
     .fill(question)
   await page.getByRole("button", { name: "Gửi" }).click()
+  const waitStarted = Date.now()
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const answered = expect(done).toHaveCount(before + 1, { timeout: 180_000 })
     const failed = expect(retry).toHaveCount(retriesBefore + 1, {
@@ -181,7 +194,15 @@ export async function ask(page: Page, question: string): Promise<void> {
       answered.then(() => "answered" as const),
       failed.then(() => "failed" as const),
     ])
-    if (outcome === "answered") return
+    if (outcome === "answered") {
+      if (recording.startedAt !== null) {
+        recording.waits.push([
+          waitStarted - recording.startedAt,
+          Date.now() - recording.startedAt,
+        ])
+      }
+      return
+    }
     if (attempt === 0) await retry.last().click()
   }
   throw new Error(`the answer to "${question}" failed twice`)
