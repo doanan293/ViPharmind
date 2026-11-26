@@ -14,13 +14,15 @@ export async function chat(page: Page, ctx: DemoContext): Promise<void> {
   await ask(page, "Paracetamol người lớn uống tối đa bao nhiêu một ngày?")
 
   await caption(page, "Mỗi ý có trích dẫn [1], [2]: rê chuột để xem đoạn nguồn")
-  const marker = page.getByRole("button", { name: "1", exact: true }).last()
+  const marker = page.getByRole("button", { name: /^\d{1,3}$/ }).first()
   await marker.hover()
   await expect(page.getByText(/^Trích từ mục /)).toBeVisible()
   await page.waitForTimeout(1_500)
   await caption(page, "Bấm vào trích dẫn để mở nguyên văn đoạn tài liệu")
   await marker.click()
-  await expect(page.getByRole("heading", { name: "Nguồn [1]" })).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: /^Nguồn \[\d+\]$/ })
+  ).toBeVisible()
   await page.waitForTimeout(2_500)
   await page.keyboard.press("Escape")
 
