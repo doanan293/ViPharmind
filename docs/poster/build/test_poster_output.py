@@ -47,9 +47,9 @@ def test_hook_strings_in_pdf():
 def test_contributions_in_header():
     text = pdf_text()
     for s in [
-        "Contribution 1",
-        "Contribution 2",
-        "Contribution 3",
+        "Resource",
+        "Retrieval",
+        "Agentic RAG",
         "10,000",
         "97.5%",
         "18× / 25×",
@@ -92,10 +92,10 @@ def test_pipeline_is_full_width_after_hook():
 
 def test_pipeline_principle_panel():
     t = " ".join(group_text("pipeline-principle").split())
-    assert "Is the evidence enough?" in t, t
+    assert "One narrow question per model call" in t, t
     assert "Qwen3.5-9B runs every step" in t, t
-    # paper: "at most three search rounds", "lets each step be ablated"
-    assert "caps search at 3 rounds and lets each step be ablated" in t, t
+    # paper: "for at most three search rounds"
+    assert "≤ 3 search rounds" in t, t
 
 
 def test_badges_follow_reading_order():
