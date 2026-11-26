@@ -42,8 +42,8 @@ khi xong, nên không bị ràng buộc bởi lịch sử cũ hay bộ nhiệm v
   `vipharmind_cli_proxy_auth` sang `vipharmind-demo_cli_proxy_auth` (chỉ đọc nguồn).
 - **Không index lại**: nạp gói `pharma-lab/data/corpus/formulary` bằng `pharma-agent corpus import` (chỉ nạp
   vector có sẵn); bỏ qua nếu Qdrant đã có collection khớp model.
-- Email và SMS ở local: bộ gửi dev ghi mã ra log và có endpoint đọc mã như backend e2e (`/__e2e/outbox`), chỉ bật
-  khi biến môi trường dev bật; không bao giờ bật ở production.
+- Email và SMS ở local: provider `log` có sẵn (`PHARMA_EMAIL__PROVIDER=log`, `PHARMA_SMS__PROVIDER=log`) ghi mã ra log
+  backend; kịch bản demo đọc mã từ `docker compose logs backend`. Không thêm endpoint mới vào backend.
 - `reset-db`: xóa dữ liệu người dùng, giữ corpus.
 
 ### 3.2 Tính năng phải chạy đúng (mỗi tính năng có video demo)
