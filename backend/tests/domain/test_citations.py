@@ -83,3 +83,14 @@ def test_grouped_marker_split_across_deltas() -> None:
     text, used = run_stream(["giảm liều [1,", " 3] khi suy gan"], {1, 3})
     assert text == "giảm liều [1], [3] khi suy gan"
     assert used == [1, 3]
+
+
+def test_citation_snippets_are_previews_without_markdown() -> None:
+    # The stored citation is what the hover card shows: markdown markers must not reach it.
+    evidence = EvidenceSet()
+    evidence.merge(
+        [make_hit("c1", rerank=0.9, text="## Liều dùng\n- **Người lớn:** 500 mg")]
+    )
+    _, numbered = evidence.context_view(evidence.pack(10_000))
+    (citation,) = citations_from(numbered, used=[1])
+    assert citation.snippet == "Liều dùng Người lớn: 500 mg"
