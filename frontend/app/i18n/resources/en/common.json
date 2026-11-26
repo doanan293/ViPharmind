@@ -1,5 +1,5 @@
 {
-  "appName": "Pharma Agent",
+  "appName": "ViPharmind",
   "actions": {
     "close": "Close",
     "loading": "Loading…"

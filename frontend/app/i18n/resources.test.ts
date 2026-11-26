@@ -23,4 +23,13 @@ describe("translation resources", () => {
       keysOf(resources.vi[namespace]).toSorted()
     )
   })
+
+  test("the product is called ViPharmind everywhere it is named", () => {
+    for (const language of ["vi", "en"] as const) {
+      expect(resources[language].common.appName).toBe("ViPharmind")
+      expect(
+        resources[language].landing.meta.title.startsWith("ViPharmind")
+      ).toBe(true)
+    }
+  })
 })

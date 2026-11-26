@@ -49,3 +49,8 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 ## account
 
 - Test `SessionsList` "cannot be loaded, retries" trượt chập chờn (khoảng 1/3 lần chạy cả bộ) · request refetch còn sót từ test trước tới lúc handler vừa reset, MSW ghi lỗi request không có handler và fail-on-console đánh trượt test · `beforeEach` đặt handler mặc định cho `/account/sessions` · 0/30 lần trượt sau khi sửa.
+
+## brand
+
+- Tên hiển thị "Pharma Agent" khác tên sản phẩm; không logo, không màu thương hiệu · i18n `appName` và tiêu đề trang · đổi thành ViPharmind; thêm `BrandMark` (logo viên nang, ẩn với trình đọc màn hình khi có chữ đi kèm) ở sidebar, trang giới thiệu, thẻ đăng nhập; theme "Xanh dược" qua biến màu shadcn (`--primary` green-700 sáng, green-500 tối; sidebar xanh nhạt); favicon SVG · `resources.test.ts`, `brand-mark.browser.test.tsx`.
+- Nút, ô nhập cao 32 px, dưới 44 px trên màn cảm ứng · cỡ mặc định của shadcn · thêm `pointer-coarse:h-11` (nút sm: h-10, nút icon: size-11) trong `button.tsx`, `input.tsx`; màn hình chuột không đổi · kiểm bằng ảnh chụp 390×844 có cảm ứng.

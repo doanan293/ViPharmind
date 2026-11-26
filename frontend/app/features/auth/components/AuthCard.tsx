@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 
+import { BrandMark } from "~/components/brand-mark"
 import {
   Card,
   CardContent,
@@ -21,6 +22,7 @@ export function AuthCard({
     <main className="flex min-h-svh items-center justify-center bg-muted p-6">
       <Card className="w-full max-w-sm">
         <CardHeader>
+          <BrandMark className="mb-2" />
           <CardTitle>
             <h1 className="text-xl font-semibold">{title}</h1>
           </CardTitle>

@@ -1,9 +1,9 @@
+import { BrandMark } from "~/components/brand-mark"
 import {
   ActivityIcon,
   BuildingIcon,
   LibraryIcon,
   MessageSquareIcon,
-  PillIcon,
   SettingsIcon,
   ShieldIcon,
 } from "lucide-react"
@@ -58,8 +58,7 @@ export function AppSidebar({
               className="data-[slot=sidebar-menu-button]:p-1.5!"
               render={<Link to="/chat" />}
             >
-              <PillIcon className="size-5!" />
-              <span className="text-base font-semibold">{t("appName")}</span>
+              <BrandMark />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

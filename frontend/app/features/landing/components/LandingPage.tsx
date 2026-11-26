@@ -1,3 +1,4 @@
+import { BrandMark } from "~/components/brand-mark"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 
@@ -15,13 +16,12 @@ const FEATURES = ["citations", "streaming"] as const
 
 export function LandingPage({ locale }: { locale: Language }) {
   const { t } = useTranslation("landing")
-  const { t: tCommon } = useTranslation("common")
   const otherLocale: Language = locale === "vi" ? "en" : "vi"
 
   return (
     <div className="min-h-svh bg-background text-foreground">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-        <span className="font-semibold">{tCommon("appName")}</span>
+        <BrandMark />
         <Link
           to={LANDING_PATHS[otherLocale]}
           hrefLang={otherLocale}

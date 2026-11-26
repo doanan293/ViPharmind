@@ -24,6 +24,7 @@ import stylesheet from "./app.css?url"
 
 export const links: Route.LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
+  { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
 ]
 
 export const middleware = [i18nextMiddleware]
