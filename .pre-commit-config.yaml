@@ -83,7 +83,9 @@ repos:
         require_serial: true
       - id: frontend-api-drift
         name: orval output matches openapi.json (frontend)
-        entry: npm --prefix frontend run api:check
+        # In a linked worktree git hands hooks GIT_DIR; without GIT_WORK_TREE the git calls inside
+        # `npm --prefix frontend` would take frontend/ for the work tree and see every file changed.
+        entry: bash -c 'export GIT_WORK_TREE="$PWD"; npm --prefix frontend run api:check'
         language: system
         files: ^frontend/(openapi\.json|orval\.config\.ts|app/api/gen/)
         pass_filenames: false
