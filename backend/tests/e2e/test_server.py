@@ -58,3 +58,39 @@ def test_main_serves_the_e2e_app_with_uvicorn(monkeypatch: pytest.MonkeyPatch) -
     server.main(["--port", "8001"])
     assert isinstance(calls["app"], FastAPI)
     assert (calls["host"], calls["port"]) == ("127.0.0.1", 8001)
+
+
+def test_outbox_messages_lists_every_email_and_sms_to_an_address() -> None:
+    from tests.account_fakes import (
+        RecordingEmailSender,
+        RecordingSmsSender,
+        SentEmail,
+        SentSms,
+    )
+    from tests.e2e.server import outbox_messages
+
+    email, sms = RecordingEmailSender(), RecordingSmsSender()
+    email.sent += [
+        SentEmail("a@x.vn", "Mời", "Mở https://app/join/abc", "<p/>"),
+        SentEmail("b@x.vn", "Khác", "không", "<p/>"),
+        SentEmail("a@x.vn", "Đổi email", "Email của bạn đã đổi", "<p/>"),
+    ]
+    sms.sent += [SentSms("+84900000001", "Mã 123456")]
+
+    assert outbox_messages(email, sms, "a@x.vn") == [
+        {
+            "channel": "email",
+            "to": "a@x.vn",
+            "subject": "Mời",
+            "text": "Mở https://app/join/abc",
+        },
+        {
+            "channel": "email",
+            "to": "a@x.vn",
+            "subject": "Đổi email",
+            "text": "Email của bạn đã đổi",
+        },
+    ]
+    assert outbox_messages(email, sms, "+84900000001") == [
+        {"channel": "sms", "to": "+84900000001", "subject": "", "text": "Mã 123456"}
+    ]

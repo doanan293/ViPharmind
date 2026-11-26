@@ -7,7 +7,8 @@ migrations, deletes the fake-embedding Qdrant collection, imports and publishes 
 fixture bundle under the alias `e2e_chunks_current`, then serves the production container
 with `ScenarioLlm` and `FakeEmbedder` injected (spec A §9). Publish jobs run in process;
 `POST /api/v1/__e2e/jobs/drain` waits for them and `POST /api/v1/__e2e/superadmin` grants
-the flag. Environment: E2E_POSTGRES_DSN, E2E_QDRANT_URL.
+the flag. `GET /api/v1/__e2e/outbox/messages?to=` returns every email and SMS sent to an
+address. Environment: E2E_POSTGRES_DSN, E2E_QDRANT_URL.
 """
 
 import argparse
@@ -185,6 +186,23 @@ class SuperadminRequest(BaseModel):
     email: str
 
 
+def outbox_messages(
+    email: RecordingEmailSender, sms: RecordingSmsSender, to: str
+) -> list[dict[str, str]]:
+    """Every email and SMS sent to `to`, oldest first (for testers reading whole messages)."""
+    out = [
+        {"channel": "email", "to": m.to, "subject": m.subject, "text": m.text}
+        for m in email.sent
+        if m.to == to
+    ]
+    out += [
+        {"channel": "sms", "to": m.to, "subject": "", "text": m.text}
+        for m in sms.sent
+        if m.to == to
+    ]
+    return out
+
+
 def build_e2e_app(config: E2EConfig) -> FastAPI:
     email = RecordingEmailSender()
     sms = RecordingSmsSender()
@@ -222,6 +240,11 @@ def build_e2e_app(config: E2EConfig) -> FastAPI:
         ):
             await publishing.dispatcher.drain()
         return Response(status_code=204)
+
+    @app.get("/api/v1/__e2e/outbox/messages", include_in_schema=False)
+    async def messages(to: str) -> list[dict[str, str]]:
+        """E2E only: every email and SMS sent to `to`, oldest first."""
+        return outbox_messages(email, sms, to)
 
     @app.get("/api/v1/__e2e/outbox/code", include_in_schema=False)
     async def latest_code(to: str) -> dict[str, str]:
