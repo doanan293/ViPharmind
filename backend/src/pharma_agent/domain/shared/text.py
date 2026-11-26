@@ -5,6 +5,12 @@ import unicodedata
 
 ELLIPSIS = "…"
 _WHITESPACE_RE = re.compile(r"\s+")
+# Markdown block markers at the start of a line: headings, quotes, bullets, numbered items.
+_BLOCK_MARKER_RE = re.compile(r"^\s*(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+[.)]\s+)")
+# Emphasis markers around words (**bold**, __bold__, *italic*, _italic_).
+_EMPHASIS_RE = re.compile(
+    r"(\*\*|__)(?=\S)(.+?)(?<=\S)\1|(?<![\w*])([*_])(?=\S)(.+?)(?<=\S)\3(?![\w*])"
+)
 
 
 def normalize_text(text: str) -> str:
@@ -28,11 +34,17 @@ def _is_table_rule(line: str) -> bool:
 
 
 def make_snippet(text: str, max_chars: int) -> str:
-    """One-line preview: no table pipes or rules, cut at a word boundary with "…"."""
+    """One-line preview: no table pipes or rules, no markdown markers, cut at a word boundary
+    with "…"."""
     if max_chars < 1:
         raise ValueError("max_chars must be at least 1")
-    kept = [line for line in text.splitlines() if not _is_table_rule(line)]
-    flat = _WHITESPACE_RE.sub(" ", " ".join(kept).replace("|", " ")).strip()
+    kept = [
+        _BLOCK_MARKER_RE.sub("", line)
+        for line in text.splitlines()
+        if not _is_table_rule(line)
+    ]
+    plain = _EMPHASIS_RE.sub(lambda m: m.group(2) or m.group(4), " ".join(kept))
+    flat = _WHITESPACE_RE.sub(" ", plain.replace("|", " ")).strip()
     if len(flat) <= max_chars:
         return flat
     head = flat[: max_chars - 1]

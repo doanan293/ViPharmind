@@ -16,3 +16,7 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 - `compose.yaml` có nginx đứng trước backend nhưng không đặt `PHARMA_API__TRUSTED_PROXY_HOPS`, nên backend coi nginx là
   client và mọi trình duyệt chung một bộ đếm giới hạn theo IP · thêm `PHARMA_API__TRUSTED_PROXY_HOPS: "1"` cho backend
   trong `compose.yaml` · kiểm bằng chạy chương `auth` ba lần liên tiếp.
+
+## chat
+
+- Thẻ xem nhanh trích dẫn hiện markdown thô ("## Thai kỳ…") · `make_snippet` chỉ bỏ ký hiệu bảng · bỏ thêm dấu heading, trích dẫn, gạch đầu dòng, số thứ tự và dấu nhấn mạnh ở đầu dòng hoặc quanh từ · `tests/domain/test_text.py` (2 test).
