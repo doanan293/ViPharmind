@@ -28,7 +28,6 @@ jobs:
     outputs:
       python: ${{ steps.filter.outputs.python }}
       frontend: ${{ steps.filter.outputs.frontend }}
-      report: ${{ steps.filter.outputs.report }}
       docker: ${{ steps.filter.outputs.docker }}
     steps:
       - uses: actions/checkout@v4
@@ -53,9 +52,6 @@ jobs:
               - frontend/**
               # The UI stream contract test reads the backend's recorded SSE fixtures.
               - backend/tests/contract/fixtures/**
-            report:
-              - *workflow
-              - docs/report/**
             docker:
               - *workflow
               - "**/Dockerfile"
@@ -162,31 +158,6 @@ jobs:
       # races the handler reset); vitest still lists retried tests in its report.
       - name: browser tests
         run: npm run test:browser -- --retry=2
-
-  report:
-    needs: changes
-    if: needs.changes.outputs.report == 'true' || github.event_name == 'workflow_dispatch'
-    # Ubuntu 24.04 ships TeX Live 2023, the version the paper is built with locally;
-    # .latexmkrc turns every LaTeX warning into an error, so the TeX version matters.
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install TeX Live (packages from docs/report/README.md)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y latexmk texlive-latex-recommended \
-            texlive-latex-extra texlive-pictures texlive-lang-other
-      - name: latexmk
-        working-directory: docs/report
-        run: |
-          latexmk -quiet || {
-            tail -n 60 SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.log
-            exit 1
-          }
-      - uses: actions/upload-artifact@v4
-        with:
-          name: report-pdf
-          path: docs/report/SoICT2026_Agentic_RAG_Vietnamese_Pharmaceutical_Documents.pdf
 
   hadolint:
     needs: changes

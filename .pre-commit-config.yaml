@@ -17,8 +17,6 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=2000]
-        # The talk deck and its Slidesgo template are binary deliverables (about 10 MB).
-        exclude: ^docs/presentation/.*\.pptx$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.7
@@ -101,18 +99,6 @@ repos:
         types: [dockerfile]
         # identify also tags Dockerfile.dockerignore as a Dockerfile.
         files: (^|/)Dockerfile$
-
-  - repo: local
-    hooks:
-      # Builds the paper with docs/report/.latexmkrc, which fails on any LaTeX warning
-      # or undefined citation. Needs TeX Live (see docs/report/README.md).
-      - id: report-build
-        name: latexmk (report)
-        entry: bash -c 'cd docs/report && latexmk -quiet'
-        language: system
-        files: ^docs/report/
-        pass_filenames: false
-        require_serial: true
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
