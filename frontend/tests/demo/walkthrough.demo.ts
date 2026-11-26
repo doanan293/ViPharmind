@@ -1,5 +1,6 @@
 import { test } from "@playwright/test"
 
+import { auth } from "./chapters/auth"
 import { intro } from "./chapters/intro"
 import { chapterTitle, type DemoContext } from "./support/demo"
 
@@ -9,4 +10,6 @@ test("walkthrough", async ({ page }) => {
   await page.goto("/")
   await chapterTitle(page, "ViPharmind")
   await intro(page, ctx)
+  await chapterTitle(page, "1. Tài khoản")
+  await auth(page, ctx)
 })
