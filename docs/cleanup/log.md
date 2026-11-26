@@ -33,3 +33,8 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 ## orgs
 
 - Nhật ký tổ chức ghi "đã đổi vai trò một thành viên", "đã xoá một thành viên" thay vì tên người đó · `AuditEventView` chỉ có tên người thực hiện · thêm `subject_name` (tên tài khoản được nhắc tới, rỗng khi không còn) và câu chữ dùng tên, còn "một thành viên" khi không biết · `tests/application/test_audit_service.py`, `describe-event.test.ts`.
+- Chủ sở hữu duy nhất bấm "Rời tổ chức": giao diện báo LAST_OWNER bằng câu giải thích rõ; giữ nguyên.
+
+## tooling
+
+- Hook pre-commit `frontend-api-drift` luôn trượt khi commit từ một git worktree phụ · git đặt `GIT_DIR` cho hook, `npm --prefix frontend` làm git coi `frontend/` là gốc work tree · hook đặt `GIT_WORK_TREE` trước khi chạy · kiểm bằng chạy hook với `GIT_DIR` đặt sẵn.
