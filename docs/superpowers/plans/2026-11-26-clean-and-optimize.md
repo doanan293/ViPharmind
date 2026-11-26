@@ -221,8 +221,8 @@ def test_rewrite_is_deterministic(tmp_repo):
 
 ### Task 18: Viết lại lịch sử và thay `v2.0.0`
 
-- [ ] **Step 1: Dựng** — tạo tag `archive/v2.0.0-2026-11-26` = `b4f505c`, rồi `uv run python devops/history/rewrite.py --fork 3f0a46d --old-ref archive/v2.0.0-2026-11-26 --tail-base b4f505c --tail-ref clean --branch v2-new` (phát lại first-parent `b4f505c..clean`) — Expected: `git diff --quiet clean v2-new` thoát 0; `git merge-base --is-ancestor 3f0a46d v2-new` đúng.
+- [ ] **Step 1: Dựng** — tạo ref tạm `refs/rewrite/old-v2` = `b4f505c` (xóa sau Step 4), rồi `uv run python devops/history/rewrite.py --fork 3f0a46d --old-ref refs/rewrite/old-v2 --tail-base b4f505c --tail-ref clean --branch v2-new` (phát lại first-parent `b4f505c..clean`) — Expected: `git diff --quiet clean v2-new` thoát 0; `git merge-base --is-ancestor 3f0a46d v2-new` đúng.
 - [ ] **Step 2: Chạy test backend ở mọi commit `feat(...)` của `v2-new` (xuất cây bằng `git archive` vào thư mục tạm); ghi `docs/cleanup/history.md`: số commit cũ và mới, bảng commit mới, commit nào trượt test nào**
 - [ ] **Step 3: Commit `history.md` lên `clean`, dựng lại `v2-new` (Step 1) để có commit đó**
 - [ ] **Step 4: Worktree `~/personal/vipharmind` đang ở `v2.0.0` và có file chưa commit (`guard_set.todo.jsonl`): hỏi chủ dự án trước khi chuyển nhánh của worktree đó; rồi `git branch -f v2.0.0 v2-new`; `git diff --quiet v2.0.0 clean`**
-- [ ] **Step 5: Hỏi chủ dự án: force-push `v2.0.0`, đẩy tag `archive/v2.0.0-2026-11-26`, tạo GitHub Release gắn tag mới trên `v2.0.0` kèm video demo (`gh` dùng tài khoản `doanan293`: `GH_TOKEN=$(gh auth token --user doanan293)`). Chỉ làm phần được đồng ý. Tag của bài báo và `main` không đổi**
+- [ ] **Step 5: Hỏi chủ dự án: force-push `v2.0.0`, tạo GitHub Release gắn tag mới trên `v2.0.0` kèm video demo (`gh` dùng tài khoản `doanan293`: `GH_TOKEN=$(gh auth token --user doanan293)`). Chỉ làm phần được đồng ý. Tag của bài báo và `main` không đổi**

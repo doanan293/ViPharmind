@@ -120,7 +120,8 @@ nhạt. Việc cần làm:
 
 Chủ dự án (2026-11-26) chỉ giữ hai nhánh: **`main`** = bài SoICT (đầu nhánh `camera-ready` cũ cộng sửa poster cuối,
 `15b7267`, tag `soict-poster`), không đổi nữa; **`v2.0.0`** = hướng mới, nhận toàn bộ việc làm sạch này. Nhánh
-`camera-ready`, `dev`, `ci` đã xóa (thư mục worktree cũ lưu ở `~/personal/vipharmind-camera-ready-archive`).
+`camera-ready`, `dev`, `ci` đã xóa cả trên GitHub lẫn trên máy. Không giữ bản lưu trữ: dữ liệu đã có trên Kaggle
+và GitHub (chủ dự án).
 
 - Sau khi 3.1–3.7 xong: dựng nhánh `v2-new`. Phần lịch sử chung với `main` (tới điểm rẽ `3f0a46d`) giữ nguyên. Phần
   riêng của `v2.0.0` (first-parent từ `3f0a46d`, bỏ các merge từ `camera-ready`/`main`) gộp theo đoạn liên tục:
@@ -131,8 +132,8 @@ Chủ dự án (2026-11-26) chỉ giữ hai nhánh: **`main`** = bài SoICT (đ�
   hệt `clean`. Chạy test ở mọi commit `feat` và ghi lại commit nào trượt, không sửa ngược.
 - Ranh giới tính năng chọn sao cho thuận cho việc chọn nhiệm vụ thí nghiệm về sau: mỗi commit một tính năng trọn
   vẹn có test, không lồng nhau.
-- Thay `v2.0.0` bằng `v2-new`: force-push lên GitHub chỉ khi chủ dự án đồng ý ngay lúc đó; trước đó tag
-  `archive/v2.0.0-2026-11-26` giữ `v2.0.0` cũ. Tag của bài báo (`v1.0.0`, `v1.1.0`, `soict-camera-ready`,
+- Thay `v2.0.0` bằng `v2-new`: force-push lên GitHub chỉ khi chủ dự án đồng ý ngay lúc đó; không tạo tag lưu
+  trữ cho `v2.0.0` cũ (chủ dự án: không cần archive). Tag của bài báo (`v1.0.0`, `v1.1.0`, `soict-camera-ready`,
   `soict-poster`) không đổi. Video demo đưa vào một GitHub Release gắn với tag trên `v2.0.0` mới.
 
 ## 4. Không làm
