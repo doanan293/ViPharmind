@@ -1,6 +1,6 @@
 import { test } from "@playwright/test"
 
-import { accounts } from "./chapters/accounts"
+import { auth } from "./chapters/auth"
 import { intro } from "./chapters/intro"
 import type { DemoContext } from "./support/demo"
 
@@ -9,7 +9,7 @@ test("intro", async ({ page }) => {
   await intro(page, {})
 })
 
-test("accounts", async ({ page }) => {
+test("auth", async ({ page }) => {
   const ctx: DemoContext = {}
-  await accounts(page, ctx)
+  await auth(page, ctx)
 })
