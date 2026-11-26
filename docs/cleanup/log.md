@@ -61,3 +61,7 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 - Bảng tác vụ xuất bản hiện bộ tài liệu bằng 8 ký tự đầu của mã · `JobView` chỉ có `collection_id` · ô lấy tên từ danh sách bộ tài liệu mà trang quản trị đã tải (`useAdminCollectionsList`), không có tên thì vẫn hiện mã ngắn · `AdminPage.browser.test.tsx`.
 - Trang quản trị 404 với người thường; cấp superadmin bằng CLI; khoá người dùng làm phiên của họ kết thúc: chạy đúng (chương `admin`). Thêm lệnh `scripts/demo-stack.sh exec`.
 - Chạy chương `auth` nhiều lần trong 15 phút thì đăng nhập trả 429 · giới hạn 10 lần đăng nhập sai mỗi IP ghi cứng, mà mỗi lần chạy demo cố ý nhập sai một lần từ cùng một máy · thêm `PHARMA_AUTH__LOGIN_FAILURES_PER_WINDOW` (mặc định 10), `compose.demo.yaml` đặt 1000 · `tests/infrastructure/test_account_factory.py`.
+
+## public
+
+- Trang giới thiệu chỉ giới thiệu 2 tính năng trong lưới 3 cột; hai tính năng nổi bật (bộ tài liệu có phân quyền, chặn câu hỏi ngoài phạm vi) không được nhắc · thêm hai thẻ, mỗi thẻ có icon lucide, lưới 2 cột (vi, en) · `LandingPage.test.tsx`.

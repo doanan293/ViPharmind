@@ -18,6 +18,14 @@
     "streaming": {
       "title": "Thấy agent đang làm gì",
       "description": "Theo dõi các bước tìm kiếm, đọc tài liệu và soạn câu trả lời theo thời gian thực."
+    },
+    "collections": {
+      "title": "Bộ tài liệu riêng, có phân quyền",
+      "description": "Khoa hoặc nhà thuốc tự nạp phác đồ nội bộ; chỉ người được phép mới thấy và được trích dẫn."
+    },
+    "guard": {
+      "title": "Chỉ trả lời về thuốc",
+      "description": "Câu hỏi ngoài phạm vi và các yêu cầu tấn công bị chặn trước khi agent tìm kiếm."
     }
   },
   "sources": {

@@ -1,4 +1,10 @@
 import { BrandMark } from "~/components/brand-mark"
+import {
+  ActivityIcon,
+  LibraryIcon,
+  QuoteIcon,
+  ShieldCheckIcon,
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 
@@ -12,7 +18,12 @@ import {
 import { LANDING_PATHS } from "~/features/landing/lib/meta"
 import type { Language } from "~/i18n/config"
 
-const FEATURES = ["citations", "streaming"] as const
+const FEATURES = [
+  { key: "citations", Icon: QuoteIcon },
+  { key: "streaming", Icon: ActivityIcon },
+  { key: "collections", Icon: LibraryIcon },
+  { key: "guard", Icon: ShieldCheckIcon },
+] as const
 
 export function LandingPage({ locale }: { locale: Language }) {
   const { t } = useTranslation("landing")
@@ -60,13 +71,17 @@ export function LandingPage({ locale }: { locale: Language }) {
           <h2 id="features-title" className="text-2xl font-semibold">
             {t("features.title")}
           </h2>
-          <div className="grid gap-4 md:grid-cols-3">
-            {FEATURES.map((feature) => (
-              <Card key={feature}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {FEATURES.map(({ key, Icon }) => (
+              <Card key={key}>
                 <CardHeader>
-                  <CardTitle>{t(`features.${feature}.title`)}</CardTitle>
+                  <Icon
+                    aria-hidden="true"
+                    className="mb-2 size-5 text-primary"
+                  />
+                  <CardTitle>{t(`features.${key}.title`)}</CardTitle>
                   <CardDescription>
-                    {t(`features.${feature}.description`)}
+                    {t(`features.${key}.description`)}
                   </CardDescription>
                 </CardHeader>
               </Card>

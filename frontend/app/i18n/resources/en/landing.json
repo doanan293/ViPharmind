@@ -18,6 +18,14 @@
     "streaming": {
       "title": "See what the agent is doing",
       "description": "Follow the search, reading and writing steps in real time."
+    },
+    "collections": {
+      "title": "Private collections with access rules",
+      "description": "A ward or pharmacy loads its own protocols; only people allowed to see them get them cited."
+    },
+    "guard": {
+      "title": "Answers about medicines only",
+      "description": "Off-topic questions and prompt attacks are stopped before the agent searches."
     }
   },
   "sources": {

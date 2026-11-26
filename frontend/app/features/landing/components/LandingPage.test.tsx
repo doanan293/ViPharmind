@@ -37,4 +37,13 @@ describe("LandingPage", () => {
     // HTML attribute names are case-insensitive; React 19 serializes the prop as `hrefLang`.
     expect(html).toMatch(/hreflang="vi"/i)
   })
+
+  test("presents every headline feature, including private collections and the scope guard", () => {
+    const vi = renderLanding("vi")
+    expect(vi).toContain("Bộ tài liệu riêng, có phân quyền")
+    expect(vi).toContain("Chỉ trả lời về thuốc")
+    const en = renderLanding("en")
+    expect(en).toContain("Private collections with access rules")
+    expect(en).toContain("Answers about medicines only")
+  })
 })
