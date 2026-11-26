@@ -73,3 +73,7 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 - (Opus soát) Nút chính khi rê chuột mờ đi `bg-primary/80`, chữ trắng chỉ 3,36:1 · `button`, `badge`, `bubble` sẫm lại bằng `color-mix` thay vì mờ · ghi trong frontend README như file cố ý khác registry.
 - Logo trong sidebar bị `[&_svg]:size-4` của sidebar đè còn 16 px · `size-7!`. Favicon dùng đúng mã màu của theme. Câu "bị chặn trước khi agent tìm kiếm" nói quá (guard fail-open) · "được nhận diện".
 - Kịch bản demo: chương bộ tài liệu kiểm đúng popover "Trích từ mục Giảm đau sau mổ"; chương tổ chức kiểm câu "đã đổi vai trò của <tên>".
+
+## flaky tests
+
+- `OrganizationPage.browser.test.tsx` "owners approve pending invitations" và `SessionsList.browser.test.tsx` "cannot be loaded, and retries" lâu lâu rớt · cả hai do cùng một nguyên nhân: thao tác (duyệt lời mời, đăng xuất phiên) làm `invalidateQueries` nên có một GET refetch đang bay khi test kết thúc; `afterEach` reset handler MSW trước khi refetch đến, GET `/api/` không có handler bị log lỗi và fail-on-console làm hỏng test đang chạy (test "retries" chịu hậu quả của test "signs out" ngay trước nó) · mỗi test chờ refetch được trả lời (`expect.poll(() => listed).toBe(2)`) trước khi kết thúc; bỏ `beforeEach` che lỗi trong `SessionsList`; bỏ `--retry=2` và chú thích trong `.github/workflows/ci.yml`.

@@ -41,13 +41,14 @@ function invitation(overrides: Partial<InvitationView> = {}): InvitationView {
   }
 }
 
-const served = { members: 0 }
+const served = { members: 0, invitations: 0 }
 
 function serve(
   role: OrganizationView["role"],
   invitations: InvitationView[] = []
 ) {
   served.members = 0
+  served.invitations = 0
   worker.use(
     http.get("*/api/v1/users/me", () => HttpResponse.json(ME)),
     http.get(`*/api/v1/organizations/${ORG}`, () =>
@@ -72,9 +73,10 @@ function serve(
         },
       ])
     }),
-    http.get(`*/api/v1/organizations/${ORG}/invitations`, () =>
-      HttpResponse.json(invitations)
-    ),
+    http.get(`*/api/v1/organizations/${ORG}/invitations`, () => {
+      served.invitations += 1
+      return HttpResponse.json(invitations)
+    }),
     http.get("*/api/v1/collections", () =>
       HttpResponse.json({ public: [], organizations: [], mine: [], others: [] })
     )
@@ -95,6 +97,13 @@ async function open(tab = "members") {
       </Toaster>
     </TestProviders>
   )
+}
+
+// Creating or approving an invitation invalidates the list. Wait for that refetch to be answered
+// while the test's handlers are still installed; otherwise it lands after the reset (or in the
+// next test) as an unhandled request, which fail-on-console turns into a failure.
+async function expectInvitationsReloaded() {
+  await expect.poll(() => served.invitations).toBe(2)
 }
 
 describe("OrganizationPage", () => {
@@ -202,6 +211,7 @@ describe("OrganizationPage", () => {
         page.getByText("Lời mời đang chờ chủ sở hữu hoặc biên tập viên duyệt.")
       )
       .toBeVisible()
+    await expectInvitationsReloaded()
   })
 
   test("owners approve pending invitations", async () => {
@@ -217,5 +227,6 @@ describe("OrganizationPage", () => {
     await expect.element(page.getByText("Chờ duyệt")).toBeVisible()
     await page.getByRole("button", { name: "Duyệt" }).click()
     await expect.poll(() => approved).toBe(1)
+    await expectInvitationsReloaded()
   })
 })

@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw"
-import { beforeEach, describe, expect, test } from "vitest"
+import { describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
 
@@ -28,18 +28,14 @@ const SESSIONS = [
 ]
 
 describe("SessionsList", () => {
-  // A refetch left over from the previous test can land between handler resets; answer it
-  // so MSW does not log an unhandled request (fail-on-console would fail this test).
-  beforeEach(() => {
-    worker.use(
-      http.get("/api/v1/account/sessions", () => HttpResponse.json(SESSIONS))
-    )
-  })
-
   test("marks this device and signs out another one", async () => {
     const deleted: string[] = []
+    let listed = 0
     worker.use(
-      http.get("/api/v1/account/sessions", () => HttpResponse.json(SESSIONS)),
+      http.get("/api/v1/account/sessions", () => {
+        listed += 1
+        return HttpResponse.json(SESSIONS)
+      }),
       http.delete("/api/v1/account/sessions/:id", ({ params }) => {
         deleted.push(String(params.id))
         return new HttpResponse(null, { status: 204 })
@@ -55,10 +51,12 @@ describe("SessionsList", () => {
       .getByRole("button", { name: "Đăng xuất phiên trên Safari" })
       .click()
     await expect.poll(() => deleted).toEqual(["b".repeat(32)])
+    // Signing out invalidates the list; let that refetch be answered while this test's handlers
+    // are still installed, instead of landing after the reset (an unhandled request).
+    await expect.poll(() => listed).toBe(2)
   })
 
   test("says so when the sessions cannot be loaded, and retries", async () => {
-    // A flag, not a call count: a refetch left over from the previous test may land here.
     let failing = true
     worker.use(
       http.get("/api/v1/account/sessions", () => {

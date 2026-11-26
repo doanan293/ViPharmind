@@ -154,10 +154,8 @@ jobs:
       - run: npm ci
       - name: Install Chromium headless shell
         run: npx playwright install --with-deps --only-shell chromium
-      # --retry: SessionsList "cannot be loaded, and retries" is flaky (an unhandled MSW request
-      # races the handler reset); vitest still lists retried tests in its report.
       - name: browser tests
-        run: npm run test:browser -- --retry=2
+        run: npm run test:browser
 
   hadolint:
     needs: changes
