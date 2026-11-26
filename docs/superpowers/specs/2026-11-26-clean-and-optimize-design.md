@@ -66,8 +66,8 @@ khi xong, nên không bị ràng buộc bởi lịch sử cũ hay bộ nhiệm v
   `--all-files` đạt.
 - Review từng tính năng ở 3.2 theo spec hiện hành (`2026-11-15-*-design.md`). Mỗi lỗi: test tái hiện trước, sửa
   sau, commit `fix(<phạm vi>): ...`.
-- Mã thí nghiệm của paper v2: giữ phần đang được dùng ở chế độ mặc định hoặc có test và cờ rõ ràng; gỡ phần chết
-  (không đường gọi, không test, chỉ phục vụ ablation đã bỏ). Mỗi quyết định gỡ hay giữ ghi trong spec liên quan.
+- Mã thí nghiệm của paper v2 **giữ nguyên toàn bộ** (chủ dự án, 2026-11-26: paper v2 chỉ tạm dừng, sẽ làm tiếp): decision
+  model Jev, agent ReAct, công tắc enrichment, cấu hình e2e. Chỉ gỡ mã chết không thuộc paper v2; tài liệu sửa cho khớp mã.
 
 ### 3.4 Nhanh
 
@@ -146,7 +146,7 @@ và GitHub (chủ dự án).
 - Không đổi model embedding hay dựng lại corpus. Không chạy lại pipeline Kaggle.
 - Không triển khai lại production (Vercel, Neon, Qdrant Cloud, DeepInfra).
 - Không sửa nội dung bài SoICT, poster, slide.
-- Không tiếp tục paper v2.
+- Không tiếp tục paper v2 trong giai đoạn này, nhưng không gỡ mã của nó.
 
 ## 5. Ràng buộc
 
