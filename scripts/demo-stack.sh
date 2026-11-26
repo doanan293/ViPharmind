@@ -5,6 +5,7 @@
 #   scripts/demo-stack.sh up        build, start, wait until healthy, import the corpus if missing
 #   scripts/demo-stack.sh status    service health
 #   scripts/demo-stack.sh logs [S]  logs of every service or of S (e.g. backend)
+#   scripts/demo-stack.sh exec S CMD run CMD in service S (e.g. exec backend pharma-agent check)
 #   scripts/demo-stack.sh reset-db  drop user data: fresh Postgres and Qdrant, corpus imported again
 #   scripts/demo-stack.sh down      stop and remove the containers (volumes stay)
 #
@@ -57,6 +58,7 @@ case "${1:-}" in
   up) up ;;
   status) compose ps --format 'table {{.Service}}\t{{.Status}}' ;;
   logs) shift; compose logs --no-color "$@" ;;
+  exec) shift; compose exec -T "$@" ;;
   reset-db)
     compose stop backend frontend nginx
     compose rm -f -s postgres qdrant

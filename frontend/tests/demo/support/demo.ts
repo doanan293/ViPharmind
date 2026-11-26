@@ -195,3 +195,14 @@ export async function latestInvitationPath(
   }
   throw new Error(`no invitation for ${to} in the backend log`)
 }
+
+/** Grants superadmin on the server, the only way the product allows (CLI). */
+export function makeSuperadmin(email: string): void {
+  execFileSync(
+    STACK,
+    ["exec", "backend", "pharma-agent", "superadmin", "grant", email],
+    {
+      encoding: "utf8",
+    }
+  )
+}
