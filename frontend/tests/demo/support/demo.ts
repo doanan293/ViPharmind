@@ -158,15 +158,33 @@ export async function switchUser(page: Page, user: DemoUser): Promise<void> {
   await logIn(page, user)
 }
 
-/** Sends a chat message and waits until the answer has finished streaming. */
+/**
+ * Sends a chat message and waits until the answer has finished streaming. A transient
+ * failure of the LLM provider (an error notice with "Thử lại") is retried once, so one 429
+ * does not cost the whole recording.
+ */
 export async function ask(page: Page, question: string): Promise<void> {
   const done = page.getByRole("button", { name: "Chưa hữu ích" })
+  const retry = page.getByRole("button", { name: "Thử lại" })
   const before = await done.count()
+  const retriesBefore = await retry.count()
   await page
     .getByRole("textbox", { name: "Tin nhắn", exact: true })
     .fill(question)
   await page.getByRole("button", { name: "Gửi" }).click()
-  await expect(done).toHaveCount(before + 1, { timeout: 180_000 })
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const answered = expect(done).toHaveCount(before + 1, { timeout: 180_000 })
+    const failed = expect(retry).toHaveCount(retriesBefore + 1, {
+      timeout: 180_000,
+    })
+    const outcome = await Promise.any([
+      answered.then(() => "answered" as const),
+      failed.then(() => "failed" as const),
+    ])
+    if (outcome === "answered") return
+    if (attempt === 0) await retry.last().click()
+  }
+  throw new Error(`the answer to "${question}" failed twice`)
 }
 
 /** The path of the newest invitation link emailed to `to` (log email provider). */
