@@ -22,6 +22,8 @@ export default defineConfig({
     locale: "vi-VN",
     video: video ? { mode: "on", size: { width: 1440, height: 900 } } : "off",
     screenshot: "only-on-failure",
+    // A wrong selector fails fast; answers wait in `ask` with their own timeout.
+    actionTimeout: 30_000,
     launchOptions: { slowMo: 150 },
   },
 })

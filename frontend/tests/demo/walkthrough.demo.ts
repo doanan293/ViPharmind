@@ -2,6 +2,7 @@ import { test } from "@playwright/test"
 
 import { auth } from "./chapters/auth"
 import { chat } from "./chapters/chat"
+import { history } from "./chapters/history"
 import { intro } from "./chapters/intro"
 import { chapterTitle, type DemoContext } from "./support/demo"
 
@@ -15,4 +16,6 @@ test("walkthrough", async ({ page }) => {
   await auth(page, ctx)
   await chapterTitle(page, "2. Hỏi đáp thuốc")
   await chat(page, ctx)
+  await chapterTitle(page, "3. Lịch sử hội thoại")
+  await history(page, ctx)
 })

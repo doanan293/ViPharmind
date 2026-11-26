@@ -2,8 +2,9 @@ import { test } from "@playwright/test"
 
 import { auth } from "./chapters/auth"
 import { chat } from "./chapters/chat"
+import { history } from "./chapters/history"
 import { intro } from "./chapters/intro"
-import type { DemoContext } from "./support/demo"
+import { ask, type DemoContext } from "./support/demo"
 
 // Each chapter on its own while developing; prerequisites (accounts) run first in the same page.
 test("intro", async ({ page }) => {
@@ -20,4 +21,13 @@ test("chat", async ({ page }) => {
   const ctx: DemoContext = {}
   await auth(page, ctx)
   await chat(page, ctx)
+})
+
+test("history", async ({ page }) => {
+  test.setTimeout(900_000)
+  const ctx: DemoContext = {}
+  await auth(page, ctx)
+  await page.goto("/chat")
+  await ask(page, "Paracetamol người lớn uống tối đa bao nhiêu một ngày?")
+  await history(page, ctx)
 })
