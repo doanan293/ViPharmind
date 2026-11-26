@@ -157,3 +157,14 @@ export async function switchUser(page: Page, user: DemoUser): Promise<void> {
   await logOut(page)
   await logIn(page, user)
 }
+
+/** Sends a chat message and waits until the answer has finished streaming. */
+export async function ask(page: Page, question: string): Promise<void> {
+  const done = page.getByRole("button", { name: "Chưa hữu ích" })
+  const before = await done.count()
+  await page
+    .getByRole("textbox", { name: "Tin nhắn", exact: true })
+    .fill(question)
+  await page.getByRole("button", { name: "Gửi" }).click()
+  await expect(done).toHaveCount(before + 1, { timeout: 180_000 })
+}

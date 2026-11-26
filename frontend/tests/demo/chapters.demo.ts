@@ -1,6 +1,7 @@
 import { test } from "@playwright/test"
 
 import { auth } from "./chapters/auth"
+import { chat } from "./chapters/chat"
 import { intro } from "./chapters/intro"
 import type { DemoContext } from "./support/demo"
 
@@ -12,4 +13,11 @@ test("intro", async ({ page }) => {
 test("auth", async ({ page }) => {
   const ctx: DemoContext = {}
   await auth(page, ctx)
+})
+
+test("chat", async ({ page }) => {
+  test.setTimeout(900_000)
+  const ctx: DemoContext = {}
+  await auth(page, ctx)
+  await chat(page, ctx)
 })
