@@ -26,6 +26,16 @@ from pharma_agent.infrastructure.persistence.postgres.session_store import (
 from pharma_agent.infrastructure.settings import Settings
 
 
+def account_policy(settings: Settings) -> AccountPolicy:
+    return AccountPolicy(
+        otp_secret=settings.auth.require_otp_secret(),
+        allowed_sms_regions=frozenset(settings.sms.allowed_country_codes),
+        sends_per_ip_per_hour=settings.auth.code_sends_per_ip_per_hour,
+        sms_enabled=settings.sms.provider != "none",
+        google_enabled=settings.auth.google_enabled,
+    )
+
+
 def build_account_service(
     settings: Settings,
     sessions: async_sessionmaker[AsyncSession],
@@ -48,11 +58,6 @@ def build_account_service(
             clock=clock,
         ),
         clock=clock,
-        policy=AccountPolicy(
-            otp_secret=settings.auth.require_otp_secret(),
-            allowed_sms_regions=frozenset(settings.sms.allowed_country_codes),
-            sms_enabled=settings.sms.provider != "none",
-            google_enabled=settings.auth.google_enabled,
-        ),
+        policy=account_policy(settings),
         memberships=PostgresOrganizationRepository(sessions),
     )

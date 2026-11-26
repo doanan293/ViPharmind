@@ -181,6 +181,9 @@ class AuthSettings(BaseModel):
     google_client_id: str | None = None
     google_client_secret: SecretStr | None = None
     frontend_url: str = "http://localhost:3000"
+    # One-time codes sent from one client address per hour. A local demo sends every
+    # account's codes from the machine running it, so compose.demo.yaml raises it.
+    code_sends_per_ip_per_hour: int = Field(default=20, ge=1)
 
     @field_validator("jwt_secret", "csrf_secret", "otp_secret")
     @classmethod

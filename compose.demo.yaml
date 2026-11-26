@@ -10,6 +10,8 @@ services:
       # One-time codes go to the backend log; the demo reads them from there.
       PHARMA_EMAIL__PROVIDER: "log"
       PHARMA_SMS__PROVIDER: "log"
+      # Every demo account sends its codes from this machine's one address.
+      PHARMA_AUTH__CODE_SENDS_PER_IP_PER_HOUR: "1000"
     volumes:
       - "${PHARMA_DATA_DIR:-./pharma-lab/data}/corpus:/data/corpus:ro"
 
