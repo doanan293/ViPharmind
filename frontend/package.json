@@ -19,7 +19,9 @@
     "e2e": "playwright test",
     "api:openapi": "uv run --directory ../backend pharma-agent export-openapi --output ../frontend/openapi.json",
     "api:generate": "orval",
-    "api:check": "orval && git diff --exit-code -- app/api/gen && test -z \"$(git ls-files --others --exclude-standard -- app/api/gen)\""
+    "api:check": "orval && git diff --exit-code -- app/api/gen && test -z \"$(git ls-files --others --exclude-standard -- app/api/gen)\"",
+    "demo": "playwright test -c playwright.demo.config.ts",
+    "demo:video": "DEMO_VIDEO=1 playwright test -c playwright.demo.config.ts"
   },
   "msw": {
     "workerDirectory": [

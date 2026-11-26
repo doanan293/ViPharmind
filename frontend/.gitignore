@@ -11,3 +11,6 @@ test-results/
 .vitest/
 __screenshots__/
 .vercel
+
+# Demo recordings (npm run demo:video)
+demo-videos/
