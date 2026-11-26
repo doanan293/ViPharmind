@@ -31,9 +31,9 @@ khi xong, nên không bị ràng buộc bởi lịch sử cũ hay bộ nhiệm v
 - Postgres, Qdrant, backend, frontend, nginx qua `compose.yaml` + `compose.llm-proxy.yaml` +
   `compose.local-models.yaml`; web ở `http://localhost:8080`.
 - LLM: Gemini qua CLIProxyAPI, token trong volume `vipharmind_cli_proxy_auth`.
-- Embedding: `qwen3-embedding-4b-q8_0.gguf` (model `qwen3-embedding:4b-q8_0`, 2560 chiều). Rerank: chọn giữa
-  `qwen3-reranker-4b-q8_0-vimed.gguf` và `qwen3-reranker-0.6b-q8_0-vimed.gguf` bằng số đo ở 3.4 (4B đúng hơn nhưng
-  rất chậm trên CPU; 0.6B nhanh). GGUF đọc tại chỗ từ `GGUF_DIR` (mặc định `~/personal/vipharmind/ai-models/gguf`).
+- Embedding: `qwen3-embedding-4b-q8_0.gguf` (model `qwen3-embedding:4b-q8_0`, 2560 chiều). Rerank: **tắt trong stack
+  demo** (`DEMO_RERANKER=none`, chủ dự án 2026-11-26): trên CPU này 0.6B mất 1–3 phút mỗi vòng. Mã và production giữ
+  đủ pipeline, rerank bật mặc định; bật lại ở demo bằng `DEMO_RERANKER=<file GGUF>`. GGUF đọc tại chỗ từ `GGUF_DIR` (mặc định `~/personal/vipharmind/ai-models/gguf`).
 - **Dữ liệu chỉ đọc từ worktree cũ.** Corpus (`sections.jsonl`, embedding), golden và gold retrieval là file
   gitignore chỉ có ở `~/personal/vipharmind/pharma-lab/data/`; stack demo và các bước đo đọc tại chỗ qua biến
   `PHARMA_DATA_DIR` (mặc định đường dẫn đó), không chép, không ghi vào đó.
@@ -44,9 +44,14 @@ khi xong, nên không bị ràng buộc bởi lịch sử cũ hay bộ nhiệm v
   vector có sẵn); bỏ qua nếu Qdrant đã có collection khớp model.
 - Email và SMS ở local: provider `log` có sẵn (`PHARMA_EMAIL__PROVIDER=log`, `PHARMA_SMS__PROVIDER=log`) ghi mã ra log
   backend; kịch bản demo đọc mã từ `docker compose logs backend`. Không thêm endpoint mới vào backend.
-- `reset-db`: xóa dữ liệu người dùng, giữ corpus.
+- `reset-db`: xóa volume Postgres và Qdrant của stack demo rồi nạp lại corpus (chỉ nạp vector có sẵn, khoảng 3 phút).
 
 ### 3.2 Tính năng phải chạy đúng (mỗi tính năng là một chương của video demo)
+
+Chủ dự án (2026-11-26): demo chỉ cần ngắn. Video quay phần chính của mỗi tính năng (xem `frontend/tests/demo/chapters/`);
+các thao tác còn lại trong bảng (đổi email hoặc số điện thoại bằng mã, ngôn ngữ, phiên hết hạn, gửi lại và thu hồi lời
+mời, rời và xóa tổ chức, tập riêng tư, thuật ngữ, tên gọi dân gian) được kiểm bằng e2e Playwright và test đơn vị có sẵn,
+không quay.
 
 | Mã | Tính năng | Nội dung chính |
 | --- | --- | --- |
@@ -90,7 +95,8 @@ khi xong, nên không bị ràng buộc bởi lịch sử cũ hay bộ nhiệm v
 nhạt. Việc cần làm:
 - Thống nhất tên **ViPharmind** (sidebar đang ghi "Pharma Agent"), thêm logo và favicon.
 - Theme thương hiệu qua biến màu của shadcn (`app/app.css`), giữ chế độ sáng và tối, tương phản đạt WCAG AA.
-- Sửa popover trích dẫn và bảng nguồn đè lên nội dung chat; nút chính thống nhất một kiểu (nút "Mời" đang lệch).
+- Sửa popover trích dẫn và bảng nguồn đè lên nội dung chat; nút chính thống nhất một kiểu (nút "Mời" trông lệch vì
+  đang tắt khi ô email rỗng; theme mới làm nó cùng kiểu, giữ nguyên hành vi).
 - Trang đăng nhập và đăng ký có thương hiệu; trạng thái rỗng dùng component `Empty` có nội dung hướng dẫn.
 - Kiểm theo danh sách accessibility và UX của skill ui-ux-pro-max: nhãn cho nút chỉ có icon, focus nhìn thấy,
   kích thước vùng bấm, thông báo lỗi cạnh trường.
@@ -170,8 +176,8 @@ và GitHub (chủ dự án).
 
 ## 7. Quyết định Claude đã chọn (chủ dự án có thể sửa)
 
-- Rerank chọn bằng số đo (3.4), mặc định đề xuất 0.6B nếu chất lượng tụt ít, vì 4B trên CPU quá chậm cho demo.
+- Rerank tắt ở demo (chủ dự án), production giữ rerank.
 - Stack demo tách volume riêng (`vipharmind-demo`); dữ liệu và GGUF đọc tại chỗ từ worktree cũ.
 - Lịch sử mới không sắp xếp lại commit cũ; tính năng trải nhiều đoạn thành nhiều commit.
 - Tối ưu được phép đổi hành vi nếu chất lượng đo được không tụt.
-- Màu thương hiệu, logo: Claude đề xuất 2–3 phương án bằng mockup để chủ dự án chọn trước khi áp dụng.
+- Màu thương hiệu, logo: Claude đề xuất 3 phương án bằng mockup; chủ dự án chọn A "Xanh dược" (2026-11-26).

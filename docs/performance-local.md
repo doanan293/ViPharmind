@@ -50,4 +50,8 @@ Run `demo-baseline` (`pharma-lab/data/evaluation/e2e/runs/demo-baseline/`).
 Tách theo bước (p50 / p95, giây): guard 1,3 / 1,9; search 1,9 / 15,8; answer 19,0 / 43,2; refine (4/20 lượt) 11,0 /
 13,8. Điểm nghẽn: bước trả lời (`gemini-3.8-flash-high`, bằng chứng khoảng 16.600 ký tự).
 
-Chưa đo: thời gian tới chữ đầu tiên qua HTTP stream (pharma-lab chỉ đo tổng một lượt) — đo ở bước tối ưu.
+Không tối ưu thêm: chủ dự án (2026-11-26) quyết demo chỉ ngắn, giữ Gemini 3.8 Flash mặc định và tắt rerank ở demo;
+thời gian tới chữ đầu tiên không đo.
+
+Lưu ý so sánh: run `demo-baseline` chạy trước bản sửa trích dẫn gộp (`bb7a546`, "[1, 2]" thành "[1], [2]"), nên số
+trích dẫn được đếm của nó thấp hơn các run sau; run của paper v2 cũng vậy.
