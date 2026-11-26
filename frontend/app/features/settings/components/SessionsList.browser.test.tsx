@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw"
-import { describe, expect, test } from "vitest"
+import { beforeEach, describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
 
@@ -28,6 +28,14 @@ const SESSIONS = [
 ]
 
 describe("SessionsList", () => {
+  // A refetch left over from the previous test can land between handler resets; answer it
+  // so MSW does not log an unhandled request (fail-on-console would fail this test).
+  beforeEach(() => {
+    worker.use(
+      http.get("/api/v1/account/sessions", () => HttpResponse.json(SESSIONS))
+    )
+  })
+
   test("marks this device and signs out another one", async () => {
     const deleted: string[] = []
     worker.use(

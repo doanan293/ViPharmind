@@ -45,3 +45,7 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 - Tab Thuật ngữ và Tên gọi dân gian khi rỗng chỉ có hai nút trơn · không có trạng thái rỗng · thêm `Empty` của shadcn với câu "Chưa có thuật ngữ nào.", "Chưa có tên gọi dân gian nào." (vi, en) như tab Tài liệu · `CollectionPage.browser.test.tsx` (2 test).
 - Nút "Xuất bản" bật cả khi bộ tài liệu rỗng; bấm thì backend báo lỗi có giải thích · giữ nguyên (nhỏ).
 - Tạo bộ tài liệu của tổ chức, đặt quyền xem "trong tổ chức", soạn và xuất bản, thành viên hỏi được trích, người ngoài không thấy: chạy đúng (chương `collections`).
+
+## account
+
+- Test `SessionsList` "cannot be loaded, retries" trượt chập chờn (khoảng 1/3 lần chạy cả bộ) · request refetch còn sót từ test trước tới lúc handler vừa reset, MSW ghi lỗi request không có handler và fail-on-console đánh trượt test · `beforeEach` đặt handler mặc định cho `/account/sessions` · 0/30 lần trượt sau khi sửa.
