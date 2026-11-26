@@ -1,6 +1,7 @@
 import { test } from "@playwright/test"
 
 import { account } from "./chapters/account"
+import { admin } from "./chapters/admin"
 import { auth } from "./chapters/auth"
 import { chat } from "./chapters/chat"
 import { collections } from "./chapters/collections"
@@ -28,4 +29,6 @@ test("walkthrough", async ({ page }) => {
   await chapterTitle(page, "6. Cài đặt tài khoản")
   await switchUser(page, ctx.owner!)
   await account(page, ctx)
+  await chapterTitle(page, "7. Quản trị")
+  await admin(page, ctx)
 })
