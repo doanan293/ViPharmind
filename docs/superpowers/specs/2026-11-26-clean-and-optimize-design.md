@@ -15,7 +15,8 @@ khi xong, nên không bị ràng buộc bởi lịch sử cũ hay bộ nhiệm v
 ## 2. Điểm xuất phát
 
 - Nhánh làm việc `clean` = `v2.0.0` + merge `camera-ready` (chỉ tài liệu poster và thuyết trình), worktree
-  `~/personal/vipharmind-clean`. Mã giống hệt `v2.0.0`; `docs/poster`, `docs/presentation` giống hệt `camera-ready`.
+  `~/personal/vipharmind-clean`. Mã giống hệt `v2.0.0`. Paper, poster, slide SoICT và spec, plan của chúng chỉ ở
+  `main` và các tag (chủ dự án, 2026-11-26); `clean` chỉ giữ bản nháp Methods v2 ở `docs/paper-v2/`.
 - `v2.0.0` đã gộp `camera-ready` ở `9732e8e`, có corpus dựng lại bằng pharma-lab 0.4.0 (3.120 tài liệu, 34.552
   mục), embedding tính sẵn trên Kaggle cho 5 model, golden v4, ablation D1 và D7. Paper v2 dừng từ 2026-11-15
   (D2, D4, D5 bỏ). Phần mã thí nghiệm của paper v2 (ReAct agent, decision model Jev qua OpenRouter, cấu hình e2e
