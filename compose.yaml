@@ -32,6 +32,8 @@ x-backend: &backend
     PHARMA_AUTH__COOKIE_SECURE: "${COOKIE_SECURE:-true}"
     PHARMA_POSTGRES__DSN: "postgresql+psycopg://${POSTGRES_USER:-vipharmind}:${POSTGRES_PASSWORD:-vipharmind}@postgres:5432/${POSTGRES_DB:-vipharmind}"
     PHARMA_QDRANT__URL: "http://qdrant:6333"
+    # nginx appends the browser's address to X-Forwarded-For; per-IP limits read it.
+    PHARMA_API__TRUSTED_PROXY_HOPS: "1"
     # Models (LLM, embedding, reranker) come from backend/.env; the override files above
     # point them at local containers instead.
 
