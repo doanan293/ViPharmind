@@ -394,6 +394,10 @@
             ],
             "title": "Organization Id"
           },
+          "subject_name": {
+            "title": "Subject Name",
+            "type": "string"
+          },
           "subject_user_id": {
             "anyOf": [
               {
@@ -416,6 +420,7 @@
           "action",
           "organization_id",
           "subject_user_id",
+          "subject_name",
           "collection_id",
           "details"
         ],

@@ -65,6 +65,7 @@ export const AuditMineResponse = zod.object({
       id: zod.uuid(),
       occurred_at: zod.iso.datetime({ offset: true }),
       organization_id: zod.union([zod.uuid(), zod.null()]),
+      subject_name: zod.string(),
       subject_user_id: zod.union([zod.uuid(), zod.null()]),
     })
   ),
@@ -325,6 +326,7 @@ export const AdminAuditResponse = zod.object({
       id: zod.uuid(),
       occurred_at: zod.iso.datetime({ offset: true }),
       organization_id: zod.union([zod.uuid(), zod.null()]),
+      subject_name: zod.string(),
       subject_user_id: zod.union([zod.uuid(), zod.null()]),
     })
   ),
@@ -2094,6 +2096,7 @@ export const AuditOrganizationResponse = zod.object({
       id: zod.uuid(),
       occurred_at: zod.iso.datetime({ offset: true }),
       organization_id: zod.union([zod.uuid(), zod.null()]),
+      subject_name: zod.string(),
       subject_user_id: zod.union([zod.uuid(), zod.null()]),
     })
   ),

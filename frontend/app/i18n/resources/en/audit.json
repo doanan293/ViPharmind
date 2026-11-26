@@ -3,6 +3,9 @@
     "unknown": "A user",
     "superadmin": "{{name}} (Admin)"
   },
+  "subject": {
+    "unknown": "a member"
+  },
   "role": {
     "owner": "owner",
     "editor": "editor",
@@ -22,8 +25,8 @@
     "member": {
       "joined": "{{actor}} joined as {{role}}",
       "left": "{{actor}} left the organization",
-      "removed": "{{actor}} removed a member from the organization",
-      "role_changed": "{{actor}} changed a member's role from {{from}} to {{to}}"
+      "removed": "{{actor}} removed {{member}} from the organization",
+      "role_changed": "{{actor}} changed the role of {{member}} from {{from}} to {{to}}"
     },
     "invitation": {
       "created": "{{actor}} invited {{email}} as {{role}}",

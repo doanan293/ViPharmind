@@ -16,6 +16,7 @@ function event(overrides: Partial<AuditEventView>): AuditEventView {
     action: AuditAction["organizationcreated"],
     organization_id: null,
     subject_user_id: null,
+    subject_name: "",
     collection_id: null,
     details: {},
     ...overrides,
@@ -62,5 +63,24 @@ describe("describeEvent", () => {
     expect(
       describeEvent(event({ actor_name: "", details: { name: "Org" } }), t)
     ).toBe("Một người dùng đã tạo tổ chức Org")
+  })
+
+  test("names the member an event is about, or says 'a member' when unknown", () => {
+    const t = createTestI18n("vi").getFixedT("vi", "audit")
+    const changed = event({
+      action: AuditAction["memberrole_changed"],
+      subject_user_id: "u2",
+      subject_name: "Dược sĩ Lợi",
+      details: { from: "member", to: "editor" },
+    })
+    expect(describeEvent(changed, t)).toBe(
+      "An đã đổi vai trò của Dược sĩ Lợi từ thành viên thành biên tập viên"
+    )
+    expect(
+      describeEvent(
+        event({ action: AuditAction["memberremoved"], subject_user_id: "u3" }),
+        t
+      )
+    ).toBe("An đã xoá một thành viên khỏi tổ chức")
   })
 })

@@ -46,5 +46,6 @@ export function describeEvent(
     role: label(details["role"]),
     from: label(details["from"]),
     to: label(details["to"]),
+    member: event.subject_name || t("subject.unknown"),
   })
 }

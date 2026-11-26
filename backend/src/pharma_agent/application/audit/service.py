@@ -26,6 +26,8 @@ class AuditEventView(BaseModel):
     action: AuditAction
     organization_id: uuid.UUID | None
     subject_user_id: uuid.UUID | None
+    # Display name of the account the event is about; "" when unknown (e.g. deleted since).
+    subject_name: str
     collection_id: uuid.UUID | None
     details: dict[str, Any]
 
@@ -52,9 +54,12 @@ class AuditService:
     async def _page(self, events: list[AuditEvent], limit: int) -> AuditPage:
         items = events[:limit]
         names: dict[uuid.UUID, str] = {}
-        for actor_id in {e.actor_user_id for e in items if e.actor_user_id}:
-            user = await self._accounts.get(actor_id)
-            names[actor_id] = (
+        people = {e.actor_user_id for e in items if e.actor_user_id} | {
+            e.subject_user_id for e in items if e.subject_user_id
+        }
+        for user_id in people:
+            user = await self._accounts.get(user_id)
+            names[user_id] = (
                 ""
                 if user is None
                 else user.display_name or user.email or user.phone_number or ""
@@ -71,6 +76,9 @@ class AuditService:
                 action=event.action,
                 organization_id=event.organization_id,
                 subject_user_id=event.subject_user_id,
+                subject_name=names.get(event.subject_user_id, "")
+                if event.subject_user_id
+                else "",
                 collection_id=event.collection_id,
                 details=dict(event.details),
             )

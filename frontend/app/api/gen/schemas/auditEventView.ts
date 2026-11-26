@@ -17,5 +17,6 @@ export interface AuditEventView {
   id: string
   occurred_at: string
   organization_id: string | null
+  subject_name: string
   subject_user_id: string | null
 }

@@ -3,6 +3,9 @@
     "unknown": "Một người dùng",
     "superadmin": "{{name}} (Quản trị viên)"
   },
+  "subject": {
+    "unknown": "một thành viên"
+  },
   "role": {
     "owner": "chủ sở hữu",
     "editor": "biên tập viên",
@@ -22,8 +25,8 @@
     "member": {
       "joined": "{{actor}} đã tham gia với vai trò {{role}}",
       "left": "{{actor}} đã rời tổ chức",
-      "removed": "{{actor}} đã xoá một thành viên khỏi tổ chức",
-      "role_changed": "{{actor}} đã đổi vai trò một thành viên từ {{from}} thành {{to}}"
+      "removed": "{{actor}} đã xoá {{member}} khỏi tổ chức",
+      "role_changed": "{{actor}} đã đổi vai trò của {{member}} từ {{from}} thành {{to}}"
     },
     "invitation": {
       "created": "{{actor}} đã mời {{email}} với vai trò {{role}}",

@@ -29,3 +29,7 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 ## history
 
 - Danh sách, mở lại, đổi tên, xoá cuộc trò chuyện: chạy đúng trên stack demo (chương `history`); không có lỗi app.
+
+## orgs
+
+- Nhật ký tổ chức ghi "đã đổi vai trò một thành viên", "đã xoá một thành viên" thay vì tên người đó · `AuditEventView` chỉ có tên người thực hiện · thêm `subject_name` (tên tài khoản được nhắc tới, rỗng khi không còn) và câu chữ dùng tên, còn "một thành viên" khi không biết · `tests/application/test_audit_service.py`, `describe-event.test.ts`.

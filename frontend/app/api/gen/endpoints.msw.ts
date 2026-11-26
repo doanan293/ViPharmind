@@ -75,6 +75,7 @@ export const getAuditMineResponseMock = (
     id: faker.string.uuid(),
     occurred_at: faker.date.past().toISOString().slice(0, 19) + "Z",
     organization_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    subject_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     subject_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
   })),
   next_cursor: faker.helpers.arrayElement([
@@ -215,6 +216,7 @@ export const getAdminAuditResponseMock = (
     id: faker.string.uuid(),
     occurred_at: faker.date.past().toISOString().slice(0, 19) + "Z",
     organization_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    subject_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     subject_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
   })),
   next_cursor: faker.helpers.arrayElement([
@@ -1461,6 +1463,7 @@ export const getAuditOrganizationResponseMock = (
     id: faker.string.uuid(),
     occurred_at: faker.date.past().toISOString().slice(0, 19) + "Z",
     organization_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    subject_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     subject_user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
   })),
   next_cursor: faker.helpers.arrayElement([

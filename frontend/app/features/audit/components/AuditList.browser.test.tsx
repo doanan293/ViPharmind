@@ -19,6 +19,7 @@ function event(id: string, title: string): AuditEventView {
     action: "collection.created",
     organization_id: null,
     subject_user_id: "u1",
+    subject_name: "An",
     collection_id: "c1",
     details: { title },
   }

@@ -89,3 +89,46 @@ async def test_mine_lists_events_about_me_and_everything_is_superadmin_only() ->
         actor(uuid.uuid4(), superadmin=True), limit=10, cursor=None
     )
     assert len(everything.items) == 6
+
+
+async def test_events_about_a_member_carry_the_member_name() -> None:
+    accounts = InMemoryAccounts()
+    organizations = InMemoryOrganizations(accounts)
+    audit = InMemoryAuditLog()
+    owner = accounts.add(email="owner@example.com")
+    member = accounts.add(email="loi@example.com")
+    org = Organization(uuid.uuid4(), "Org", None, None, START, START)
+    organizations.organizations[org.id] = org
+    organizations.seed_member(org.id, owner.id, Role.OWNER)
+    me = actor(owner.id, {org.id: Role.OWNER})
+    async with InMemoryTransactions().begin() as t:
+        await audit.record(
+            new_event(
+                me,
+                AuditAction.MEMBER_ROLE_CHANGED,
+                START,
+                organization_id=org.id,
+                subject_user_id=member.id,
+            ),
+            t,
+        )
+        await audit.record(
+            new_event(
+                me,
+                AuditAction.MEMBER_REMOVED,
+                START + timedelta(minutes=1),
+                organization_id=org.id,
+                subject_user_id=uuid.uuid4(),  # an account deleted since
+            ),
+            t,
+        )
+    service = AuditService(
+        audit=audit,
+        accounts=accounts,
+        organizations=organizations,
+        clock=MutableClock(),
+    )
+    page = await service.for_organization(me, org.id, limit=10, cursor=None)
+    names = {item.action: item.subject_name for item in page.items}
+    assert names[AuditAction.MEMBER_ROLE_CHANGED] == "loi@example.com"
+    assert names[AuditAction.MEMBER_REMOVED] == ""
