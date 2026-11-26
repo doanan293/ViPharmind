@@ -51,6 +51,25 @@ docker compose exec backend pharma-agent ask "Paracetamol người lớn uống 
   Embedding phải là model đã dùng khi import corpus; `/health` báo `CORPUS_NOT_READY` nếu metadata
   collection không khớp.
 
+### Demo local một lệnh (`scripts/demo-stack.sh`)
+
+Dựng cả stack dưới project compose riêng `vipharmind-demo` (volume riêng, không đụng stack mặc định):
+LLM Gemini qua CLIProxyAPI, embedding chạy CPU bằng llama.cpp, mã OTP và SMS ghi ra log backend.
+
+```bash
+scripts/demo-stack.sh up        # build, chạy, nạp corpus nếu thiếu, kiểm tra; web http://localhost:8080
+scripts/demo-stack.sh reset-db  # xóa dữ liệu người dùng: Postgres, Qdrant mới, nạp lại corpus
+scripts/demo-stack.sh logs backend
+scripts/demo-stack.sh down
+```
+
+- Corpus nạp từ `$PHARMA_DATA_DIR/corpus/formulary` (mặc định `~/personal/vipharmind/pharma-lab/data`), chỉ nạp
+  vector tính sẵn trong bundle, không embed lại; GGUF đọc từ `$GGUF_DIR`.
+- Token Gemini nằm ở volume `vipharmind-demo_cli_proxy_auth`; lần đầu chép từ volume đăng nhập sẵn có hoặc đăng
+  nhập theo mục "LLM Gemini qua CLIProxyAPI" với `-p vipharmind-demo`.
+- Rerank mặc định tắt (`DEMO_RERANKER=none`, chỉ hybrid RRF): CPU laptop xử lý khoảng 100 token/giây với model
+  0.6B, một vòng rerank 15 đoạn mất vài phút. Bật bằng `DEMO_RERANKER=<file GGUF>`.
+
 ### Chạy model trên CPU (`compose.local-models.yaml`)
 
 Embedding và reranker chạy bằng llama.cpp trên máy thay cho OpenRouter, cần file GGUF trong

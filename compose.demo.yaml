@@ -1,0 +1,20 @@
+# Local demo stack: the overrides that make compose.yaml + compose.llm-proxy.yaml +
+# compose.local-models.yaml a self-contained demo. Started by scripts/demo-stack.sh under the
+# compose project `vipharmind-demo`, so its volumes never touch the `vipharmind_*` volumes.
+# Overridable: PHARMA_DATA_DIR (pharma-lab/data with the corpus bundle and its precomputed
+# vectors, read only).
+
+services:
+  backend:
+    environment:
+      # One-time codes go to the backend log; the demo reads them from there.
+      PHARMA_EMAIL__PROVIDER: "log"
+      PHARMA_SMS__PROVIDER: "log"
+    volumes:
+      - "${PHARMA_DATA_DIR:-./pharma-lab/data}/corpus:/data/corpus:ro"
+
+volumes:
+  # The Gemini login, copied once from the old stack's volume (see scripts/demo-stack.sh).
+  cli_proxy_auth:
+    external: true
+    name: vipharmind-demo_cli_proxy_auth
