@@ -2,7 +2,8 @@
 
 The walkthrough (`npm --prefix frontend run demo:video`) writes `video.webm` and `waits.json`
 (milliseconds since the recording started while the app was answering). This script keeps
-everything else at normal speed, plays the waits SPEEDUP times faster, and writes an H.264 MP4.
+plays ordinary steps BASE_SPEED times faster, the waits WAIT_SPEED times faster, and the
+REVEAL_S seconds after each answer arrives at normal speed; writes an H.264 MP4.
 
     uv run python scripts/demo-video.py frontend/demo-videos/walkthrough.demo.ts-walkthrough out.mp4
 """
@@ -12,25 +13,35 @@ import json
 import subprocess
 from pathlib import Path
 
-SPEEDUP = 20.0
-# Seconds kept at normal speed at each end of a wait, so the cut is visible.
+# Owner (2026-11-26): about two minutes; ordinary steps brisk, waits for the model skipped,
+# the moment an answer appears at normal speed so viewers can read it.
+BASE_SPEED = 1.4
+WAIT_SPEED = 30.0
+# Seconds before a wait kept at base speed (the question being sent) and after it at normal
+# speed (the answer and its citations appearing).
 MARGIN = 0.8
+REVEAL_S = 5.0
 
 
 def segments(
     waits: list[tuple[float, float]], duration: float
 ) -> list[tuple[float, float, float]]:
-    """(start, end, speed) pieces covering [0, duration]; waits shorter than two margins stay."""
+    """(start, end, speed) pieces covering [0, duration]."""
     pieces: list[tuple[float, float, float]] = []
     cursor = 0.0
     for start, end in sorted(waits):
-        fast_start, fast_end = start + MARGIN, end - MARGIN
-        if fast_end - fast_start <= 0 or fast_start < cursor or fast_end > duration:
+        if end <= cursor or end > duration:
             continue
-        pieces.append((cursor, fast_start, 1.0))
-        pieces.append((fast_start, fast_end, SPEEDUP))
-        cursor = fast_end
-    pieces.append((cursor, duration, 1.0))
+        fast_start = max(cursor, start + MARGIN)
+        if fast_start < end:
+            pieces.append((cursor, fast_start, BASE_SPEED))
+            pieces.append((fast_start, end, WAIT_SPEED))
+        else:
+            pieces.append((cursor, end, BASE_SPEED))
+        reveal_end = min(duration, end + REVEAL_S)
+        pieces.append((end, reveal_end, 1.0))
+        cursor = reveal_end
+    pieces.append((cursor, duration, BASE_SPEED))
     return [piece for piece in pieces if piece[1] - piece[0] > 0.05]
 
 
