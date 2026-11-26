@@ -20,7 +20,7 @@ export type RenderRoutesResult = {
   queryClient: QueryClient
 }
 
-export function LocationProbe() {
+function LocationProbe() {
   const location = useLocation()
   return (
     <output data-testid="location">{`${location.pathname}${location.search}`}</output>

@@ -17,9 +17,9 @@ const streamRequestSchema = z.object({
 export type StreamRequest = z.infer<typeof streamRequestSchema>
 export type ScriptedChat = ReturnType<typeof createChat<PharmaUIMessage>>
 
-export const STREAM_URL = `*${getChatStreamUrl()}`
+const STREAM_URL = `*${getChatStreamUrl()}`
 
-export function finishMetadata(
+function finishMetadata(
   overrides: Partial<MessageMetadata> = {}
 ): MessageMetadata {
   return {

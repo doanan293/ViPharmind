@@ -2,7 +2,7 @@ import { parsePhoneNumberFromString } from "libphonenumber-js/min"
 import { z } from "zod"
 
 /** Numbers typed without a country code are Vietnamese. */
-export const DEFAULT_PHONE_COUNTRY = "VN"
+const DEFAULT_PHONE_COUNTRY = "VN"
 
 function parse(value: string) {
   return parsePhoneNumberFromString(value, DEFAULT_PHONE_COUNTRY)

@@ -2,10 +2,10 @@ import { z } from "zod"
 
 import { UsersPatchCurrentUserBody } from "~/api/gen/zod"
 
-export const DISPLAY_NAME_MAX_LENGTH = 100
+const DISPLAY_NAME_MAX_LENGTH = 100
 /** Overview §4: passwords entered in the UI need at least 8 characters (as in P8's register form). */
-export const PASSWORD_MIN_LENGTH = 8
-export const PASSWORD_MAX_LENGTH = 128
+const PASSWORD_MIN_LENGTH = 8
+const PASSWORD_MAX_LENGTH = 128
 
 export type ProfileMessages = { required: string; tooLong: string }
 export type PasswordMessages = {

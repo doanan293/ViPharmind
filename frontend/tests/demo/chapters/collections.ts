@@ -3,7 +3,7 @@ import { type Page, expect } from "@playwright/test"
 import { type DemoContext, ask, caption, switchUser } from "../support/demo"
 import { ORGANIZATION } from "./orgs"
 
-export const COLLECTION = "Phác đồ khoa Dược"
+const COLLECTION = "Phác đồ khoa Dược"
 const QUESTION =
   "Theo phác đồ của khoa, giảm đau sau mổ dùng paracetamol thế nào?"
 

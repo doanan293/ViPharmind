@@ -12,7 +12,7 @@ function csrfHeaders(): Record<string, string> {
   return token === undefined ? {} : { [CSRF_HEADER]: token }
 }
 
-export function lastUserText(messages: readonly PharmaUIMessage[]): string {
+function lastUserText(messages: readonly PharmaUIMessage[]): string {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]
     if (message?.role === "user") {

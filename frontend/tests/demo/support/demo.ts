@@ -18,7 +18,7 @@ const STACK = path.resolve(
   "../../../../scripts/demo-stack.sh"
 )
 
-export function uniqueEmail(prefix: string): string {
+function uniqueEmail(prefix: string): string {
   return `${prefix}-${randomUUID().slice(0, 6)}@vipharmind.demo`
 }
 

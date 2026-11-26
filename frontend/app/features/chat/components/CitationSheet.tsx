@@ -34,7 +34,7 @@ export type CitationSheetProps = {
   onClose: () => void
 }
 
-export function CitationDetailView({ messageId, index }: CitationTarget) {
+function CitationDetailView({ messageId, index }: CitationTarget) {
   const { t } = useTranslation("citations")
   const { t: tErrors } = useTranslation("errors")
   const pageText = usePageText()
