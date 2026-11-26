@@ -3,7 +3,7 @@ from collections.abc import Iterable, Sequence
 
 from pharma_agent.domain.conversation.models import Citation
 from pharma_agent.domain.retrieval.evidence import Evidence
-from pharma_agent.domain.shared.text import make_snippet
+from pharma_agent.domain.shared.text import make_preview
 
 SNIPPET_CHARS = 200
 """Snippet length for evidence items and citations (spec A §3.3)."""
@@ -80,7 +80,7 @@ def citations_from(
                 section=hit.section,
                 start_page=hit.start_page,
                 end_page=hit.end_page,
-                snippet=make_snippet(hit.chunk_text, SNIPPET_CHARS),
+                snippet=make_preview(hit.chunk_text, SNIPPET_CHARS),
             )
         )
     return citations

@@ -2,7 +2,7 @@ import unicodedata
 
 import pytest
 
-from pharma_agent.domain.shared.text import make_snippet, normalize_text
+from pharma_agent.domain.shared.text import make_preview, make_snippet, normalize_text
 
 
 def test_normalize_text_unifies_unicode_line_endings_and_blank_edges() -> None:
@@ -58,15 +58,26 @@ def test_make_snippet_rejects_non_positive_limit() -> None:
         make_snippet("Hạ sốt", 0)
 
 
-def test_make_snippet_drops_markdown_markers() -> None:
+def test_make_preview_drops_markdown_markers() -> None:
     # A one-line preview reads as text: no heading hashes, list bullets or emphasis marks.
     text = "## Thai kỳ và cho con bú\n\n- **Khả năng sinh sản:** giảm\n* _thận trọng_\n1. Liều 400 mg"
     assert (
-        make_snippet(text, 200)
+        make_preview(text, 200)
         == "Thai kỳ và cho con bú Khả năng sinh sản: giảm thận trọng Liều 400 mg"
     )
 
 
-def test_make_snippet_keeps_inner_symbols() -> None:
-    text = "Liều 2 * 200 mg; C# không đổi; tỷ lệ 1.5"
-    assert make_snippet(text, 200) == text
+def test_make_preview_keeps_inner_symbols_and_thresholds() -> None:
+    text = "Liều 2 * 200 mg; C# không đổi; tỷ lệ 1.5; snake_case_name"
+    assert make_preview(text, 200) == text
+    # "> 50" at the start of a line is a dose threshold in the formulary, not a quote.
+    assert (
+        make_preview("> 50 ml/phút: không chỉnh liều", 200)
+        == "> 50 ml/phút: không chỉnh liều"
+    )
+    assert make_preview(">65 tuổi: giảm liều", 200) == ">65 tuổi: giảm liều"
+
+
+def test_make_snippet_keeps_markdown_for_the_judge() -> None:
+    # The judge reads evidence through make_snippet; its input must not change.
+    assert make_snippet("## Liều\n> 50 ml/phút", 200) == "## Liều > 50 ml/phút"

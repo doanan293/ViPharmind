@@ -362,7 +362,9 @@ tài khoản.
 **Kiểm thử**:
 
 - domain: `AgentRun` (máy trạng thái, dự trữ lời gọi, `EvidenceRequired`, ngân sách),
-  `EvidenceSet.pack`, `CitationSanitizer` (marker bị cắt giữa delta, index sai), prompt không chứa
+  `EvidenceSet.pack`, `CitationSanitizer` (marker bị cắt giữa delta, index sai, marker gộp "[1, 2]" thành
+  "[1], [2]"), `make_preview` (đoạn trích cho người đọc bỏ dấu markdown, giữ ">" của ngưỡng; bằng chứng của judge vẫn
+  dùng `make_snippet` không đổi), prompt không chứa
   cụm disclaimer, bộ câu hỏi decision model; thuần, không mock;
 - application: graph thật với port giả (`tests/fakes.py`): smalltalk, chặn, ngoài phạm vi,
   grounded một vòng, refine nhiều vòng, partial khi hết ngân sách, abstain khi search lỗi, timeout,

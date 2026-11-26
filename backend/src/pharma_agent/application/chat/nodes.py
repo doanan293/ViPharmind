@@ -50,7 +50,7 @@ from pharma_agent.domain.llm.models import LlmRole, LlmUsage
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.evidence import Evidence
 from pharma_agent.domain.retrieval.models import Query, QueryOrigin
-from pharma_agent.domain.shared.text import make_snippet
+from pharma_agent.domain.shared.text import make_preview
 
 NodeUpdate = dict[str, Any]
 
@@ -107,7 +107,7 @@ def emit_evidence(numbered: Sequence[tuple[int, Evidence]]) -> None:
                         "section": e.hit.section,
                         "start_page": e.hit.start_page,
                         "end_page": e.hit.end_page,
-                        "snippet": make_snippet(e.hit.chunk_text, SNIPPET_CHARS),
+                        "snippet": make_preview(e.hit.chunk_text, SNIPPET_CHARS),
                     }
                     for index, e in numbered
                 ]

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pharma_agent.domain.agent.citations import SNIPPET_CHARS
 from pharma_agent.domain.conversation.models import Citation, Message
-from pharma_agent.domain.shared.text import make_snippet
+from pharma_agent.domain.shared.text import make_preview
 from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     ChunkVersionTable,
     DocumentTable,
@@ -48,7 +48,7 @@ def citation_from_row(
         section="; ".join(h for h in chunk.headings if h),
         start_page=chunk.start_page,
         end_page=chunk.end_page,
-        snippet=make_snippet(chunk.chunk_text, SNIPPET_CHARS),
+        snippet=make_preview(chunk.chunk_text, SNIPPET_CHARS),
     )
 
 

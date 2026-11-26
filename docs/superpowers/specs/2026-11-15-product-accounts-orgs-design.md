@@ -80,12 +80,15 @@ xác minh, Google đã liên kết. Không thao tác nào được đưa số c�
   tăng bằng `INSERT ... ON CONFLICT DO UPDATE`.
 - `access_tokens`: thêm `user_agent`, `ip_address`, `last_used_at`.
 
-Giới hạn: gửi mã tới một địa chỉ 5 lần mỗi giờ, cách nhau tối thiểu 60 giây; từ một IP 20 lần mỗi giờ;
+Giới hạn: gửi mã tới một địa chỉ 5 lần mỗi giờ, cách nhau tối thiểu 60 giây; từ một IP 20 lần mỗi giờ
+(`PHARMA_AUTH__CODE_SENDS_PER_IP_PER_HOUR`; stack demo local đặt 1000 vì mọi tài khoản demo gửi từ cùng một máy);
 đăng nhập sai 10 lần trong 15 phút theo tài khoản và theo IP. Vượt thì `429 RATE_LIMITED` kèm
 `Retry-After`; nút "Gửi lại" ở frontend đếm ngược theo đúng số giây đó.
 
 IP của khách: chỉ tin `X-Forwarded-For` khi request đi qua proxy của chính frontend (header secret
-`API_PROXY_SECRET` khớp `PHARMA_API__PROXY_SECRET`), với `PHARMA_API__TRUSTED_PROXY_HOPS=1` trên Vercel.
+`API_PROXY_SECRET` khớp `PHARMA_API__PROXY_SECRET`), với `PHARMA_API__TRUSTED_PROXY_HOPS=1` trên Vercel. Stack
+`compose.yaml` đặt `PHARMA_API__TRUSTED_PROXY_HOPS=1` cho nginx, không cần secret: backend không mở cổng ra ngoài nên
+mọi request đều qua nginx, và backend đọc entry phải nhất do nginx thêm, nên khách không giả được IP.
 
 ### 2.4 Thành phần
 

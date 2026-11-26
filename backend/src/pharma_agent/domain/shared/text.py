@@ -5,8 +5,9 @@ import unicodedata
 
 ELLIPSIS = "…"
 _WHITESPACE_RE = re.compile(r"\s+")
-# Markdown block markers at the start of a line: headings, quotes, bullets, numbered items.
-_BLOCK_MARKER_RE = re.compile(r"^\s*(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+[.)]\s+)")
+# Markdown block markers at the start of a line: headings, bullets, numbered items. A
+# leading ">" stays: in the formulary it is a threshold ("> 50 ml/phút"), not a quote.
+_BLOCK_MARKER_RE = re.compile(r"^\s*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)")
 # Emphasis markers around words (**bold**, __bold__, *italic*, _italic_).
 _EMPHASIS_RE = re.compile(
     r"(\*\*|__)(?=\S)(.+?)(?<=\S)\1|(?<![\w*])([*_])(?=\S)(.+?)(?<=\S)\3(?![\w*])"
@@ -34,17 +35,11 @@ def _is_table_rule(line: str) -> bool:
 
 
 def make_snippet(text: str, max_chars: int) -> str:
-    """One-line preview: no table pipes or rules, no markdown markers, cut at a word boundary
-    with "…"."""
+    """One-line preview: no table pipes or rules, cut at a word boundary with "…"."""
     if max_chars < 1:
         raise ValueError("max_chars must be at least 1")
-    kept = [
-        _BLOCK_MARKER_RE.sub("", line)
-        for line in text.splitlines()
-        if not _is_table_rule(line)
-    ]
-    plain = _EMPHASIS_RE.sub(lambda m: m.group(2) or m.group(4), " ".join(kept))
-    flat = _WHITESPACE_RE.sub(" ", plain.replace("|", " ")).strip()
+    kept = [line for line in text.splitlines() if not _is_table_rule(line)]
+    flat = _WHITESPACE_RE.sub(" ", " ".join(kept).replace("|", " ")).strip()
     if len(flat) <= max_chars:
         return flat
     head = flat[: max_chars - 1]
@@ -53,3 +48,11 @@ def make_snippet(text: str, max_chars: int) -> str:
         if boundary > 0:
             head = head[:boundary]
     return head.rstrip() + ELLIPSIS
+
+
+def make_preview(text: str, max_chars: int) -> str:
+    """Like make_snippet, for people to read: markdown heading, list and emphasis markers
+    dropped. The agent's own evidence views keep make_snippet."""
+    lines = [_BLOCK_MARKER_RE.sub("", line) for line in text.splitlines()]
+    plain = _EMPHASIS_RE.sub(lambda m: m.group(2) or m.group(4), "\n".join(lines))
+    return make_snippet(plain, max_chars)
