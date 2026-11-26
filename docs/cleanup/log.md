@@ -66,3 +66,10 @@ Mỗi dòng: tính năng · triệu chứng · nguyên nhân · sửa · test.
 
 - Trang giới thiệu chỉ giới thiệu 2 tính năng trong lưới 3 cột; hai tính năng nổi bật (bộ tài liệu có phân quyền, chặn câu hỏi ngoài phạm vi) không được nhắc · thêm hai thẻ, mỗi thẻ có icon lucide, lưới 2 cột (vi, en) · `LandingPage.test.tsx`.
 - Trang giới thiệu tiếng Việt và tiếng Anh, chuyển ngôn ngữ, trang chính sách: chạy đúng (chương `public`).
+
+## review 2
+
+- (Opus soát) Kích thước cảm ứng làm vỡ input group: ô nhập 44 px trong khung 32 px, nút trong nhóm cao 44 px · `InputGroup` thêm `pointer-coarse:h-11`, `InputGroupInput` `pointer-coarse:h-full`, nút trong nhóm `pointer-coarse:h-9`/`size-9` · kiểm bằng ảnh chụp 390×844 có cảm ứng.
+- (Opus soát) Nút chính khi rê chuột mờ đi `bg-primary/80`, chữ trắng chỉ 3,36:1 · `button`, `badge`, `bubble` sẫm lại bằng `color-mix` thay vì mờ · ghi trong frontend README như file cố ý khác registry.
+- Logo trong sidebar bị `[&_svg]:size-4` của sidebar đè còn 16 px · `size-7!`. Favicon dùng đúng mã màu của theme. Câu "bị chặn trước khi agent tìm kiếm" nói quá (guard fail-open) · "được nhận diện".
+- Kịch bản demo: chương bộ tài liệu kiểm đúng popover "Trích từ mục Giảm đau sau mổ"; chương tổ chức kiểm câu "đã đổi vai trò của <tên>".

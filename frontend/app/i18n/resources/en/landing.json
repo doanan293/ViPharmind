@@ -25,7 +25,7 @@
     },
     "guard": {
       "title": "Answers about medicines only",
-      "description": "Off-topic questions and prompt attacks are stopped before the agent searches."
+      "description": "Off-topic questions and prompt attacks are screened before the agent searches."
     }
   },
   "sources": {

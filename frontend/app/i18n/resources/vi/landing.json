@@ -25,7 +25,7 @@
     },
     "guard": {
       "title": "Chỉ trả lời về thuốc",
-      "description": "Câu hỏi ngoài phạm vi và các yêu cầu tấn công bị chặn trước khi agent tìm kiếm."
+      "description": "Câu hỏi ngoài phạm vi và các yêu cầu tấn công được nhận diện trước khi agent tìm kiếm."
     }
   },
   "sources": {

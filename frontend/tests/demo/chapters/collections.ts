@@ -66,7 +66,7 @@ export async function collections(page: Page, ctx: DemoContext): Promise<void> {
   await ask(page, QUESTION)
   const marker = page.getByRole("button", { name: /^\d{1,3}$/ }).first()
   await marker.hover()
-  await expect(page.getByText(/Giảm đau sau mổ/).last()).toBeVisible()
+  await expect(page.getByText(/^Trích từ mục Giảm đau sau mổ/)).toBeVisible()
 
   await caption(
     page,

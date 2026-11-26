@@ -47,6 +47,8 @@ export async function orgs(page: Page, ctx: DemoContext): Promise<void> {
 
   await caption(page, "Nhật ký ghi lại mọi thay đổi trong tổ chức")
   await page.getByRole("tab", { name: "Nhật ký" }).click()
-  await expect(page.getByText(ctx.member.name).first()).toBeVisible()
+  await expect(
+    page.getByText(new RegExp(`đã đổi vai trò của ${ctx.member.name}`))
+  ).toBeVisible()
   await page.waitForTimeout(2_000)
 }

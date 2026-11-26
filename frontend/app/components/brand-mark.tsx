@@ -16,7 +16,7 @@ export function BrandMark({
     <span className={cn("inline-flex items-center gap-2", className)}>
       <svg
         viewBox="0 0 32 32"
-        className="size-7 shrink-0"
+        className="size-7! shrink-0"
         {...(withName
           ? { "aria-hidden": true }
           : { role: "img", "aria-label": name })}
