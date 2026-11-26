@@ -1,5 +1,6 @@
 import { test } from "@playwright/test"
 
+import { account } from "./chapters/account"
 import { auth } from "./chapters/auth"
 import { chat } from "./chapters/chat"
 import { collections } from "./chapters/collections"
@@ -46,4 +47,10 @@ test("collections", async ({ page }) => {
   await auth(page, ctx)
   await orgs(page, ctx)
   await collections(page, ctx)
+})
+
+test("account", async ({ page }) => {
+  const ctx: DemoContext = {}
+  await auth(page, ctx)
+  await account(page, ctx)
 })

@@ -1,12 +1,13 @@
 import { test } from "@playwright/test"
 
+import { account } from "./chapters/account"
 import { auth } from "./chapters/auth"
 import { chat } from "./chapters/chat"
 import { collections } from "./chapters/collections"
 import { history } from "./chapters/history"
 import { orgs } from "./chapters/orgs"
 import { intro } from "./chapters/intro"
-import { chapterTitle, type DemoContext } from "./support/demo"
+import { chapterTitle, type DemoContext, switchUser } from "./support/demo"
 
 // The whole demo as one test, one page, so one continuous video.
 test("walkthrough", async ({ page }) => {
@@ -24,4 +25,7 @@ test("walkthrough", async ({ page }) => {
   await orgs(page, ctx)
   await chapterTitle(page, "5. Bộ tài liệu có phân quyền")
   await collections(page, ctx)
+  await chapterTitle(page, "6. Cài đặt tài khoản")
+  await switchUser(page, ctx.owner!)
+  await account(page, ctx)
 })
