@@ -160,7 +160,9 @@ sửa được; người khác nhận `403 SYSTEM_COLLECTION_READ_ONLY`.
   `sent`, `accepted`, `declined`, `rejected`, `revoked`, `expired`), `token_hash` unique, `expires_at`,
   `decided_by`, `decided_at`. Unique index một phần: một lời mời `pending_approval` hoặc `sent` mỗi
   `(organization_id, email)`. Quá hạn được coi là `expired` khi đọc.
-- `audit_events`: chỉ ghi thêm, ghi cùng transaction với thay đổi (port `Transaction` dùng chung).
+- `audit_events`: chỉ ghi thêm, ghi cùng transaction với thay đổi (port `Transaction` dùng chung). API trả
+  `actor_name` và `subject_name` (tên hiển thị, email hoặc số điện thoại của tài khoản, đọc lúc xem; rỗng khi tài khoản
+  không còn).
   Cột `actor_user_id`, `actor_was_superadmin`, `action`, `organization_id`, `subject_user_id`,
   `collection_id`, `details` JSON. Action trong `domain/audit/models.py`: tổ chức, thành viên, lời mời,
   collection (tạo, đổi tên, xoá, đổi mức hiển thị, xuất bản, quay lại bản trước), tài liệu, thuật ngữ,

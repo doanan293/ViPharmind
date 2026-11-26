@@ -227,8 +227,8 @@ Thành phần dùng chung: `code-step` và `otp-code-field` (dán cả mã, nút
 | --- | --- |
 | `organizations` | Danh sách, tạo tổ chức; trang chi tiết có tab Thành viên, Lời mời, Collection, Nhật ký; tab không có quyền thì ẩn; xoá thành viên phải xác nhận. Trang nhận lời mời `/invitations/:token` |
 | `collections` | Danh sách collection (`item`) kèm thanh hạn mức (`progress`). Trang collection có tab Tài liệu, Thuật ngữ, Tên gọi dân gian, Bản phát hành, nút Xuất bản và hộp tiến độ job (poll). Trang soạn tài liệu dùng Tiptap với thanh công cụ `toggle`, tải lên `.txt`/`.md` mở trong cùng trình soạn thảo. "Công khai" chỉ hiện với superadmin; collection hệ thống chỉ đọc |
-| `audit` | Danh sách sự kiện dùng chung, mỗi sự kiện là một câu dựng từ `action` và `details`; thao tác của superadmin có nhãn riêng |
-| `admin` | Theo block `dashboard-01`: thẻ số liệu (`section-cards`) và các mục Người dùng, Tổ chức, Collection, Job, Nhật ký, bảng là `data-table`. Xem hội thoại của người dùng bằng `ReadOnlyThread`, dùng lại component tin nhắn của `chat` |
+| `audit` | Danh sách sự kiện dùng chung, mỗi sự kiện là một câu dựng từ `action`, `details` và `subject_name` (tên người được nhắc tới, "một thành viên" khi không biết); thao tác của superadmin có nhãn riêng |
+| `admin` | Theo block `dashboard-01`: thẻ số liệu (`section-cards`) và các mục Người dùng, Tổ chức, Collection, Job (cột collection hiện tên lấy từ danh sách collection), Nhật ký, bảng là `data-table`. Xem hội thoại của người dùng bằng `ReadOnlyThread`, dùng lại component tin nhắn của `chat` |
 | `legal`, `landing` | Trang giới thiệu, Chính sách quyền riêng tư, Điều khoản sử dụng, hai ngôn ngữ, prerender; footer có link |
 
 Quyền, hạn mức và luồng xuất bản do backend quyết định; frontend chỉ ẩn những gì người dùng không có
