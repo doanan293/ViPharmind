@@ -55,3 +55,6 @@ backend/_uv/
 # Third-party agent skills: reinstall from skills-lock.json
 .agents/skills/
 .claude/skills/
+
+# frontend test coverage reports (npm run test:coverage)
+frontend/coverage/
