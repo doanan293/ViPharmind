@@ -6,6 +6,9 @@
  */
 import type { Visibility } from "./visibility"
 
+/**
+ * Collection fields to change; fields left out stay as they are.
+ */
 export interface UpdateCollection {
   title?: string | null
   visibility?: Visibility | null

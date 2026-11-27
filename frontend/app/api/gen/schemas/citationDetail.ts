@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * The full text of a cited chunk and where it comes from.
+ */
 export interface CitationDetail {
   document_title: string
   end_page: number | null

@@ -6,6 +6,9 @@
  */
 import type { AuditEventView } from "./auditEventView"
 
+/**
+ * One page of audit events; `next_cursor` is None on the last page.
+ */
 export interface AuditPage {
   items: AuditEventView[]
   next_cursor: string | null

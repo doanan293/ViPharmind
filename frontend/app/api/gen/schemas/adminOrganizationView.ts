@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * An organization as the console shows it; a None quota uses the configured default.
+ */
 export interface AdminOrganizationView {
   collection_quota: number | null
   created_at: string

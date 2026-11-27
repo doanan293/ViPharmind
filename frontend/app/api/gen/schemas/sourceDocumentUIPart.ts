@@ -6,6 +6,9 @@
  */
 import type { SourceProviderMetadata } from "./sourceProviderMetadata"
 
+/**
+ * One cited source of an assistant message.
+ */
 export interface SourceDocumentUIPart {
   mediaType: "text/markdown"
   providerMetadata: SourceProviderMetadata

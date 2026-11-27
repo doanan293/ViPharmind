@@ -6,6 +6,9 @@
  */
 import type { ReleaseStatus } from "./releaseStatus"
 
+/**
+ * A release of a collection; `current` marks the one being served.
+ */
 export interface ReleaseView {
   created_at: string
   current: boolean

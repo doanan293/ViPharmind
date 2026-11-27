@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * What a bundle document is: a drug monograph, a general monograph or a leaflet.
+ */
 export type DocumentKind = (typeof DocumentKind)[keyof typeof DocumentKind]
 
 export const DocumentKind = {

@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * The stage of publishing an ingest job is at.
+ */
 export type JobStep = (typeof JobStep)[keyof typeof JobStep]
 
 export const JobStep = {

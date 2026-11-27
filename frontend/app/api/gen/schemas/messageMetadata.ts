@@ -8,6 +8,9 @@ import type { MessageFeedback } from "./messageFeedback"
 import type { MessageStatus } from "./messageStatus"
 import type { MessageUsage } from "./messageUsage"
 
+/**
+ * Status, timing, usage and feedback of a message.
+ */
 export interface MessageMetadata {
   createdAt: string
   errorCode?: string | null

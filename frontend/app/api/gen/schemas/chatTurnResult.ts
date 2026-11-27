@@ -7,6 +7,9 @@
 import type { ChatTurnResultUsage } from "./chatTurnResultUsage"
 import type { Citation } from "./citation"
 
+/**
+ * The persisted outcome of one chat turn.
+ */
 export interface ChatTurnResult {
   citations?: Citation[]
   content: string

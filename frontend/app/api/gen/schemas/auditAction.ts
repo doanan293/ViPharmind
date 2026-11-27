@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * What an audit event records, as ``<subject>.<verb>``.
+ */
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction]
 
 export const AuditAction = {

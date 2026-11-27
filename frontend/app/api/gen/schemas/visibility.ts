@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Who may read a collection: its owner, the owner's organization or everyone.
+ */
 export type Visibility = (typeof Visibility)[keyof typeof Visibility]
 
 export const Visibility = {

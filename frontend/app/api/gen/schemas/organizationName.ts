@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * The name of an organization.
+ */
 export interface OrganizationName {
   /**
    * @minLength 1

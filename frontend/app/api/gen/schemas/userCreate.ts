@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Registration request body: the fastapi-users fields plus a display name.
+ */
 export interface UserCreate {
   display_name?: string
   email: string

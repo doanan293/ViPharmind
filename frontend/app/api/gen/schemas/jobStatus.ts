@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * State of an ingest job: queued and running jobs are open.
+ */
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus]
 
 export const JobStatus = {

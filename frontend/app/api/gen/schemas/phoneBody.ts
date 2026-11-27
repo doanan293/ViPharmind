@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * A phone number that a one-time code is sent to.
+ */
 export interface PhoneBody {
   /**
    * @minLength 3

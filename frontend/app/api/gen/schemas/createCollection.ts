@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * A new collection; a null owner organization makes it personal.
+ */
 export interface CreateCollection {
   owner_organization_id?: string | null
   /**

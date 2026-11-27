@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Both quotas of an organization; a null or missing quota restores the default.
+ */
 export interface UpdateOrganization {
   collection_quota?: number | null
   text_quota_bytes?: number | null

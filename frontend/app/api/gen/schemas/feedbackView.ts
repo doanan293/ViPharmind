@@ -6,6 +6,9 @@
  */
 import type { Rating } from "./rating"
 
+/**
+ * A user's rating of an assistant message, as returned to the client.
+ */
 export interface FeedbackView {
   created_at: string
   message_id: string

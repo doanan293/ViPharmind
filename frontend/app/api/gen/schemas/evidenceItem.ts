@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * One numbered evidence chunk streamed during a turn.
+ */
 export interface EvidenceItem {
   endPage: number | null
   index: number

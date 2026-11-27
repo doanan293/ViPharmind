@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Thumbs up or down.
+ */
 export type Rating = (typeof Rating)[keyof typeof Rating]
 
 export const Rating = {

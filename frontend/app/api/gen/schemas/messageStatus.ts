@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Final status of a message as shown to the client.
+ */
 export type MessageStatus = (typeof MessageStatus)[keyof typeof MessageStatus]
 
 export const MessageStatus = {

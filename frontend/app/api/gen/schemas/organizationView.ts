@@ -6,6 +6,9 @@
  */
 import type { Role } from "./role"
 
+/**
+ * An organization with the actor's role in it (None when not a member).
+ */
 export interface OrganizationView {
   created_at: string
   id: string

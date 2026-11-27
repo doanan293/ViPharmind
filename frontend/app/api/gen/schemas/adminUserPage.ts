@@ -6,6 +6,9 @@
  */
 import type { AdminUserView } from "./adminUserView"
 
+/**
+ * One page of accounts, newest first; `next_cursor` is None on the last page.
+ */
 export interface AdminUserPage {
   items: AdminUserView[]
   next_cursor: string | null

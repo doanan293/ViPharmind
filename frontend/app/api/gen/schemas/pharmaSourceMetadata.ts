@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Pharma-specific metadata of a cited source; `is_current` says its release is current.
+ */
 export interface PharmaSourceMetadata {
   endPage: number | null
   index: number

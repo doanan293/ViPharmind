@@ -6,6 +6,9 @@
  */
 import type { Role } from "./role"
 
+/**
+ * What the holder of an invitation link may see about it.
+ */
 export interface InvitationPreview {
   email_hint: string
   inviter_name: string

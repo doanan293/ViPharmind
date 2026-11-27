@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * An account as the console shows it; a None quota uses the configured default.
+ */
 export interface AdminUserView {
   collection_quota: number | null
   created_at: string | null

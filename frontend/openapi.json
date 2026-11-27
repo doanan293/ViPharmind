@@ -2,6 +2,7 @@
   "components": {
     "schemas": {
       "AccountView": {
+        "description": "The signed-in user's account as returned to the client.",
         "properties": {
           "display_name": {
             "title": "Display Name",
@@ -98,6 +99,7 @@
         "type": "object"
       },
       "AdminOrganizationPage": {
+        "description": "One page of organizations, newest first; `next_cursor` is None on the last page.",
         "properties": {
           "items": {
             "items": {
@@ -126,6 +128,7 @@
         "type": "object"
       },
       "AdminOrganizationView": {
+        "description": "An organization as the console shows it; a None quota uses the configured default.",
         "properties": {
           "collection_quota": {
             "anyOf": [
@@ -180,6 +183,7 @@
         "type": "object"
       },
       "AdminUserPage": {
+        "description": "One page of accounts, newest first; `next_cursor` is None on the last page.",
         "properties": {
           "items": {
             "items": {
@@ -208,6 +212,7 @@
         "type": "object"
       },
       "AdminUserView": {
+        "description": "An account as the console shows it; a None quota uses the configured default.",
         "properties": {
           "collection_quota": {
             "anyOf": [
@@ -298,6 +303,7 @@
         "type": "object"
       },
       "AuditAction": {
+        "description": "What an audit event records, as ``<subject>.<verb>``.",
         "enum": [
           "organization.created",
           "organization.renamed",
@@ -331,6 +337,7 @@
         "type": "string"
       },
       "AuditEventView": {
+        "description": "One audit event with the display names of its actor and subject.",
         "properties": {
           "action": {
             "$ref": "#/components/schemas/AuditAction"
@@ -428,6 +435,7 @@
         "type": "object"
       },
       "AuditPage": {
+        "description": "One page of audit events; `next_cursor` is None on the last page.",
         "properties": {
           "items": {
             "items": {
@@ -529,6 +537,7 @@
         "type": "object"
       },
       "ChatRequest": {
+        "description": "One user message, sent to an existing conversation or starting a new one.",
         "properties": {
           "collection_ids": {
             "anyOf": [
@@ -572,6 +581,7 @@
         "type": "object"
       },
       "ChatTurnResult": {
+        "description": "The persisted outcome of one chat turn.",
         "properties": {
           "citations": {
             "items": {
@@ -712,6 +722,7 @@
         "type": "object"
       },
       "CitationDetail": {
+        "description": "The full text of a cited chunk and where it comes from.",
         "properties": {
           "document_title": {
             "title": "Document Title",
@@ -977,6 +988,7 @@
         "type": "object"
       },
       "ConversationData": {
+        "description": "Payload of a `data-conversation` stream part.",
         "properties": {
           "id": {
             "title": "Id",
@@ -995,6 +1007,7 @@
         "type": "object"
       },
       "ConversationPage": {
+        "description": "One page of conversations, most recently updated first.",
         "properties": {
           "items": {
             "items": {
@@ -1023,6 +1036,7 @@
         "type": "object"
       },
       "ConversationView": {
+        "description": "A conversation as returned to the client.",
         "properties": {
           "collection_ids": {
             "anyOf": [
@@ -1073,6 +1087,7 @@
         "type": "object"
       },
       "CreateCollection": {
+        "description": "A new collection; a null owner organization makes it personal.",
         "properties": {
           "owner_organization_id": {
             "anyOf": [
@@ -1100,6 +1115,7 @@
         "type": "object"
       },
       "DeleteOrganization": {
+        "description": "Confirmation for deleting an organization: its name typed again.",
         "properties": {
           "confirm_name": {
             "maxLength": 100,
@@ -1225,6 +1241,7 @@
         "type": "object"
       },
       "DocumentKind": {
+        "description": "What a bundle document is: a drug monograph, a general monograph or a leaflet.",
         "enum": [
           "drug_monograph",
           "general_monograph",
@@ -1296,6 +1313,7 @@
         "type": "object"
       },
       "EmailBody": {
+        "description": "An email address that a one-time code is sent to.",
         "properties": {
           "email": {
             "format": "email",
@@ -1310,6 +1328,7 @@
         "type": "object"
       },
       "EmailCodeBody": {
+        "description": "An email address and the six-digit code sent to it.",
         "properties": {
           "code": {
             "pattern": "^\\d{6}$",
@@ -1330,6 +1349,7 @@
         "type": "object"
       },
       "EmailVerifyBody": {
+        "description": "Email verification code, plus the password when the account has one.",
         "properties": {
           "code": {
             "pattern": "^\\d{6}$",
@@ -1362,6 +1382,7 @@
         "type": "object"
       },
       "EvidenceData": {
+        "description": "Payload of a `data-evidence` stream part.",
         "properties": {
           "items": {
             "items": {
@@ -1378,6 +1399,7 @@
         "type": "object"
       },
       "EvidenceItem": {
+        "description": "One numbered evidence chunk streamed during a turn.",
         "properties": {
           "endPage": {
             "anyOf": [
@@ -1435,6 +1457,7 @@
         "type": "object"
       },
       "FeedbackRequest": {
+        "description": "A rating of one assistant message, with an optional note.",
         "properties": {
           "note": {
             "default": "",
@@ -1458,6 +1481,7 @@
         "type": "object"
       },
       "FeedbackView": {
+        "description": "A user's rating of an assistant message, as returned to the client.",
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -1542,6 +1566,7 @@
         "type": "object"
       },
       "HealthResponse": {
+        "description": "Health of the service and of each dependency check.",
         "properties": {
           "agent": {
             "title": "Agent",
@@ -1589,6 +1614,7 @@
         "type": "object"
       },
       "InvitationBody": {
+        "description": "An email address to invite and the role the invitee will get.",
         "properties": {
           "email": {
             "format": "email",
@@ -1607,6 +1633,7 @@
         "type": "object"
       },
       "InvitationPreview": {
+        "description": "What the holder of an invitation link may see about it.",
         "properties": {
           "email_hint": {
             "title": "Email Hint",
@@ -1634,6 +1661,7 @@
         "type": "object"
       },
       "InvitationStatus": {
+        "description": "Lifecycle of an invitation; pending approval and sent are open.",
         "enum": [
           "pending_approval",
           "sent",
@@ -1647,6 +1675,7 @@
         "type": "string"
       },
       "InvitationView": {
+        "description": "An invitation as the organization sees it; `status` accounts for expiry.",
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -1717,6 +1746,7 @@
         "type": "object"
       },
       "JobStatus": {
+        "description": "State of an ingest job: queued and running jobs are open.",
         "enum": [
           "queued",
           "running",
@@ -1727,6 +1757,7 @@
         "type": "string"
       },
       "JobStep": {
+        "description": "The stage of publishing an ingest job is at.",
         "enum": [
           "bundle",
           "chunk",
@@ -1738,6 +1769,7 @@
         "type": "string"
       },
       "JobView": {
+        "description": "A publish job as returned to the client; `progress` is a percentage.",
         "properties": {
           "attempts": {
             "title": "Attempts",
@@ -1832,6 +1864,7 @@
         "type": "object"
       },
       "MemberItem": {
+        "description": "One member of an organization.",
         "properties": {
           "display_name": {
             "title": "Display Name",
@@ -1873,6 +1906,7 @@
         "type": "object"
       },
       "MembershipView": {
+        "description": "One organization the user belongs to, with their role in it.",
         "properties": {
           "name": {
             "title": "Name",
@@ -1896,6 +1930,7 @@
         "type": "object"
       },
       "MessageFeedback": {
+        "description": "The user's rating of an assistant message.",
         "properties": {
           "note": {
             "title": "Note",
@@ -1913,6 +1948,7 @@
         "type": "object"
       },
       "MessageMetadata": {
+        "description": "Status, timing, usage and feedback of a message.",
         "properties": {
           "createdAt": {
             "format": "date-time",
@@ -2013,6 +2049,7 @@
         "type": "object"
       },
       "MessageStatus": {
+        "description": "Final status of a message as shown to the client.",
         "enum": [
           "completed",
           "partial",
@@ -2026,6 +2063,7 @@
         "type": "string"
       },
       "MessageUsage": {
+        "description": "Token and call usage of an assistant turn.",
         "properties": {
           "completionTokens": {
             "title": "Completiontokens",
@@ -2105,6 +2143,7 @@
         "type": "object"
       },
       "OrganizationName": {
+        "description": "The name of an organization.",
         "properties": {
           "name": {
             "maxLength": 100,
@@ -2120,6 +2159,7 @@
         "type": "object"
       },
       "OrganizationView": {
+        "description": "An organization with the actor's role in it (None when not a member).",
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -2161,6 +2201,7 @@
         "type": "object"
       },
       "PasswordChangeBody": {
+        "description": "New password; `current_password` is needed when the account already has one.",
         "properties": {
           "current_password": {
             "anyOf": [
@@ -2187,6 +2228,7 @@
         "type": "object"
       },
       "PasswordResetBody": {
+        "description": "Email reset code and the new password.",
         "properties": {
           "code": {
             "pattern": "^\\d{6}$",
@@ -2235,6 +2277,7 @@
         "type": "object"
       },
       "PharmaSourceMetadata": {
+        "description": "Pharma-specific metadata of a cited source; `is_current` says its release is current.",
         "properties": {
           "endPage": {
             "anyOf": [
@@ -2297,6 +2340,7 @@
         "type": "object"
       },
       "PhaseData": {
+        "description": "Payload of a `data-phase` stream part.",
         "properties": {
           "phase": {
             "enum": [
@@ -2328,6 +2372,7 @@
         "type": "object"
       },
       "PhoneBody": {
+        "description": "A phone number that a one-time code is sent to.",
         "properties": {
           "phone": {
             "maxLength": 32,
@@ -2343,6 +2388,7 @@
         "type": "object"
       },
       "PhoneCodeBody": {
+        "description": "A phone number and the six-digit code sent to it.",
         "properties": {
           "code": {
             "pattern": "^\\d{6}$",
@@ -2452,6 +2498,7 @@
         "type": "object"
       },
       "ProfileUpdate": {
+        "description": "The current user's new display name.",
         "properties": {
           "display_name": {
             "maxLength": 100,
@@ -2495,6 +2542,7 @@
         "type": "object"
       },
       "Rating": {
+        "description": "Thumbs up or down.",
         "enum": [
           "up",
           "down"
@@ -2503,6 +2551,7 @@
         "type": "string"
       },
       "ReleaseStatus": {
+        "description": "Lifecycle of a release: building, then ready to publish, then retired.",
         "enum": [
           "building",
           "ready",
@@ -2512,6 +2561,7 @@
         "type": "string"
       },
       "ReleaseView": {
+        "description": "A release of a collection; `current` marks the one being served.",
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -2559,6 +2609,7 @@
         "type": "object"
       },
       "Role": {
+        "description": "A member's role in an organization; ROLE_RANK orders member < editor < owner.",
         "enum": [
           "owner",
           "editor",
@@ -2568,6 +2619,7 @@
         "type": "string"
       },
       "RoleBody": {
+        "description": "The role to give a member.",
         "properties": {
           "role": {
             "$ref": "#/components/schemas/Role"
@@ -2598,6 +2650,7 @@
         "type": "object"
       },
       "SessionView": {
+        "description": "An active sign-in session; `current` marks the one making the request.",
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -2645,6 +2698,7 @@
         "type": "object"
       },
       "SourceDocumentUIPart": {
+        "description": "One cited source of an assistant message.",
         "properties": {
           "mediaType": {
             "const": "text/markdown",
@@ -2679,6 +2733,7 @@
         "type": "object"
       },
       "SourceProviderMetadata": {
+        "description": "Provider metadata of a source part, under the `pharma` key.",
         "properties": {
           "pharma": {
             "$ref": "#/components/schemas/PharmaSourceMetadata"
@@ -2691,6 +2746,7 @@
         "type": "object"
       },
       "TextUIPart": {
+        "description": "The text of a message.",
         "properties": {
           "text": {
             "title": "Text",
@@ -2710,6 +2766,7 @@
         "type": "object"
       },
       "UIMessage": {
+        "description": "A chat message in AI SDK `UIMessage` shape.",
         "properties": {
           "id": {
             "title": "Id",
@@ -2758,6 +2815,7 @@
         "type": "object"
       },
       "UpdateCollection": {
+        "description": "Collection fields to change; fields left out stay as they are.",
         "properties": {
           "title": {
             "anyOf": [
@@ -2822,6 +2880,7 @@
         "type": "object"
       },
       "UpdateOrganization": {
+        "description": "Both quotas of an organization; a null or missing quota restores the default.",
         "properties": {
           "collection_quota": {
             "anyOf": [
@@ -2918,6 +2977,7 @@
         "type": "object"
       },
       "UserCreate": {
+        "description": "Registration request body: the fastapi-users fields plus a display name.",
         "properties": {
           "display_name": {
             "default": "",
@@ -3019,6 +3079,7 @@
         "type": "object"
       },
       "Visibility": {
+        "description": "Who may read a collection: its owner, the owner's organization or everyone.",
         "enum": [
           "private",
           "organization",

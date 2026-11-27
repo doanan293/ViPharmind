@@ -7,6 +7,9 @@
 import type { AuditAction } from "./auditAction"
 import type { AuditEventViewDetails } from "./auditEventViewDetails"
 
+/**
+ * One audit event with the display names of its actor and subject.
+ */
 export interface AuditEventView {
   action: AuditAction
   actor_name: string

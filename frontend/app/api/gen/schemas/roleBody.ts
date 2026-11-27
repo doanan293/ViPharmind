@@ -6,6 +6,9 @@
  */
 import type { Role } from "./role"
 
+/**
+ * The role to give a member.
+ */
 export interface RoleBody {
   role: Role
 }

@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * One user message, sent to an existing conversation or starting a new one.
+ */
 export interface ChatRequest {
   collection_ids?: string[] | null
   conversation_id?: string | null

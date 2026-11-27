@@ -6,6 +6,9 @@
  */
 import type { Role } from "./role"
 
+/**
+ * One member of an organization.
+ */
 export interface MemberItem {
   display_name: string
   email: string | null

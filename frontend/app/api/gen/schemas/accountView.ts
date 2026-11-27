@@ -6,6 +6,9 @@
  */
 import type { MembershipView } from "./membershipView"
 
+/**
+ * The signed-in user's account as returned to the client.
+ */
 export interface AccountView {
   display_name: string
   email: string | null

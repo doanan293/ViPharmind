@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Token and call usage of an assistant turn.
+ */
 export interface MessageUsage {
   completionTokens: number
   llmCalls: number

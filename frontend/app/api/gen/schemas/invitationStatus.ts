@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Lifecycle of an invitation; pending approval and sent are open.
+ */
 export type InvitationStatus =
   (typeof InvitationStatus)[keyof typeof InvitationStatus]
 

@@ -6,6 +6,9 @@
  */
 import type { AdminOrganizationView } from "./adminOrganizationView"
 
+/**
+ * One page of organizations, newest first; `next_cursor` is None on the last page.
+ */
 export interface AdminOrganizationPage {
   items: AdminOrganizationView[]
   next_cursor: string | null

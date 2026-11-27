@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * A conversation as returned to the client.
+ */
 export interface ConversationView {
   collection_ids?: string[] | null
   created_at: string

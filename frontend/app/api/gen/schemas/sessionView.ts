@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * An active sign-in session; `current` marks the one making the request.
+ */
 export interface SessionView {
   created_at: string
   current: boolean

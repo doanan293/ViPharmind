@@ -25,59 +25,69 @@ export const AuditMineQueryParams = zod.object({
     .optional(),
 })
 
-export const AuditMineResponse = zod.object({
-  items: zod.array(
-    zod.object({
-      action: zod.enum([
-        "organization.created",
-        "organization.renamed",
-        "organization.deleted",
-        "member.joined",
-        "member.left",
-        "member.removed",
-        "member.role_changed",
-        "invitation.created",
-        "invitation.approved",
-        "invitation.rejected",
-        "invitation.revoked",
-        "invitation.declined",
-        "invitation.resent",
-        "collection.created",
-        "collection.renamed",
-        "collection.deleted",
-        "collection.visibility_changed",
-        "collection.published",
-        "collection.rolled_back",
-        "document.created",
-        "document.updated",
-        "document.deleted",
-        "glossary.updated",
-        "colloquial.updated",
-        "user.disabled",
-        "user.enabled",
-        "quota.changed",
-      ]),
-      actor_name: zod.string(),
-      actor_user_id: zod.union([zod.uuid(), zod.null()]),
-      actor_was_superadmin: zod.boolean(),
-      collection_id: zod.union([zod.uuid(), zod.null()]),
-      details: zod.record(zod.string(), zod.unknown()),
-      id: zod.uuid(),
-      occurred_at: zod.iso.datetime({ offset: true }),
-      organization_id: zod.union([zod.uuid(), zod.null()]),
-      subject_name: zod.string(),
-      subject_user_id: zod.union([zod.uuid(), zod.null()]),
-    })
-  ),
-  next_cursor: zod.union([zod.string(), zod.null()]),
-})
+export const AuditMineResponse = zod
+  .object({
+    items: zod.array(
+      zod
+        .object({
+          action: zod
+            .enum([
+              "organization.created",
+              "organization.renamed",
+              "organization.deleted",
+              "member.joined",
+              "member.left",
+              "member.removed",
+              "member.role_changed",
+              "invitation.created",
+              "invitation.approved",
+              "invitation.rejected",
+              "invitation.revoked",
+              "invitation.declined",
+              "invitation.resent",
+              "collection.created",
+              "collection.renamed",
+              "collection.deleted",
+              "collection.visibility_changed",
+              "collection.published",
+              "collection.rolled_back",
+              "document.created",
+              "document.updated",
+              "document.deleted",
+              "glossary.updated",
+              "colloquial.updated",
+              "user.disabled",
+              "user.enabled",
+              "quota.changed",
+            ])
+            .describe("What an audit event records, as ``<subject>.<verb>``."),
+          actor_name: zod.string(),
+          actor_user_id: zod.union([zod.uuid(), zod.null()]),
+          actor_was_superadmin: zod.boolean(),
+          collection_id: zod.union([zod.uuid(), zod.null()]),
+          details: zod.record(zod.string(), zod.unknown()),
+          id: zod.uuid(),
+          occurred_at: zod.iso.datetime({ offset: true }),
+          organization_id: zod.union([zod.uuid(), zod.null()]),
+          subject_name: zod.string(),
+          subject_user_id: zod.union([zod.uuid(), zod.null()]),
+        })
+        .describe(
+          "One audit event with the display names of its actor and subject."
+        )
+    ),
+    next_cursor: zod.union([zod.string(), zod.null()]),
+  })
+  .describe("One page of audit events; `next_cursor` is None on the last page.")
 
 /**
  * @summary Account:Email.Request
  */
-export const AccountEmailRequestBody = zod.object({
-  email: zod.email(),
-})
+export const AccountEmailRequestBody = zod
+  .object({
+    email: zod.email(),
+  })
+  .describe("An email address that a one-time code is sent to.")
 
 export const AccountEmailRequestResponse = zod.void()
 
@@ -86,43 +96,55 @@ export const AccountEmailRequestResponse = zod.void()
  */
 export const accountEmailConfirmBodyCodeRegExp = new RegExp("^\\d{6}$")
 
-export const AccountEmailConfirmBody = zod.object({
-  code: zod.string().regex(accountEmailConfirmBodyCodeRegExp),
-  email: zod.email(),
-})
+export const AccountEmailConfirmBody = zod
+  .object({
+    code: zod.string().regex(accountEmailConfirmBodyCodeRegExp),
+    email: zod.email(),
+  })
+  .describe("An email address and the six-digit code sent to it.")
 
 export const accountEmailConfirmResponseGoogleSignInEnabledDefault = false
 export const accountEmailConfirmResponseMembershipsDefault = []
 export const accountEmailConfirmResponsePhoneSignInEnabledDefault = true
 
-export const AccountEmailConfirmResponse = zod.object({
-  display_name: zod.string(),
-  email: zod.union([zod.string(), zod.null()]),
-  email_verified: zod.boolean(),
-  google_linked: zod.boolean(),
-  google_sign_in_enabled: zod
-    .boolean()
-    .default(accountEmailConfirmResponseGoogleSignInEnabledDefault),
-  id: zod.uuid(),
-  is_active: zod.boolean(),
-  is_superadmin: zod.boolean(),
-  is_verified: zod.boolean(),
-  memberships: zod
-    .array(
-      zod.object({
-        name: zod.string(),
-        organization_id: zod.uuid(),
-        role: zod.enum(["owner", "editor", "member"]),
-      })
-    )
-    .default(accountEmailConfirmResponseMembershipsDefault),
-  password_set: zod.boolean(),
-  phone_number: zod.union([zod.string(), zod.null()]),
-  phone_sign_in_enabled: zod
-    .boolean()
-    .default(accountEmailConfirmResponsePhoneSignInEnabledDefault),
-  phone_verified: zod.boolean(),
-})
+export const AccountEmailConfirmResponse = zod
+  .object({
+    display_name: zod.string(),
+    email: zod.union([zod.string(), zod.null()]),
+    email_verified: zod.boolean(),
+    google_linked: zod.boolean(),
+    google_sign_in_enabled: zod
+      .boolean()
+      .default(accountEmailConfirmResponseGoogleSignInEnabledDefault),
+    id: zod.uuid(),
+    is_active: zod.boolean(),
+    is_superadmin: zod.boolean(),
+    is_verified: zod.boolean(),
+    memberships: zod
+      .array(
+        zod
+          .object({
+            name: zod.string(),
+            organization_id: zod.uuid(),
+            role: zod
+              .enum(["owner", "editor", "member"])
+              .describe(
+                "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+              ),
+          })
+          .describe(
+            "One organization the user belongs to, with their role in it."
+          )
+      )
+      .default(accountEmailConfirmResponseMembershipsDefault),
+    password_set: zod.boolean(),
+    phone_number: zod.union([zod.string(), zod.null()]),
+    phone_sign_in_enabled: zod
+      .boolean()
+      .default(accountEmailConfirmResponsePhoneSignInEnabledDefault),
+    phone_verified: zod.boolean(),
+  })
+  .describe("The signed-in user's account as returned to the client.")
 
 /**
  * @summary Account:Google.Unlink
@@ -131,47 +153,61 @@ export const accountGoogleUnlinkResponseGoogleSignInEnabledDefault = false
 export const accountGoogleUnlinkResponseMembershipsDefault = []
 export const accountGoogleUnlinkResponsePhoneSignInEnabledDefault = true
 
-export const AccountGoogleUnlinkResponse = zod.object({
-  display_name: zod.string(),
-  email: zod.union([zod.string(), zod.null()]),
-  email_verified: zod.boolean(),
-  google_linked: zod.boolean(),
-  google_sign_in_enabled: zod
-    .boolean()
-    .default(accountGoogleUnlinkResponseGoogleSignInEnabledDefault),
-  id: zod.uuid(),
-  is_active: zod.boolean(),
-  is_superadmin: zod.boolean(),
-  is_verified: zod.boolean(),
-  memberships: zod
-    .array(
-      zod.object({
-        name: zod.string(),
-        organization_id: zod.uuid(),
-        role: zod.enum(["owner", "editor", "member"]),
-      })
-    )
-    .default(accountGoogleUnlinkResponseMembershipsDefault),
-  password_set: zod.boolean(),
-  phone_number: zod.union([zod.string(), zod.null()]),
-  phone_sign_in_enabled: zod
-    .boolean()
-    .default(accountGoogleUnlinkResponsePhoneSignInEnabledDefault),
-  phone_verified: zod.boolean(),
-})
+export const AccountGoogleUnlinkResponse = zod
+  .object({
+    display_name: zod.string(),
+    email: zod.union([zod.string(), zod.null()]),
+    email_verified: zod.boolean(),
+    google_linked: zod.boolean(),
+    google_sign_in_enabled: zod
+      .boolean()
+      .default(accountGoogleUnlinkResponseGoogleSignInEnabledDefault),
+    id: zod.uuid(),
+    is_active: zod.boolean(),
+    is_superadmin: zod.boolean(),
+    is_verified: zod.boolean(),
+    memberships: zod
+      .array(
+        zod
+          .object({
+            name: zod.string(),
+            organization_id: zod.uuid(),
+            role: zod
+              .enum(["owner", "editor", "member"])
+              .describe(
+                "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+              ),
+          })
+          .describe(
+            "One organization the user belongs to, with their role in it."
+          )
+      )
+      .default(accountGoogleUnlinkResponseMembershipsDefault),
+    password_set: zod.boolean(),
+    phone_number: zod.union([zod.string(), zod.null()]),
+    phone_sign_in_enabled: zod
+      .boolean()
+      .default(accountGoogleUnlinkResponsePhoneSignInEnabledDefault),
+    phone_verified: zod.boolean(),
+  })
+  .describe("The signed-in user's account as returned to the client.")
 
 /**
  * @summary Account:Password.Change
  */
 export const accountPasswordChangeBodyNewPasswordMax = 1024
 
-export const AccountPasswordChangeBody = zod.object({
-  current_password: zod.union([zod.string(), zod.null()]).optional(),
-  new_password: zod
-    .string()
-    .min(1)
-    .max(accountPasswordChangeBodyNewPasswordMax),
-})
+export const AccountPasswordChangeBody = zod
+  .object({
+    current_password: zod.union([zod.string(), zod.null()]).optional(),
+    new_password: zod
+      .string()
+      .min(1)
+      .max(accountPasswordChangeBodyNewPasswordMax),
+  })
+  .describe(
+    "New password; `current_password` is needed when the account already has one."
+  )
 
 export const AccountPasswordChangeResponse = zod.void()
 
@@ -181,12 +217,14 @@ export const AccountPasswordChangeResponse = zod.void()
 export const accountPhoneRequestBodyPhoneMin = 3
 export const accountPhoneRequestBodyPhoneMax = 32
 
-export const AccountPhoneRequestBody = zod.object({
-  phone: zod
-    .string()
-    .min(accountPhoneRequestBodyPhoneMin)
-    .max(accountPhoneRequestBodyPhoneMax),
-})
+export const AccountPhoneRequestBody = zod
+  .object({
+    phone: zod
+      .string()
+      .min(accountPhoneRequestBodyPhoneMin)
+      .max(accountPhoneRequestBodyPhoneMax),
+  })
+  .describe("A phone number that a one-time code is sent to.")
 
 export const AccountPhoneRequestResponse = zod.void()
 
@@ -197,46 +235,58 @@ export const accountPhoneConfirmBodyCodeRegExp = new RegExp("^\\d{6}$")
 export const accountPhoneConfirmBodyPhoneMin = 3
 export const accountPhoneConfirmBodyPhoneMax = 32
 
-export const AccountPhoneConfirmBody = zod.object({
-  code: zod.string().regex(accountPhoneConfirmBodyCodeRegExp),
-  phone: zod
-    .string()
-    .min(accountPhoneConfirmBodyPhoneMin)
-    .max(accountPhoneConfirmBodyPhoneMax),
-})
+export const AccountPhoneConfirmBody = zod
+  .object({
+    code: zod.string().regex(accountPhoneConfirmBodyCodeRegExp),
+    phone: zod
+      .string()
+      .min(accountPhoneConfirmBodyPhoneMin)
+      .max(accountPhoneConfirmBodyPhoneMax),
+  })
+  .describe("A phone number and the six-digit code sent to it.")
 
 export const accountPhoneConfirmResponseGoogleSignInEnabledDefault = false
 export const accountPhoneConfirmResponseMembershipsDefault = []
 export const accountPhoneConfirmResponsePhoneSignInEnabledDefault = true
 
-export const AccountPhoneConfirmResponse = zod.object({
-  display_name: zod.string(),
-  email: zod.union([zod.string(), zod.null()]),
-  email_verified: zod.boolean(),
-  google_linked: zod.boolean(),
-  google_sign_in_enabled: zod
-    .boolean()
-    .default(accountPhoneConfirmResponseGoogleSignInEnabledDefault),
-  id: zod.uuid(),
-  is_active: zod.boolean(),
-  is_superadmin: zod.boolean(),
-  is_verified: zod.boolean(),
-  memberships: zod
-    .array(
-      zod.object({
-        name: zod.string(),
-        organization_id: zod.uuid(),
-        role: zod.enum(["owner", "editor", "member"]),
-      })
-    )
-    .default(accountPhoneConfirmResponseMembershipsDefault),
-  password_set: zod.boolean(),
-  phone_number: zod.union([zod.string(), zod.null()]),
-  phone_sign_in_enabled: zod
-    .boolean()
-    .default(accountPhoneConfirmResponsePhoneSignInEnabledDefault),
-  phone_verified: zod.boolean(),
-})
+export const AccountPhoneConfirmResponse = zod
+  .object({
+    display_name: zod.string(),
+    email: zod.union([zod.string(), zod.null()]),
+    email_verified: zod.boolean(),
+    google_linked: zod.boolean(),
+    google_sign_in_enabled: zod
+      .boolean()
+      .default(accountPhoneConfirmResponseGoogleSignInEnabledDefault),
+    id: zod.uuid(),
+    is_active: zod.boolean(),
+    is_superadmin: zod.boolean(),
+    is_verified: zod.boolean(),
+    memberships: zod
+      .array(
+        zod
+          .object({
+            name: zod.string(),
+            organization_id: zod.uuid(),
+            role: zod
+              .enum(["owner", "editor", "member"])
+              .describe(
+                "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+              ),
+          })
+          .describe(
+            "One organization the user belongs to, with their role in it."
+          )
+      )
+      .default(accountPhoneConfirmResponseMembershipsDefault),
+    password_set: zod.boolean(),
+    phone_number: zod.union([zod.string(), zod.null()]),
+    phone_sign_in_enabled: zod
+      .boolean()
+      .default(accountPhoneConfirmResponsePhoneSignInEnabledDefault),
+    phone_verified: zod.boolean(),
+  })
+  .describe("The signed-in user's account as returned to the client.")
 
 /**
  * @summary Account:Sessions.Revoke Others
@@ -246,14 +296,18 @@ export const AccountSessionsRevokeOthersResponse = zod.void()
 /**
  * @summary Account:Sessions.List
  */
-export const AccountSessionsListResponseItem = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  current: zod.boolean(),
-  id: zod.string(),
-  ip_address: zod.string(),
-  last_used_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  user_agent: zod.string(),
-})
+export const AccountSessionsListResponseItem = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    current: zod.boolean(),
+    id: zod.string(),
+    ip_address: zod.string(),
+    last_used_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    user_agent: zod.string(),
+  })
+  .describe(
+    "An active sign-in session; `current` marks the one making the request."
+  )
 export const AccountSessionsListResponse = zod.array(
   AccountSessionsListResponseItem
 )
@@ -286,52 +340,60 @@ export const AdminAuditQueryParams = zod.object({
     .optional(),
 })
 
-export const AdminAuditResponse = zod.object({
-  items: zod.array(
-    zod.object({
-      action: zod.enum([
-        "organization.created",
-        "organization.renamed",
-        "organization.deleted",
-        "member.joined",
-        "member.left",
-        "member.removed",
-        "member.role_changed",
-        "invitation.created",
-        "invitation.approved",
-        "invitation.rejected",
-        "invitation.revoked",
-        "invitation.declined",
-        "invitation.resent",
-        "collection.created",
-        "collection.renamed",
-        "collection.deleted",
-        "collection.visibility_changed",
-        "collection.published",
-        "collection.rolled_back",
-        "document.created",
-        "document.updated",
-        "document.deleted",
-        "glossary.updated",
-        "colloquial.updated",
-        "user.disabled",
-        "user.enabled",
-        "quota.changed",
-      ]),
-      actor_name: zod.string(),
-      actor_user_id: zod.union([zod.uuid(), zod.null()]),
-      actor_was_superadmin: zod.boolean(),
-      collection_id: zod.union([zod.uuid(), zod.null()]),
-      details: zod.record(zod.string(), zod.unknown()),
-      id: zod.uuid(),
-      occurred_at: zod.iso.datetime({ offset: true }),
-      organization_id: zod.union([zod.uuid(), zod.null()]),
-      subject_name: zod.string(),
-      subject_user_id: zod.union([zod.uuid(), zod.null()]),
-    })
-  ),
-  next_cursor: zod.union([zod.string(), zod.null()]),
-})
+export const AdminAuditResponse = zod
+  .object({
+    items: zod.array(
+      zod
+        .object({
+          action: zod
+            .enum([
+              "organization.created",
+              "organization.renamed",
+              "organization.deleted",
+              "member.joined",
+              "member.left",
+              "member.removed",
+              "member.role_changed",
+              "invitation.created",
+              "invitation.approved",
+              "invitation.rejected",
+              "invitation.revoked",
+              "invitation.declined",
+              "invitation.resent",
+              "collection.created",
+              "collection.renamed",
+              "collection.deleted",
+              "collection.visibility_changed",
+              "collection.published",
+              "collection.rolled_back",
+              "document.created",
+              "document.updated",
+              "document.deleted",
+              "glossary.updated",
+              "colloquial.updated",
+              "user.disabled",
+              "user.enabled",
+              "quota.changed",
+            ])
+            .describe("What an audit event records, as ``<subject>.<verb>``."),
+          actor_name: zod.string(),
+          actor_user_id: zod.union([zod.uuid(), zod.null()]),
+          actor_was_superadmin: zod.boolean(),
+          collection_id: zod.union([zod.uuid(), zod.null()]),
+          details: zod.record(zod.string(), zod.unknown()),
+          id: zod.uuid(),
+          occurred_at: zod.iso.datetime({ offset: true }),
+          organization_id: zod.union([zod.uuid(), zod.null()]),
+          subject_name: zod.string(),
+          subject_user_id: zod.union([zod.uuid(), zod.null()]),
+        })
+        .describe(
+          "One audit event with the display names of its actor and subject."
+        )
+    ),
+    next_cursor: zod.union([zod.string(), zod.null()]),
+  })
+  .describe("One page of audit events; `next_cursor` is None on the last page.")
 
 /**
  * @summary Admin:Collections.List
@@ -350,7 +412,11 @@ export const AdminCollectionsListResponseItem = zod
       owner_organization_id: zod.union([zod.uuid(), zod.null()]),
       owner_user_id: zod.union([zod.uuid(), zod.null()]),
       title: zod.string(),
-      visibility: zod.enum(["private", "organization", "public"]),
+      visibility: zod
+        .enum(["private", "organization", "public"])
+        .describe(
+          "Who may read a collection: its owner, the owner's organization or everyone."
+        ),
     }),
     documents: zod.int(),
     qdrant_points: zod.int(),
@@ -376,19 +442,27 @@ export const AdminIngestJobsListQueryParams = zod.object({
     .default(adminIngestJobsListQueryLimitDefault),
 })
 
-export const AdminIngestJobsListResponseItem = zod.object({
-  attempts: zod.int(),
-  collection_id: zod.uuid(),
-  created_at: zod.iso.datetime({ offset: true }),
-  error: zod.union([zod.string(), zod.null()]),
-  finished_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  id: zod.uuid(),
-  progress: zod.int(),
-  release_number: zod.union([zod.int(), zod.null()]),
-  started_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  status: zod.enum(["queued", "running", "ready", "failed"]),
-  step: zod.enum(["bundle", "chunk", "embed", "index", "publish"]),
-})
+export const AdminIngestJobsListResponseItem = zod
+  .object({
+    attempts: zod.int(),
+    collection_id: zod.uuid(),
+    created_at: zod.iso.datetime({ offset: true }),
+    error: zod.union([zod.string(), zod.null()]),
+    finished_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    id: zod.uuid(),
+    progress: zod.int(),
+    release_number: zod.union([zod.int(), zod.null()]),
+    started_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    status: zod
+      .enum(["queued", "running", "ready", "failed"])
+      .describe("State of an ingest job: queued and running jobs are open."),
+    step: zod
+      .enum(["bundle", "chunk", "embed", "index", "publish"])
+      .describe("The stage of publishing an ingest job is at."),
+  })
+  .describe(
+    "A publish job as returned to the client; `progress` is a percentage."
+  )
 export const AdminIngestJobsListResponse = zod.array(
   AdminIngestJobsListResponseItem
 )
@@ -415,19 +489,27 @@ export const AdminOrganizationsListQueryParams = zod.object({
     .optional(),
 })
 
-export const AdminOrganizationsListResponse = zod.object({
-  items: zod.array(
-    zod.object({
-      collection_quota: zod.union([zod.int(), zod.null()]),
-      created_at: zod.iso.datetime({ offset: true }),
-      id: zod.uuid(),
-      member_count: zod.int(),
-      name: zod.string(),
-      text_quota_bytes: zod.union([zod.int(), zod.null()]),
-    })
-  ),
-  next_cursor: zod.union([zod.string(), zod.null()]),
-})
+export const AdminOrganizationsListResponse = zod
+  .object({
+    items: zod.array(
+      zod
+        .object({
+          collection_quota: zod.union([zod.int(), zod.null()]),
+          created_at: zod.iso.datetime({ offset: true }),
+          id: zod.uuid(),
+          member_count: zod.int(),
+          name: zod.string(),
+          text_quota_bytes: zod.union([zod.int(), zod.null()]),
+        })
+        .describe(
+          "An organization as the console shows it; a None quota uses the configured default."
+        )
+    ),
+    next_cursor: zod.union([zod.string(), zod.null()]),
+  })
+  .describe(
+    "One page of organizations, newest first; `next_cursor` is None on the last page."
+  )
 
 /**
  * @summary Admin:Organizations.Update
@@ -440,29 +522,37 @@ export const adminOrganizationsUpdateBodyCollectionQuotaOneMin = 0
 
 export const adminOrganizationsUpdateBodyTextQuotaBytesOneMin = 0
 
-export const AdminOrganizationsUpdateBody = zod.object({
-  collection_quota: zod
-    .union([
-      zod.int().min(adminOrganizationsUpdateBodyCollectionQuotaOneMin),
-      zod.null(),
-    ])
-    .optional(),
-  text_quota_bytes: zod
-    .union([
-      zod.int().min(adminOrganizationsUpdateBodyTextQuotaBytesOneMin),
-      zod.null(),
-    ])
-    .optional(),
-})
+export const AdminOrganizationsUpdateBody = zod
+  .object({
+    collection_quota: zod
+      .union([
+        zod.int().min(adminOrganizationsUpdateBodyCollectionQuotaOneMin),
+        zod.null(),
+      ])
+      .optional(),
+    text_quota_bytes: zod
+      .union([
+        zod.int().min(adminOrganizationsUpdateBodyTextQuotaBytesOneMin),
+        zod.null(),
+      ])
+      .optional(),
+  })
+  .describe(
+    "Both quotas of an organization; a null or missing quota restores the default."
+  )
 
-export const AdminOrganizationsUpdateResponse = zod.object({
-  collection_quota: zod.union([zod.int(), zod.null()]),
-  created_at: zod.iso.datetime({ offset: true }),
-  id: zod.uuid(),
-  member_count: zod.int(),
-  name: zod.string(),
-  text_quota_bytes: zod.union([zod.int(), zod.null()]),
-})
+export const AdminOrganizationsUpdateResponse = zod
+  .object({
+    collection_quota: zod.union([zod.int(), zod.null()]),
+    created_at: zod.iso.datetime({ offset: true }),
+    id: zod.uuid(),
+    member_count: zod.int(),
+    name: zod.string(),
+    text_quota_bytes: zod.union([zod.int(), zod.null()]),
+  })
+  .describe(
+    "An organization as the console shows it; a None quota uses the configured default."
+  )
 
 /**
  * @summary Admin:Users.List
@@ -488,22 +578,33 @@ export const AdminUsersListQueryParams = zod.object({
     .optional(),
 })
 
-export const AdminUsersListResponse = zod.object({
-  items: zod.array(
-    zod.object({
-      collection_quota: zod.union([zod.int(), zod.null()]),
-      created_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-      display_name: zod.string(),
-      email: zod.union([zod.string(), zod.null()]),
-      id: zod.uuid(),
-      is_active: zod.boolean(),
-      is_superadmin: zod.boolean(),
-      phone_number: zod.union([zod.string(), zod.null()]),
-      text_quota_bytes: zod.union([zod.int(), zod.null()]),
-    })
-  ),
-  next_cursor: zod.union([zod.string(), zod.null()]),
-})
+export const AdminUsersListResponse = zod
+  .object({
+    items: zod.array(
+      zod
+        .object({
+          collection_quota: zod.union([zod.int(), zod.null()]),
+          created_at: zod.union([
+            zod.iso.datetime({ offset: true }),
+            zod.null(),
+          ]),
+          display_name: zod.string(),
+          email: zod.union([zod.string(), zod.null()]),
+          id: zod.uuid(),
+          is_active: zod.boolean(),
+          is_superadmin: zod.boolean(),
+          phone_number: zod.union([zod.string(), zod.null()]),
+          text_quota_bytes: zod.union([zod.int(), zod.null()]),
+        })
+        .describe(
+          "An account as the console shows it; a None quota uses the configured default."
+        )
+    ),
+    next_cursor: zod.union([zod.string(), zod.null()]),
+  })
+  .describe(
+    "One page of accounts, newest first; `next_cursor` is None on the last page."
+  )
 
 /**
  * @summary Admin:Users.Update
@@ -536,17 +637,21 @@ export const AdminUsersUpdateBody = zod
     "Fields left out stay as they are; a null quota restores the default."
   )
 
-export const AdminUsersUpdateResponse = zod.object({
-  collection_quota: zod.union([zod.int(), zod.null()]),
-  created_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  display_name: zod.string(),
-  email: zod.union([zod.string(), zod.null()]),
-  id: zod.uuid(),
-  is_active: zod.boolean(),
-  is_superadmin: zod.boolean(),
-  phone_number: zod.union([zod.string(), zod.null()]),
-  text_quota_bytes: zod.union([zod.int(), zod.null()]),
-})
+export const AdminUsersUpdateResponse = zod
+  .object({
+    collection_quota: zod.union([zod.int(), zod.null()]),
+    created_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    display_name: zod.string(),
+    email: zod.union([zod.string(), zod.null()]),
+    id: zod.uuid(),
+    is_active: zod.boolean(),
+    is_superadmin: zod.boolean(),
+    phone_number: zod.union([zod.string(), zod.null()]),
+    text_quota_bytes: zod.union([zod.int(), zod.null()]),
+  })
+  .describe(
+    "An account as the console shows it; a None quota uses the configured default."
+  )
 
 /**
  * @summary Admin:Users.Conversations
@@ -574,19 +679,25 @@ export const AdminUsersConversationsQueryParams = zod.object({
     .optional(),
 })
 
-export const AdminUsersConversationsResponse = zod.object({
-  items: zod.array(
-    zod.object({
-      collection_ids: zod.union([zod.array(zod.uuid()), zod.null()]).optional(),
-      created_at: zod.iso.datetime({ offset: true }),
-      id: zod.string(),
-      title: zod.string(),
-      turn_count: zod.int(),
-      updated_at: zod.iso.datetime({ offset: true }),
-    })
-  ),
-  next_cursor: zod.union([zod.string(), zod.null()]),
-})
+export const AdminUsersConversationsResponse = zod
+  .object({
+    items: zod.array(
+      zod
+        .object({
+          collection_ids: zod
+            .union([zod.array(zod.uuid()), zod.null()])
+            .optional(),
+          created_at: zod.iso.datetime({ offset: true }),
+          id: zod.string(),
+          title: zod.string(),
+          turn_count: zod.int(),
+          updated_at: zod.iso.datetime({ offset: true }),
+        })
+        .describe("A conversation as returned to the client.")
+    ),
+    next_cursor: zod.union([zod.string(), zod.null()]),
+  })
+  .describe("One page of conversations, most recently updated first.")
 
 /**
  * @summary Admin:Conversations.Messages
@@ -624,73 +735,97 @@ export const AdminConversationsMessagesQueryParams = zod.object({
 export const AdminConversationsMessagesResponse = zod
   .object({
     items: zod.array(
-      zod.object({
-        id: zod.string(),
-        metadata: zod.object({
-          createdAt: zod.iso.datetime({ offset: true }),
-          errorCode: zod.union([zod.string(), zod.null()]).optional(),
-          feedback: zod
-            .union([
-              zod.object({
-                note: zod.string(),
-                rating: zod.enum(["up", "down"]),
-              }),
-              zod.null(),
-            ])
-            .optional(),
-          persisted: zod.union([zod.boolean(), zod.null()]).optional(),
-          runId: zod.union([zod.string(), zod.null()]).optional(),
-          status: zod.enum([
-            "completed",
-            "partial",
-            "abstained",
-            "blocked",
-            "redirected",
-            "error",
-            "timeout",
-          ]),
-          usage: zod
-            .union([
-              zod.object({
-                completionTokens: zod.int(),
-                llmCalls: zod.int(),
-                promptTokens: zod.int(),
-                searchRounds: zod.int(),
-              }),
-              zod.null(),
-            ])
-            .optional(),
-        }),
-        parts: zod.array(
-          zod.union([
-            zod.object({
-              text: zod.string(),
-              type: zod.literal("text").meta({ title: "Type" }),
-            }),
-            zod.object({
-              mediaType: zod
-                .literal("text/markdown")
-                .meta({ title: "Mediatype" }),
-              providerMetadata: zod.object({
-                pharma: zod.object({
-                  endPage: zod.union([zod.int(), zod.null()]),
-                  index: zod.int(),
-                  isCurrent: zod.boolean(),
-                  section: zod.string(),
-                  snippet: zod.string(),
-                  source: zod.string(),
-                  startPage: zod.union([zod.int(), zod.null()]),
+      zod
+        .object({
+          id: zod.string(),
+          metadata: zod
+            .object({
+              createdAt: zod.iso.datetime({ offset: true }),
+              errorCode: zod.union([zod.string(), zod.null()]).optional(),
+              feedback: zod
+                .union([
+                  zod
+                    .object({
+                      note: zod.string(),
+                      rating: zod
+                        .enum(["up", "down"])
+                        .describe("Thumbs up or down."),
+                    })
+                    .describe("The user's rating of an assistant message."),
+                  zod.null(),
+                ])
+                .optional(),
+              persisted: zod.union([zod.boolean(), zod.null()]).optional(),
+              runId: zod.union([zod.string(), zod.null()]).optional(),
+              status: zod
+                .enum([
+                  "completed",
+                  "partial",
+                  "abstained",
+                  "blocked",
+                  "redirected",
+                  "error",
+                  "timeout",
+                ])
+                .describe("Final status of a message as shown to the client."),
+              usage: zod
+                .union([
+                  zod
+                    .object({
+                      completionTokens: zod.int(),
+                      llmCalls: zod.int(),
+                      promptTokens: zod.int(),
+                      searchRounds: zod.int(),
+                    })
+                    .describe("Token and call usage of an assistant turn."),
+                  zod.null(),
+                ])
+                .optional(),
+            })
+            .describe("Status, timing, usage and feedback of a message."),
+          parts: zod.array(
+            zod.union([
+              zod
+                .object({
+                  text: zod.string(),
+                  type: zod.literal("text").meta({ title: "Type" }),
+                })
+                .describe("The text of a message."),
+              zod
+                .object({
+                  mediaType: zod
+                    .literal("text/markdown")
+                    .meta({ title: "Mediatype" }),
+                  providerMetadata: zod
+                    .object({
+                      pharma: zod
+                        .object({
+                          endPage: zod.union([zod.int(), zod.null()]),
+                          index: zod.int(),
+                          isCurrent: zod.boolean(),
+                          section: zod.string(),
+                          snippet: zod.string(),
+                          source: zod.string(),
+                          startPage: zod.union([zod.int(), zod.null()]),
+                          title: zod.string(),
+                        })
+                        .describe(
+                          "Pharma-specific metadata of a cited source; `is_current` says its release is current."
+                        ),
+                    })
+                    .describe(
+                      "Provider metadata of a source part, under the `pharma` key."
+                    ),
+                  sourceId: zod.string(),
                   title: zod.string(),
-                }),
-              }),
-              sourceId: zod.string(),
-              title: zod.string(),
-              type: zod.literal("source-document").meta({ title: "Type" }),
-            }),
-          ])
-        ),
-        role: zod.enum(["user", "assistant"]),
-      })
+                  type: zod.literal("source-document").meta({ title: "Type" }),
+                })
+                .describe("One cited source of an assistant message."),
+            ])
+          ),
+          role: zod.enum(["user", "assistant"]),
+        })
+        .describe("A chat message in AI SDK `UIMessage` shape.")
     ),
     next_cursor: zod.union([zod.string(), zod.null()]),
   })
@@ -731,22 +866,28 @@ export const AuthCookieLogoutResponse = zod.unknown()
 export const authEmailVerifyBodyCodeRegExp = new RegExp("^\\d{6}$")
 export const authEmailVerifyBodyPasswordOneMax = 1024
 
-export const AuthEmailVerifyBody = zod.object({
-  code: zod.string().regex(authEmailVerifyBodyCodeRegExp),
-  email: zod.email(),
-  password: zod
-    .union([zod.string().max(authEmailVerifyBodyPasswordOneMax), zod.null()])
-    .optional(),
-})
+export const AuthEmailVerifyBody = zod
+  .object({
+    code: zod.string().regex(authEmailVerifyBodyCodeRegExp),
+    email: zod.email(),
+    password: zod
+      .union([zod.string().max(authEmailVerifyBodyPasswordOneMax), zod.null()])
+      .optional(),
+  })
+  .describe(
+    "Email verification code, plus the password when the account has one."
+  )
 
 export const AuthEmailVerifyResponse = zod.void()
 
 /**
  * @summary Auth:Email.Verify Request
  */
-export const AuthEmailVerifyRequestBody = zod.object({
-  email: zod.email(),
-})
+export const AuthEmailVerifyRequestBody = zod
+  .object({
+    email: zod.email(),
+  })
+  .describe("An email address that a one-time code is sent to.")
 
 export const AuthEmailVerifyRequestResponse = zod.void()
 
@@ -825,9 +966,11 @@ export const OauthGoogleCookieCallbackResponse = zod.unknown()
 /**
  * @summary Auth:Password.Forgot
  */
-export const AuthPasswordForgotBody = zod.object({
-  email: zod.email(),
-})
+export const AuthPasswordForgotBody = zod
+  .object({
+    email: zod.email(),
+  })
+  .describe("An email address that a one-time code is sent to.")
 
 export const AuthPasswordForgotResponse = zod.void()
 
@@ -837,11 +980,13 @@ export const AuthPasswordForgotResponse = zod.void()
 export const authPasswordResetBodyCodeRegExp = new RegExp("^\\d{6}$")
 export const authPasswordResetBodyPasswordMax = 1024
 
-export const AuthPasswordResetBody = zod.object({
-  code: zod.string().regex(authPasswordResetBodyCodeRegExp),
-  email: zod.email(),
-  password: zod.string().min(1).max(authPasswordResetBodyPasswordMax),
-})
+export const AuthPasswordResetBody = zod
+  .object({
+    code: zod.string().regex(authPasswordResetBodyCodeRegExp),
+    email: zod.email(),
+    password: zod.string().min(1).max(authPasswordResetBodyPasswordMax),
+  })
+  .describe("Email reset code and the new password.")
 
 export const AuthPasswordResetResponse = zod.void()
 
@@ -852,13 +997,15 @@ export const authPhoneLoginBodyCodeRegExp = new RegExp("^\\d{6}$")
 export const authPhoneLoginBodyPhoneMin = 3
 export const authPhoneLoginBodyPhoneMax = 32
 
-export const AuthPhoneLoginBody = zod.object({
-  code: zod.string().regex(authPhoneLoginBodyCodeRegExp),
-  phone: zod
-    .string()
-    .min(authPhoneLoginBodyPhoneMin)
-    .max(authPhoneLoginBodyPhoneMax),
-})
+export const AuthPhoneLoginBody = zod
+  .object({
+    code: zod.string().regex(authPhoneLoginBodyCodeRegExp),
+    phone: zod
+      .string()
+      .min(authPhoneLoginBodyPhoneMin)
+      .max(authPhoneLoginBodyPhoneMax),
+  })
+  .describe("A phone number and the six-digit code sent to it.")
 
 export const AuthPhoneLoginResponse = zod.void()
 
@@ -868,12 +1015,14 @@ export const AuthPhoneLoginResponse = zod.void()
 export const authPhoneRequestBodyPhoneMin = 3
 export const authPhoneRequestBodyPhoneMax = 32
 
-export const AuthPhoneRequestBody = zod.object({
-  phone: zod
-    .string()
-    .min(authPhoneRequestBodyPhoneMin)
-    .max(authPhoneRequestBodyPhoneMax),
-})
+export const AuthPhoneRequestBody = zod
+  .object({
+    phone: zod
+      .string()
+      .min(authPhoneRequestBodyPhoneMin)
+      .max(authPhoneRequestBodyPhoneMax),
+  })
+  .describe("A phone number that a one-time code is sent to.")
 
 export const AuthPhoneRequestResponse = zod.void()
 
@@ -885,20 +1034,24 @@ export const registerRegisterBodyIsActiveDefault = true
 export const registerRegisterBodyIsSuperuserDefault = false
 export const registerRegisterBodyIsVerifiedDefault = false
 
-export const RegisterRegisterBody = zod.object({
-  display_name: zod.string().default(registerRegisterBodyDisplayNameDefault),
-  email: zod.email(),
-  is_active: zod
-    .union([zod.boolean(), zod.null()])
-    .default(registerRegisterBodyIsActiveDefault),
-  is_superuser: zod
-    .union([zod.boolean(), zod.null()])
-    .default(registerRegisterBodyIsSuperuserDefault),
-  is_verified: zod
-    .union([zod.boolean(), zod.null()])
-    .default(registerRegisterBodyIsVerifiedDefault),
-  password: zod.string(),
-})
+export const RegisterRegisterBody = zod
+  .object({
+    display_name: zod.string().default(registerRegisterBodyDisplayNameDefault),
+    email: zod.email(),
+    is_active: zod
+      .union([zod.boolean(), zod.null()])
+      .default(registerRegisterBodyIsActiveDefault),
+    is_superuser: zod
+      .union([zod.boolean(), zod.null()])
+      .default(registerRegisterBodyIsSuperuserDefault),
+    is_verified: zod
+      .union([zod.boolean(), zod.null()])
+      .default(registerRegisterBodyIsVerifiedDefault),
+    password: zod.string(),
+  })
+  .describe(
+    "Registration request body: the fastapi-users fields plus a display name."
+  )
 
 export const registerRegisterResponseDisplayNameDefault = ``
 export const registerRegisterResponseIsActiveDefault = true
@@ -931,46 +1084,52 @@ export const RegisterRegisterResponse = zod
 export const chatBodyConversationIdOneRegExp = new RegExp("^[0-9a-f]{32}$")
 export const chatBodyMessageMax = 4000
 
-export const ChatBody = zod.object({
-  collection_ids: zod
-    .union([zod.array(zod.uuid()).min(1), zod.null()])
-    .optional(),
-  conversation_id: zod
-    .union([zod.string().regex(chatBodyConversationIdOneRegExp), zod.null()])
-    .optional(),
-  message: zod.string().min(1).max(chatBodyMessageMax),
-})
+export const ChatBody = zod
+  .object({
+    collection_ids: zod
+      .union([zod.array(zod.uuid()).min(1), zod.null()])
+      .optional(),
+    conversation_id: zod
+      .union([zod.string().regex(chatBodyConversationIdOneRegExp), zod.null()])
+      .optional(),
+    message: zod.string().min(1).max(chatBodyMessageMax),
+  })
+  .describe(
+    "One user message, sent to an existing conversation or starting a new one."
+  )
 
-export const ChatResponse = zod.object({
-  citations: zod
-    .array(
-      zod
-        .object({
-          chunk_version_id: zod.uuid(),
-          end_page: zod.union([zod.int(), zod.null()]),
-          index: zod.int(),
-          release_id: zod.uuid(),
-          section: zod.string(),
-          snippet: zod.string(),
-          source: zod.string(),
-          start_page: zod.union([zod.int(), zod.null()]),
-          title: zod.string(),
-        })
-        .describe(
-          "A cited chunk: the chunk version the model read, as published in one release."
-        )
-    )
-    .optional(),
-  content: zod.string(),
-  conversation_id: zod.string(),
-  created_at: zod.iso.datetime({ offset: true }),
-  message_id: zod.union([zod.string(), zod.null()]),
-  persisted: zod.boolean(),
-  phases: zod.array(zod.string()).optional(),
-  run_id: zod.string(),
-  status: zod.string(),
-  usage: zod.record(zod.string(), zod.unknown()).optional(),
-})
+export const ChatResponse = zod
+  .object({
+    citations: zod
+      .array(
+        zod
+          .object({
+            chunk_version_id: zod.uuid(),
+            end_page: zod.union([zod.int(), zod.null()]),
+            index: zod.int(),
+            release_id: zod.uuid(),
+            section: zod.string(),
+            snippet: zod.string(),
+            source: zod.string(),
+            start_page: zod.union([zod.int(), zod.null()]),
+            title: zod.string(),
+          })
+          .describe(
+            "A cited chunk: the chunk version the model read, as published in one release."
+          )
+      )
+      .optional(),
+    content: zod.string(),
+    conversation_id: zod.string(),
+    created_at: zod.iso.datetime({ offset: true }),
+    message_id: zod.union([zod.string(), zod.null()]),
+    persisted: zod.boolean(),
+    phases: zod.array(zod.string()).optional(),
+    run_id: zod.string(),
+    status: zod.string(),
+    usage: zod.record(zod.string(), zod.unknown()).optional(),
+  })
+  .describe("The persisted outcome of one chat turn.")
 
 /**
  * @summary Chat Stream
@@ -981,18 +1140,22 @@ export const chatStreamBodyConversationIdOneRegExp = new RegExp(
 )
 export const chatStreamBodyMessageMax = 4000
 
-export const ChatStreamBody = zod.object({
-  collection_ids: zod
-    .union([zod.array(zod.uuid()).min(1), zod.null()])
-    .optional(),
-  conversation_id: zod
-    .union([
-      zod.string().regex(chatStreamBodyConversationIdOneRegExp),
-      zod.null(),
-    ])
-    .optional(),
-  message: zod.string().min(1).max(chatStreamBodyMessageMax),
-})
+export const ChatStreamBody = zod
+  .object({
+    collection_ids: zod
+      .union([zod.array(zod.uuid()).min(1), zod.null()])
+      .optional(),
+    conversation_id: zod
+      .union([
+        zod.string().regex(chatStreamBodyConversationIdOneRegExp),
+        zod.null(),
+      ])
+      .optional(),
+    message: zod.string().min(1).max(chatStreamBodyMessageMax),
+  })
+  .describe(
+    "One user message, sent to an existing conversation or starting a new one."
+  )
 
 export const ChatStreamResponse = zod.unknown()
 
@@ -1013,7 +1176,11 @@ export const CollectionsListResponse = zod.object({
       owner_organization_id: zod.union([zod.uuid(), zod.null()]),
       owner_user_id: zod.union([zod.uuid(), zod.null()]),
       title: zod.string(),
-      visibility: zod.enum(["private", "organization", "public"]),
+      visibility: zod
+        .enum(["private", "organization", "public"])
+        .describe(
+          "Who may read a collection: its owner, the owner's organization or everyone."
+        ),
     })
   ),
   organizations: zod.array(
@@ -1031,12 +1198,23 @@ export const CollectionsListResponse = zod.object({
           owner_organization_id: zod.union([zod.uuid(), zod.null()]),
           owner_user_id: zod.union([zod.uuid(), zod.null()]),
           title: zod.string(),
-          visibility: zod.enum(["private", "organization", "public"]),
+          visibility: zod
+            .enum(["private", "organization", "public"])
+            .describe(
+              "Who may read a collection: its owner, the owner's organization or everyone."
+            ),
         })
       ),
       name: zod.string(),
       organization_id: zod.uuid(),
-      role: zod.union([zod.enum(["owner", "editor", "member"]), zod.null()]),
+      role: zod.union([
+        zod
+          .enum(["owner", "editor", "member"])
+          .describe(
+            "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+          ),
+        zod.null(),
+      ]),
     })
   ),
   others: zod.array(
@@ -1052,7 +1230,11 @@ export const CollectionsListResponse = zod.object({
       owner_organization_id: zod.union([zod.uuid(), zod.null()]),
       owner_user_id: zod.union([zod.uuid(), zod.null()]),
       title: zod.string(),
-      visibility: zod.enum(["private", "organization", "public"]),
+      visibility: zod
+        .enum(["private", "organization", "public"])
+        .describe(
+          "Who may read a collection: its owner, the owner's organization or everyone."
+        ),
     })
   ),
   public: zod.array(
@@ -1068,7 +1250,11 @@ export const CollectionsListResponse = zod.object({
       owner_organization_id: zod.union([zod.uuid(), zod.null()]),
       owner_user_id: zod.union([zod.uuid(), zod.null()]),
       title: zod.string(),
-      visibility: zod.enum(["private", "organization", "public"]),
+      visibility: zod
+        .enum(["private", "organization", "public"])
+        .describe(
+          "Who may read a collection: its owner, the owner's organization or everyone."
+        ),
     })
   ),
 })
@@ -1078,10 +1264,12 @@ export const CollectionsListResponse = zod.object({
  */
 export const collectionsCreateBodyTitleMax = 200
 
-export const CollectionsCreateBody = zod.object({
-  owner_organization_id: zod.union([zod.uuid(), zod.null()]).optional(),
-  title: zod.string().min(1).max(collectionsCreateBodyTitleMax),
-})
+export const CollectionsCreateBody = zod
+  .object({
+    owner_organization_id: zod.union([zod.uuid(), zod.null()]).optional(),
+    title: zod.string().min(1).max(collectionsCreateBodyTitleMax),
+  })
+  .describe("A new collection; a null owner organization makes it personal.")
 
 export const CollectionsCreateResponse = zod.object({
   can_edit: zod.boolean(),
@@ -1095,7 +1283,11 @@ export const CollectionsCreateResponse = zod.object({
   owner_organization_id: zod.union([zod.uuid(), zod.null()]),
   owner_user_id: zod.union([zod.uuid(), zod.null()]),
   title: zod.string(),
-  visibility: zod.enum(["private", "organization", "public"]),
+  visibility: zod
+    .enum(["private", "organization", "public"])
+    .describe(
+      "Who may read a collection: its owner, the owner's organization or everyone."
+    ),
 })
 
 /**
@@ -1140,7 +1332,11 @@ export const CollectionsGetResponse = zod.object({
   owner_organization_id: zod.union([zod.uuid(), zod.null()]),
   owner_user_id: zod.union([zod.uuid(), zod.null()]),
   title: zod.string(),
-  visibility: zod.enum(["private", "organization", "public"]),
+  visibility: zod
+    .enum(["private", "organization", "public"])
+    .describe(
+      "Who may read a collection: its owner, the owner's organization or everyone."
+    ),
 })
 
 /**
@@ -1152,17 +1348,26 @@ export const CollectionsUpdateParams = zod.object({
 
 export const collectionsUpdateBodyTitleOneMax = 200
 
-export const CollectionsUpdateBody = zod.object({
-  title: zod
-    .union([
-      zod.string().min(1).max(collectionsUpdateBodyTitleOneMax),
-      zod.null(),
-    ])
-    .optional(),
-  visibility: zod
-    .union([zod.enum(["private", "organization", "public"]), zod.null()])
-    .optional(),
-})
+export const CollectionsUpdateBody = zod
+  .object({
+    title: zod
+      .union([
+        zod.string().min(1).max(collectionsUpdateBodyTitleOneMax),
+        zod.null(),
+      ])
+      .optional(),
+    visibility: zod
+      .union([
+        zod
+          .enum(["private", "organization", "public"])
+          .describe(
+            "Who may read a collection: its owner, the owner's organization or everyone."
+          ),
+        zod.null(),
+      ])
+      .optional(),
+  })
+  .describe("Collection fields to change; fields left out stay as they are.")
 
 export const CollectionsUpdateResponse = zod.object({
   can_edit: zod.boolean(),
@@ -1176,7 +1381,11 @@ export const CollectionsUpdateResponse = zod.object({
   owner_organization_id: zod.union([zod.uuid(), zod.null()]),
   owner_user_id: zod.union([zod.uuid(), zod.null()]),
   title: zod.string(),
-  visibility: zod.enum(["private", "organization", "public"]),
+  visibility: zod
+    .enum(["private", "organization", "public"])
+    .describe(
+      "Who may read a collection: its owner, the owner's organization or everyone."
+    ),
 })
 
 /**
@@ -1262,7 +1471,11 @@ export const DocumentsListResponseItem = zod.object({
   collection_id: zod.uuid(),
   id: zod.uuid(),
   key: zod.string(),
-  kind: zod.enum(["drug_monograph", "general_monograph", "leaflet"]),
+  kind: zod
+    .enum(["drug_monograph", "general_monograph", "leaflet"])
+    .describe(
+      "What a bundle document is: a drug monograph, a general monograph or a leaflet."
+    ),
   source_title: zod.string(),
   source_url: zod.union([zod.string(), zod.null()]),
   title: zod.string(),
@@ -1288,7 +1501,10 @@ export const documentsCreateBodyTitleMax = 200
 export const DocumentsCreateBody = zod.object({
   kind: zod
     .enum(["drug_monograph", "general_monograph", "leaflet"])
-    .default(documentsCreateBodyKindDefault),
+    .default(documentsCreateBodyKindDefault)
+    .describe(
+      "What a bundle document is: a drug monograph, a general monograph or a leaflet."
+    ),
   markdown: zod.string().min(1),
   source_title: zod
     .string()
@@ -1305,7 +1521,11 @@ export const DocumentsCreateResponse = zod.object({
   collection_id: zod.uuid(),
   id: zod.uuid(),
   key: zod.string(),
-  kind: zod.enum(["drug_monograph", "general_monograph", "leaflet"]),
+  kind: zod
+    .enum(["drug_monograph", "general_monograph", "leaflet"])
+    .describe(
+      "What a bundle document is: a drug monograph, a general monograph or a leaflet."
+    ),
   markdown: zod.string(),
   source_title: zod.string(),
   source_url: zod.union([zod.string(), zod.null()]),
@@ -1357,7 +1577,11 @@ export const DocumentsGetResponse = zod.object({
   collection_id: zod.uuid(),
   id: zod.uuid(),
   key: zod.string(),
-  kind: zod.enum(["drug_monograph", "general_monograph", "leaflet"]),
+  kind: zod
+    .enum(["drug_monograph", "general_monograph", "leaflet"])
+    .describe(
+      "What a bundle document is: a drug monograph, a general monograph or a leaflet."
+    ),
   markdown: zod.string(),
   source_title: zod.string(),
   source_url: zod.union([zod.string(), zod.null()]),
@@ -1384,7 +1608,10 @@ export const documentsUpdateBodyTitleMax = 200
 export const DocumentsUpdateBody = zod.object({
   kind: zod
     .enum(["drug_monograph", "general_monograph", "leaflet"])
-    .default(documentsUpdateBodyKindDefault),
+    .default(documentsUpdateBodyKindDefault)
+    .describe(
+      "What a bundle document is: a drug monograph, a general monograph or a leaflet."
+    ),
   markdown: zod.string().min(1),
   source_title: zod
     .string()
@@ -1401,7 +1628,11 @@ export const DocumentsUpdateResponse = zod.object({
   collection_id: zod.uuid(),
   id: zod.uuid(),
   key: zod.string(),
-  kind: zod.enum(["drug_monograph", "general_monograph", "leaflet"]),
+  kind: zod
+    .enum(["drug_monograph", "general_monograph", "leaflet"])
+    .describe(
+      "What a bundle document is: a drug monograph, a general monograph or a leaflet."
+    ),
   markdown: zod.string(),
   source_title: zod.string(),
   source_url: zod.union([zod.string(), zod.null()]),
@@ -1509,19 +1740,27 @@ export const CollectionsPublishParams = zod.object({
   collection_id: zod.uuid(),
 })
 
-export const CollectionsPublishResponse = zod.object({
-  attempts: zod.int(),
-  collection_id: zod.uuid(),
-  created_at: zod.iso.datetime({ offset: true }),
-  error: zod.union([zod.string(), zod.null()]),
-  finished_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  id: zod.uuid(),
-  progress: zod.int(),
-  release_number: zod.union([zod.int(), zod.null()]),
-  started_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  status: zod.enum(["queued", "running", "ready", "failed"]),
-  step: zod.enum(["bundle", "chunk", "embed", "index", "publish"]),
-})
+export const CollectionsPublishResponse = zod
+  .object({
+    attempts: zod.int(),
+    collection_id: zod.uuid(),
+    created_at: zod.iso.datetime({ offset: true }),
+    error: zod.union([zod.string(), zod.null()]),
+    finished_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    id: zod.uuid(),
+    progress: zod.int(),
+    release_number: zod.union([zod.int(), zod.null()]),
+    started_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    status: zod
+      .enum(["queued", "running", "ready", "failed"])
+      .describe("State of an ingest job: queued and running jobs are open."),
+    step: zod
+      .enum(["bundle", "chunk", "embed", "index", "publish"])
+      .describe("The stage of publishing an ingest job is at."),
+  })
+  .describe(
+    "A publish job as returned to the client; `progress` is a percentage."
+  )
 
 /**
  * @summary Collections:Releases
@@ -1530,14 +1769,20 @@ export const CollectionsReleasesParams = zod.object({
   collection_id: zod.uuid(),
 })
 
-export const CollectionsReleasesResponseItem = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  current: zod.boolean(),
-  id: zod.uuid(),
-  number: zod.int(),
-  published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  status: zod.enum(["building", "ready", "retired"]),
-})
+export const CollectionsReleasesResponseItem = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    current: zod.boolean(),
+    id: zod.uuid(),
+    number: zod.int(),
+    published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    status: zod
+      .enum(["building", "ready", "retired"])
+      .describe(
+        "Lifecycle of a release: building, then ready to publish, then retired."
+      ),
+  })
+  .describe("A release of a collection; `current` marks the one being served.")
 export const CollectionsReleasesResponse = zod.array(
   CollectionsReleasesResponseItem
 )
@@ -1549,14 +1794,20 @@ export const CollectionsRollbackParams = zod.object({
   collection_id: zod.uuid(),
 })
 
-export const CollectionsRollbackResponse = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  current: zod.boolean(),
-  id: zod.uuid(),
-  number: zod.int(),
-  published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  status: zod.enum(["building", "ready", "retired"]),
-})
+export const CollectionsRollbackResponse = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    current: zod.boolean(),
+    id: zod.uuid(),
+    number: zod.int(),
+    published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    status: zod
+      .enum(["building", "ready", "retired"])
+      .describe(
+        "Lifecycle of a release: building, then ready to publish, then retired."
+      ),
+  })
+  .describe("A release of a collection; `current` marks the one being served.")
 
 /**
  * @summary Collections:Sections
@@ -1593,31 +1844,39 @@ export const ListConversationsQueryParams = zod.object({
     .describe("`next_cursor` of the previous page; omit for the first page"),
 })
 
-export const ListConversationsResponse = zod.object({
-  items: zod.array(
-    zod.object({
-      collection_ids: zod.union([zod.array(zod.uuid()), zod.null()]).optional(),
-      created_at: zod.iso.datetime({ offset: true }),
-      id: zod.string(),
-      title: zod.string(),
-      turn_count: zod.int(),
-      updated_at: zod.iso.datetime({ offset: true }),
-    })
-  ),
-  next_cursor: zod.union([zod.string(), zod.null()]),
-})
+export const ListConversationsResponse = zod
+  .object({
+    items: zod.array(
+      zod
+        .object({
+          collection_ids: zod
+            .union([zod.array(zod.uuid()), zod.null()])
+            .optional(),
+          created_at: zod.iso.datetime({ offset: true }),
+          id: zod.string(),
+          title: zod.string(),
+          turn_count: zod.int(),
+          updated_at: zod.iso.datetime({ offset: true }),
+        })
+        .describe("A conversation as returned to the client.")
+    ),
+    next_cursor: zod.union([zod.string(), zod.null()]),
+  })
+  .describe("One page of conversations, most recently updated first.")
 
 /**
  * @summary Create Conversation
  */
-export const CreateConversationResponse = zod.object({
-  collection_ids: zod.union([zod.array(zod.uuid()), zod.null()]).optional(),
-  created_at: zod.iso.datetime({ offset: true }),
-  id: zod.string(),
-  title: zod.string(),
-  turn_count: zod.int(),
-  updated_at: zod.iso.datetime({ offset: true }),
-})
+export const CreateConversationResponse = zod
+  .object({
+    collection_ids: zod.union([zod.array(zod.uuid()), zod.null()]).optional(),
+    created_at: zod.iso.datetime({ offset: true }),
+    id: zod.string(),
+    title: zod.string(),
+    turn_count: zod.int(),
+    updated_at: zod.iso.datetime({ offset: true }),
+  })
+  .describe("A conversation as returned to the client.")
 
 /**
  * @summary Delete Conversation
@@ -1645,14 +1904,16 @@ export const GetConversationParams = zod.object({
   conversation_id: zod.string().regex(getConversationPathConversationIdRegExp),
 })
 
-export const GetConversationResponse = zod.object({
-  collection_ids: zod.union([zod.array(zod.uuid()), zod.null()]).optional(),
-  created_at: zod.iso.datetime({ offset: true }),
-  id: zod.string(),
-  title: zod.string(),
-  turn_count: zod.int(),
-  updated_at: zod.iso.datetime({ offset: true }),
-})
+export const GetConversationResponse = zod
+  .object({
+    collection_ids: zod.union([zod.array(zod.uuid()), zod.null()]).optional(),
+    created_at: zod.iso.datetime({ offset: true }),
+    id: zod.string(),
+    title: zod.string(),
+    turn_count: zod.int(),
+    updated_at: zod.iso.datetime({ offset: true }),
+  })
+  .describe("A conversation as returned to the client.")
 
 /**
  * @summary Update Conversation
@@ -1683,14 +1944,16 @@ export const UpdateConversationBody = zod
     "Fields left out stay as they are; `collection_ids: null` means every source."
   )
 
-export const UpdateConversationResponse = zod.object({
-  collection_ids: zod.union([zod.array(zod.uuid()), zod.null()]).optional(),
-  created_at: zod.iso.datetime({ offset: true }),
-  id: zod.string(),
-  title: zod.string(),
-  turn_count: zod.int(),
-  updated_at: zod.iso.datetime({ offset: true }),
-})
+export const UpdateConversationResponse = zod
+  .object({
+    collection_ids: zod.union([zod.array(zod.uuid()), zod.null()]).optional(),
+    created_at: zod.iso.datetime({ offset: true }),
+    id: zod.string(),
+    title: zod.string(),
+    turn_count: zod.int(),
+    updated_at: zod.iso.datetime({ offset: true }),
+  })
+  .describe("A conversation as returned to the client.")
 
 /**
  * @summary List Messages
@@ -1721,73 +1984,97 @@ export const ListMessagesQueryParams = zod.object({
 export const ListMessagesResponse = zod
   .object({
     items: zod.array(
-      zod.object({
-        id: zod.string(),
-        metadata: zod.object({
-          createdAt: zod.iso.datetime({ offset: true }),
-          errorCode: zod.union([zod.string(), zod.null()]).optional(),
-          feedback: zod
-            .union([
-              zod.object({
-                note: zod.string(),
-                rating: zod.enum(["up", "down"]),
-              }),
-              zod.null(),
-            ])
-            .optional(),
-          persisted: zod.union([zod.boolean(), zod.null()]).optional(),
-          runId: zod.union([zod.string(), zod.null()]).optional(),
-          status: zod.enum([
-            "completed",
-            "partial",
-            "abstained",
-            "blocked",
-            "redirected",
-            "error",
-            "timeout",
-          ]),
-          usage: zod
-            .union([
-              zod.object({
-                completionTokens: zod.int(),
-                llmCalls: zod.int(),
-                promptTokens: zod.int(),
-                searchRounds: zod.int(),
-              }),
-              zod.null(),
-            ])
-            .optional(),
-        }),
-        parts: zod.array(
-          zod.union([
-            zod.object({
-              text: zod.string(),
-              type: zod.literal("text").meta({ title: "Type" }),
-            }),
-            zod.object({
-              mediaType: zod
-                .literal("text/markdown")
-                .meta({ title: "Mediatype" }),
-              providerMetadata: zod.object({
-                pharma: zod.object({
-                  endPage: zod.union([zod.int(), zod.null()]),
-                  index: zod.int(),
-                  isCurrent: zod.boolean(),
-                  section: zod.string(),
-                  snippet: zod.string(),
-                  source: zod.string(),
-                  startPage: zod.union([zod.int(), zod.null()]),
+      zod
+        .object({
+          id: zod.string(),
+          metadata: zod
+            .object({
+              createdAt: zod.iso.datetime({ offset: true }),
+              errorCode: zod.union([zod.string(), zod.null()]).optional(),
+              feedback: zod
+                .union([
+                  zod
+                    .object({
+                      note: zod.string(),
+                      rating: zod
+                        .enum(["up", "down"])
+                        .describe("Thumbs up or down."),
+                    })
+                    .describe("The user's rating of an assistant message."),
+                  zod.null(),
+                ])
+                .optional(),
+              persisted: zod.union([zod.boolean(), zod.null()]).optional(),
+              runId: zod.union([zod.string(), zod.null()]).optional(),
+              status: zod
+                .enum([
+                  "completed",
+                  "partial",
+                  "abstained",
+                  "blocked",
+                  "redirected",
+                  "error",
+                  "timeout",
+                ])
+                .describe("Final status of a message as shown to the client."),
+              usage: zod
+                .union([
+                  zod
+                    .object({
+                      completionTokens: zod.int(),
+                      llmCalls: zod.int(),
+                      promptTokens: zod.int(),
+                      searchRounds: zod.int(),
+                    })
+                    .describe("Token and call usage of an assistant turn."),
+                  zod.null(),
+                ])
+                .optional(),
+            })
+            .describe("Status, timing, usage and feedback of a message."),
+          parts: zod.array(
+            zod.union([
+              zod
+                .object({
+                  text: zod.string(),
+                  type: zod.literal("text").meta({ title: "Type" }),
+                })
+                .describe("The text of a message."),
+              zod
+                .object({
+                  mediaType: zod
+                    .literal("text/markdown")
+                    .meta({ title: "Mediatype" }),
+                  providerMetadata: zod
+                    .object({
+                      pharma: zod
+                        .object({
+                          endPage: zod.union([zod.int(), zod.null()]),
+                          index: zod.int(),
+                          isCurrent: zod.boolean(),
+                          section: zod.string(),
+                          snippet: zod.string(),
+                          source: zod.string(),
+                          startPage: zod.union([zod.int(), zod.null()]),
+                          title: zod.string(),
+                        })
+                        .describe(
+                          "Pharma-specific metadata of a cited source; `is_current` says its release is current."
+                        ),
+                    })
+                    .describe(
+                      "Provider metadata of a source part, under the `pharma` key."
+                    ),
+                  sourceId: zod.string(),
                   title: zod.string(),
-                }),
-              }),
-              sourceId: zod.string(),
-              title: zod.string(),
-              type: zod.literal("source-document").meta({ title: "Type" }),
-            }),
-          ])
-        ),
-        role: zod.enum(["user", "assistant"]),
-      })
+                  type: zod.literal("source-document").meta({ title: "Type" }),
+                })
+                .describe("One cited source of an assistant message."),
+            ])
+          ),
+          role: zod.enum(["user", "assistant"]),
+        })
+        .describe("A chat message in AI SDK `UIMessage` shape.")
     ),
     next_cursor: zod.union([zod.string(), zod.null()]),
   })
@@ -1801,18 +2088,20 @@ export const ListMessagesResponse = zod
 export const healthResponseGoogleSignInEnabledDefault = false
 export const healthResponsePhoneSignInEnabledDefault = true
 
-export const HealthResponse = zod.object({
-  agent: zod.boolean(),
-  checks: zod.record(zod.string(), zod.boolean()),
-  google_sign_in_enabled: zod
-    .boolean()
-    .default(healthResponseGoogleSignInEnabledDefault),
-  phone_sign_in_enabled: zod
-    .boolean()
-    .default(healthResponsePhoneSignInEnabledDefault),
-  reasons: zod.record(zod.string(), zod.string()).optional(),
-  status: zod.enum(["ok", "degraded"]),
-})
+export const HealthResponse = zod
+  .object({
+    agent: zod.boolean(),
+    checks: zod.record(zod.string(), zod.boolean()),
+    google_sign_in_enabled: zod
+      .boolean()
+      .default(healthResponseGoogleSignInEnabledDefault),
+    phone_sign_in_enabled: zod
+      .boolean()
+      .default(healthResponsePhoneSignInEnabledDefault),
+    reasons: zod.record(zod.string(), zod.string()).optional(),
+    status: zod.enum(["ok", "degraded"]),
+  })
+  .describe("Health of the service and of each dependency check.")
 
 /**
  * @summary Jobs:Get
@@ -1821,19 +2110,27 @@ export const JobsGetParams = zod.object({
   job_id: zod.uuid(),
 })
 
-export const JobsGetResponse = zod.object({
-  attempts: zod.int(),
-  collection_id: zod.uuid(),
-  created_at: zod.iso.datetime({ offset: true }),
-  error: zod.union([zod.string(), zod.null()]),
-  finished_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  id: zod.uuid(),
-  progress: zod.int(),
-  release_number: zod.union([zod.int(), zod.null()]),
-  started_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  status: zod.enum(["queued", "running", "ready", "failed"]),
-  step: zod.enum(["bundle", "chunk", "embed", "index", "publish"]),
-})
+export const JobsGetResponse = zod
+  .object({
+    attempts: zod.int(),
+    collection_id: zod.uuid(),
+    created_at: zod.iso.datetime({ offset: true }),
+    error: zod.union([zod.string(), zod.null()]),
+    finished_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    id: zod.uuid(),
+    progress: zod.int(),
+    release_number: zod.union([zod.int(), zod.null()]),
+    started_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    status: zod
+      .enum(["queued", "running", "ready", "failed"])
+      .describe("State of an ingest job: queued and running jobs are open."),
+    step: zod
+      .enum(["bundle", "chunk", "embed", "index", "publish"])
+      .describe("The stage of publishing an ingest job is at."),
+  })
+  .describe(
+    "A publish job as returned to the client; `progress` is a percentage."
+  )
 
 /**
  * @summary Invitations:Preview
@@ -1851,12 +2148,18 @@ export const InvitationsPreviewParams = zod.object({
     .regex(invitationsPreviewPathTokenRegExp),
 })
 
-export const InvitationsPreviewResponse = zod.object({
-  email_hint: zod.string(),
-  inviter_name: zod.string(),
-  organization_name: zod.string(),
-  role: zod.enum(["owner", "editor", "member"]),
-})
+export const InvitationsPreviewResponse = zod
+  .object({
+    email_hint: zod.string(),
+    inviter_name: zod.string(),
+    organization_name: zod.string(),
+    role: zod
+      .enum(["owner", "editor", "member"])
+      .describe(
+        "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+      ),
+  })
+  .describe("What the holder of an invitation link may see about it.")
 
 /**
  * @summary Invitations:Accept
@@ -1874,13 +2177,24 @@ export const InvitationsAcceptParams = zod.object({
     .regex(invitationsAcceptPathTokenRegExp),
 })
 
-export const InvitationsAcceptResponse = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  id: zod.uuid(),
-  member_count: zod.int(),
-  name: zod.string(),
-  role: zod.union([zod.enum(["owner", "editor", "member"]), zod.null()]),
-})
+export const InvitationsAcceptResponse = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    id: zod.uuid(),
+    member_count: zod.int(),
+    name: zod.string(),
+    role: zod.union([
+      zod
+        .enum(["owner", "editor", "member"])
+        .describe(
+          "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+        ),
+      zod.null(),
+    ]),
+  })
+  .describe(
+    "An organization with the actor's role in it (None when not a member)."
+  )
 
 /**
  * @summary Invitations:Decline
@@ -1913,16 +2227,18 @@ export const GetMessageCitationParams = zod.object({
   index: zod.int().min(1).max(getMessageCitationPathIndexMax),
 })
 
-export const GetMessageCitationResponse = zod.object({
-  document_title: zod.string(),
-  end_page: zod.union([zod.int(), zod.null()]),
-  index: zod.int(),
-  is_current: zod.boolean(),
-  section: zod.string(),
-  source: zod.string(),
-  start_page: zod.union([zod.int(), zod.null()]),
-  text: zod.string(),
-})
+export const GetMessageCitationResponse = zod
+  .object({
+    document_title: zod.string(),
+    end_page: zod.union([zod.int(), zod.null()]),
+    index: zod.int(),
+    is_current: zod.boolean(),
+    section: zod.string(),
+    source: zod.string(),
+    start_page: zod.union([zod.int(), zod.null()]),
+    text: zod.string(),
+  })
+  .describe("The full text of a cited chunk and where it comes from.")
 
 /**
  * @summary Submit Feedback
@@ -1936,31 +2252,48 @@ export const SubmitFeedbackParams = zod.object({
 export const submitFeedbackBodyNoteDefault = ``
 export const submitFeedbackBodyNoteMax = 2000
 
-export const SubmitFeedbackBody = zod.object({
-  note: zod
-    .string()
-    .max(submitFeedbackBodyNoteMax)
-    .default(submitFeedbackBodyNoteDefault),
-  rating: zod.enum(["up", "down"]),
-})
+export const SubmitFeedbackBody = zod
+  .object({
+    note: zod
+      .string()
+      .max(submitFeedbackBodyNoteMax)
+      .default(submitFeedbackBodyNoteDefault),
+    rating: zod.enum(["up", "down"]),
+  })
+  .describe("A rating of one assistant message, with an optional note.")
 
-export const SubmitFeedbackResponse = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  message_id: zod.string(),
-  note: zod.string(),
-  rating: zod.enum(["up", "down"]),
-})
+export const SubmitFeedbackResponse = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    message_id: zod.string(),
+    note: zod.string(),
+    rating: zod.enum(["up", "down"]).describe("Thumbs up or down."),
+  })
+  .describe(
+    "A user's rating of an assistant message, as returned to the client."
+  )
 
 /**
  * @summary Organizations:List
  */
-export const OrganizationsListResponseItem = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  id: zod.uuid(),
-  member_count: zod.int(),
-  name: zod.string(),
-  role: zod.union([zod.enum(["owner", "editor", "member"]), zod.null()]),
-})
+export const OrganizationsListResponseItem = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    id: zod.uuid(),
+    member_count: zod.int(),
+    name: zod.string(),
+    role: zod.union([
+      zod
+        .enum(["owner", "editor", "member"])
+        .describe(
+          "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+        ),
+      zod.null(),
+    ]),
+  })
+  .describe(
+    "An organization with the actor's role in it (None when not a member)."
+  )
 export const OrganizationsListResponse = zod.array(
   OrganizationsListResponseItem
 )
@@ -1970,17 +2303,30 @@ export const OrganizationsListResponse = zod.array(
  */
 export const organizationsCreateBodyNameMax = 100
 
-export const OrganizationsCreateBody = zod.object({
-  name: zod.string().min(1).max(organizationsCreateBodyNameMax),
-})
+export const OrganizationsCreateBody = zod
+  .object({
+    name: zod.string().min(1).max(organizationsCreateBodyNameMax),
+  })
+  .describe("The name of an organization.")
 
-export const OrganizationsCreateResponse = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  id: zod.uuid(),
-  member_count: zod.int(),
-  name: zod.string(),
-  role: zod.union([zod.enum(["owner", "editor", "member"]), zod.null()]),
-})
+export const OrganizationsCreateResponse = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    id: zod.uuid(),
+    member_count: zod.int(),
+    name: zod.string(),
+    role: zod.union([
+      zod
+        .enum(["owner", "editor", "member"])
+        .describe(
+          "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+        ),
+      zod.null(),
+    ]),
+  })
+  .describe(
+    "An organization with the actor's role in it (None when not a member)."
+  )
 
 /**
  * @summary Organizations:Delete
@@ -1991,9 +2337,14 @@ export const OrganizationsDeleteParams = zod.object({
 
 export const organizationsDeleteBodyConfirmNameMax = 100
 
-export const OrganizationsDeleteBody = zod.object({
-  confirm_name: zod.string().min(1).max(organizationsDeleteBodyConfirmNameMax),
-})
+export const OrganizationsDeleteBody = zod
+  .object({
+    confirm_name: zod
+      .string()
+      .min(1)
+      .max(organizationsDeleteBodyConfirmNameMax),
+  })
+  .describe("Confirmation for deleting an organization: its name typed again.")
 
 export const OrganizationsDeleteResponse = zod.void()
 
@@ -2004,13 +2355,24 @@ export const OrganizationsGetParams = zod.object({
   organization_id: zod.uuid(),
 })
 
-export const OrganizationsGetResponse = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  id: zod.uuid(),
-  member_count: zod.int(),
-  name: zod.string(),
-  role: zod.union([zod.enum(["owner", "editor", "member"]), zod.null()]),
-})
+export const OrganizationsGetResponse = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    id: zod.uuid(),
+    member_count: zod.int(),
+    name: zod.string(),
+    role: zod.union([
+      zod
+        .enum(["owner", "editor", "member"])
+        .describe(
+          "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+        ),
+      zod.null(),
+    ]),
+  })
+  .describe(
+    "An organization with the actor's role in it (None when not a member)."
+  )
 
 /**
  * @summary Organizations:Rename
@@ -2021,17 +2383,30 @@ export const OrganizationsRenameParams = zod.object({
 
 export const organizationsRenameBodyNameMax = 100
 
-export const OrganizationsRenameBody = zod.object({
-  name: zod.string().min(1).max(organizationsRenameBodyNameMax),
-})
+export const OrganizationsRenameBody = zod
+  .object({
+    name: zod.string().min(1).max(organizationsRenameBodyNameMax),
+  })
+  .describe("The name of an organization.")
 
-export const OrganizationsRenameResponse = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  id: zod.uuid(),
-  member_count: zod.int(),
-  name: zod.string(),
-  role: zod.union([zod.enum(["owner", "editor", "member"]), zod.null()]),
-})
+export const OrganizationsRenameResponse = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    id: zod.uuid(),
+    member_count: zod.int(),
+    name: zod.string(),
+    role: zod.union([
+      zod
+        .enum(["owner", "editor", "member"])
+        .describe(
+          "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+        ),
+      zod.null(),
+    ]),
+  })
+  .describe(
+    "An organization with the actor's role in it (None when not a member)."
+  )
 
 /**
  * @summary Audit:Organization
@@ -2056,52 +2431,60 @@ export const AuditOrganizationQueryParams = zod.object({
     .optional(),
 })
 
-export const AuditOrganizationResponse = zod.object({
-  items: zod.array(
-    zod.object({
-      action: zod.enum([
-        "organization.created",
-        "organization.renamed",
-        "organization.deleted",
-        "member.joined",
-        "member.left",
-        "member.removed",
-        "member.role_changed",
-        "invitation.created",
-        "invitation.approved",
-        "invitation.rejected",
-        "invitation.revoked",
-        "invitation.declined",
-        "invitation.resent",
-        "collection.created",
-        "collection.renamed",
-        "collection.deleted",
-        "collection.visibility_changed",
-        "collection.published",
-        "collection.rolled_back",
-        "document.created",
-        "document.updated",
-        "document.deleted",
-        "glossary.updated",
-        "colloquial.updated",
-        "user.disabled",
-        "user.enabled",
-        "quota.changed",
-      ]),
-      actor_name: zod.string(),
-      actor_user_id: zod.union([zod.uuid(), zod.null()]),
-      actor_was_superadmin: zod.boolean(),
-      collection_id: zod.union([zod.uuid(), zod.null()]),
-      details: zod.record(zod.string(), zod.unknown()),
-      id: zod.uuid(),
-      occurred_at: zod.iso.datetime({ offset: true }),
-      organization_id: zod.union([zod.uuid(), zod.null()]),
-      subject_name: zod.string(),
-      subject_user_id: zod.union([zod.uuid(), zod.null()]),
-    })
-  ),
-  next_cursor: zod.union([zod.string(), zod.null()]),
-})
+export const AuditOrganizationResponse = zod
+  .object({
+    items: zod.array(
+      zod
+        .object({
+          action: zod
+            .enum([
+              "organization.created",
+              "organization.renamed",
+              "organization.deleted",
+              "member.joined",
+              "member.left",
+              "member.removed",
+              "member.role_changed",
+              "invitation.created",
+              "invitation.approved",
+              "invitation.rejected",
+              "invitation.revoked",
+              "invitation.declined",
+              "invitation.resent",
+              "collection.created",
+              "collection.renamed",
+              "collection.deleted",
+              "collection.visibility_changed",
+              "collection.published",
+              "collection.rolled_back",
+              "document.created",
+              "document.updated",
+              "document.deleted",
+              "glossary.updated",
+              "colloquial.updated",
+              "user.disabled",
+              "user.enabled",
+              "quota.changed",
+            ])
+            .describe("What an audit event records, as ``<subject>.<verb>``."),
+          actor_name: zod.string(),
+          actor_user_id: zod.union([zod.uuid(), zod.null()]),
+          actor_was_superadmin: zod.boolean(),
+          collection_id: zod.union([zod.uuid(), zod.null()]),
+          details: zod.record(zod.string(), zod.unknown()),
+          id: zod.uuid(),
+          occurred_at: zod.iso.datetime({ offset: true }),
+          organization_id: zod.union([zod.uuid(), zod.null()]),
+          subject_name: zod.string(),
+          subject_user_id: zod.union([zod.uuid(), zod.null()]),
+        })
+        .describe(
+          "One audit event with the display names of its actor and subject."
+        )
+    ),
+    next_cursor: zod.union([zod.string(), zod.null()]),
+  })
+  .describe("One page of audit events; `next_cursor` is None on the last page.")
 
 /**
  * @summary Invitations:List
@@ -2110,25 +2493,37 @@ export const InvitationsListParams = zod.object({
   organization_id: zod.uuid(),
 })
 
-export const InvitationsListResponseItem = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  email: zod.string(),
-  expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  id: zod.uuid(),
-  invited_by: zod.union([zod.uuid(), zod.null()]),
-  invited_by_name: zod.string(),
-  organization_id: zod.uuid(),
-  role: zod.enum(["owner", "editor", "member"]),
-  status: zod.enum([
-    "pending_approval",
-    "sent",
-    "accepted",
-    "declined",
-    "rejected",
-    "revoked",
-    "expired",
-  ]),
-})
+export const InvitationsListResponseItem = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    email: zod.string(),
+    expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    id: zod.uuid(),
+    invited_by: zod.union([zod.uuid(), zod.null()]),
+    invited_by_name: zod.string(),
+    organization_id: zod.uuid(),
+    role: zod
+      .enum(["owner", "editor", "member"])
+      .describe(
+        "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+      ),
+    status: zod
+      .enum([
+        "pending_approval",
+        "sent",
+        "accepted",
+        "declined",
+        "rejected",
+        "revoked",
+        "expired",
+      ])
+      .describe(
+        "Lifecycle of an invitation; pending approval and sent are open."
+      ),
+  })
+  .describe(
+    "An invitation as the organization sees it; `status` accounts for expiry."
+  )
 export const InvitationsListResponse = zod.array(InvitationsListResponseItem)
 
 /**
@@ -2140,32 +2535,49 @@ export const InvitationsCreateParams = zod.object({
 
 export const invitationsCreateBodyRoleDefault = `member`
 
-export const InvitationsCreateBody = zod.object({
-  email: zod.email(),
-  role: zod
-    .enum(["owner", "editor", "member"])
-    .default(invitationsCreateBodyRoleDefault),
-})
+export const InvitationsCreateBody = zod
+  .object({
+    email: zod.email(),
+    role: zod
+      .enum(["owner", "editor", "member"])
+      .default(invitationsCreateBodyRoleDefault)
+      .describe(
+        "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+      ),
+  })
+  .describe("An email address to invite and the role the invitee will get.")
 
-export const InvitationsCreateResponse = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  email: zod.string(),
-  expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  id: zod.uuid(),
-  invited_by: zod.union([zod.uuid(), zod.null()]),
-  invited_by_name: zod.string(),
-  organization_id: zod.uuid(),
-  role: zod.enum(["owner", "editor", "member"]),
-  status: zod.enum([
-    "pending_approval",
-    "sent",
-    "accepted",
-    "declined",
-    "rejected",
-    "revoked",
-    "expired",
-  ]),
-})
+export const InvitationsCreateResponse = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    email: zod.string(),
+    expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    id: zod.uuid(),
+    invited_by: zod.union([zod.uuid(), zod.null()]),
+    invited_by_name: zod.string(),
+    organization_id: zod.uuid(),
+    role: zod
+      .enum(["owner", "editor", "member"])
+      .describe(
+        "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+      ),
+    status: zod
+      .enum([
+        "pending_approval",
+        "sent",
+        "accepted",
+        "declined",
+        "rejected",
+        "revoked",
+        "expired",
+      ])
+      .describe(
+        "Lifecycle of an invitation; pending approval and sent are open."
+      ),
+  })
+  .describe(
+    "An invitation as the organization sees it; `status` accounts for expiry."
+  )
 
 /**
  * @summary Invitations:Approve
@@ -2175,25 +2587,37 @@ export const InvitationsApproveParams = zod.object({
   invitation_id: zod.uuid(),
 })
 
-export const InvitationsApproveResponse = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  email: zod.string(),
-  expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  id: zod.uuid(),
-  invited_by: zod.union([zod.uuid(), zod.null()]),
-  invited_by_name: zod.string(),
-  organization_id: zod.uuid(),
-  role: zod.enum(["owner", "editor", "member"]),
-  status: zod.enum([
-    "pending_approval",
-    "sent",
-    "accepted",
-    "declined",
-    "rejected",
-    "revoked",
-    "expired",
-  ]),
-})
+export const InvitationsApproveResponse = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    email: zod.string(),
+    expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    id: zod.uuid(),
+    invited_by: zod.union([zod.uuid(), zod.null()]),
+    invited_by_name: zod.string(),
+    organization_id: zod.uuid(),
+    role: zod
+      .enum(["owner", "editor", "member"])
+      .describe(
+        "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+      ),
+    status: zod
+      .enum([
+        "pending_approval",
+        "sent",
+        "accepted",
+        "declined",
+        "rejected",
+        "revoked",
+        "expired",
+      ])
+      .describe(
+        "Lifecycle of an invitation; pending approval and sent are open."
+      ),
+  })
+  .describe(
+    "An invitation as the organization sees it; `status` accounts for expiry."
+  )
 
 /**
  * @summary Invitations:Reject
@@ -2203,25 +2627,37 @@ export const InvitationsRejectParams = zod.object({
   invitation_id: zod.uuid(),
 })
 
-export const InvitationsRejectResponse = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  email: zod.string(),
-  expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  id: zod.uuid(),
-  invited_by: zod.union([zod.uuid(), zod.null()]),
-  invited_by_name: zod.string(),
-  organization_id: zod.uuid(),
-  role: zod.enum(["owner", "editor", "member"]),
-  status: zod.enum([
-    "pending_approval",
-    "sent",
-    "accepted",
-    "declined",
-    "rejected",
-    "revoked",
-    "expired",
-  ]),
-})
+export const InvitationsRejectResponse = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    email: zod.string(),
+    expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    id: zod.uuid(),
+    invited_by: zod.union([zod.uuid(), zod.null()]),
+    invited_by_name: zod.string(),
+    organization_id: zod.uuid(),
+    role: zod
+      .enum(["owner", "editor", "member"])
+      .describe(
+        "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+      ),
+    status: zod
+      .enum([
+        "pending_approval",
+        "sent",
+        "accepted",
+        "declined",
+        "rejected",
+        "revoked",
+        "expired",
+      ])
+      .describe(
+        "Lifecycle of an invitation; pending approval and sent are open."
+      ),
+  })
+  .describe(
+    "An invitation as the organization sees it; `status` accounts for expiry."
+  )
 
 /**
  * @summary Invitations:Resend
@@ -2231,25 +2667,37 @@ export const InvitationsResendParams = zod.object({
   invitation_id: zod.uuid(),
 })
 
-export const InvitationsResendResponse = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  email: zod.string(),
-  expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  id: zod.uuid(),
-  invited_by: zod.union([zod.uuid(), zod.null()]),
-  invited_by_name: zod.string(),
-  organization_id: zod.uuid(),
-  role: zod.enum(["owner", "editor", "member"]),
-  status: zod.enum([
-    "pending_approval",
-    "sent",
-    "accepted",
-    "declined",
-    "rejected",
-    "revoked",
-    "expired",
-  ]),
-})
+export const InvitationsResendResponse = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    email: zod.string(),
+    expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    id: zod.uuid(),
+    invited_by: zod.union([zod.uuid(), zod.null()]),
+    invited_by_name: zod.string(),
+    organization_id: zod.uuid(),
+    role: zod
+      .enum(["owner", "editor", "member"])
+      .describe(
+        "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+      ),
+    status: zod
+      .enum([
+        "pending_approval",
+        "sent",
+        "accepted",
+        "declined",
+        "rejected",
+        "revoked",
+        "expired",
+      ])
+      .describe(
+        "Lifecycle of an invitation; pending approval and sent are open."
+      ),
+  })
+  .describe(
+    "An invitation as the organization sees it; `status` accounts for expiry."
+  )
 
 /**
  * @summary Invitations:Revoke
@@ -2259,25 +2707,37 @@ export const InvitationsRevokeParams = zod.object({
   invitation_id: zod.uuid(),
 })
 
-export const InvitationsRevokeResponse = zod.object({
-  created_at: zod.iso.datetime({ offset: true }),
-  email: zod.string(),
-  expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
-  id: zod.uuid(),
-  invited_by: zod.union([zod.uuid(), zod.null()]),
-  invited_by_name: zod.string(),
-  organization_id: zod.uuid(),
-  role: zod.enum(["owner", "editor", "member"]),
-  status: zod.enum([
-    "pending_approval",
-    "sent",
-    "accepted",
-    "declined",
-    "rejected",
-    "revoked",
-    "expired",
-  ]),
-})
+export const InvitationsRevokeResponse = zod
+  .object({
+    created_at: zod.iso.datetime({ offset: true }),
+    email: zod.string(),
+    expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    id: zod.uuid(),
+    invited_by: zod.union([zod.uuid(), zod.null()]),
+    invited_by_name: zod.string(),
+    organization_id: zod.uuid(),
+    role: zod
+      .enum(["owner", "editor", "member"])
+      .describe(
+        "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+      ),
+    status: zod
+      .enum([
+        "pending_approval",
+        "sent",
+        "accepted",
+        "declined",
+        "rejected",
+        "revoked",
+        "expired",
+      ])
+      .describe(
+        "Lifecycle of an invitation; pending approval and sent are open."
+      ),
+  })
+  .describe(
+    "An invitation as the organization sees it; `status` accounts for expiry."
+  )
 
 /**
  * @summary Organizations:Leave
@@ -2295,13 +2755,19 @@ export const OrganizationsMembersListParams = zod.object({
   organization_id: zod.uuid(),
 })
 
-export const OrganizationsMembersListResponseItem = zod.object({
-  display_name: zod.string(),
-  email: zod.union([zod.string(), zod.null()]),
-  joined_at: zod.iso.datetime({ offset: true }),
-  role: zod.enum(["owner", "editor", "member"]),
-  user_id: zod.uuid(),
-})
+export const OrganizationsMembersListResponseItem = zod
+  .object({
+    display_name: zod.string(),
+    email: zod.union([zod.string(), zod.null()]),
+    joined_at: zod.iso.datetime({ offset: true }),
+    role: zod
+      .enum(["owner", "editor", "member"])
+      .describe(
+        "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+      ),
+    user_id: zod.uuid(),
+  })
+  .describe("One member of an organization.")
 export const OrganizationsMembersListResponse = zod.array(
   OrganizationsMembersListResponseItem
 )
@@ -2324,9 +2790,15 @@ export const OrganizationsMembersSetRoleParams = zod.object({
   user_id: zod.uuid(),
 })
 
-export const OrganizationsMembersSetRoleBody = zod.object({
-  role: zod.enum(["owner", "editor", "member"]),
-})
+export const OrganizationsMembersSetRoleBody = zod
+  .object({
+    role: zod
+      .enum(["owner", "editor", "member"])
+      .describe(
+        "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+      ),
+  })
+  .describe("The role to give a member.")
 
 export const OrganizationsMembersSetRoleResponse = zod.void()
 
@@ -2337,76 +2809,98 @@ export const usersCurrentUserResponseGoogleSignInEnabledDefault = false
 export const usersCurrentUserResponseMembershipsDefault = []
 export const usersCurrentUserResponsePhoneSignInEnabledDefault = true
 
-export const UsersCurrentUserResponse = zod.object({
-  display_name: zod.string(),
-  email: zod.union([zod.string(), zod.null()]),
-  email_verified: zod.boolean(),
-  google_linked: zod.boolean(),
-  google_sign_in_enabled: zod
-    .boolean()
-    .default(usersCurrentUserResponseGoogleSignInEnabledDefault),
-  id: zod.uuid(),
-  is_active: zod.boolean(),
-  is_superadmin: zod.boolean(),
-  is_verified: zod.boolean(),
-  memberships: zod
-    .array(
-      zod.object({
-        name: zod.string(),
-        organization_id: zod.uuid(),
-        role: zod.enum(["owner", "editor", "member"]),
-      })
-    )
-    .default(usersCurrentUserResponseMembershipsDefault),
-  password_set: zod.boolean(),
-  phone_number: zod.union([zod.string(), zod.null()]),
-  phone_sign_in_enabled: zod
-    .boolean()
-    .default(usersCurrentUserResponsePhoneSignInEnabledDefault),
-  phone_verified: zod.boolean(),
-})
+export const UsersCurrentUserResponse = zod
+  .object({
+    display_name: zod.string(),
+    email: zod.union([zod.string(), zod.null()]),
+    email_verified: zod.boolean(),
+    google_linked: zod.boolean(),
+    google_sign_in_enabled: zod
+      .boolean()
+      .default(usersCurrentUserResponseGoogleSignInEnabledDefault),
+    id: zod.uuid(),
+    is_active: zod.boolean(),
+    is_superadmin: zod.boolean(),
+    is_verified: zod.boolean(),
+    memberships: zod
+      .array(
+        zod
+          .object({
+            name: zod.string(),
+            organization_id: zod.uuid(),
+            role: zod
+              .enum(["owner", "editor", "member"])
+              .describe(
+                "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+              ),
+          })
+          .describe(
+            "One organization the user belongs to, with their role in it."
+          )
+      )
+      .default(usersCurrentUserResponseMembershipsDefault),
+    password_set: zod.boolean(),
+    phone_number: zod.union([zod.string(), zod.null()]),
+    phone_sign_in_enabled: zod
+      .boolean()
+      .default(usersCurrentUserResponsePhoneSignInEnabledDefault),
+    phone_verified: zod.boolean(),
+  })
+  .describe("The signed-in user's account as returned to the client.")
 
 /**
  * @summary Users:Patch Current User
  */
 export const usersPatchCurrentUserBodyDisplayNameMax = 100
 
-export const UsersPatchCurrentUserBody = zod.object({
-  display_name: zod
-    .string()
-    .min(1)
-    .max(usersPatchCurrentUserBodyDisplayNameMax),
-})
+export const UsersPatchCurrentUserBody = zod
+  .object({
+    display_name: zod
+      .string()
+      .min(1)
+      .max(usersPatchCurrentUserBodyDisplayNameMax),
+  })
+  .describe("The current user's new display name.")
 
 export const usersPatchCurrentUserResponseGoogleSignInEnabledDefault = false
 export const usersPatchCurrentUserResponseMembershipsDefault = []
 export const usersPatchCurrentUserResponsePhoneSignInEnabledDefault = true
 
-export const UsersPatchCurrentUserResponse = zod.object({
-  display_name: zod.string(),
-  email: zod.union([zod.string(), zod.null()]),
-  email_verified: zod.boolean(),
-  google_linked: zod.boolean(),
-  google_sign_in_enabled: zod
-    .boolean()
-    .default(usersPatchCurrentUserResponseGoogleSignInEnabledDefault),
-  id: zod.uuid(),
-  is_active: zod.boolean(),
-  is_superadmin: zod.boolean(),
-  is_verified: zod.boolean(),
-  memberships: zod
-    .array(
-      zod.object({
-        name: zod.string(),
-        organization_id: zod.uuid(),
-        role: zod.enum(["owner", "editor", "member"]),
-      })
-    )
-    .default(usersPatchCurrentUserResponseMembershipsDefault),
-  password_set: zod.boolean(),
-  phone_number: zod.union([zod.string(), zod.null()]),
-  phone_sign_in_enabled: zod
-    .boolean()
-    .default(usersPatchCurrentUserResponsePhoneSignInEnabledDefault),
-  phone_verified: zod.boolean(),
-})
+export const UsersPatchCurrentUserResponse = zod
+  .object({
+    display_name: zod.string(),
+    email: zod.union([zod.string(), zod.null()]),
+    email_verified: zod.boolean(),
+    google_linked: zod.boolean(),
+    google_sign_in_enabled: zod
+      .boolean()
+      .default(usersPatchCurrentUserResponseGoogleSignInEnabledDefault),
+    id: zod.uuid(),
+    is_active: zod.boolean(),
+    is_superadmin: zod.boolean(),
+    is_verified: zod.boolean(),
+    memberships: zod
+      .array(
+        zod
+          .object({
+            name: zod.string(),
+            organization_id: zod.uuid(),
+            role: zod
+              .enum(["owner", "editor", "member"])
+              .describe(
+                "A member's role in an organization; ROLE_RANK orders member < editor < owner."
+              ),
+          })
+          .describe(
+            "One organization the user belongs to, with their role in it."
+          )
+      )
+      .default(usersPatchCurrentUserResponseMembershipsDefault),
+    password_set: zod.boolean(),
+    phone_number: zod.union([zod.string(), zod.null()]),
+    phone_sign_in_enabled: zod
+      .boolean()
+      .default(usersPatchCurrentUserResponsePhoneSignInEnabledDefault),
+    phone_verified: zod.boolean(),
+  })
+  .describe("The signed-in user's account as returned to the client.")

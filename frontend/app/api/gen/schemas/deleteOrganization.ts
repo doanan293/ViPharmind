@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Confirmation for deleting an organization: its name typed again.
+ */
 export interface DeleteOrganization {
   /**
    * @minLength 1

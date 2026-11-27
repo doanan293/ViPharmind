@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * A phone number and the six-digit code sent to it.
+ */
 export interface PhoneCodeBody {
   /** @pattern ^\d{6}$ */
   code: string

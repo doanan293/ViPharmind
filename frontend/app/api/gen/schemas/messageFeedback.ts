@@ -6,6 +6,9 @@
  */
 import type { Rating } from "./rating"
 
+/**
+ * The user's rating of an assistant message.
+ */
 export interface MessageFeedback {
   note: string
   rating: Rating

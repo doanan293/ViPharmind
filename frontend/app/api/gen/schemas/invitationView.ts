@@ -7,6 +7,9 @@
 import type { InvitationStatus } from "./invitationStatus"
 import type { Role } from "./role"
 
+/**
+ * An invitation as the organization sees it; `status` accounts for expiry.
+ */
 export interface InvitationView {
   created_at: string
   email: string

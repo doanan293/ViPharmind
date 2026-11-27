@@ -9,6 +9,9 @@ import type { SourceDocumentUIPart } from "./sourceDocumentUIPart"
 import type { TextUIPart } from "./textUIPart"
 import type { UIMessageRole } from "./uIMessageRole"
 
+/**
+ * A chat message in AI SDK `UIMessage` shape.
+ */
 export interface UIMessage {
   id: string
   metadata: MessageMetadata

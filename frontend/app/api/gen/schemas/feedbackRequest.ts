@@ -6,6 +6,9 @@
  */
 import type { FeedbackRequestRating } from "./feedbackRequestRating"
 
+/**
+ * A rating of one assistant message, with an optional note.
+ */
 export interface FeedbackRequest {
   /** @maxLength 2000 */
   note?: string

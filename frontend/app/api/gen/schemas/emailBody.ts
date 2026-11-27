@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * An email address that a one-time code is sent to.
+ */
 export interface EmailBody {
   email: string
 }

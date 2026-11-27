@@ -6,6 +6,9 @@
  */
 import type { EvidenceItem } from "./evidenceItem"
 
+/**
+ * Payload of a `data-evidence` stream part.
+ */
 export interface EvidenceData {
   items: EvidenceItem[]
 }

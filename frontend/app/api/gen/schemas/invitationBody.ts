@@ -6,6 +6,9 @@
  */
 import type { Role } from "./role"
 
+/**
+ * An email address to invite and the role the invitee will get.
+ */
 export interface InvitationBody {
   email: string
   role?: Role

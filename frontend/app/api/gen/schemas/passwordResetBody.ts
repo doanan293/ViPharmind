@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Email reset code and the new password.
+ */
 export interface PasswordResetBody {
   /** @pattern ^\d{6}$ */
   code: string

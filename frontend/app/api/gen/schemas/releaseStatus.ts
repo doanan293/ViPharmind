@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Lifecycle of a release: building, then ready to publish, then retired.
+ */
 export type ReleaseStatus = (typeof ReleaseStatus)[keyof typeof ReleaseStatus]
 
 export const ReleaseStatus = {

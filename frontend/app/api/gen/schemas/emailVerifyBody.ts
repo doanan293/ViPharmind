@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Email verification code, plus the password when the account has one.
+ */
 export interface EmailVerifyBody {
   /** @pattern ^\d{6}$ */
   code: string

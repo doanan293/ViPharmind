@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * A member's role in an organization; ROLE_RANK orders member < editor < owner.
+ */
 export type Role = (typeof Role)[keyof typeof Role]
 
 export const Role = {

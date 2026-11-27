@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Payload of a `data-conversation` stream part.
+ */
 export interface ConversationData {
   id: string
   title: string

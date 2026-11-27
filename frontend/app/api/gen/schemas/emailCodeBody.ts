@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * An email address and the six-digit code sent to it.
+ */
 export interface EmailCodeBody {
   /** @pattern ^\d{6}$ */
   code: string

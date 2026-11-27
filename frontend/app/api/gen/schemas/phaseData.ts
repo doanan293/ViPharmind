@@ -6,6 +6,9 @@
  */
 import type { PhaseDataPhase } from "./phaseDataPhase"
 
+/**
+ * Payload of a `data-phase` stream part.
+ */
 export interface PhaseData {
   phase: PhaseDataPhase
   round?: number | null

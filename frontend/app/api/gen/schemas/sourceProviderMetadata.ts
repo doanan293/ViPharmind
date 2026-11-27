@@ -6,6 +6,9 @@
  */
 import type { PharmaSourceMetadata } from "./pharmaSourceMetadata"
 
+/**
+ * Provider metadata of a source part, under the `pharma` key.
+ */
 export interface SourceProviderMetadata {
   pharma: PharmaSourceMetadata
 }

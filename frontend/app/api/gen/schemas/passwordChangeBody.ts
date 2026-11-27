@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * New password; `current_password` is needed when the account already has one.
+ */
 export interface PasswordChangeBody {
   current_password?: string | null
   /**

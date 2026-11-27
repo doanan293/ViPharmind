@@ -6,6 +6,9 @@
  */
 import type { ConversationView } from "./conversationView"
 
+/**
+ * One page of conversations, most recently updated first.
+ */
 export interface ConversationPage {
   items: ConversationView[]
   next_cursor: string | null

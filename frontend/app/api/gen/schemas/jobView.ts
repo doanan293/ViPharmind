@@ -7,6 +7,9 @@
 import type { JobStatus } from "./jobStatus"
 import type { JobStep } from "./jobStep"
 
+/**
+ * A publish job as returned to the client; `progress` is a percentage.
+ */
 export interface JobView {
   attempts: number
   collection_id: string

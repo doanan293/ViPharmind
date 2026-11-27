@@ -6,6 +6,9 @@
  */
 import type { Role } from "./role"
 
+/**
+ * One organization the user belongs to, with their role in it.
+ */
 export interface MembershipView {
   name: string
   organization_id: string

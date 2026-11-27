@@ -8,6 +8,9 @@ import type { HealthResponseChecks } from "./healthResponseChecks"
 import type { HealthResponseReasons } from "./healthResponseReasons"
 import type { HealthResponseStatus } from "./healthResponseStatus"
 
+/**
+ * Health of the service and of each dependency check.
+ */
 export interface HealthResponse {
   agent: boolean
   checks: HealthResponseChecks
