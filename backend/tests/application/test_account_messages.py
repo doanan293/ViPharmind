@@ -32,7 +32,7 @@ def test_every_purpose_has_a_message_with_the_code(
 ) -> None:
     email = code_email(purpose, "042137", locale)
     assert "042137" in email.text and "042137" in email.html and email.subject
-    sms = code_sms(purpose, "042137", locale)
+    sms = code_sms("042137", locale)
     assert "042137" in sms and len(sms) <= 160 and sms.isascii()
 
 

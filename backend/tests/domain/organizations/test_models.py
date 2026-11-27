@@ -52,8 +52,8 @@ def test_tokens_are_hashed_and_names_are_bounded() -> None:
 
 def test_superadmin_flag_marks_only_actions_outside_their_memberships() -> None:
     org = uuid.uuid4()
-    admin = Actor(uuid.uuid4(), True, {})
-    owner_admin = Actor(uuid.uuid4(), True, {org: Role.OWNER})
+    admin = Actor(uuid.uuid4(), is_superadmin=True, memberships={})
+    owner_admin = Actor(uuid.uuid4(), is_superadmin=True, memberships={org: Role.OWNER})
     outside = new_event(
         admin, AuditAction.ORGANIZATION_RENAMED, NOW, organization_id=org
     )

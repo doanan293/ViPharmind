@@ -1,8 +1,11 @@
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from types import SimpleNamespace
+from typing import NoReturn
 
 import pytest
+from alembic.config import Config
 from typer.testing import CliRunner
 
 from pharma_agent import cli
@@ -25,11 +28,24 @@ from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.infrastructure.auth.session_cleanup import AccountCleanup
 from pharma_agent.infrastructure.retrieval.llama_cpp_reranker import NoopReranker
+from pharma_agent.infrastructure.settings import Settings
 from tests.domain.factories import make_hit
 from tests.fakes import FakeLlm, FakeRetriever, build_deps
 
+# Not the default bind address, so the test sees the --host option reach uvicorn.
+SERVE_HOST = "10.1.2.3"
 
-def fake_application() -> SimpleNamespace:
+
+def fake_application(settings: Settings) -> SimpleNamespace:
+    """Stand-in for `cli.build_application`: a turn runner over scripted fakes.
+
+    Args:
+        settings: What the CLI loaded; the tests set the LLM key, so it is configured.
+
+    Returns:
+        An object with the `runner` and `aclose` the CLI uses.
+    """
+    assert settings.llm.configured
     llm = FakeLlm()
     llm.script(
         LlmRole.GUARDRAIL, LlmGuardVerdict(is_attack=False, in_scope=True, reason="ok")
@@ -59,8 +75,8 @@ def fake_application() -> SimpleNamespace:
     return SimpleNamespace(runner=runner, aclose=aclose)
 
 
-def test_ask_streams_answer_and_citations(monkeypatch) -> None:
-    monkeypatch.setattr(cli, "build_application", lambda settings: fake_application())
+def test_ask_streams_answer_and_citations(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli, "build_application", fake_application)
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-test")
     result = CliRunner().invoke(cli.app, ["ask", "Paracetamol uống bao nhiêu?"])
     assert result.exit_code == 0, result.output
@@ -69,8 +85,8 @@ def test_ask_streams_answer_and_citations(monkeypatch) -> None:
     assert "status: completed" in result.output
 
 
-def test_ask_json_output(monkeypatch) -> None:
-    monkeypatch.setattr(cli, "build_application", lambda settings: fake_application())
+def test_ask_json_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli, "build_application", fake_application)
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-test")
     result = CliRunner().invoke(
         cli.app, ["ask", "Paracetamol uống bao nhiêu?", "--json"]
@@ -81,60 +97,76 @@ def test_ask_json_output(monkeypatch) -> None:
     assert payload["trace"]["usage"]["llm_calls"] == 4
 
 
-def test_migrate_upgrades_to_head(monkeypatch) -> None:
-    calls = []
-    monkeypatch.setattr(
-        "alembic.command.upgrade",
-        lambda config, revision: calls.append((config, revision)),
-    )
+def test_migrate_upgrades_to_head(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[Config, str]] = []
+
+    def upgrade(config: Config, revision: str) -> None:
+        calls.append((config, revision))
+
+    monkeypatch.setattr("alembic.command.upgrade", upgrade)
     result = CliRunner().invoke(cli.app, ["migrate"])
     assert result.exit_code == 0, result.output
     config, revision = calls[0]
     assert revision == "head"
-    assert config.get_main_option("script_location").endswith(":migrations")
+    location = config.get_main_option("script_location")
+    assert location is not None and location.endswith(":migrations")
 
 
-def test_serve_runs_uvicorn_factory(monkeypatch) -> None:
-    calls = {}
-    monkeypatch.setattr(
-        "uvicorn.run", lambda app, **kwargs: calls.update(app=app, **kwargs)
-    )
+def test_serve_runs_uvicorn_factory(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, object] = {}
+
+    def run(app: str, **kwargs: object) -> None:
+        calls.update(app=app, **kwargs)
+
+    monkeypatch.setattr("uvicorn.run", run)
     monkeypatch.setenv("PHARMA_API__PORT", "9001")
-    result = CliRunner().invoke(cli.app, ["serve", "--host", "0.0.0.0"])
+    result = CliRunner().invoke(cli.app, ["serve", "--host", SERVE_HOST])
     assert result.exit_code == 0, result.output
     assert (
         calls["app"] == "pharma_agent.api.app:create_app" and calls["factory"] is True
     )
-    assert (calls["host"], calls["port"]) == ("0.0.0.0", 9001)
+    assert (calls["host"], calls["port"]) == (SERVE_HOST, 9001)
 
 
-def test_check_reports_corpus_embedding_and_rerank(monkeypatch) -> None:
+def test_check_reports_corpus_embedding_and_rerank(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class Retriever:
         async def verify_corpus(self, *, embedding_model: str, dimension: int) -> None:
             raise RetrievalError(
                 "0 of 1 collections in formulary have a current release"
+                f" for {embedding_model} ({dimension} dims)"
             )
 
     class Embedder:
-        async def embed(self, texts):
-            return [[0.0] * 2560 for _ in texts]
+        def __init__(self, dimension: int) -> None:
+            self.dimension = dimension
+
+        async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+            return [[0.0] * self.dimension for _ in texts]
 
     closed: list[bool] = []
 
     async def aclose() -> None:
         closed.append(True)
 
-    stack = SimpleNamespace(
-        retriever=Retriever(),
-        embedder=Embedder(),
-        reranker=NoopReranker(),
-        aclose=aclose,
-    )
-    monkeypatch.setattr(cli, "build_retrieval_service", lambda settings: stack)
+    embedders: list[Embedder] = []
+
+    def build_stack(settings: Settings) -> SimpleNamespace:
+        embedders.append(Embedder(settings.retrieval.embedding.dimension))
+        return SimpleNamespace(
+            retriever=Retriever(),
+            embedder=embedders[-1],
+            reranker=NoopReranker(),
+            aclose=aclose,
+        )
+
+    monkeypatch.setattr(cli, "build_retrieval_service", build_stack)
     result = CliRunner().invoke(cli.app, ["check"])
     assert result.exit_code == 1
     assert "ERR corpus: CORPUS_NOT_READY: 0 of 1 collections" in result.output
-    assert "OK  embedding:" in result.output and "-> 2560 dims" in result.output
+    assert "OK  embedding:" in result.output
+    assert f"-> {embedders[0].dimension} dims" in result.output
     assert "OK  rerank:" in result.output
     assert closed == [True]
 
@@ -203,7 +235,9 @@ def test_cleanup_sessions_uses_the_session_lifetime(
     assert calls == [("postgresql://u:p@db.example:5432/app", 3600)]
 
 
-def test_env_file_option_feeds_every_command(monkeypatch, tmp_path: Path) -> None:
+def test_env_file_option_feeds_every_command(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     env_file = tmp_path / "production.env"
     env_file.write_text(
         "PHARMA_POSTGRES__DSN=postgresql+psycopg://prod:secret@neon.example/vipharmind\n"
@@ -212,18 +246,21 @@ def test_env_file_option_feeds_every_command(monkeypatch, tmp_path: Path) -> Non
     )
     monkeypatch.delenv("PHARMA_POSTGRES__DSN", raising=False)
     monkeypatch.delenv("PHARMA_QDRANT__URL", raising=False)
-    upgrades = []
-    monkeypatch.setattr(
-        "alembic.command.upgrade",
-        lambda config, revision: upgrades.append(config),
-    )
+    upgrades: list[tuple[Config, str]] = []
+
+    def upgrade(config: Config, revision: str) -> None:
+        upgrades.append((config, revision))
+
+    monkeypatch.setattr("alembic.command.upgrade", upgrade)
     result = CliRunner().invoke(cli.app, ["--env-file", str(env_file), "migrate"])
     assert result.exit_code == 0, result.output
-    assert "neon.example" in upgrades[0].attributes["dsn"]
+    config, revision = upgrades[0]
+    assert revision == "head"
+    assert "neon.example" in config.attributes["dsn"]
 
-    seen = []
+    seen: list[str] = []
 
-    def stack(settings):
+    def stack(settings: Settings) -> NoReturn:
         seen.append(settings.qdrant.url)
         raise SystemExit(0)
 

@@ -181,7 +181,7 @@ async def test_bm25_mode_matches_terms_inside_the_current_release_only(
 
 @pytest.mark.parametrize("on_disk", [False, True])
 async def test_a_new_collection_keeps_dense_vectors_where_configured(
-    qdrant_client: AsyncQdrantClient, on_disk: bool
+    qdrant_client: AsyncQdrantClient, *, on_disk: bool
 ) -> None:
     from pharma_agent.infrastructure.retrieval.qdrant_index import QdrantVectorIndex
 

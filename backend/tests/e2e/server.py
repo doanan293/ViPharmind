@@ -19,6 +19,7 @@ from collections.abc import AsyncGenerator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import override
 from urllib.parse import urlsplit
 
 import psycopg
@@ -89,6 +90,7 @@ class IsolatedSettings(Settings):
     """Settings from constructor arguments only: no PHARMA_* variables and no .env file."""
 
     @classmethod
+    @override
     def settings_customise_sources(
         cls,
         settings_cls: type[BaseSettings],
@@ -233,7 +235,9 @@ def build_e2e_app(config: E2EConfig) -> FastAPI:
     @app.post("/api/v1/__e2e/superadmin", status_code=204, include_in_schema=False)
     async def grant_superadmin(body: SuperadminRequest) -> Response:
         """E2E only: what `pharma-agent superadmin grant` does on a real server."""
-        if not await set_superadmin(settings.postgres.conninfo, body.email, True):
+        if not await set_superadmin(
+            settings.postgres.conninfo, body.email, granted=True
+        ):
             raise HTTPException(status_code=404, detail="NO_ACCOUNT")
         return Response(status_code=204)
 

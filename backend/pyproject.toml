@@ -48,14 +48,22 @@ src = ["src", "tests"]
 # docs/engineering-guide.md, section "Code": function size and docstrings on top of the shared
 # rules. Complexity and statement count stand in for "keep functions short".
 [tool.ruff.lint]
-extend-select = ["C90", "D", "PLR0915"]
+# On top of docstrings and function size: magic values, blocking calls in async code, security
+# (bandit), unused arguments, blind excepts, boolean positional flags, commented-out code,
+# print, naive datetimes, os.path, and small return/performance smells.
+extend-select = [
+    "C90", "D", "PLR0915",
+    "PLR2004", "ASYNC", "S", "ARG", "BLE", "FBT", "ERA", "T20", "DTZ", "PTH", "RET", "PIE",
+    "PERF",
+]
 # D100, D104: module and package docstrings are optional; classes, functions and methods
 # still need Google-style docstrings.
 extend-ignore = ["D100", "D104"]
 
 [tool.ruff.lint.per-file-ignores]
-# Test names describe the behaviour; docstrings are not required in tests.
-"tests/**" = ["D"]
+# Tests: names describe the behaviour, so no docstrings (D); pytest asserts with `assert`
+# (S101); expected values are literals (PLR2004); fixture passwords are fake (S105-S107).
+"tests/**" = ["D", "S101", "PLR2004", "S105", "S106", "S107"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

@@ -12,7 +12,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, override
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
@@ -100,6 +100,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
         self._account = account
         self._request = request
 
+    @override
     async def validate_password(
         self, password: str, user: schemas.UC | UserTable
     ) -> None:
@@ -112,6 +113,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
         if problem is not None:
             raise exceptions.InvalidPasswordException(reason=problem)
 
+    @override
     async def authenticate(
         self, credentials: OAuth2PasswordRequestForm
     ) -> UserTable | None:
@@ -135,6 +137,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
             raise HTTPException(status_code=403, detail="EMAIL_NOT_VERIFIED")
         return user
 
+    @override
     async def on_after_register(
         self, user: UserTable, request: Request | None = None
     ) -> None:
@@ -155,6 +158,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
             # The user can ask for the code again from the verification step.
             logger.warning("no verification code after registration: %s", exc)
 
+    @override
     async def oauth_callback(
         self,
         oauth_name: str,
@@ -203,6 +207,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
             )
         return user
 
+    @override
     async def oauth_associate_callback(
         self,
         user: UserTable,
@@ -272,6 +277,7 @@ class TrackedDatabaseStrategy(DatabaseStrategy[UserTable, uuid.UUID, AccessToken
         self._user_agent = user_agent[:255]
         self._ip_address = ip_address[:45]
 
+    @override
     def _create_access_token_dict(self, user: UserTable) -> dict[str, Any]:
         values = super()._create_access_token_dict(user)
         values.update(
@@ -281,6 +287,7 @@ class TrackedDatabaseStrategy(DatabaseStrategy[UserTable, uuid.UUID, AccessToken
         )
         return values
 
+    @override
     async def read_token(
         self, token: str | None, user_manager: BaseUserManager[UserTable, uuid.UUID]
     ) -> UserTable | None:
@@ -395,11 +402,9 @@ def build_auth(
 
         return login
 
-    # False positive: pyrefly 1.3.0 orders the type parameters of the generic alias
-    # `UserManagerDependency[UP, ID]` by TypeVar declaration order (ID, UP) instead of
-    # first appearance, so it expects BaseUserManager[UUID, UserTable]. Types are correct.
+    # The types of FastAPIUsers come from typings/fastapi_users-stubs (see its docstring).
     users = FastAPIUsers[UserTable, uuid.UUID](
-        get_user_manager,  # pyrefly: ignore[bad-argument-type]
+        get_user_manager,
         [cookie_backend],
     )
     google = None

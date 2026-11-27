@@ -19,13 +19,15 @@ ERROR_SCHEMA_REFS = frozenset(
 UNSAFE_NAME_CHARACTERS = re.compile(r"[^A-Za-z0-9_]+")
 EXPORT_PLACEHOLDER = "openapi-export"
 EVENT_STREAM_MEDIA_TYPE = "text/event-stream"
+# Responses with this status or above are errors, documented as problem+json.
+FIRST_ERROR_STATUS = 400
 
 
 def _use_problem_responses(document: dict[str, Any]) -> None:
     for path_item in document.get("paths", {}).values():
         for operation in path_item.values():
             for status, response in operation.get("responses", {}).items():
-                if not (status.isdigit() and int(status) >= 400):
+                if not (status.isdigit() and int(status) >= FIRST_ERROR_STATUS):
                     continue
                 content = response.setdefault("content", {})
                 # FastAPI files error models under the route's media type, which is

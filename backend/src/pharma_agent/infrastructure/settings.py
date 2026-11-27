@@ -14,6 +14,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.llm.models import LlmRole
 
+# Shortest accepted signing or shared secret, in characters.
+MIN_SECRET_LENGTH = 32
+
 Provider = Literal["openai", "systemone"]
 
 
@@ -227,8 +230,10 @@ class AuthSettings(BaseModel):
     def _secret_length(
         cls, value: SecretStr | None, info: ValidationInfo
     ) -> SecretStr | None:
-        if value is not None and len(value.get_secret_value()) < 32:
-            raise ValueError(f"{info.field_name} must be at least 32 characters")
+        if value is not None and len(value.get_secret_value()) < MIN_SECRET_LENGTH:
+            raise ValueError(
+                f"{info.field_name} must be at least {MIN_SECRET_LENGTH} characters"
+            )
         return value
 
     @property
@@ -382,6 +387,8 @@ class Settings(BaseSettings):
     @field_validator("cron_secret")
     @classmethod
     def _cron_secret_length(cls, value: SecretStr | None) -> SecretStr | None:
-        if value is not None and len(value.get_secret_value()) < 32:
-            raise ValueError("CRON_SECRET must be at least 32 characters")
+        if value is not None and len(value.get_secret_value()) < MIN_SECRET_LENGTH:
+            raise ValueError(
+                f"CRON_SECRET must be at least {MIN_SECRET_LENGTH} characters"
+            )
         return value

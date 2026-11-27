@@ -52,9 +52,11 @@ def test_reset_refuses_a_database_without_e2e_in_its_name() -> None:
 
 def test_main_serves_the_e2e_app_with_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: dict[str, object] = {}
-    monkeypatch.setattr(
-        server.uvicorn, "run", lambda app, **kwargs: calls.update(app=app, **kwargs)
-    )
+
+    def record_run(app: FastAPI, **kwargs: object) -> None:
+        calls.update(app=app, **kwargs)
+
+    monkeypatch.setattr(server.uvicorn, "run", record_run)
     server.main(["--port", "8001"])
     assert isinstance(calls["app"], FastAPI)
     assert (calls["host"], calls["port"]) == ("127.0.0.1", 8001)

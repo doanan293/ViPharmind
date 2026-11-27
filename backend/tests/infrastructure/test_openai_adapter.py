@@ -1,4 +1,6 @@
+from collections.abc import AsyncIterator
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from openai import OpenAIError
@@ -12,8 +14,17 @@ from pharma_agent.domain.llm.models import (
     user,
 )
 from pharma_agent.domain.llm.port import LlmError
-from pharma_agent.infrastructure.llm.openai_adapter import OpenAiLlmAdapter
-from pharma_agent.infrastructure.settings import LlmEndpoint, LlmSettings
+from pharma_agent.infrastructure.llm.openai_adapter import (
+    ClientFactory,
+    OpenAiLlmAdapter,
+)
+from pharma_agent.infrastructure.settings import (
+    LlmEndpoint,
+    LlmSettings,
+    ResolvedEndpoint,
+)
+
+EndpointKey = tuple[str | None, str]
 
 
 class Verdict(BaseModel):
@@ -24,14 +35,14 @@ class Verdict(BaseModel):
 
 class FakeCompletions:
     def __init__(self) -> None:
-        self.parse_kwargs: dict = {}
-        self.create_kwargs: dict = {}
+        self.parse_kwargs: dict[str, object] = {}
+        self.create_kwargs: dict[str, object] = {}
         self.parsed: object = Verdict(ok=True)
         self.raise_on_parse: Exception | None = None
         self.usage_details: object | None = None
         self.no_choices = False
 
-    async def parse(self, **kwargs):
+    async def parse(self, **kwargs: object) -> SimpleNamespace:
         self.parse_kwargs = kwargs
         if self.raise_on_parse:
             raise self.raise_on_parse
@@ -45,10 +56,10 @@ class FakeCompletions:
             ),
         )
 
-    async def create(self, **kwargs):
+    async def create(self, **kwargs: object) -> AsyncIterator[SimpleNamespace]:
         self.create_kwargs = kwargs
 
-        async def chunks():
+        async def chunks() -> AsyncIterator[SimpleNamespace]:
             yield SimpleNamespace(
                 choices=[SimpleNamespace(delta=SimpleNamespace(content="Xin "))],
                 usage=None,
@@ -70,14 +81,29 @@ class FakeClient:
         self.chat = SimpleNamespace(completions=self.completions)
 
 
-def make_adapter() -> tuple[OpenAiLlmAdapter, dict[tuple, FakeClient]]:
-    created: dict[tuple, FakeClient] = {}
+def recording_factory(created: dict[EndpointKey, FakeClient]) -> ClientFactory:
+    """A client factory that builds one FakeClient per endpoint and records it.
 
-    def factory(endpoint, timeout, max_retries):
+    Args:
+        created: Filled with each built client, keyed by (base_url, api_key).
+
+    Returns:
+        A factory with the `ClientFactory` signature; the fakes have no timeout or
+        retries, so those arguments are not used.
+    """
+
+    def factory(
+        endpoint: ResolvedEndpoint, _timeout: float, _max_retries: int
+    ) -> FakeClient:
         client = FakeClient()
         created[(endpoint.base_url, endpoint.api_key)] = client
         return client
 
+    return factory
+
+
+def make_adapter() -> tuple[OpenAiLlmAdapter, dict[EndpointKey, FakeClient]]:
+    created: dict[EndpointKey, FakeClient] = {}
     settings = LlmSettings(
         default=LlmEndpoint(api_key="sk-cloud", model="qwen-small"),
         roles={
@@ -87,7 +113,9 @@ def make_adapter() -> tuple[OpenAiLlmAdapter, dict[tuple, FakeClient]]:
             ),
         },
     )
-    return OpenAiLlmAdapter(settings, client_factory=factory), created
+    return OpenAiLlmAdapter(
+        settings, client_factory=recording_factory(created)
+    ), created
 
 
 async def test_structured_uses_parse_with_role_model_and_schema() -> None:
@@ -175,7 +203,7 @@ async def test_real_sdk_client_against_mocked_http() -> None:
         ],
         "usage": {"prompt_tokens": 7, "completion_tokens": 2, "total_tokens": 9},
     }
-    chunks = [
+    chunks: list[dict[str, object]] = [
         {"choices": [{"index": 0, "delta": {"content": "Xin "}}]},
         {"choices": [{"index": 0, "delta": {"content": "chào"}}]},
         {
@@ -201,7 +229,7 @@ async def test_real_sdk_client_against_mocked_http() -> None:
         + "data: [DONE]\n\n"
     )
 
-    calls: list[dict] = []
+    calls: list[dict[str, Any]] = []  # decoded JSON request bodies
 
     def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path == "/v1/chat/completions"
@@ -213,12 +241,15 @@ async def test_real_sdk_client_against_mocked_http() -> None:
             )
         return httpx2.Response(200, json=parse_body)
 
-    def factory(endpoint, timeout, max_retries):
+    def factory(
+        endpoint: ResolvedEndpoint, timeout: float, max_retries: int
+    ) -> AsyncOpenAI:
         # The real SDK client; only the transport is replaced.
         return AsyncOpenAI(
             api_key=endpoint.api_key,
             base_url=endpoint.base_url,
-            max_retries=0,
+            timeout=timeout,
+            max_retries=max_retries,
             http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handler)),
         )
 
@@ -250,7 +281,7 @@ async def test_reasoning_tokens_reported_outside_completion_tokens_are_counted()
     client = created[(None, "sk-cloud")]
     original_parse = client.completions.parse
 
-    async def proxy_style_parse(**kwargs):
+    async def proxy_style_parse(**kwargs: object) -> SimpleNamespace:
         completion = await original_parse(**kwargs)
         # Shape returned by a Gemini proxy: reasoning only in total and completion details.
         completion.usage = SimpleNamespace(
@@ -264,13 +295,7 @@ async def test_reasoning_tokens_reported_outside_completion_tokens_are_counted()
 
 
 async def test_extra_body_is_sent_only_for_roles_that_set_it() -> None:
-    created: dict[tuple, FakeClient] = {}
-
-    def factory(endpoint, timeout, max_retries):
-        client = FakeClient()
-        created[(endpoint.base_url, endpoint.api_key)] = client
-        return client
-
+    created: dict[EndpointKey, FakeClient] = {}
     no_thinking = {"chat_template_kwargs": {"enable_thinking": False}}
     settings = LlmSettings(
         default=LlmEndpoint(api_key="sk-cloud", model="qwen-small"),
@@ -283,7 +308,7 @@ async def test_extra_body_is_sent_only_for_roles_that_set_it() -> None:
             )
         },
     )
-    adapter = OpenAiLlmAdapter(settings, client_factory=factory)
+    adapter = OpenAiLlmAdapter(settings, client_factory=recording_factory(created))
     _ = [d async for d in adapter.stream(LlmRole.ANSWER, [user("hi")])]
     await adapter.structured(LlmRole.GUARDRAIL, [user("a")], Verdict)
     assert (
@@ -298,6 +323,7 @@ async def test_output_of_another_shape_becomes_llm_error() -> None:
     from openai import AsyncOpenAI
 
     def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.url.path == "/v1/chat/completions"
         return httpx2.Response(
             200,
             json={
@@ -315,11 +341,14 @@ async def test_output_of_another_shape_becomes_llm_error() -> None:
             },
         )
 
-    def factory(endpoint, timeout, max_retries):
+    def factory(
+        endpoint: ResolvedEndpoint, timeout: float, max_retries: int
+    ) -> AsyncOpenAI:
         return AsyncOpenAI(
             api_key=endpoint.api_key,
             base_url=endpoint.base_url,
-            max_retries=0,
+            timeout=timeout,
+            max_retries=max_retries,
             http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handler)),
         )
 
@@ -332,13 +361,7 @@ async def test_output_of_another_shape_becomes_llm_error() -> None:
 
 
 async def test_output_cap_is_sent_only_when_set_under_the_configured_name() -> None:
-    created: dict[tuple, FakeClient] = {}
-
-    def factory(endpoint, timeout, max_retries):
-        client = FakeClient()
-        created[(endpoint.base_url, endpoint.api_key)] = client
-        return client
-
+    created: dict[EndpointKey, FakeClient] = {}
     settings = LlmSettings(
         default=LlmEndpoint(api_key="sk-cloud", model="qwen-small"),
         roles={
@@ -351,7 +374,7 @@ async def test_output_cap_is_sent_only_when_set_under_the_configured_name() -> N
             ),
         },
     )
-    adapter = OpenAiLlmAdapter(settings, client_factory=factory)
+    adapter = OpenAiLlmAdapter(settings, client_factory=recording_factory(created))
     await adapter.structured(LlmRole.GUARDRAIL, [user("a")], Verdict)
     guardrail_kwargs = dict(created[(None, "sk-cloud")].completions.parse_kwargs)
     await adapter.structured(LlmRole.JUDGE, [user("b")], Verdict)

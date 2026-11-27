@@ -316,7 +316,11 @@ class PublishService:
         )
         await self._jobs.update(done)
         event = new_event(
-            Actor(job.requested_by or uuid.UUID(int=0), False, {}),
+            Actor(
+                job.requested_by or uuid.UUID(int=0),
+                is_superadmin=False,
+                memberships={},
+            ),
             AuditAction.COLLECTION_PUBLISHED,
             self._clock.now(),
             organization_id=collection.owner_organization_id,

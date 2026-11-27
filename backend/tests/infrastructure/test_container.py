@@ -21,7 +21,7 @@ async def test_container_without_llm_serves_conversations_only(
 
 
 async def test_container_with_llm_builds_chat_and_corpus_check(
-    migrated_dsn: str, monkeypatch: pytest.MonkeyPatch, tmp_path
+    migrated_dsn: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("PHARMA_POSTGRES__DSN", migrated_dsn)
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-test")

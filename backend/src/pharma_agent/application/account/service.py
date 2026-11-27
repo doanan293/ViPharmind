@@ -263,9 +263,7 @@ class AccountService:
                     html=content.html,
                 )
             else:
-                await self._sms.send(
-                    to=destination, text=code_sms(purpose, code, locale)
-                )
+                await self._sms.send(to=destination, text=code_sms(code, locale))
         except DeliveryError as exc:
             await self._codes.revoke(code_id, now)
             logger.warning("could not deliver a %s code: %s", purpose.value, exc)

@@ -1,18 +1,22 @@
 """EmailSender adapters: Resend (production) and log (local runs and tests)."""
 
 import logging
+from typing import override
 
 import httpx
 
-from pharma_agent.domain.account.ports import DeliveryError
+from pharma_agent.domain.account.ports import DeliveryError, EmailSender
 
 logger = logging.getLogger(__name__)
 RESEND_URL = "https://api.resend.com/emails"
+# Resend answers this status or above when it does not take the message.
+FIRST_ERROR_STATUS = 400
 
 
-class LogEmailSender:
+class LogEmailSender(EmailSender):
     """EmailSender that only logs the message: local runs and tests."""
 
+    @override
     async def send(self, *, to: str, subject: str, text: str, html: str) -> None:
         """Log the recipient, subject and text instead of sending."""
         logger.warning(
@@ -67,5 +71,5 @@ class ResendEmailSender:
                     )
         except httpx.HTTPError as exc:
             raise DeliveryError(f"Resend request failed: {exc}") from exc
-        if response.status_code >= 400:
+        if response.status_code >= FIRST_ERROR_STATUS:
             raise DeliveryError(f"Resend returned HTTP {response.status_code}")

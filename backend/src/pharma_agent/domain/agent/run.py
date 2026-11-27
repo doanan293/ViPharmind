@@ -24,6 +24,7 @@ from pharma_agent.domain.shared.errors import DomainError
 from pharma_agent.domain.shared.ids import new_id
 
 RESERVED_CALLS = 3  # judge + answer + one spare, kept free for rephrase
+MIN_CALLS_FOR_ANOTHER_STEP = 2  # the step's own LLM call + the answer call
 
 
 class EvidenceRequired(DomainError):
@@ -222,7 +223,7 @@ class AgentRun(BaseModel):
                 return frozenset({Step.ANSWER})
             can_refine = (
                 self.usage.search_rounds < self.limits.max_search_rounds
-                and self.calls_left >= 2
+                and self.calls_left >= MIN_CALLS_FOR_ANOTHER_STEP
             )
             return frozenset({Step.REFINE}) if can_refine else frozenset({Step.ANSWER})
         return (
@@ -289,12 +290,11 @@ class AgentRun(BaseModel):
         *,
         now: datetime,
         skipped: bool = False,
-        failed: bool = False,
     ) -> None:
         """Apply the rephrase result and log it.
 
         Without a result the original query stands and the action is logged as
-        skipped or failed. Empty subjects fall back to the standalone query.
+        skipped when `skipped` is set, failed otherwise. Empty subjects fall back to the standalone query.
         """
         if result is not None:
             self.standalone_query = (

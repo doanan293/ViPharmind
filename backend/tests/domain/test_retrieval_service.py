@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from collections.abc import Sequence
+from typing import override
 
 from pharma_agent.domain.retrieval.models import (
     Hit,
@@ -8,7 +9,7 @@ from pharma_agent.domain.retrieval.models import (
     QueryOrigin,
     ReleaseScope,
 )
-from pharma_agent.domain.retrieval.ports import RetrievalError
+from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
 from tests.domain.factories import chunk_uuid, make_hit
 
@@ -40,12 +41,13 @@ class FakeRetriever:
         ]
 
 
-class FakeReranker:
-    def __init__(self, fail: bool = False) -> None:
+class FakeReranker(Reranker):
+    def __init__(self, *, fail: bool = False) -> None:
         self.fail = fail
         self.received: list[Hit] = []
         self.calls = 0
 
+    @override
     async def rerank(self, query: str, hits: Sequence[Hit], top_n: int) -> list[Hit]:
         if self.fail:
             raise RetrievalError("rerank down")
@@ -205,13 +207,17 @@ async def test_without_a_scope_the_retriever_uses_its_default() -> None:
 
 
 class SlowRetriever(FakeRetriever):
-    async def search_many(self, queries, top_k, scope=None):
+    @override
+    async def search_many(
+        self, queries: Sequence[Query], top_k: int, scope: ReleaseScope | None = None
+    ) -> list[list[Hit]]:
         await asyncio.sleep(0.02)
         return await super().search_many(queries, top_k, scope)
 
 
 class SlowReranker(FakeReranker):
-    async def rerank(self, query, hits, top_n):
+    @override
+    async def rerank(self, query: str, hits: Sequence[Hit], top_n: int) -> list[Hit]:
         await asyncio.sleep(0.02)
         return await super().rerank(query, hits, top_n)
 

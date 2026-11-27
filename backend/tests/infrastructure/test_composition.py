@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -32,7 +33,7 @@ from tests.fakes import FakeEmbedder
 
 
 async def test_build_application_wires_real_adapters(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-test")
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__MODEL", "Qwen/Qwen3.5-9B")
@@ -49,7 +50,7 @@ async def test_build_application_wires_real_adapters(
 
 
 async def test_build_application_respects_rerank_none(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__API_KEY", "sk-test")
     monkeypatch.setenv("PHARMA_LLM__DEFAULT__MODEL", "Qwen/Qwen3.5-9B")
@@ -68,7 +69,7 @@ def test_build_application_requires_llm_key(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 async def test_langfuse_traces_embeddings_and_rerank(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     public_key = f"pk-test-{uuid4().hex}"
     environment = {
@@ -128,7 +129,7 @@ async def test_build_retrieval_service_uses_an_injected_embedder(
 
 
 def _decision_settings(
-    monkeypatch: pytest.MonkeyPatch, tmp_path, roles: dict[LlmRole, LlmEndpoint]
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, roles: dict[LlmRole, LlmEndpoint]
 ) -> Settings:
     monkeypatch.setenv("PHARMA_SKILLS_DIR", str(tmp_path))
     monkeypatch.setenv("PHARMA_QDRANT__CHECK_COMPATIBILITY", "false")
@@ -149,7 +150,7 @@ def _jev(extra_body: dict[str, Any] | None = None) -> LlmEndpoint:
 
 
 async def test_decision_roles_get_the_systemone_adapter(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = _decision_settings(monkeypatch, tmp_path, {LlmRole.JUDGE: _jev()})
     app = build_application(settings, embedder=FakeEmbedder())
@@ -159,7 +160,7 @@ async def test_decision_roles_get_the_systemone_adapter(
 
 
 async def test_no_decision_roles_means_no_decision_ports(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     settings = _decision_settings(monkeypatch, tmp_path, {})
     app = build_application(settings, embedder=FakeEmbedder())
@@ -168,7 +169,7 @@ async def test_no_decision_roles_means_no_decision_ports(
 
 
 async def test_guard_thresholds_come_from_the_guard_role_extra_body(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     guard = _jev({"thresholds": {"block": 0.8, "scope": 0.4}})
     settings = _decision_settings(monkeypatch, tmp_path, {LlmRole.GUARDRAIL: guard})
@@ -178,7 +179,7 @@ async def test_guard_thresholds_come_from_the_guard_role_extra_body(
 
 
 async def test_guard_thresholds_stay_default_without_a_decision_guard(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     other = LlmEndpoint(extra_body={"thresholds": {"block": 0.9}})
     settings = _decision_settings(monkeypatch, tmp_path, {LlmRole.GUARDRAIL: other})

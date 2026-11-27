@@ -34,4 +34,3 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Do nothing: the earlier service version recreates the tables on start."""
-    pass

@@ -165,7 +165,7 @@ class AdminService:
             raise InvalidInput("you cannot disable your own account")
         await self._user(user_id)
         async with self._tx.begin() as tx:
-            await self._accounts.set_active(user_id, active, tx)
+            await self._accounts.set_active(user_id, active=active, tx=tx)
             await self._audit.record(
                 new_event(
                     actor,
@@ -288,5 +288,6 @@ class AdminService:
                 tx,
             )
         organization = await self._organizations.get(organization_id)
-        assert organization is not None
+        if organization is None:  # deleted concurrently after the update
+            raise OrganizationNotFound(str(organization_id))
         return await self._organization_view(organization)

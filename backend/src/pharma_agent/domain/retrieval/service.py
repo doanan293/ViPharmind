@@ -75,12 +75,14 @@ class RetrievalService:
 
         candidates = _candidate_pool(per_query, self._config.rerank_candidates)
         known = known_scores or {}
-        reused = [
+        reused: list[Hit] = [
             hit.model_copy(update={"rerank_score": known[hit.chunk_version_id]})
             for hit in candidates
             if hit.chunk_version_id in known
         ]
-        fresh = [hit for hit in candidates if hit.chunk_version_id not in known]
+        fresh: list[Hit] = [
+            hit for hit in candidates if hit.chunk_version_id not in known
+        ]
         rerank_failed = False
         had_fresh = bool(fresh)
         rerank_started = time.perf_counter()
@@ -95,7 +97,8 @@ class RetrievalService:
             ]
         except RetrievalError:
             rerank_failed = True
-            reused, fresh = [], []
+            reused = []
+            fresh = []
             ranked = sorted(candidates, key=lambda h: h.fusion_score, reverse=True)[
                 : self._config.rerank_top_n
             ]

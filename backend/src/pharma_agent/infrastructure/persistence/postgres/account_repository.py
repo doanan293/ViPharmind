@@ -230,7 +230,7 @@ class PostgresAccountAdmin:
         return [_account(row) for row in rows]
 
     async def set_active(
-        self, user_id: uuid.UUID, active: bool, tx: Transaction
+        self, user_id: uuid.UUID, *, active: bool, tx: Transaction
     ) -> None:
         """Activate or deactivate the account inside `tx`."""
         await session_of(tx).execute(

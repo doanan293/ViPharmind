@@ -3,7 +3,7 @@ import hashlib
 import uuid
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any, TypeVar
+from typing import Any, TypeVar, override
 
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
@@ -31,7 +31,7 @@ from pharma_agent.domain.retrieval.models import (
     Query,
     ReleaseScope,
 )
-from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError
+from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError, Retriever
 from pharma_agent.domain.retrieval.service import RetrievalConfig, RetrievalService
 from pharma_agent.domain.shared.clock import FixedClock
 
@@ -105,6 +105,7 @@ class FakeChatModel(BaseChatModel):
     def script(self, *responses: AIMessage | Exception) -> None:
         self.responses.extend(responses)
 
+    @override
     def bind_tools(
         self,
         tools: Sequence[dict[str, Any] | type | Callable[..., Any] | BaseTool],
@@ -118,6 +119,7 @@ class FakeChatModel(BaseChatModel):
         self.tool_choices.append(tool_choice)
         return self
 
+    @override
     def _generate(
         self,
         messages: list[BaseMessage],
@@ -133,6 +135,7 @@ class FakeChatModel(BaseChatModel):
             raise response
         return ChatResult(generations=[ChatGeneration(message=response)])
 
+    @override
     async def _agenerate(
         self,
         messages: list[BaseMessage],
@@ -167,12 +170,13 @@ def answering(text: str, *, finish_reason: str = "stop") -> AIMessage:
     )
 
 
-class FakeRetriever:
+class FakeRetriever(Retriever):
     def __init__(self, *rounds: list[Hit] | Exception) -> None:
         self.rounds = list(rounds)
         self.calls: list[list[Query]] = []
         self.scopes: list[ReleaseScope | None] = []
 
+    @override
     async def search_many(
         self, queries: Sequence[Query], top_k: int, scope: ReleaseScope | None = None
     ) -> list[list[Hit]]:

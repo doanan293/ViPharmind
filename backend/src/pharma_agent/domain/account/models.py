@@ -4,19 +4,22 @@ import hashlib
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from enum import StrEnum
+from enum import StrEnum, auto
 
 from pharma_agent.domain.shared.errors import DomainError
 
 
 class OtpPurpose(StrEnum):
-    """What a one-time code is for; CHANNEL_BY_PURPOSE says how it is sent."""
+    """What a one-time code is for; CHANNEL_BY_PURPOSE says how it is sent.
 
-    VERIFY_EMAIL = "verify_email"
-    RESET_PASSWORD = "reset_password"
-    CHANGE_EMAIL = "change_email"
-    PHONE_LOGIN = "phone_login"
-    CHANGE_PHONE = "change_phone"
+    Values are the lower-case member names (`auto()`), as stored and sent.
+    """
+
+    VERIFY_EMAIL = auto()
+    RESET_PASSWORD = auto()
+    CHANGE_EMAIL = auto()
+    PHONE_LOGIN = auto()
+    CHANGE_PHONE = auto()
 
 
 class Channel(StrEnum):
@@ -36,11 +39,14 @@ CHANNEL_BY_PURPOSE: dict[OtpPurpose, Channel] = {
 
 
 class SignInMethod(StrEnum):
-    """A way to sign in to an account."""
+    """A way to sign in to an account.
 
-    PASSWORD = "password"
-    PHONE = "phone"
-    GOOGLE = "google"
+    Values are the lower-case member names (`auto()`), as stored and sent.
+    """
+
+    PASSWORD = auto()
+    PHONE = auto()
+    GOOGLE = auto()
 
 
 class AccountConflict(DomainError):

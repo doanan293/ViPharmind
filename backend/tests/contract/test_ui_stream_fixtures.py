@@ -178,18 +178,26 @@ SCENARIOS = (
         completed_with_citations,
         "completed",
         "stop",
-        True,
-        GROUNDED_SHAPE,
+        persisted=True,
+        shape=GROUNDED_SHAPE,
     ),
-    Scenario("blocked", ATTACK, blocked, "blocked", "stop", True, TEXT_ONLY_SHAPE),
+    Scenario(
+        "blocked",
+        ATTACK,
+        blocked,
+        "blocked",
+        "stop",
+        persisted=True,
+        shape=TEXT_ONLY_SHAPE,
+    ),
     Scenario(
         "timeout",
         QUESTION,
         timeout,
         "timeout",
         "error",
-        True,
-        (
+        persisted=True,
+        shape=(
             "start",
             "data-conversation",
             "data-phase",
@@ -206,11 +214,17 @@ SCENARIOS = (
         persist_failed,
         "completed",
         "stop",
-        False,
-        GROUNDED_SHAPE,
+        persisted=False,
+        shape=GROUNDED_SHAPE,
     ),
     Scenario(
-        "no-evidence", QUESTION, no_evidence, "abstained", "stop", True, TEXT_ONLY_SHAPE
+        "no-evidence",
+        QUESTION,
+        no_evidence,
+        "abstained",
+        "stop",
+        persisted=True,
+        shape=TEXT_ONLY_SHAPE,
     ),
 )
 

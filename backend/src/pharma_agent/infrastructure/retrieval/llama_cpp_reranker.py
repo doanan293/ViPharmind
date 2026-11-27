@@ -6,11 +6,12 @@ score candidates with the same computation without copying prompts.
 
 import asyncio
 from collections.abc import Sequence
+from typing import override
 
 import httpx
 
 from pharma_agent.domain.retrieval.models import Hit
-from pharma_agent.domain.retrieval.ports import RetrievalError
+from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError
 
 
 def document_text(hit: Hit) -> str:
@@ -83,9 +84,10 @@ class NativeReranker:
         return sorted_top(hits, scores, top_n)
 
 
-class NoopReranker:
+class NoopReranker(Reranker):
     """Reranker that keeps the fusion order; selected with protocol `none`."""
 
+    @override
     async def rerank(self, query: str, hits: Sequence[Hit], top_n: int) -> list[Hit]:
         """The `top_n` hits with the highest fusion score."""
         return sorted(hits, key=lambda h: h.fusion_score, reverse=True)[:top_n]

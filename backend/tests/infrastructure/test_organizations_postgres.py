@@ -151,7 +151,7 @@ async def test_audit_and_change_commit_together(database: Database) -> None:
     tx = PostgresTransactionFactory(database.sessions)
     owner = await add_user(database, "An")
     org = organization()
-    actor = Actor(owner, False, {org.id: Role.OWNER})
+    actor = Actor(owner, is_superadmin=False, memberships={org.id: Role.OWNER})
     async with tx.begin() as t:
         await repo.create(org, owner, t)
         await audit.record(
@@ -181,7 +181,7 @@ async def test_audit_pages_newest_first(database: Database) -> None:
     audit = PostgresAuditLog(database.sessions)
     tx = PostgresTransactionFactory(database.sessions)
     user = await add_user(database, "An")
-    actor = Actor(user, False, {})
+    actor = Actor(user, is_superadmin=False, memberships={})
     for minutes in range(3):
         async with tx.begin() as t:
             await audit.record(

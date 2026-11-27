@@ -19,7 +19,7 @@ def _normalized(value: object) -> object:
         return normalize_text(value)
     if isinstance(value, Mapping):
         return {str(key): _normalized(item) for key, item in value.items()}
-    if isinstance(value, list | tuple):
+    if isinstance(value, (list, tuple)):
         return [_normalized(item) for item in value]
     return value
 

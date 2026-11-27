@@ -6,7 +6,7 @@ import pytest
 
 from pharma_agent.application.chat.context import PipelineOptions
 from pharma_agent.application.chat.graph import build_chat_graph
-from pharma_agent.application.chat.runner import ChatTurnRunner
+from pharma_agent.application.chat.runner import ChatTurnRunner, TurnOutcome
 from pharma_agent.application.progress import EventType, Phase, ProgressEvent
 from pharma_agent.domain.agent.actions import Action, ActionKind
 from pharma_agent.domain.agent.budget import BudgetLimits
@@ -69,7 +69,7 @@ async def run_turn(
     decisions: Mapping[LlmRole, DecisionPort] | None = None,
     guard_decision: FakeDecision | None = None,
     conversation: ConversationContext | None = None,
-):
+) -> tuple[list[ProgressEvent], TurnOutcome]:
     graph = build_chat_graph()
     runner = ChatTurnRunner(
         graph,
@@ -336,12 +336,11 @@ async def test_judge_llm_failure_still_answers_partially() -> None:
     assert outcome.run.status is RunStatus.PARTIAL
 
 
-@pytest.mark.parametrize("attack", [True])
-async def test_llm_guard_attack_is_blocked(attack: bool) -> None:
+async def test_llm_guard_attack_is_blocked() -> None:
     llm = FakeLlm()
     llm.script(
         LlmRole.GUARDRAIL,
-        LlmGuardVerdict(is_attack=attack, in_scope=True, reason="jailbreak"),
+        LlmGuardVerdict(is_attack=True, in_scope=True, reason="jailbreak"),
     )
     _, outcome = await run_turn(llm, FakeRetriever())
     assert outcome.run.status is RunStatus.BLOCKED
@@ -675,7 +674,7 @@ def verdict(
     )
 
 
-def judge_outcomes(outcome) -> list[str]:
+def judge_outcomes(outcome: TurnOutcome) -> list[str]:
     return [
         a.outcome for a in outcome.run.actions.entries if a.kind is ActionKind.JUDGE
     ]
@@ -796,7 +795,7 @@ def judge_llm(subjects: list[str] | None = None, *, guard: bool = True) -> FakeL
 
 @pytest.mark.parametrize("guard", [False, True], ids=["no_guard", "llm_guard"])
 async def test_decision_judge_asks_the_intents_when_the_guard_did_not(
-    guard: bool,
+    *, guard: bool
 ) -> None:
     decision = FakeDecision(
         [asks("dosage"), judge_answers(0.9, dosage=0.9)],

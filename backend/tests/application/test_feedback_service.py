@@ -18,7 +18,7 @@ OWNER, STRANGER = "a" * 32, "b" * 32
 
 
 class RecordingSink:
-    def __init__(self, fail: bool = False) -> None:
+    def __init__(self, *, fail: bool = False) -> None:
         self.calls: list[tuple[str, str, str]] = []
         self.fail = fail
 

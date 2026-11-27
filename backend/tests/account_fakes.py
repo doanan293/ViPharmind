@@ -5,6 +5,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
+from typing import override
 
 from pharma_agent.application.account.service import AccountPolicy, AccountService
 from pharma_agent.domain.account.codes import MAX_ATTEMPTS
@@ -15,7 +16,11 @@ from pharma_agent.domain.account.models import (
     OtpPurpose,
     SessionRecord,
 )
-from pharma_agent.domain.account.ports import DeliveryError
+from pharma_agent.domain.account.ports import (
+    AccountRepository,
+    DeliveryError,
+    OneTimeCodeStore,
+)
 from pharma_agent.domain.organizations.ports import MembershipLookup
 
 START = datetime(2026, 10, 10, 9, 0, tzinfo=UTC)
@@ -49,7 +54,7 @@ class PlainHasher:
         return hashed == f"hashed:{password}"
 
 
-class InMemoryAccounts:
+class InMemoryAccounts(AccountRepository):
     def __init__(self) -> None:
         self.users: dict[uuid.UUID, AccountUser] = {}
         self.passwords: dict[uuid.UUID, str] = {}
@@ -82,9 +87,11 @@ class InMemoryAccounts:
         self.passwords[user.id] = PlainHasher().hash(password)
         return user
 
+    @override
     async def get(self, user_id: uuid.UUID) -> AccountUser | None:
         return self.users.get(user_id)
 
+    @override
     async def get_by_email(self, email: str) -> AccountUser | None:
         return next(
             (
@@ -95,9 +102,11 @@ class InMemoryAccounts:
             None,
         )
 
+    @override
     async def get_by_phone(self, phone: str) -> AccountUser | None:
         return next((u for u in self.users.values() if u.phone_number == phone), None)
 
+    @override
     async def create_phone_user(
         self, *, phone: str, hashed_password: str, now: datetime
     ) -> AccountUser:
@@ -109,9 +118,11 @@ class InMemoryAccounts:
         self.passwords[user.id] = hashed_password
         return user
 
+    @override
     async def mark_email_verified(self, user_id: uuid.UUID, now: datetime) -> None:
         self.users[user_id] = replace(self.users[user_id], email_verified=True)
 
+    @override
     async def set_email(self, user_id: uuid.UUID, email: str, now: datetime) -> None:
         owner = await self.get_by_email(email)
         if owner is not None and owner.id != user_id:
@@ -120,6 +131,7 @@ class InMemoryAccounts:
             self.users[user_id], email=email, email_verified=True
         )
 
+    @override
     async def set_phone(self, user_id: uuid.UUID, phone: str, now: datetime) -> None:
         owner = await self.get_by_phone(phone)
         if owner is not None and owner.id != user_id:
@@ -128,16 +140,20 @@ class InMemoryAccounts:
             self.users[user_id], phone_number=phone, phone_verified=True
         )
 
+    @override
     async def set_password(self, user_id: uuid.UUID, hashed_password: str) -> None:
         self.passwords[user_id] = hashed_password
         self.users[user_id] = replace(self.users[user_id], password_set=True)
 
+    @override
     async def hashed_password(self, user_id: uuid.UUID) -> str | None:
         return self.passwords.get(user_id)
 
+    @override
     async def unlink_oauth(self, user_id: uuid.UUID, oauth_name: str) -> None:
         self.users[user_id] = replace(self.users[user_id], google_linked=False)
 
+    @override
     async def update_display_name(self, user_id: uuid.UUID, display_name: str) -> None:
         self.users[user_id] = replace(self.users[user_id], display_name=display_name)
 
@@ -154,10 +170,11 @@ class StoredCode:
     consumed_at: datetime | None = None
 
 
-class InMemoryCodes:
+class InMemoryCodes(OneTimeCodeStore):
     def __init__(self) -> None:
         self.rows: list[StoredCode] = []
 
+    @override
     async def issue(
         self,
         *,
@@ -186,6 +203,7 @@ class InMemoryCodes:
     def _row(self, code_id: uuid.UUID) -> StoredCode:
         return next(row for row in self.rows if row.id == code_id)
 
+    @override
     async def find_active(
         self, purpose: OtpPurpose, destination: str, now: datetime
     ) -> OneTimeCode | None:
@@ -208,6 +226,7 @@ class InMemoryCodes:
                 )
         return None
 
+    @override
     async def claim_attempt(self, code_id: uuid.UUID) -> bool:
         row = self._row(code_id)
         if row.consumed_at is not None or row.attempts >= MAX_ATTEMPTS:
@@ -215,6 +234,7 @@ class InMemoryCodes:
         row.attempts += 1
         return True
 
+    @override
     async def consume(self, code_id: uuid.UUID, now: datetime) -> bool:
         row = self._row(code_id)
         if row.consumed_at is not None:
@@ -222,6 +242,7 @@ class InMemoryCodes:
         row.consumed_at = now
         return True
 
+    @override
     async def revoke(self, code_id: uuid.UUID, now: datetime) -> None:
         self._row(code_id).consumed_at = now
 

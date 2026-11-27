@@ -1,6 +1,6 @@
 import re
 import uuid
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 
 import pytest
 
@@ -88,7 +88,7 @@ def service_with(
     )
 
 
-async def collect(events) -> list[ProgressEvent]:
+async def collect(events: AsyncIterator[ProgressEvent]) -> list[ProgressEvent]:
     return [event async for event in events]
 
 

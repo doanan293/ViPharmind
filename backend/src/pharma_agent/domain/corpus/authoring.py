@@ -173,19 +173,19 @@ def build_bundle(
                 ),
             )
         )
-        for section in split_markdown(
-            document.markdown, fallback_heading=document.title
-        ):
-            section_records.append(
-                SectionRecord(
-                    key=section_key(key, section.path),
-                    document_key=key,
-                    heading=section.heading,
-                    context_path=list(section.path),
-                    ordinal=section.ordinal,
-                    blocks=section.blocks,
-                )
+        section_records.extend(
+            SectionRecord(
+                key=section_key(key, section.path),
+                document_key=key,
+                heading=section.heading,
+                context_path=list(section.path),
+                ordinal=section.ordinal,
+                blocks=section.blocks,
             )
+            for section in split_markdown(
+                document.markdown, fallback_heading=document.title
+            )
+        )
     known = {section.key for section in section_records}
     mappings = [
         mapping.model_copy(

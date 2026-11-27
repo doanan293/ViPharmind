@@ -3,6 +3,7 @@
 import uuid
 from collections.abc import Sequence
 from datetime import datetime
+from typing import override
 
 from pharma_agent.application.corpus.collections import CollectionService, QuotaPolicy
 from pharma_agent.domain.access import policy
@@ -14,6 +15,7 @@ from pharma_agent.domain.corpus.models import (
     ReleaseStatus,
     Visibility,
 )
+from pharma_agent.domain.corpus.ports import CollectionRepository
 from pharma_agent.domain.corpus.source import IngestJob, JobConflict, SourceDocument
 from pharma_agent.domain.shared.clock import Clock, FixedClock
 from pharma_agent.domain.shared.transaction import Transaction
@@ -33,7 +35,7 @@ def _tx(tx: Transaction) -> InMemoryTx:
     return tx
 
 
-class InMemoryCollections:
+class InMemoryCollections(CollectionRepository):
     def __init__(self, corpus: InMemoryCorpusRepository) -> None:
         self.corpus = corpus
         self.deleted: set[uuid.UUID] = set()
@@ -50,15 +52,18 @@ class InMemoryCollections:
     def live(self) -> list[Collection]:
         return [c for c in self.corpus.collections.values() if c.id not in self.deleted]
 
+    @override
     async def get(self, collection_id: uuid.UUID) -> Collection | None:
         return None if collection_id in self.deleted else self._by_id(collection_id)
 
+    @override
     async def visible_for(self, actor: Actor) -> list[Collection]:
         return sorted(
             (c for c in self.live() if policy.can_view_collection(actor, c)),
             key=lambda c: (c.title, c.id),
         )
 
+    @override
     async def count_owned(self, owner: CollectionOwner) -> int:
         return sum(
             c.owner_user_id == owner.user_id
@@ -66,6 +71,7 @@ class InMemoryCollections:
             for c in self.live()
         )
 
+    @override
     async def create(
         self, collection: Collection, now: datetime, tx: Transaction
     ) -> None:
@@ -76,11 +82,13 @@ class InMemoryCollections:
         assert current is not None
         self._store(current.model_copy(update=values))
 
+    @override
     async def rename(
         self, collection_id: uuid.UUID, title: str, now: datetime, tx: Transaction
     ) -> None:
         _tx(tx).later(lambda: self._update(collection_id, title=title))
 
+    @override
     async def set_visibility(
         self,
         collection_id: uuid.UUID,
@@ -90,6 +98,7 @@ class InMemoryCollections:
     ) -> None:
         _tx(tx).later(lambda: self._update(collection_id, visibility=visibility))
 
+    @override
     async def mark_deleted(
         self, collection_id: uuid.UUID, now: datetime, tx: Transaction
     ) -> None:
@@ -99,6 +108,7 @@ class InMemoryCollections:
 
         _tx(tx).later(write)
 
+    @override
     async def current_releases(
         self, collection_ids: Sequence[uuid.UUID]
     ) -> dict[uuid.UUID, uuid.UUID]:
@@ -108,6 +118,7 @@ class InMemoryCollections:
             if c.id in collection_ids and c.current_release_id is not None
         }
 
+    @override
     async def live_release_ids(self, collection_id: uuid.UUID) -> list[uuid.UUID]:
         return [
             r.id
@@ -116,6 +127,7 @@ class InMemoryCollections:
             and r.status is not ReleaseStatus.RETIRED
         ]
 
+    @override
     async def deleted_with_releases(self) -> list[uuid.UUID]:
         # The in-memory sources are not linked here; releases decide, as before.
         return [cid for cid in self.deleted if await self.live_release_ids(cid)]

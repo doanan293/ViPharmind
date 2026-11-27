@@ -5,6 +5,7 @@ Keeping the deadline inside the producer task means cancellation never lands in 
 """
 
 import asyncio
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import suppress
 from typing import Any
@@ -27,6 +28,8 @@ from pharma_agent.domain.agent.prompts import fallback_text
 from pharma_agent.domain.agent.run import AgentRun, ErrorCode
 from pharma_agent.domain.conversation.models import Citation, ConversationContext
 from pharma_agent.domain.retrieval.models import ReleaseScope
+
+logger = logging.getLogger(__name__)
 
 # A safety net under the domain budget (search rounds, tool rounds, LLM calls): a
 # routing bug that loops ends as an internal failure in a few steps, not at the turn
@@ -142,6 +145,8 @@ class ChatTurnExecution:
             self._finish(queue, run, fallback_text(run.status), [], emit_text=True)
             return
         except Exception as exc:
+            # Turn boundary: any failure ends the turn with the fallback text.
+            logger.exception("chat turn failed")
             run = final.run if final is not None else self.run
             if not run.is_finished:
                 run.fail(ErrorCode.INTERNAL, detail=f"{type(exc).__name__}: {exc}")

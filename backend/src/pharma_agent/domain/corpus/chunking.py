@@ -37,6 +37,8 @@ CHUNKER_VERSION = "chunker-v2"
 _PARAGRAPH_BREAK_RE = re.compile(r"\n\s*\n")
 _SENTENCE_END_RE = re.compile(r"[.!?;:…]\s+")
 _LAST_WORD_RE = re.compile(r"\s+\S*$")
+# Leaflet tables often spread their header over several rows: the first two count.
+_TABLE_HEADER_ROWS = 2
 
 
 class ChunkDraft(BaseModel):
@@ -127,13 +129,16 @@ def split_table_markdown(markdown: str, max_chars: int) -> list[str]:
     if len(text) <= max_chars:
         return [text]
     lines = [line.strip() for line in text.splitlines() if line.strip()]
-    if len(lines) < 3 or not all(line.startswith("|") for line in lines[:2]):
+    head = lines[:_TABLE_HEADER_ROWS]
+    if len(lines) <= _TABLE_HEADER_ROWS or not all(
+        line.startswith("|") for line in head
+    ):
         return split_long_text(text, max_chars)
-    header = "\n".join(lines[:2])
+    header = "\n".join(head)
     chunks: list[str] = []
     rows: list[str] = []
     length = len(header)
-    for row in lines[2:]:
+    for row in lines[_TABLE_HEADER_ROWS:]:
         if rows and length + 1 + len(row) >= max_chars:
             chunks.append("\n".join([header, *rows]))
             rows = []
@@ -248,7 +253,8 @@ def chunk_document(
         nonlocal current, current_text
         if current:
             groups.append((current, current_text))
-        current, current_text = [], ""
+        current = []
+        current_text = ""
 
     for section in sorted(sections, key=lambda s: s.ordinal):
         text = section_text(section)
@@ -281,7 +287,7 @@ def chunk_document(
         searchable = (
             f"{context_header}\n\n{chunk_text}" if context_header else chunk_text
         )
-        terms = detect_terms(searchable, glossary)
+        terms: list[TermAnnotation] = detect_terms(searchable, glossary)
         if enrichment:
             embedding_text = compose_embedding_text(
                 context_header=context_header,
@@ -290,7 +296,9 @@ def chunk_document(
                 terms=terms,
             )
         else:
-            colloquial, terms, embedding_text = None, [], chunk_text
+            colloquial = None
+            terms = []
+            embedding_text = chunk_text
         start_page, end_page = _pages(members)
         drafts.append(
             ChunkDraft(

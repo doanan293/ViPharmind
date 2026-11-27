@@ -46,6 +46,18 @@ The layer rules are contracts in `[tool.importlinter]` of `backend/pyproject.tom
 - **Errors**: business errors subclass `application.errors.ApplicationError`; `api/errors.py`
   maps them to `application/problem+json` with a stable `code`, listed in `errors.json` (shared
   with the frontend)
+- **Classes where there is state or a dependency**: use cases are methods of a class (the
+  feature's `<Feature>Service`, or one class per large use case) and adapters are classes
+  implementing a port; both receive their dependencies through the constructor. Module-level
+  functions are for pure, stateless logic (domain rules, small helpers), FastAPI route
+  handlers and LangGraph nodes
+- **No module-level state** in `domain`, `application` or `infrastructure`: no global client,
+  connection, cache or registry. A module-level value is a named `UPPER_CASE` constant, a type
+  alias or a logger (checked by `tests/test_architecture.py`)
+- **No hard-coded configuration or rules in logic**: values that differ per deployment (URLs,
+  keys, limits an operator tunes) live in `Settings`; business constraints (limits, allowed
+  values, role ranks) are named constants or policies in `domain`, defined once; no magic
+  numbers or literal lists inside conditions and loops (ruff `PLR2004`)
 - **Same layer**: features in one layer do not import each other (`application/<A>` ↛
   `application/<B>`); use cases of several features are composed in `api` or `infrastructure`,
   shared rules live in `domain`
@@ -95,13 +107,19 @@ frontend/app/
 
 ## Code
 
-- Python 3.12, type hints on every signature, Google-style docstrings on public
+- Python 3.12, type hints on every signature (pyrefly), Google-style docstrings on public
   functions, methods and classes (tests exempt). TypeScript strict, no `any`
 - Naming (PEP 8): classes are nouns (`PaymentProcessor`); functions are verbs
   (`send_email`); booleans start with `is_`/`has_`/`can_`; `@property` is a noun;
   modules are nouns (`user_service.py`). TypeScript: components `PascalCase`, hooks `useX`
 - Functions: aim for 15–20 lines; ruff enforces complexity ≤ 10 (`C901`) and
   ≤ 40 statements (`PLR0915`)
+- Tools: ruff (pycodestyle, pyflakes, isort, bugbear, comprehensions, pyupgrade, simplify,
+  ruff rules, complexity, docstrings, function size, magic values, async, security, unused
+  arguments, blind excepts, boolean flags, commented-out code, print, naive datetimes,
+  pathlib, returns, performance) and pyrefly (every parameter, return, lambda, container and
+  type argument typed; `@override` on overrides). Tests skip only what pytest requires:
+  docstrings, `assert`, literal expected values and fake fixture passwords
 - Fix lint and type errors in code: no `# noqa`, `# type: ignore`, `# pyrefly: ignore`,
   `@ts-ignore`, and no disabled rules
 

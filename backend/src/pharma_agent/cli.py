@@ -7,7 +7,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 
@@ -21,6 +21,7 @@ from pharma_agent.domain.corpus.bundle import (
 from pharma_agent.domain.corpus.models import ReleaseSummary
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.retrieval.models import Hit, page_label
+from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.domain.shared.errors import DomainError
 from pharma_agent.infrastructure.auth.session_cleanup import clean_account_tables
 from pharma_agent.infrastructure.auth.superadmin import (
@@ -66,24 +67,25 @@ def load_settings() -> Settings:
 @app.command()
 def ask(
     question: str = typer.Argument(..., help="Câu hỏi về thuốc"),
-    json_output: bool = typer.Option(
-        False, "--json", help="In kết quả dạng JSON thay vì stream"
-    ),
+    *,
+    json_output: Annotated[
+        bool, typer.Option("--json", help="In kết quả dạng JSON thay vì stream")
+    ] = False,
 ) -> None:
     """Chạy một lượt hỏi đáp với cấu hình trong .env."""
     settings = load_settings()
-    asyncio.run(_ask(settings, question, json_output))
+    asyncio.run(_ask(settings, question, json_output=json_output))
 
 
-async def _ask(settings: Settings, question: str, json_output: bool) -> None:
+async def _ask(settings: Settings, question: str, *, json_output: bool) -> None:
     application = build_application(settings)
     try:
-        await _run_turn(application, question, json_output)
+        await _run_turn(application, question, json_output=json_output)
     finally:
         await application.aclose()
 
 
-async def _run_turn(application: Any, question: str, json_output: bool) -> None:
+async def _run_turn(application: Any, question: str, *, json_output: bool) -> None:
     execution = application.runner.start(user_id="cli", message=question)
     evidence: list[dict[str, Any]] = []
     async for event in execution.events():
@@ -93,7 +95,9 @@ async def _run_turn(application: Any, question: str, json_output: bool) -> None:
             continue
         _render(event, evidence)
     outcome = execution.outcome
-    assert outcome is not None
+    if outcome is None:
+        msg = "the turn finished without an outcome"
+        raise RuntimeError(msg)
     if json_output:
         typer.echo(
             json.dumps(
@@ -171,14 +175,14 @@ async def _check(settings: Settings) -> list[tuple[str, bool, str]]:
                     f"current release for {', '.join(settings.retrieval.collections)}",
                 )
             )
-        except Exception as exc:
+        except RetrievalError as exc:
             results.append(("corpus", False, f"CORPUS_NOT_READY: {exc}"))
         try:
             vectors = await retrieval.embedder.embed(["kiểm tra"])
             results.append(
                 ("embedding", True, f"{embedding.model} -> {len(vectors[0])} dims")
             )
-        except Exception as exc:
+        except RetrievalError as exc:
             results.append(("embedding", False, str(exc)))
         try:
             ranked = await retrieval.reranker.rerank(
@@ -191,7 +195,7 @@ async def _check(settings: Settings) -> list[tuple[str, bool, str]]:
                     f"{settings.retrieval.rerank.protocol} score {ranked[0].rerank_score}",
                 )
             )
-        except Exception as exc:
+        except RetrievalError as exc:
             results.append(("rerank", False, str(exc)))
     finally:
         await retrieval.aclose()
@@ -221,7 +225,8 @@ _PROBE_HIT = Hit(
 def serve(
     host: str | None = typer.Option(None, help="Bind address (default from settings)"),
     port: int | None = typer.Option(None, help="Port (default from settings)"),
-    reload: bool = typer.Option(False, help="Auto-reload on code changes"),
+    *,
+    reload: bool = typer.Option(default=False, help="Auto-reload on code changes"),
 ) -> None:
     """Chạy HTTP API (FastAPI + SSE)."""
     import uvicorn
@@ -289,24 +294,26 @@ superadmin_app = typer.Typer(
 app.add_typer(superadmin_app, name="superadmin")
 
 
-def _set_superadmin(email: str, value: bool) -> None:
+def _set_superadmin(email: str, *, granted: bool) -> None:
     settings = load_settings()
-    if not asyncio.run(set_superadmin(settings.postgres.conninfo, email, value)):
+    if not asyncio.run(
+        set_superadmin(settings.postgres.conninfo, email, granted=granted)
+    ):
         typer.echo(f"!! no account with email {email}", err=True)
         raise typer.Exit(code=1)
-    typer.echo(f"{email}: superadmin {'granted' if value else 'revoked'}")
+    typer.echo(f"{email}: superadmin {'granted' if granted else 'revoked'}")
 
 
 @superadmin_app.command("grant")
 def superadmin_grant(email: str = typer.Argument(..., help="Email tài khoản")) -> None:
     """Cấp quyền superadmin cho tài khoản có email này."""
-    _set_superadmin(email, True)
+    _set_superadmin(email, granted=True)
 
 
 @superadmin_app.command("revoke")
 def superadmin_revoke(email: str = typer.Argument(..., help="Email tài khoản")) -> None:
     """Thu hồi quyền superadmin."""
-    _set_superadmin(email, False)
+    _set_superadmin(email, granted=False)
 
 
 @superadmin_app.command("list")
@@ -386,9 +393,11 @@ def corpus_import(
     collection: str = typer.Option(
         ..., "--collection", help="Key của collection, phải trùng manifest"
     ),
-    publish: bool = typer.Option(
-        False, "--publish", help="Đặt release mới làm release hiện hành"
-    ),
+    *,
+    publish: Annotated[
+        bool,
+        typer.Option("--publish", help="Đặt release mới làm release hiện hành"),
+    ] = False,
 ) -> None:
     """Import knowledge bundle thành một release mới."""
     try:

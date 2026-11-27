@@ -1,4 +1,5 @@
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -20,11 +21,11 @@ class Database:
         )
 
     async def ping(self) -> bool:
-        """Whether a `SELECT 1` succeeds; any error counts as False."""
+        """Whether a `SELECT 1` succeeds; a database or connection error counts as False."""
         try:
             async with self.engine.connect() as connection:
                 await connection.execute(text("SELECT 1"))
-        except Exception:
+        except (SQLAlchemyError, OSError):
             return False
         return True
 

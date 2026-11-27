@@ -53,27 +53,28 @@ OTHER_ORG_SHARED = col(
 Check = Callable[[Actor], bool]
 
 
-@pytest.mark.parametrize(
-    ("check", "expected"),
-    [
-        (lambda a: policy.can_view_organization(a, ORG), [1, 1, 1, 0, 1]),
-        (lambda a: policy.can_manage_organization(a, ORG), [1, 0, 0, 0, 1]),
-        (lambda a: policy.can_manage_members(a, ORG), [1, 0, 0, 0, 1]),
-        (lambda a: policy.can_view_audit(a, ORG), [1, 1, 0, 0, 1]),
-        (lambda a: policy.invite_needs_approval(a, ORG), [0, 0, 1, 0, 0]),
-        (lambda a: policy.can_decide_invitation(a, ORG), [1, 1, 0, 0, 1]),
-        (
-            lambda a: policy.can_cancel_invitation(a, ORG, invited_by=SOMEONE),
-            [1, 1, 0, 0, 1],
-        ),
-        (
-            lambda a: policy.can_cancel_invitation(a, ORG, invited_by=ME),
-            [1, 1, 1, 0, 1],
-        ),
-        (lambda a: policy.can_leave(a, ORG, owner_count=1), [0, 1, 1, 0, 0]),
-        (lambda a: policy.can_leave(a, ORG, owner_count=2), [1, 1, 1, 0, 0]),
-    ],
-)
+# Each rule, and whether it allows each of ACTORS.
+ORGANIZATION_RULES: list[tuple[Check, list[int]]] = [
+    (lambda a: policy.can_view_organization(a, ORG), [1, 1, 1, 0, 1]),
+    (lambda a: policy.can_manage_organization(a, ORG), [1, 0, 0, 0, 1]),
+    (lambda a: policy.can_manage_members(a, ORG), [1, 0, 0, 0, 1]),
+    (lambda a: policy.can_view_audit(a, ORG), [1, 1, 0, 0, 1]),
+    (lambda a: policy.invite_needs_approval(a, ORG), [0, 0, 1, 0, 0]),
+    (lambda a: policy.can_decide_invitation(a, ORG), [1, 1, 0, 0, 1]),
+    (
+        lambda a: policy.can_cancel_invitation(a, ORG, invited_by=SOMEONE),
+        [1, 1, 0, 0, 1],
+    ),
+    (
+        lambda a: policy.can_cancel_invitation(a, ORG, invited_by=ME),
+        [1, 1, 1, 0, 1],
+    ),
+    (lambda a: policy.can_leave(a, ORG, owner_count=1), [0, 1, 1, 0, 0]),
+    (lambda a: policy.can_leave(a, ORG, owner_count=2), [1, 1, 1, 0, 0]),
+]
+
+
+@pytest.mark.parametrize(("check", "expected"), ORGANIZATION_RULES)
 def test_organization_rules(check: Check, expected: list[int]) -> None:
     assert [check(a) for a in ACTORS] == [bool(x) for x in expected]
 

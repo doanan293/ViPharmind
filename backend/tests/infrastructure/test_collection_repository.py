@@ -97,9 +97,9 @@ async def test_visibility_follows_membership_and_deletion_hides(
     def keys(found: list[Collection]) -> set[str]:
         return {c.key for c in found}
 
-    owner = Actor(a, False, {org.id: Role.OWNER})
-    member = Actor(b, False, {org.id: Role.MEMBER})
-    admin = Actor(uuid.uuid4(), True, {})
+    owner = Actor(a, is_superadmin=False, memberships={org.id: Role.OWNER})
+    member = Actor(b, is_superadmin=False, memberships={org.id: Role.MEMBER})
+    admin = Actor(uuid.uuid4(), is_superadmin=True, memberships={})
     assert keys(await repo.visible_for(owner)) == {
         "sys",
         "a-private",
@@ -138,4 +138,7 @@ async def test_deleting_an_organization_marks_its_collections_deleted(
     async with tx.begin() as t:
         await orgs.delete(org.id, t)
     assert await repo.get(collection_id_for("o1")) is None
-    assert await repo.visible_for(Actor(uuid.uuid4(), True, {})) == []
+    assert (
+        await repo.visible_for(Actor(uuid.uuid4(), is_superadmin=True, memberships={}))
+        == []
+    )

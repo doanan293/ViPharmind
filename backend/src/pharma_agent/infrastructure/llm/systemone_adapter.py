@@ -90,7 +90,8 @@ class SystemOneAdapter:
 
     async def aclose(self) -> None:
         """Close every client the adapter opened."""
-        clients, self._clients = list(self._clients.values()), {}
+        clients = list(self._clients.values())
+        self._clients.clear()
         for client in clients:
             close = getattr(client, "aclose", None)
             if close is not None:

@@ -14,7 +14,7 @@ from tests.api.asgi import running
 SECRET = "s" * 40
 
 
-def no_sessions(request: Request) -> NoReturn:
+def no_sessions(_request: Request) -> NoReturn:
     """Session resolver for wiring tests that never touch the database."""
     raise HTTPException(status_code=503)
 
@@ -88,6 +88,7 @@ def test_missing_secret_fails_fast() -> None:
 
 @pytest.mark.parametrize("cookie_secure", [True, False])
 async def test_google_authorize_state_cookie_follows_cookie_secure(
+    *,
     cookie_secure: bool,
 ) -> None:
     auth = build_auth(

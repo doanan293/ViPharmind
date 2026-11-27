@@ -1,6 +1,7 @@
 import hashlib
 import unicodedata
 import uuid
+from collections.abc import Sequence
 
 from pharma_agent.domain.corpus.bundle import BlockKind, BlockRecord
 from pharma_agent.domain.corpus.identity import (
@@ -53,15 +54,21 @@ DOCUMENT_ID = uuid.uuid5(CORPUS_NAMESPACE, "document\x1ftest")
 SECTION_KEYS = ["drug:paracetamol:lieu-dung"]
 
 
-def _id(**changes: object) -> uuid.UUID:
-    args: dict = {
-        "document_id": DOCUMENT_ID,
-        "section_keys": SECTION_KEYS,
-        "chunk_text": CHUNK_TEXT,
-        "embedding_text": EMBEDDING_TEXT,
-        "chunker_version": "chunker-v1",
-    } | changes
-    return chunk_version_id(**args)
+def _id(
+    *,
+    document_id: uuid.UUID = DOCUMENT_ID,
+    section_keys: Sequence[str] = SECTION_KEYS,
+    chunk_text: str = CHUNK_TEXT,
+    embedding_text: str = EMBEDDING_TEXT,
+    chunker_version: str = "chunker-v1",
+) -> uuid.UUID:
+    return chunk_version_id(
+        document_id=document_id,
+        section_keys=section_keys,
+        chunk_text=chunk_text,
+        embedding_text=embedding_text,
+        chunker_version=chunker_version,
+    )
 
 
 def test_chunk_version_id_follows_the_spec_formula() -> None:

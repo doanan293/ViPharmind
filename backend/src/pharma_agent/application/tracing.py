@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 from contextlib import AbstractContextManager, nullcontext
-from typing import Protocol
+from typing import Protocol, override
 
 from langchain_core.callbacks import BaseCallbackHandler
 
@@ -42,20 +42,26 @@ class Tracing(TurnTracer, ScoreSink, Protocol):
     """A tracer that can also score its own traces (Langfuse, or the null implementation)."""
 
 
-class _NullHandle:
-    callbacks: Sequence[BaseCallbackHandler] = ()
+class _NullHandle(TraceHandle):
+    @property
+    @override
+    def callbacks(self) -> Sequence[BaseCallbackHandler]:
+        """No callbacks: nothing is traced."""
+        return ()
 
+    @override
     def finish(self, *, status: str, output: str) -> None:
-        return None
+        """Record nothing."""
 
 
-class NullTracing:
+class NullTracing(Tracing):
     """Used when Langfuse is not configured."""
 
+    @override
     def trace_turn(self, run: AgentRun) -> AbstractContextManager[TraceHandle]:
         """Return a handle that records nothing."""
         return nullcontext(_NullHandle())
 
+    @override
     def record_feedback(self, *, run_id: str, rating: str, note: str) -> None:
         """Ignore the rating."""
-        return None

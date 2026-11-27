@@ -1,7 +1,7 @@
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, override
 
 from langchain_core.callbacks import BaseCallbackHandler
 
@@ -24,6 +24,7 @@ class CountingHandler(BaseCallbackHandler):
         super().__init__()
         self.chain_starts = 0
 
+    @override
     def on_chain_start(
         self, serialized: dict[str, Any], inputs: dict[str, Any], **kwargs: Any
     ) -> None:

@@ -67,8 +67,10 @@ class FakeEmbeddings:
     def __init__(self, dimension: int) -> None:
         self.dimension = dimension
         self.inputs: list[list[str]] = []
+        self.models: list[str] = []
 
-    async def create(self, *, model: str, input: list[str]):
+    async def create(self, *, model: str, input: list[str]) -> SimpleNamespace:
+        self.models.append(model)
         self.inputs.append(list(input))
         data = [
             SimpleNamespace(index=i, embedding=[float(i)] * self.dimension)
@@ -78,10 +80,13 @@ class FakeEmbeddings:
 
 
 async def test_embedder_returns_vectors_in_input_order_and_checks_dimension() -> None:
-    client = SimpleNamespace(embeddings=FakeEmbeddings(4))
-    embedder = OpenAiEmbedder(client, model="m", dimension=4)
+    embeddings = FakeEmbeddings(4)
+    embedder = OpenAiEmbedder(
+        SimpleNamespace(embeddings=embeddings), model="m", dimension=4
+    )
     vectors = await embedder.embed(["a", "b"])
     assert vectors == [[0.0] * 4, [1.0] * 4]
+    assert embeddings.models == ["m"]
     bad = OpenAiEmbedder(
         SimpleNamespace(embeddings=FakeEmbeddings(3)), model="m", dimension=4
     )
@@ -101,19 +106,21 @@ def point(
 
 class FakeQdrant:
     def __init__(
-        self, points: list[SimpleNamespace], metadata: dict | None = None
+        self, points: list[SimpleNamespace], metadata: dict[str, object] | None = None
     ) -> None:
         self.points = points
         self.metadata = (
             metadata if metadata is not None else {"embedding_model": "m", "dims": 2}
         )
-        self.query_calls: list[dict] = []
+        self.query_calls: list[dict[str, object]] = []
+        self.collections_read: list[str] = []
 
-    async def query_points(self, **kwargs):
+    async def query_points(self, **kwargs: object) -> SimpleNamespace:
         self.query_calls.append(kwargs)
         return SimpleNamespace(points=self.points)
 
-    async def get_collection(self, collection_name: str):
+    async def get_collection(self, collection_name: str) -> SimpleNamespace:
+        self.collections_read.append(collection_name)
         return SimpleNamespace(
             config=SimpleNamespace(
                 params=SimpleNamespace(
@@ -199,7 +206,10 @@ async def test_hybrid_search_filters_by_release_and_loads_chunks_in_rank_order()
     assert call["with_payload"] == [COLLECTION_ID_KEY]
     expected_scope = release_scope_filter({COLLECTION_ID: RELEASE_ID})
     assert call["query_filter"] == expected_scope
-    dense, sparse = call["prefetch"]
+    prefetch = call["prefetch"]
+    assert isinstance(prefetch, list)
+    dense, sparse = prefetch
+    assert isinstance(dense, models.Prefetch) and isinstance(sparse, models.Prefetch)
     assert (dense.using, dense.limit, dense.query) == (
         DENSE_VECTOR_NAME,
         7,
@@ -262,9 +272,9 @@ async def test_malformed_point_is_reported_as_retrieval_error() -> None:
 
 async def test_verify_collection_checks_dimension_and_metadata() -> None:
     reader = FakeReader({}, [])
-    await retriever(FakeQdrant([]), reader).verify_collection(
-        embedding_model="m", dimension=2
-    )
+    client = FakeQdrant([])
+    await retriever(client, reader).verify_collection(embedding_model="m", dimension=2)
+    assert client.collections_read == ["chunks_current"]
     with pytest.raises(RetrievalError, match="dimension"):
         await retriever(FakeQdrant([]), reader).verify_collection(
             embedding_model="m", dimension=2560

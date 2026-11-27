@@ -1,6 +1,7 @@
 """Graph nodes: thin wrappers that call the domain and emit public progress events."""
 
 import functools
+import logging
 from collections.abc import Awaitable, Callable, Sequence
 from contextlib import suppress
 from typing import Any, Protocol
@@ -52,6 +53,8 @@ from pharma_agent.domain.retrieval.evidence import Evidence
 from pharma_agent.domain.retrieval.models import Query, QueryOrigin
 from pharma_agent.domain.shared.text import make_preview
 
+logger = logging.getLogger(__name__)
+
 NodeUpdate = dict[str, Any]
 
 
@@ -91,6 +94,7 @@ def guarded(code: ErrorCode) -> Callable[[Node], Node]:
             try:
                 return await fn(state, runtime=runtime)
             except Exception as exc:
+                logger.exception("chat node failed (%s)", code)
                 if not state.run.is_finished:
                     state.run.fail(code, detail=f"{type(exc).__name__}: {exc}")
                 return {"run": state.run}
@@ -188,7 +192,7 @@ async def rephrase_node(
         )
         run.charge(usage)
     except (LlmError, BudgetExhausted):
-        run.record_rephrase(None, now=now, failed=True)
+        run.record_rephrase(None, now=now)
         return {"run": run}
     run.record_rephrase(result, now=now)
     return {"run": run}
@@ -403,9 +407,7 @@ async def answer_node(
     }
 
 
-async def fallback_node(
-    state: ChatTurnState, *, runtime: Runtime[TurnContext]
-) -> NodeUpdate:
+async def fallback_node(state: ChatTurnState) -> NodeUpdate:
     """Emit the fallback text for the run's status, failing the run first if unfinished."""
     run = state.run
     if not run.is_finished:

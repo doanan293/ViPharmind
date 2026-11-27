@@ -47,7 +47,7 @@ def build_context_header(title: str, context_path: Sequence[str]) -> str:
 
 
 @cache
-def _term_pattern(match_text: str, case_sensitive: bool) -> re.Pattern[str]:
+def _term_pattern(match_text: str, *, case_sensitive: bool) -> re.Pattern[str]:
     flags = 0 if case_sensitive else re.IGNORECASE
     return re.compile(
         rf"(?<![{_WORD_CHARS}]){re.escape(match_text)}(?![{_WORD_CHARS}])", flags
@@ -62,7 +62,9 @@ def detect_terms(text: str, glossary: Sequence[GlossaryEntry]) -> list[TermAnnot
         term = entry.term.strip()
         best: re.Match[str] | None = None
         for match_text in _normalized_list([term, *entry.aliases]):
-            match = _term_pattern(match_text, entry.case_sensitive).search(text)
+            match = _term_pattern(
+                match_text, case_sensitive=entry.case_sensitive
+            ).search(text)
             if match is not None and (best is None or match.start() < best.start()):
                 best = match
         if best is None or term in seen_terms:

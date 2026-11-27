@@ -5,7 +5,9 @@ from pharma_agent.infrastructure.auth.client_ip import client_ip_of
 
 
 def request(forwarded: str | None, peer: str = "10.0.0.7") -> Request:
-    headers = [] if forwarded is None else [(b"x-forwarded-for", forwarded.encode())]
+    headers: list[tuple[bytes, bytes]] = (
+        [] if forwarded is None else [(b"x-forwarded-for", forwarded.encode())]
+    )
     return Request(
         {
             "type": "http",

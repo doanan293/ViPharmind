@@ -359,7 +359,7 @@ class InMemoryAccountAdmin:
         return rows[:limit]
 
     async def set_active(
-        self, user_id: uuid.UUID, active: bool, tx: Transaction
+        self, user_id: uuid.UUID, *, active: bool, tx: Transaction
     ) -> None:
         _tx(tx).later(
             lambda: self.accounts.users.__setitem__(

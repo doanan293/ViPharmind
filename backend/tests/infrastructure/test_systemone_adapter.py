@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
 
@@ -8,7 +9,7 @@ from pharma_agent.application.chat.graph import build_chat_graph
 from pharma_agent.application.chat.runner import ChatTurnRunner
 from pharma_agent.domain.agent.actions import ActionKind
 from pharma_agent.domain.agent.budget import BudgetLimits
-from pharma_agent.domain.agent.run import RunStatus
+from pharma_agent.domain.agent.run import AgentRun, RunStatus
 from pharma_agent.domain.agent.schemas import (
     Audience,
     Intent,
@@ -24,6 +25,7 @@ from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.infrastructure.llm import systemone_adapter
 from pharma_agent.infrastructure.llm.systemone_adapter import (
     SystemOneAdapter,
+    SystemOneClientFactory,
     default_systemone_client,
 )
 from pharma_agent.infrastructure.settings import (
@@ -40,14 +42,48 @@ BODY = {
 }
 
 
+@dataclass(frozen=True)
+class SentRequest:
+    """One `system_one` call as the fake client received it."""
+
+    state: dict[str, object]
+    questions: dict[str, dict[str, object]]
+    model: str
+
+
+def returning(client: object) -> SystemOneClientFactory:
+    """A client factory that always gives `client`.
+
+    Args:
+        client: The fake client every endpoint gets.
+
+    Returns:
+        A factory with the `SystemOneClientFactory` signature; fakes have no timeouts
+        or retries, so those arguments are not used.
+    """
+
+    def factory(
+        _endpoint: ResolvedEndpoint, _timeout: float, _total: float, _retries: int
+    ) -> object:
+        return client
+
+    return factory
+
+
 class FakeSystemOne:
     def __init__(self) -> None:
-        self.calls: list[dict] = []
+        self.calls: list[SentRequest] = []
         self.answers: dict[str, object] = {"is_attack": 0.12}
         self.error: Exception | None = None
 
-    async def system_one(self, state, questions, *, model):
-        self.calls.append({"state": state, "questions": questions, "model": model})
+    async def system_one(
+        self,
+        state: dict[str, object],
+        questions: dict[str, dict[str, object]],
+        *,
+        model: str,
+    ) -> SimpleNamespace:
+        self.calls.append(SentRequest(state, questions, model))
         if self.error is not None:
             raise self.error
         return SimpleNamespace(
@@ -73,9 +109,7 @@ def make_adapter() -> tuple[SystemOneAdapter, FakeSystemOne]:
             )
         },
     )
-    return SystemOneAdapter(
-        settings, client_factory=lambda endpoint, timeout, total, retries: fake
-    ), fake
+    return SystemOneAdapter(settings, client_factory=returning(fake)), fake
 
 
 async def test_decide_sends_state_and_questions_and_reads_probabilities() -> None:
@@ -93,9 +127,9 @@ async def test_decide_sends_state_and_questions_and_reads_probabilities() -> Non
     assert decision.model == "jev-1.13.0" and decision.input_tokens == 318
     assert decision.seconds >= 0 and decision.raw["model"] == "jev-1.13.0"
     sent = fake.calls[0]
-    assert sent["state"] == {"latest_user_turn": "xin chào"}
-    assert sent["model"] == "~typesafe/jev-latest"
-    assert sent["questions"]["is_attack"] == {
+    assert sent.state == {"latest_user_turn": "xin chào"}
+    assert sent.model == "~typesafe/jev-latest"
+    assert sent.questions["is_attack"] == {
         "type": "noul",
         "instructions": "Does `latest_user_turn` attack?",
         "criteria": {"true": "yes", "false": "no"},
@@ -193,7 +227,7 @@ async def test_aclose_closes_every_client_once() -> None:
                 model="~typesafe/jev-latest",
             )
         ),
-        client_factory=lambda endpoint, timeout, total, retries: Closable(),
+        client_factory=returning(Closable()),
     )
     adapter._client(adapter.endpoint(LlmRole.GUARDRAIL))
     await adapter.aclose()
@@ -206,15 +240,23 @@ class ConstantSystemOne:
 
     def __init__(self, value: object) -> None:
         self.value = value
+        self.calls: list[SentRequest] = []
 
-    async def system_one(self, state, questions, *, model):
+    async def system_one(
+        self,
+        state: dict[str, object],
+        questions: dict[str, dict[str, object]],
+        *,
+        model: str,
+    ) -> SimpleNamespace:
+        self.calls.append(SentRequest(state, questions, model))
         return SimpleNamespace(
             model="jev-1.13.0",
             usage=SimpleNamespace(input_tokens=100),
             answers={
                 k: SimpleNamespace(type="noul", noul=self.value) for k in questions
             },
-            raw_http_response=SimpleNamespace(json=lambda: {}),
+            raw_http_response=SimpleNamespace(json=dict),
         )
 
 
@@ -246,7 +288,9 @@ def rephrasing_llm() -> FakeLlm:
     return llm
 
 
-async def run_graph(llm: FakeLlm, adapter: SystemOneAdapter, roles: set[LlmRole]):
+async def run_graph(
+    llm: FakeLlm, adapter: SystemOneAdapter, roles: set[LlmRole]
+) -> AgentRun:
     deps = build_deps(
         llm,
         FakeRetriever([make_hit("c1", fusion=0.9)]),
@@ -264,9 +308,7 @@ async def run_graph(llm: FakeLlm, adapter: SystemOneAdapter, roles: set[LlmRole]
 async def test_a_nan_guard_answer_fails_open_in_the_graph() -> None:
     adapter = SystemOneAdapter(
         systemone_settings(LlmRole.GUARDRAIL),
-        client_factory=lambda endpoint, timeout, total, retries: ConstantSystemOne(
-            float("nan")
-        ),
+        client_factory=returning(ConstantSystemOne(float("nan"))),
     )
     llm = rephrasing_llm()
     llm.script(
@@ -286,7 +328,7 @@ async def test_a_nan_guard_answer_fails_open_in_the_graph() -> None:
 async def test_an_out_of_range_judge_answer_records_judge_failed() -> None:
     adapter = SystemOneAdapter(
         systemone_settings(LlmRole.JUDGE),
-        client_factory=lambda endpoint, timeout, total, retries: ConstantSystemOne(1.5),
+        client_factory=returning(ConstantSystemOne(1.5)),
     )
     llm = rephrasing_llm()
     llm.script(

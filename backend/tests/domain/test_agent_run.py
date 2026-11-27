@@ -163,7 +163,7 @@ def test_budget_reservation_and_exhaustion() -> None:
 def test_judge_failure_marks_partial_and_terminal_transitions_are_guarded() -> None:
     run = make_run()
     run.record_guard(PASS, now=NOW)
-    run.record_rephrase(None, failed=True, now=NOW)
+    run.record_rephrase(None, now=NOW)
     assert run.standalone_query == run.original_query
     run.record_search(Q1, search_result("c1"), now=NOW)
     run.record_judge(

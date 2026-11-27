@@ -21,7 +21,11 @@ from pharma_agent.application.organizations.invitations import (
 )
 from pharma_agent.domain.access.models import Actor, Role
 from pharma_agent.domain.audit.models import AuditAction
-from pharma_agent.domain.organizations.models import InvitationStatus, Organization
+from pharma_agent.domain.organizations.models import (
+    Invitation,
+    InvitationStatus,
+    Organization,
+)
 from tests.account_fakes import (
     START,
     InMemoryAccounts,
@@ -286,7 +290,7 @@ async def test_an_invitation_revoked_while_being_accepted_grants_nothing() -> No
     # The owner revokes after the accept read the invitation, before it wrote.
     original_get = f.invitations.get_by_token_hash
 
-    async def stale_read(token_hash: str):
+    async def stale_read(token_hash: str) -> Invitation | None:
         found = await original_get(token_hash)
         f.invitations.rows[stored.id] = replace(stored, status=InvitationStatus.REVOKED)
         return found

@@ -1,6 +1,6 @@
 """Public progress contract emitted during a chat turn. Never expose node names, prompts or reasoning."""
 
-from enum import StrEnum
+from enum import StrEnum, auto
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -18,14 +18,17 @@ class Phase(StrEnum):
 
 
 class EventType(StrEnum):
-    """Kind of a progress event streamed to the client."""
+    """Kind of a progress event streamed to the client.
 
-    CONVERSATION = "conversation"
-    PHASE = "phase"
-    EVIDENCE = "evidence"
-    TOKEN = "token"
-    CITATIONS = "citations"
-    DONE = "done"
+    Values are the lower-case member names (`auto()`), as sent on the wire.
+    """
+
+    CONVERSATION = auto()
+    PHASE = auto()
+    EVIDENCE = auto()
+    TOKEN = auto()
+    CITATIONS = auto()
+    DONE = auto()
 
 
 class ProgressEvent(BaseModel):

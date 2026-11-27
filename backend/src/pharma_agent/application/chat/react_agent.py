@@ -12,7 +12,7 @@ import json
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, override
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import (
@@ -51,7 +51,12 @@ from pharma_agent.domain.agent.react import (
     normalize_query,
     render_result,
 )
-from pharma_agent.domain.agent.run import AgentRun, InvalidTransition, ReactStats
+from pharma_agent.domain.agent.run import (
+    MIN_CALLS_FOR_ANOTHER_STEP,
+    AgentRun,
+    InvalidTransition,
+    ReactStats,
+)
 from pharma_agent.domain.llm.models import ChatMessage, ChatRole, LlmUsage
 from pharma_agent.domain.retrieval.models import Hit, Query, QueryOrigin, ReleaseScope
 from pharma_agent.domain.retrieval.service import SearchResult
@@ -235,6 +240,7 @@ class ReactBudget(AgentMiddleware):
         """Bind the middleware to the turn's session."""
         self._session = session
 
+    @override
     async def awrap_model_call(
         self,
         request: ModelRequest[Any],
@@ -248,7 +254,7 @@ class ReactBudget(AgentMiddleware):
         session = self._session
         run, stats = session.run, session.stats
         capped = stats.rounds >= MAX_TOOL_ROUNDS
-        final = session.forced or capped or run.calls_left < 2
+        final = session.forced or capped or run.calls_left < MIN_CALLS_FOR_ANOTHER_STEP
         if final:
             if capped:
                 stats.round_cap_hit = True
@@ -267,7 +273,7 @@ class ReactBudget(AgentMiddleware):
         message = _ai_message(response.result)
         usage = _usage(message)
         stats.record_model_call(usage, time.perf_counter() - started)
-        calls = [] if final else _checked_calls(message)
+        calls: list[_Call] = [] if final else _checked_calls(message)
         over_budget = False
         try:
             run.charge(usage)
@@ -288,9 +294,13 @@ class ReactBudget(AgentMiddleware):
         if calls:
             session.begin_round(calls)
         # A final response carries no calls even when the server returned some anyway.
-        update = {"tool_calls": [c.call for c in calls], "invalid_tool_calls": []}
+        update: dict[str, object] = {
+            "tool_calls": [c.call for c in calls],
+            "invalid_tool_calls": [],
+        }
         return ModelResponse(result=[message.model_copy(update=update)])
 
+    @override
     async def awrap_tool_call(
         self,
         request: ToolCallRequest,

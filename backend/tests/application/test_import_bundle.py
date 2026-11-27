@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import Sequence
 from functools import partial
+from typing import override
 
 import pytest
 
@@ -36,7 +37,7 @@ from tests.fakes import (
 )
 
 
-def unchanged_bundle_embeddings(model: str, dims: int) -> dict[str, list[float]]:
+def unchanged_bundle_embeddings(_model: str, _dims: int) -> dict[str, list[float]]:
     raise AssertionError("an unchanged bundle must not load its vectors")
 
 
@@ -247,6 +248,7 @@ class TrackingEmbedder(FakeEmbedder):
         self.active = 0
         self.peak = 0
 
+    @override
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
         self.active += 1
         self.peak = max(self.peak, self.active)
@@ -282,6 +284,7 @@ async def test_index_writer_embeds_a_repeated_text_once_per_batch() -> None:
 
 async def test_index_writer_rejects_a_wrong_dimension() -> None:
     class ShortEmbedder(FakeEmbedder):
+        @override
         async def embed(self, texts: Sequence[str]) -> list[list[float]]:
             return [[0.0] for _ in texts]
 

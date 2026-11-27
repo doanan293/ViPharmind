@@ -62,8 +62,11 @@ class IndexWriter:
 
         With `overwrite` every point is upserted. Counts are per point.
         """
+        new: list[IndexItem]
+        existing: list[IndexItem]
         if overwrite:
-            new, existing = list(items), []
+            new = list(items)
+            existing = []
         else:
             present = await self._index.existing_ids(
                 [item.chunk_version_id for item in items]

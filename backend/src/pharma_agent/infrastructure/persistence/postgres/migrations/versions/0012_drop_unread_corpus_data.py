@@ -36,7 +36,7 @@ def upgrade() -> None:
         op.drop_column("documents", column, schema=SCHEMA)
 
 
-def _add_required(table: str, column: sa.Column, placeholder: str) -> None:
+def _add_required[T](table: str, column: sa.Column[T], placeholder: str) -> None:
     column.server_default = sa.DefaultClause(sa.text(placeholder))
     op.add_column(table, column, schema=SCHEMA)
     op.alter_column(table, column.name, server_default=None, schema=SCHEMA)

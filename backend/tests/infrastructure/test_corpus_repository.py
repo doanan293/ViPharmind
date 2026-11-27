@@ -3,7 +3,7 @@ from collections.abc import AsyncGenerator
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import ColumnElement, func, select, text
 
 from pharma_agent.domain.corpus.models import (
     CorpusSnapshot,
@@ -18,8 +18,13 @@ from pharma_agent.infrastructure.persistence.postgres.corpus_repository import (
 )
 from pharma_agent.infrastructure.persistence.postgres.corpus_tables import (
     ChunkVersionTable,
+    DocumentTable,
+    ReleaseChunkTable,
+    ReleaseTable,
+    SectionTable,
 )
 from pharma_agent.infrastructure.persistence.postgres.database import Database
+from pharma_agent.infrastructure.persistence.postgres.tables import Base
 from tests.corpus_fixtures import (
     DOSAGE_SECTION,
     LEAFLET_SECTION,
@@ -47,12 +52,24 @@ def edited_snapshot() -> CorpusSnapshot:
     )
 
 
-async def count(database: Database, table: str, where: str = "true") -> int:
+async def count(
+    database: Database, table: type[Base], *conditions: ColumnElement[bool]
+) -> int:
+    """Count the rows of a corpus table that match every condition.
+
+    Args:
+        database: The database to query.
+        table: The mapped table to count.
+        *conditions: Optional filters, combined with AND.
+
+    Returns:
+        The number of matching rows.
+    """
     async with database.engine.connect() as connection:
         result = await connection.execute(
-            text(f"SELECT count(*) FROM corpus.{table} WHERE {where}")
+            select(func.count()).select_from(table).where(*conditions)
         )
-        return int(result.scalar_one())
+        return result.scalar_one()
 
 
 async def test_stage_release_writes_every_row_once(database: Database) -> None:
@@ -74,14 +91,14 @@ async def test_stage_release_writes_every_row_once(database: Database) -> None:
         None,
     )
     assert await repository.get_collection("formulary") == snapshot.collection
-    assert await count(database, "documents") == 2
-    assert await count(database, "sections") == 5
-    assert await count(database, "chunk_versions") == len(snapshot.chunks)
-    assert await count(database, "release_chunks") == len(snapshot.release_chunks)
-    assert await count(database, "chunk_versions", "colloquial IS NULL") == sum(
-        chunk.colloquial is None for chunk in snapshot.chunks
-    )
-    assert await count(database, "releases", "stats IS NULL") == 1
+    assert await count(database, DocumentTable) == 2
+    assert await count(database, SectionTable) == 5
+    assert await count(database, ChunkVersionTable) == len(snapshot.chunks)
+    assert await count(database, ReleaseChunkTable) == len(snapshot.release_chunks)
+    assert await count(
+        database, ChunkVersionTable, ChunkVersionTable.colloquial.is_(None)
+    ) == sum(chunk.colloquial is None for chunk in snapshot.chunks)
+    assert await count(database, ReleaseTable, ReleaseTable.stats.is_(None)) == 1
     async with database.sessions() as session:
         stored_headers = dict(
             (
@@ -133,8 +150,8 @@ async def test_second_release_shares_unchanged_chunk_versions(
     old_ids = {chunk.id for chunk in old.chunks}
     new_ids = {chunk.id for chunk in new.chunks}
     assert r2.number == 2
-    assert await count(database, "chunk_versions") == len(old_ids | new_ids)
-    assert await count(database, "release_chunks") == len(old.release_chunks) + len(
+    assert await count(database, ChunkVersionTable) == len(old_ids | new_ids)
+    assert await count(database, ReleaseChunkTable) == len(old.release_chunks) + len(
         new.release_chunks
     )
 
@@ -234,7 +251,9 @@ async def test_purge_keeps_chunk_versions_protected_by_restrict(
         chunk_versions_deleted=len(old_only) - 1,
         chunk_versions_kept=1,
     )
-    assert await count(database, "chunk_versions", f"id = '{protected}'") == 1
+    assert (
+        await count(database, ChunkVersionTable, ChunkVersionTable.id == protected) == 1
+    )
     summaries = {s.release.id: s for s in await repository.list_releases("formulary")}
     assert summaries[r1.id].release.status is ReleaseStatus.RETIRED
     assert summaries[r1.id].release.retired_at == NOW

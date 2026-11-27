@@ -91,6 +91,8 @@ async def add_user(database: Database) -> uuid.UUID:
 async def world(
     migrated_dsn: str, qdrant_url: str, qdrant_client: AsyncQdrantClient
 ) -> AsyncIterator[World]:
+    """Two users, one organization and empty stores (`qdrant_client` wipes Qdrant)."""
+    assert not (await qdrant_client.get_collections()).collections
     database = Database(migrated_dsn, pool_size=2)
     await reset_corpus(database)
     async with database.engine.begin() as connection:
@@ -104,7 +106,7 @@ async def world(
         await organizations.add_member(Membership(org.id, b, Role.MEMBER, NOW), t)
 
     settings = settings_for(migrated_dsn, qdrant_url)
-    owner = Actor(a, False, {org.id: Role.OWNER})
+    owner = Actor(a, is_superadmin=False, memberships={org.id: Role.OWNER})
     async with open_corpus_services(settings, embedder=FakeEmbedder()) as corpus:
         personal = await corpus.collections.create(
             owner, title="Riêng", owner_organization_id=None

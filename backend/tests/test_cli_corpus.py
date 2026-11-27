@@ -35,11 +35,12 @@ class FakeCorpus:
     adapters: CorpusAdapters = field(default_factory=CorpusAdapters)
     embedder: FakeEmbedder = field(default_factory=FakeEmbedder)
     clock: SteppingClock = field(default_factory=SteppingClock)
-    opened: int = 0
+    # The settings each command opened the corpus services with.
+    opened: list[Settings] = field(default_factory=list)
 
     @asynccontextmanager
     async def open(self, settings: Settings) -> AsyncGenerator[CorpusServices]:
-        self.opened += 1
+        self.opened.append(settings)
         yield CorpusServices(
             importer=build_importer(self.adapters, self.embedder, clock=self.clock),
             releases=build_release_service(
@@ -76,7 +77,7 @@ def test_import_publishes_then_reports_no_change(corpus: FakeCorpus) -> None:
     again = invoke(*args)
     assert again.exit_code == 0, again.output
     assert "no_change: formulary release 1 " in again.output
-    assert corpus.opened == 2
+    assert len(corpus.opened) == 2
 
 
 def test_import_rejects_wrong_collection_and_invalid_bundle(
@@ -93,7 +94,7 @@ def test_import_rejects_wrong_collection_and_invalid_bundle(
     invalid = invoke("import", str(broken), "--collection", "formulary")
     assert invalid.exit_code == 2
     assert "BUNDLE_INVALID" in invalid.output
-    assert corpus.opened == 0
+    assert corpus.opened == []
 
 
 def test_release_commands(corpus: FakeCorpus, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -142,9 +143,8 @@ def test_release_commands(corpus: FakeCorpus, monkeypatch: pytest.MonkeyPatch) -
     assert unknown.exit_code == 1 and "COLLECTION_NOT_FOUND" in unknown.output
 
 
-def test_purge_deleted_reports_how_many_collections_it_cleaned(
-    corpus: FakeCorpus,
-) -> None:
+@pytest.mark.usefixtures("corpus")
+def test_purge_deleted_reports_how_many_collections_it_cleaned() -> None:
     result = invoke("purge-deleted")
     assert result.exit_code == 0, result.output
     assert "purged 0 deleted collections" in result.output

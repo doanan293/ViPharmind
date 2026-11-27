@@ -308,7 +308,7 @@ def small_bundle_embeddings(model: str, dims: int) -> dict[str, list[float]]:
     return read_bundle_embeddings(FIXTURE_DIR, small_bundle().manifest, model, dims)
 
 
-def no_bundle_embeddings(model: str, dims: int) -> dict[str, list[float]]:
+def no_bundle_embeddings(_model: str, _dims: int) -> dict[str, list[float]]:
     """A bundle that ships no vectors for any model."""
     return {}
 

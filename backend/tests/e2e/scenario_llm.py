@@ -7,7 +7,7 @@
 
 import asyncio
 from collections.abc import Sequence
-from typing import TypeVar
+from typing import TypeVar, override
 
 from pydantic import BaseModel
 
@@ -38,6 +38,7 @@ class ScenarioLlm(FakeLlm):
         self.stream_text = GROUNDED_ANSWER
         self._hang_seconds = hang_seconds
 
+    @override
     async def structured(
         self, role: LlmRole, messages: Sequence[ChatMessage], schema: type[T]
     ) -> tuple[T, LlmUsage]:

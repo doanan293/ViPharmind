@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Collection, Sequence
+from typing import override
 
 from pharma_agent.application.conversation.service import ConversationService
 from pharma_agent.domain.agent.run import AnswerMode, AnswerPlan
@@ -24,6 +25,7 @@ class CountingFeedback(InMemoryFeedbackRepository):
         super().__init__()
         self.lookups: list[list[str]] = []
 
+    @override
     async def for_messages(
         self, user_id: str, message_ids: Sequence[str]
     ) -> dict[str, Feedback]:
@@ -36,6 +38,7 @@ class CountingCitations(InMemoryCitationReader):
         super().__init__(*current_release_ids)
         self.lookups: list[set[uuid.UUID]] = []
 
+    @override
     async def current_release_ids(
         self, release_ids: Collection[uuid.UUID]
     ) -> set[uuid.UUID]:

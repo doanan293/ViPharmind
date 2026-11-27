@@ -90,6 +90,7 @@ async def platform(
     migrated_dsn: str, qdrant_url: str, qdrant_client: AsyncQdrantClient
 ) -> AsyncIterator[Platform]:
     """Empty corpus schema and Qdrant (`qdrant_client` wipes every collection)."""
+    assert not (await qdrant_client.get_collections()).collections
     database = Database(migrated_dsn, pool_size=1)
     await reset_corpus(database)
     await database.dispose()

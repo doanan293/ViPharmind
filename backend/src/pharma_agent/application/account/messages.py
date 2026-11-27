@@ -77,7 +77,7 @@ def code_email(purpose: OtpPurpose, code: str, locale: Locale) -> EmailContent:
     )
 
 
-def code_sms(purpose: OtpPurpose, code: str, locale: Locale) -> str:
+def code_sms(code: str, locale: Locale) -> str:
     """Build the SMS text that sends a one-time code, without diacritics."""
     return _SMS[locale].format(code=code, minutes=TTL_MINUTES)
 

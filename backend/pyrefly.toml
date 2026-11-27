@@ -1,6 +1,6 @@
 project-includes = ["src", "tests"]
 project-excludes = ["**/.venv/**", "**/__pycache__/**", "**/*.pyc"]
-search-path = ["src", "."]
+search-path = ["src", ".", "typings"]
 python-version = "3.12"
 ignore-errors-in-generated-code = true
 
@@ -8,10 +8,8 @@ ignore-errors-in-generated-code = true
 # workarounds for upstream bugs expire on their own.
 [errors]
 unused-ignore = true
-
-[[sub-config]]
-matches = "**/tests/**"
-
-[sub-config.errors]
-implicit-any = false
-missing-override-decorator = false
+# Every signature, lambda, container and type argument is typed; overrides are marked.
+implicit-any = "error"
+missing-override-decorator = "error"
+unannotated-parameter = "error"
+unannotated-return = "error"

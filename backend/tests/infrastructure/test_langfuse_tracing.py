@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Generator, Sequence
+from typing import override
 from uuid import uuid4
 
 import httpx
@@ -16,7 +17,7 @@ from pharma_agent.domain.agent.budget import BudgetLimits
 from pharma_agent.domain.agent.schemas import JudgeDecision, JudgeOutcome
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.retrieval.models import Hit
-from pharma_agent.domain.retrieval.ports import RetrievalError
+from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError
 from pharma_agent.infrastructure.observability.langfuse_retrieval import (
     RERANK_OBSERVATION_NAME,
     LangfuseTracedReranker,
@@ -160,7 +161,8 @@ async def test_rerank_is_a_retriever_observation_inside_the_turn_trace(
     client.shutdown()
 
 
-class DownReranker:
+class DownReranker(Reranker):
+    @override
     async def rerank(self, query: str, hits: Sequence[Hit], top_n: int) -> list[Hit]:
         raise RetrievalError("rerank down")
 

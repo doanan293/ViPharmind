@@ -444,7 +444,7 @@ def write_bundle_embeddings(
         try:
             listed, dims = _write_embedding_lines(temporary, where, vectors)
             (directory / EMBEDDINGS_DIR).mkdir(exist_ok=True)
-            os.replace(temporary, directory / name)
+            temporary.replace(directory / name)
         finally:
             temporary.unlink(missing_ok=True)
 
@@ -501,7 +501,7 @@ def _write_manifest(directory: Path, manifest: BundleManifest) -> None:
     """Replace the manifest atomically so a reader never sees a partial file."""
     temporary = directory / f".{MANIFEST_FILE}.tmp"
     temporary.write_text(manifest.model_dump_json(indent=2) + "\n", encoding="utf-8")
-    os.replace(temporary, directory / MANIFEST_FILE)
+    temporary.replace(directory / MANIFEST_FILE)
 
 
 def _write_embedding_lines(

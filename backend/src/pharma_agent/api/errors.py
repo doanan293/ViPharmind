@@ -122,8 +122,10 @@ def _code_and_detail(exc: HTTPException) -> tuple[str, str | None]:
     return fallback, None
 
 
-async def application_error_handler(request: Request, exc: Exception) -> Response:
+async def application_error_handler(_request: Request, exc: Exception) -> Response:
     """Map an `ApplicationError` to its HTTP status and stable `code`.
+
+    Starlette calls exception handlers with `(request, exc)`; the request is unused.
 
     Statuses come from `STATUS_BY_ERROR` (400 when none matches); `RateLimited` also
     sets `Retry-After` in whole seconds.
@@ -141,7 +143,7 @@ async def application_error_handler(request: Request, exc: Exception) -> Respons
     return problem_response(status, exc.code, detail=str(exc), headers=headers)
 
 
-async def http_exception_handler(request: Request, exc: Exception) -> Response:
+async def http_exception_handler(_request: Request, exc: Exception) -> Response:
     """Render an `HTTPException` as a problem, keeping its status and headers."""
     if not isinstance(exc, HTTPException):
         raise exc
@@ -149,7 +151,7 @@ async def http_exception_handler(request: Request, exc: Exception) -> Response:
     return problem_response(exc.status_code, code, detail=detail, headers=exc.headers)
 
 
-async def validation_error_handler(request: Request, exc: Exception) -> Response:
+async def validation_error_handler(_request: Request, exc: Exception) -> Response:
     """Render request validation errors as a 422 `VALIDATION_ERROR` problem listing each field."""
     if not isinstance(exc, RequestValidationError):
         raise exc
@@ -162,8 +164,12 @@ async def validation_error_handler(request: Request, exc: Exception) -> Response
     return problem_response(422, VALIDATION_ERROR, errors=errors)
 
 
-async def unhandled_error_handler(request: Request, exc: Exception) -> Response:
-    """Answer any other exception with a bare 500 `INTERNAL_ERROR` problem."""
+async def unhandled_error_handler(_request: Request, _exc: Exception) -> Response:
+    """Answer any other exception with a bare 500 `INTERNAL_ERROR` problem.
+
+    Starlette calls every exception handler with `(request, exc)`; this one uses
+    neither, hence the underscore names.
+    """
     # Never echo the exception text: it may contain internals. Starlette re-raises
     # the exception after this response so the server still logs the traceback.
     return problem_response(500, INTERNAL_ERROR)

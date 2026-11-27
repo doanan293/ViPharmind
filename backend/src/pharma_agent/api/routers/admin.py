@@ -172,12 +172,16 @@ def _add_conversation_routes(
         router: The `/admin` router the handlers are registered on.
         current_superadmin: Dependency that resolves the superadmin actor.
     """
-    Admin = Annotated[Actor, Depends(current_superadmin)]
+    # Superadmin only; the handlers do not need the actor itself.
+    superadmin_only = [Depends(current_superadmin)]
 
-    @router.get("/users/{user_id}/conversations", name="admin:users.conversations")
+    @router.get(
+        "/users/{user_id}/conversations",
+        name="admin:users.conversations",
+        dependencies=superadmin_only,
+    )
     async def user_conversations(
         user_id: uuid.UUID,
-        actor: Admin,
         container: ContainerDep,
         limit: PageSize = 20,
         cursor: Cursor = None,
@@ -190,11 +194,11 @@ def _add_conversation_routes(
     @router.get(
         "/users/{user_id}/conversations/{conversation_id}/messages",
         name="admin:conversations.messages",
+        dependencies=superadmin_only,
     )
     async def conversation_messages(
         user_id: uuid.UUID,
         conversation_id: ConversationId,
-        actor: Admin,
         container: ContainerDep,
         limit: PageSize = 30,
         cursor: Cursor = None,

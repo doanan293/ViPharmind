@@ -3,6 +3,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import timedelta
+from typing import override
 
 import pytest
 
@@ -37,6 +38,7 @@ STALE_AFTER = timedelta(seconds=330)
 
 
 class BrokenEmbedder(FakeEmbedder):
+    @override
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
         raise RetrievalError("embedding endpoint unavailable")
 
@@ -218,6 +220,7 @@ async def test_a_job_no_runner_finished_stops_blocking_after_it_goes_stale() -> 
 
 
 class FailingDispatcher(RecordingDispatcher):
+    @override
     async def enqueue(self, job_id: uuid.UUID) -> None:
         raise RuntimeError("job queue unavailable")
 
@@ -229,6 +232,7 @@ class RunningDispatcher(RecordingDispatcher):
         super().__init__()
         self._service = service
 
+    @override
     async def enqueue(self, job_id: uuid.UUID) -> None:
         await super().enqueue(job_id)
         await self._service.run(job_id)

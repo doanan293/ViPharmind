@@ -12,6 +12,7 @@ from pharma_agent.domain.agent.prompts import (
     rephrase_messages,
 )
 from pharma_agent.domain.agent.run import (
+    AgentRun,
     AnswerMode,
     AnswerPlan,
     RunStatus,
@@ -130,7 +131,7 @@ def test_prompts_describe_the_leaflet_corpus_by_content() -> None:
     assert "an khang" not in all_prompt_text().casefold()
 
 
-def _grounded_prompt(run) -> str:
+def _grounded_prompt(run: AgentRun) -> str:
     return "\n".join(
         m.content
         for m in answer_messages(run, AnswerPlan(mode=AnswerMode.GROUNDED), "[1] x")

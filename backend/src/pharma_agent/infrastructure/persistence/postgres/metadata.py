@@ -12,10 +12,11 @@ target_metadata = tables.Base.metadata
 MANAGED_SCHEMAS = frozenset({corpus_tables.CORPUS_SCHEMA})
 
 
-def include_name(name: str | None, type_: str, parent_names: object) -> bool:
+def include_name(name: str | None, type_: str, _parent_names: object) -> bool:
     """Alembic `include_name` hook.
 
-    Only the default schema and `corpus` are compared.
+    Only the default schema and `corpus` are compared. Alembic passes the parent names
+    positionally; this filter does not need them.
     """
     if type_ == "schema":
         return name is None or name in MANAGED_SCHEMAS

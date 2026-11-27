@@ -1,7 +1,5 @@
 """Adapters injected into the composition root replace the ones built from settings."""
 
-from pathlib import Path
-
 import pytest
 
 from pharma_agent.infrastructure.composition import build_application
@@ -55,7 +53,7 @@ async def test_build_application_uses_the_injected_agent_model(
 
 @pytest.mark.integration
 async def test_injected_llm_builds_the_agent_without_an_api_key(
-    migrated_dsn: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    migrated_dsn: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _without_llm_or_langfuse(monkeypatch)
     settings = Settings(

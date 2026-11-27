@@ -201,7 +201,7 @@ class AccountAdmin(Protocol):
         ...
 
     async def set_active(
-        self, user_id: uuid.UUID, active: bool, tx: Transaction
+        self, user_id: uuid.UUID, *, active: bool, tx: Transaction
     ) -> None:
         """Enable or disable the account."""
         ...

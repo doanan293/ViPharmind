@@ -450,7 +450,7 @@ def test_section_keys_ordinals_blocks_and_pages_are_validated(tmp_path: Path) ->
         "end_page": 1205,
         "blocks": [{"kind": "prose", "markdown": "   ", "start_page": 0}],
     }
-    orphan = {
+    orphan: dict[str, object] = {
         **first,
         "key": "drug:ibuprofen:chi-dinh",
         "document_key": "drug:ibuprofen",

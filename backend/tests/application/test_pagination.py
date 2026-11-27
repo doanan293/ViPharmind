@@ -50,7 +50,7 @@ def test_decode_accepts_padding_and_hyphenated_uuid() -> None:
 
 def test_encode_rejects_naive_timestamps() -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
-        encode_cursor(datetime(2026, 9, 13, 8, 12), ROW_ID)
+        encode_cursor(AT.replace(tzinfo=None), ROW_ID)
 
 
 @pytest.mark.parametrize(

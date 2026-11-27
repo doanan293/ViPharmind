@@ -36,7 +36,7 @@ from tests.fakes import (
 QUESTION = "Paracetamol người lớn uống tối đa bao nhiêu?"
 
 
-def llm_with_guard(attack: bool = False) -> FakeLlm:
+def llm_with_guard(*, attack: bool = False) -> FakeLlm:
     llm = FakeLlm()
     llm.script(
         LlmRole.GUARDRAIL,

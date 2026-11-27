@@ -13,10 +13,11 @@ from pharma_agent.domain.agent.react import (
 )
 from pharma_agent.domain.conversation.models import ConversationContext, Turn
 from pharma_agent.domain.llm.models import ChatRole
+from pharma_agent.domain.retrieval.models import Hit
 from tests.domain.factories import chunk_uuid, make_hit
 
 
-def hit(label: str, text: str = "Liều 500 mg."):
+def hit(label: str, text: str = "Liều 500 mg.") -> Hit:
     return make_hit(label, text=text)
 
 
