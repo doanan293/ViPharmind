@@ -141,6 +141,9 @@ describe("new conversation failures", () => {
   })
 })
 
+/** Part of the scripted answer's text: seeing it means the chat stream has finished. */
+const STREAMED_ANSWER = /tối đa 4 g mỗi ngày/
+
 describe("new conversation with the generated handler", () => {
   test("works with the generated create handler and the Enter key", async () => {
     worker.use(
@@ -174,8 +177,10 @@ describe("new conversation with the generated handler", () => {
     await expect
       .element(page.getByTestId("location"))
       .toMatchTextContent(/^\/chat\/c-generated$/)
-    // Wait for the sources picker's request so it does not outlive the test.
+    // Wait for the sources picker's request and the streamed answer so neither outlives the
+    // test (a late chat request failed the next test on CI).
     await expect.poll(() => scopeLoads).toBe(1)
+    await expect.element(page.getByText(STREAMED_ANSWER)).toBeVisible()
   })
 })
 
