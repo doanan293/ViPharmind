@@ -6,15 +6,17 @@
 
 **Architecture:** Tools and checks first (versions, oxlint config, a JSDoc presence test, coverage), so the work to do is measured by failing checks; then parallel agents fix findings per feature area; guide, AGENTS.md and template last.
 
-**Tech Stack:** React Router 7, TypeScript 7.0.2, oxlint 1.95.0, vitest 5.1.2 (+ browser, coverage-v8), prettier 3.10.1, shadcn.
+**Tech Stack:** React Router 7, TypeScript 7.0.2, Biome 2.6.9 (lint + format, replacing oxlint and prettier), vitest 5.1.2 (+ browser, coverage-v8), shadcn.
 
 **Spec:** `docs/superpowers/specs/2026-11-27-frontend-standard-and-reuse-design.md`
 
 ## Global Constraints
 
 - "popular": about ≥ 5,000 GitHub stars or ≥ 100,000 weekly downloads, a release in the last 12 months, a compatible licence.
-- oxlint categories `correctness`, `suspicious`, `pedantic`, `perf` = error; `complexity` ≤ 10; `max-lines-per-function` ≤ 60 (skip blank lines and comments); `max-depth` ≤ 4; `max-params` ≤ 4.
-- `react/forbid-elements` in `app/features/**` and `app/routes/**`: `button`, `input`, `select`, `textarea`, `dialog`, `table`, `label`, `form`.
+- Biome 2.6.9 for lint and format (`frontend/biome.json`); oxlint, oxlint-tsgolint, prettier, prettier-plugin-tailwindcss and their config files removed.
+- Formatter = current prettier style: no semicolons, double quotes, 2 spaces, trailing commas es5, width 80, LF; class order by `useSortedClasses` with functions `cn`, `cva`.
+- Linter: `recommended` + `a11y`; `noExcessiveCognitiveComplexity` ≤ 10; `noExcessiveLinesPerFunction` ≤ 60; `useMaxParams` ≤ 4; `noMagicNumbers`; `noImportCycles`; `useHookAtTopLevel`; `useExhaustiveDependencies`; `noFloatingPromises`; `noMisusedPromises`; feature boundaries as `noRestrictedImports` overrides (same table as today).
+- `noRestrictedElements` in `app/features/**` and `app/routes/**`: `button`, `input`, `select`, `textarea`, `dialog`, `table`, `label`, `form`.
 - JSDoc on every exported component, hook, function, class and type outside `app/api/gen/**` and `app/components/ui/**`, saying something the name doesn't.
 - Coverage ≥ 80% (`npm run test:coverage`).
 - No suppressions (`oxlint-disable`, `@ts-ignore`, `@ts-expect-error`, `any`), no change to UI behaviour, routes, API or `frontend/openapi.json`.
@@ -27,19 +29,23 @@
 - Replacing a raw `<button>`/`<form>` with shadcn keeps keyboard and screen-reader behaviour: jsx-a11y rules stay errors and the browser tests that click those controls pass.
 - Splitting long components keeps hooks rules valid: `react/rules-of-hooks` and `react/exhaustive-deps` stay errors.
 - The generated client and OpenAPI document are untouched: `npm run api:check` passes and `git diff --stat frontend/app/api/gen frontend/openapi.json` is empty.
-- A rule from `pedantic` that contradicts React or the settled conventions is turned off only with a one-line reason in `.oxlintrc.json` (e.g. `react/react-in-jsx-scope`, already off).
+- The feature import table survives the move: `app/architecture.test.ts` reads `biome.json` and still fails when the lint overrides and its table disagree.
+- Formatting churn stays small: after `biome format --write`, `git diff --stat` is dominated by class-order changes, not quote/semicolon flips (check the formatter options if not).
 
 ---
 
-### Task 1: Tool versions and the strict oxlint config
+### Task 1: Biome replaces oxlint and prettier; vitest 5.1.2
 
 **Files:**
-- Modify: `frontend/package.json`, `frontend/package-lock.json`, `frontend/.oxlintrc.json`
+- Create: `frontend/biome.json`
+- Delete: `frontend/.oxlintrc.json`, `frontend/.prettierrc`, `frontend/.prettierignore`
+- Modify: `frontend/package.json` (+ lock: add `@biomejs/biome` 2.6.9; remove oxlint, oxlint-tsgolint, prettier, prettier-plugin-tailwindcss; vitest and `@vitest/*` 5.1.2; scripts `lint` = `biome lint .`, `format` = `biome format .`, `format:write` = `biome format --write .`, `check` = `biome check .`), `frontend/app/architecture.test.ts` (read the boundary overrides from `biome.json`), `.pre-commit-config.yaml` (frontend lint/format hooks call `npm --prefix frontend run lint` / `format`), `.github/workflows/ci.yml` (step names and commands), `frontend/README.md` (tool names)
 
-- [ ] **Step 1:** Pin `oxlint` 1.95.0, `vitest` and every `@vitest/*` 5.1.2, `prettier` 3.10.1; `npm install`; `npm run typecheck`, `npm run format`, `npx vitest run` still pass.
-- [ ] **Step 2:** In `.oxlintrc.json` add categories `pedantic` and `perf` as `error`, the four size rules with the values above, and an override for `app/features/**`, `app/routes/**` with `react/forbid-elements` listing the eight elements, each with message "use the shadcn component from ~/components/ui". Keep every existing rule and override.
-- [ ] **Step 3:** Run `npm run lint`; save the finding counts by rule to the task report. Turn off a rule only if it contradicts React or a convention written in `frontend/README.md`, with a `//`-style reason in a sibling `"$comment"` key.
-- [ ] **Step 4:** Commit `chore(frontend): oxlint 1.95 strict config, vitest 5.1.2, prettier 3.10.1` (lint findings remain; fixed in Task 4).
+- [ ] **Step 1:** Write `biome.json` with the Global Constraints values; `files.includes` excludes `node_modules`, `build`, `.react-router`, `app/api/gen`, `tests/public/mockServiceWorker.js` (today's ignore list).
+- [ ] **Step 2:** Port each `.oxlintrc.json` override to a `noRestrictedImports` override with the same globs, patterns and messages; switch the boundary test to read `biome.json`; `npx vitest run app/architecture.test.ts` passes.
+- [ ] **Step 3:** `npx biome format --write .`; check the churn per Review Focus; `npm run typecheck` and `npx vitest run` pass.
+- [ ] **Step 4:** `npm run lint`: record finding counts by rule in the ledger (fixed in Task 4).
+- [ ] **Step 5:** Commit `chore(frontend): Biome replaces oxlint and prettier; vitest 5.1.2`.
 
 ### Task 2: JSDoc presence check
 
@@ -67,9 +73,9 @@
 
 Areas: `app/features/chat`, `app/features/{collections,conversations}`, `app/features/{admin,organizations,audit,settings,auth}`, everything else in `app/` (`routes`, `components` except `ui`, `hooks`, `lib`, `i18n`, `api` except `gen`, remaining features) and `tests/`.
 
-- [ ] **Step 1:** Each agent fixes every oxlint finding and missing JSDoc in its area by improving the code (split components/functions, extract hooks, shadcn components for raw elements, named constants); no suppressions.
-- [ ] **Step 2:** Per area: `npx oxlint --type-aware <area>`, `npm run typecheck`, `npx vitest run <area>` pass.
-- [ ] **Step 3:** After all areas: `npm run lint`, `npm run typecheck`, `npm run format`, `npx vitest run`, `npm run api:check` pass; `git diff --stat app/api/gen openapi.json` empty.
+- [ ] **Step 1:** Each agent fixes every Biome finding and missing JSDoc in its area by improving the code (split components/functions, extract hooks, shadcn components for raw elements, named constants); no suppressions.
+- [ ] **Step 2:** Per area: `npx biome check <area>`, `npm run typecheck`, `npx vitest run <area>` pass.
+- [ ] **Step 3:** After all areas: `npm run check`, `npm run typecheck`, `npx vitest run`, `npm run api:check` pass; `git diff --stat app/api/gen openapi.json` empty.
 - [ ] **Step 4:** Commit `refactor(frontend): meet the strict lint rules and document every export`.
 
 ### Task 5: Coverage to ≥ 80%

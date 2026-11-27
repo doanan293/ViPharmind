@@ -17,22 +17,34 @@ part of ViPharmind and of the owner's `python-project-template`.
      language or framework's own feature → a popular library → write it yourself;
    - "popular": about ≥ 5,000 GitHub stars or ≥ 100,000 weekly downloads, a release in the
      last 12 months, a compatible licence; below that, don't add it;
-   - enforced in the frontend by `react/forbid-elements`: no raw `button`, `input`, `select`,
+   - enforced in the frontend by Biome `noRestrictedElements`: no raw `button`, `input`, `select`,
      `textarea`, `dialog`, `table`, `label`, `form` in `app/features/` and `app/routes/` when
      a shadcn component exists; elsewhere by the code reviewer (rubric item "reuse").
 2. **Frontend standard**:
    - JSDoc on every exported component, hook, function, class and type that says something
      the name doesn't (Google TypeScript style); enforced by a test in the style of
-     `app/architecture.test.ts` (oxlint has no presence rule). Generated (`app/api/gen`) and
+     `app/architecture.test.ts` (Biome has no presence rule). Generated (`app/api/gen`) and
      registry-copied shadcn files (`app/components/ui`) are third-party code, outside the rule,
      like generated code everywhere else.
-   - oxlint: categories `correctness`, `suspicious`, `pedantic`, `perf` as errors;
-     `complexity` ≤ 10, `max-lines-per-function` ≤ 60 (blank lines and comments not counted),
-     `max-depth` ≤ 4, `max-params` ≤ 4. Rules that contradict the codebase's settled
-     conventions or React itself are decided per rule with a reason in `.oxlintrc.json`.
+   - **Biome replaces oxlint and prettier** (owner, 2026-11-27: one tool, one config,
+     `frontend/biome.json`), latest stable 2.6.9, for both lint and format:
+     - formatter set to the current prettier style (no semicolons, double quotes, 2 spaces,
+       trailing commas es5, width 80, LF), so reformatting is minimal; Tailwind class order
+       moves from `prettier-plugin-tailwindcss` to `useSortedClasses` (functions `cn`, `cva`);
+     - linter: the `recommended` set plus `a11y`; feature import boundaries and the shared-code
+       rule move from `.oxlintrc.json` overrides to `noRestrictedImports` overrides (same table,
+       and `app/architecture.test.ts` checks `biome.json` instead); `noImportCycles`;
+       `useHookAtTopLevel`, `useExhaustiveDependencies`; `noExcessiveCognitiveComplexity` ≤ 10,
+       `noExcessiveLinesPerFunction` ≤ 60, `useMaxParams` ≤ 4, `noMagicNumbers`;
+       `noRestrictedElements` (above);
+     - type-aware promise rules `noFloatingPromises`, `noMisusedPromises` are enabled although
+       Biome still lists them as nursery: un-awaited promises are a common AI mistake;
+     - oxlint, oxlint-tsgolint, prettier, prettier-plugin-tailwindcss, `.oxlintrc.json`,
+       `.prettierrc`, `.prettierignore` are removed; `npm run lint` / `format` / `format:write`,
+       the pre-commit hooks and the CI steps call Biome.
    - Coverage ≥ 80% with `@vitest/coverage-v8` (`npm run test:coverage`).
-   - Latest stable tools: oxlint 1.95.0, vitest / @vitest/* 5.1.2, prettier 3.10.1
-     (TypeScript 7.0.2 already latest).
+   - Latest stable tools: Biome 2.6.9, vitest / @vitest/* 5.1.2 (TypeScript 7.0.2 already
+     latest).
 3. **AGENTS.md stays short**: one line pointing to the guide plus the few rules an agent must
    never miss; details live only in the guide.
 4. **Template sync**: the same reuse rule, the same AGENTS.md shape; the template is Python
@@ -50,12 +62,13 @@ part of ViPharmind and of the owner's `python-project-template`.
 
 ## Approach
 
-One sensible way: tools first (versions, config, the JSDoc and forbid-elements checks), then
+One sensible way: tools first (Biome replacing oxlint and prettier, the JSDoc check), then
 agents fix the findings per area in parallel, then coverage. Alternatives (only a guide rule
-without tooling; or a separate ESLint for `jsdoc/require-jsdoc`) were dropped: the first
-isn't enforced, the second adds a second linter next to oxlint.
+without tooling; or ESLint for `jsdoc/require-jsdoc`) were dropped: the first isn't enforced,
+the second adds a second linter. Keeping oxlint + prettier was dropped by the owner in favour of
+one tool (Biome); what it costs: oxlint's type-aware rules beyond the two promise rules.
 
 ## Left to the builder
 
-The exact list of pedantic/perf rules kept or turned off (each with a reason), the split of
+The Biome rules beyond those named here (each turned off only with a reason), the split of
 the work between agents, and the tests added for coverage.
