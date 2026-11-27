@@ -1,11 +1,14 @@
+import logging
+
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Database:
@@ -21,11 +24,13 @@ class Database:
         )
 
     async def ping(self) -> bool:
-        """Whether a `SELECT 1` succeeds; a database or connection error counts as False."""
+        """Whether a `SELECT 1` succeeds; any failure counts as False (it feeds /health)."""
         try:
             async with self.engine.connect() as connection:
                 await connection.execute(text("SELECT 1"))
-        except (SQLAlchemyError, OSError):
+        # A health probe: every failure means "not healthy", never a 500.
+        except Exception:
+            logger.debug("database ping failed", exc_info=True)
             return False
         return True
 

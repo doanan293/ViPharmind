@@ -4,6 +4,7 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
+import Cookies from "js-cookie"
 import { PanelLeftIcon } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
@@ -24,30 +25,21 @@ import {
   TooltipTrigger,
 } from "~/components/ui/tooltip"
 import { useIsMobile } from "~/hooks/use-mobile"
-import { MILLISECONDS_PER_SECOND, SECONDS_PER_DAY } from "~/lib/time"
+import { SECONDS_PER_DAY } from "~/lib/time"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_DAYS = 7
-const SIDEBAR_COOKIE_MAX_AGE = SECONDS_PER_DAY * SIDEBAR_COOKIE_DAYS
+const _SIDEBAR_COOKIE_MAX_AGE = SECONDS_PER_DAY * SIDEBAR_COOKIE_DAYS
 const SKELETON_MIN_WIDTH_PERCENT = 50
 const SKELETON_WIDTH_RANGE_PERCENT = 40
 type CssVariables = Record<`--${string}`, string>
 
-/** Keeps the sidebar state in a cookie; a browser without the Cookie Store API skips it. */
+/** Keeps the sidebar state in a cookie so server rendering can restore it. */
 function persistSidebarState(open: boolean): void {
-  if (!("cookieStore" in window)) {
-    return
-  }
-  window.cookieStore
-    .set({
-      name: SIDEBAR_COOKIE_NAME,
-      value: String(open),
-      path: "/",
-      expires: Date.now() + SIDEBAR_COOKIE_MAX_AGE * MILLISECONDS_PER_SECOND,
-    })
-    .catch(() => {
-      // The cookie only remembers the state; failing to write it changes nothing on screen.
-    })
+  Cookies.set(SIDEBAR_COOKIE_NAME, String(open), {
+    path: "/",
+    expires: SIDEBAR_COOKIE_DAYS,
+  })
 }
 
 const SIDEBAR_WIDTH = "16rem"
