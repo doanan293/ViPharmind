@@ -90,7 +90,7 @@ class JobRunLock:
                 str(payload["boot_id"]),
                 str(payload["process_start_ticks"]),
             )
-        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+        except (OSError, ValueError, KeyError, TypeError):
             return True
         return identity.is_alive()
 

@@ -338,7 +338,7 @@ class RuntimeProfileStore:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
             profile = RuntimeProfile.from_dict(payload)
-        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        except (OSError, TypeError, ValueError):
             return None
         if profile.identity != identity:
             return None

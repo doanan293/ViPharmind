@@ -59,14 +59,14 @@ repos:
   - repo: local
     hooks:
       - id: frontend-lint
-        name: oxlint --type-aware (frontend)
+        name: biome lint (frontend)
         entry: npm --prefix frontend run lint
         language: system
         files: ^frontend/.*\.(ts|tsx|js|mjs|json)$
         pass_filenames: false
         require_serial: true
       - id: frontend-format
-        name: prettier --check (frontend)
+        name: biome format (frontend)
         entry: npm --prefix frontend run format
         language: system
         files: ^frontend/
