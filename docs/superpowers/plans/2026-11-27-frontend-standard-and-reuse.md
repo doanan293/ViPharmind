@@ -15,7 +15,7 @@
 - "popular": about ≥ 5,000 GitHub stars or ≥ 100,000 weekly downloads, a release in the last 12 months, a compatible licence.
 - Biome 2.6.9 for lint and format (`frontend/biome.json`); oxlint, oxlint-tsgolint, prettier, prettier-plugin-tailwindcss and their config files removed.
 - Formatter = current prettier style: no semicolons, double quotes, 2 spaces, trailing commas es5, width 80, LF; class order by `useSortedClasses` with functions `cn`, `cva`.
-- Linter: `recommended` + `a11y`; `noExcessiveCognitiveComplexity` ≤ 10; `noExcessiveLinesPerFunction` ≤ 60; `useMaxParams` ≤ 4; `noMagicNumbers`; `noImportCycles`; `useHookAtTopLevel`; `useExhaustiveDependencies`; `noFloatingPromises`; `noMisusedPromises`; feature boundaries as `noRestrictedImports` overrides (same table as today).
+- Linter: `recommended` + `a11y`; `noExcessiveCognitiveComplexity` ≤ 10; `noExcessiveLinesPerFunction` ≤ 60; `useMaxParams` ≤ 4; `noMagicNumbers`; `noImportCycles`; `useHookAtTopLevel`; `useExhaustiveDependencies`; type-aware: `noFloatingPromises`, `noMisusedPromises`, `useAwaitThenable`, `noUnnecessaryConditions`, `useArraySortCompare`, `useExhaustiveSwitchCases`, `noBaseToString`, `noMisusedSpread`, `noUnsafeUnaryMinus`; `noExplicitAny`, `noNonNullAssertion`; feature boundaries as `noRestrictedImports` overrides (same table as today).
 - `noRestrictedElements` in `app/features/**` and `app/routes/**`: `button`, `input`, `select`, `textarea`, `dialog`, `table`, `label`, `form`.
 - JSDoc on every exported component, hook, function, class and type outside `app/api/gen/**` and `app/components/ui/**`, saying something the name doesn't.
 - Coverage ≥ 80% (`npm run test:coverage`).

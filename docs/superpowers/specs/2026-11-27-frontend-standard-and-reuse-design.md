@@ -37,8 +37,11 @@ part of ViPharmind and of the owner's `python-project-template`.
        `useHookAtTopLevel`, `useExhaustiveDependencies`; `noExcessiveCognitiveComplexity` ≤ 10,
        `noExcessiveLinesPerFunction` ≤ 60, `useMaxParams` ≤ 4, `noMagicNumbers`;
        `noRestrictedElements` (above);
-     - type-aware promise rules `noFloatingPromises`, `noMisusedPromises` are enabled although
-       Biome still lists them as nursery: un-awaited promises are a common AI mistake;
+     - Biome's type-aware rules are enabled, nursery ones included (`noFloatingPromises`,
+       `noMisusedPromises`, `useAwaitThenable`, `noUnnecessaryConditions`, `useArraySortCompare`,
+       `useExhaustiveSwitchCases`, `noBaseToString`, `noMisusedSpread`, `noUnsafeUnaryMinus`):
+       they cover most of oxlint's type-aware set; not covered: for-in over arrays, unnecessary
+       type assertions, unbound methods, template-expression types;
      - oxlint, oxlint-tsgolint, prettier, prettier-plugin-tailwindcss, `.oxlintrc.json`,
        `.prettierrc`, `.prettierignore` are removed; `npm run lint` / `format` / `format:write`,
        the pre-commit hooks and the CI steps call Biome.
