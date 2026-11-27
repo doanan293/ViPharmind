@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 from uuid import uuid4
 
 import pytest
+from fastapi import FastAPI
+from httpx import AsyncClient
 from sqlalchemy import func, select
 
 from pharma_agent.api.app import create_app
@@ -46,15 +48,15 @@ from tests.fakes import FakeLlm, FakeRetriever, build_deps
 pytestmark = pytest.mark.integration
 
 
-async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
+def _e2e_app(
+    migrated_dsn: str, llm: FakeLlm, outbox: AppOutbox
+) -> tuple[FastAPI, dict[str, Database]]:
+    """The app over the migrated database, with the scripted LLM and the outbox wired in."""
     settings = Settings(
         _env_file=None,
         auth={"jwt_secret": "s" * 40, "csrf_secret": "c" * 40, "otp_secret": "o" * 40},
         postgres={"dsn": migrated_dsn},
     )
-    llm = FakeLlm()
-    script_turn(llm)
-    outbox = AppOutbox()
     database_holder: dict[str, Database] = {}
 
     @asynccontextmanager
@@ -95,44 +97,58 @@ async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
         finally:
             await database.dispose()
 
-    app = create_app(settings, container_factory=factory)
+    return create_app(settings, container_factory=factory), database_holder
+
+
+async def _register_and_sign_in(
+    client: AsyncClient, outbox: AppOutbox, email: str, password: str
+) -> None:
+    """Anonymous chat is refused; register, verify the email code and sign in."""
+    anonymous = await client.post("/api/v1/chat", json={"message": "hi"})
+    assert anonymous.status_code == 401
+    assert anonymous.headers["content-type"] == "application/problem+json"
+    assert anonymous.json()["code"] == "UNAUTHORIZED"
+    registered = await client.post(
+        "/api/v1/auth/register",
+        json={"email": email, "password": password, "display_name": "An"},
+    )
+    assert registered.status_code == 201, registered.text
+    duplicate = await client.post(
+        "/api/v1/auth/register", json={"email": email, "password": password}
+    )
+    assert duplicate.status_code == 400
+    assert duplicate.json()["code"] == "REGISTER_USER_ALREADY_EXISTS"
+    wrong_password = await client.post(
+        "/api/v1/auth/cookie/login",
+        data={"username": email, "password": "wrong-password"},
+    )
+    assert wrong_password.status_code == 400
+    assert wrong_password.json()["code"] == "LOGIN_BAD_CREDENTIALS"
+    verified = await client.post(
+        "/api/v1/auth/email/verify",
+        json={
+            "email": email,
+            "code": outbox.email.last_code(email),
+            "password": password,
+        },
+    )
+    assert verified.status_code == 204, verified.text
+    client.cookies.clear()
+    login = await client.post(
+        "/api/v1/auth/cookie/login",
+        data={"username": email, "password": password},
+    )
+    assert login.status_code == 204, login.text
+
+
+async def test_register_login_stream_and_persist(migrated_dsn: str) -> None:
+    llm = FakeLlm()
+    script_turn(llm)
+    outbox = AppOutbox()
+    app, database_holder = _e2e_app(migrated_dsn, llm, outbox)
     email, password = f"{uuid4().hex[:10]}@example.com", "S3cure-password!"
     async with running(app) as client:
-        anonymous = await client.post("/api/v1/chat", json={"message": "hi"})
-        assert anonymous.status_code == 401
-        assert anonymous.headers["content-type"] == "application/problem+json"
-        assert anonymous.json()["code"] == "UNAUTHORIZED"
-        registered = await client.post(
-            "/api/v1/auth/register",
-            json={"email": email, "password": password, "display_name": "An"},
-        )
-        assert registered.status_code == 201, registered.text
-        duplicate = await client.post(
-            "/api/v1/auth/register", json={"email": email, "password": password}
-        )
-        assert duplicate.status_code == 400
-        assert duplicate.json()["code"] == "REGISTER_USER_ALREADY_EXISTS"
-        wrong_password = await client.post(
-            "/api/v1/auth/cookie/login",
-            data={"username": email, "password": "wrong-password"},
-        )
-        assert wrong_password.status_code == 400
-        assert wrong_password.json()["code"] == "LOGIN_BAD_CREDENTIALS"
-        verified = await client.post(
-            "/api/v1/auth/email/verify",
-            json={
-                "email": email,
-                "code": outbox.email.last_code(email),
-                "password": password,
-            },
-        )
-        assert verified.status_code == 204, verified.text
-        client.cookies.clear()
-        login = await client.post(
-            "/api/v1/auth/cookie/login",
-            data={"username": email, "password": password},
-        )
-        assert login.status_code == 204, login.text
+        await _register_and_sign_in(client, outbox, email, password)
         me = await client.get("/api/v1/users/me")
         assert me.json()["display_name"] == "An"
         # The first GET set the CSRF cookie that unsafe requests echo in a header.

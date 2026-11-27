@@ -57,12 +57,33 @@ def no_content() -> Response:
 
 
 def build_organizations_router(current_actor: ActorDependency) -> APIRouter:
-    """Routes under `/organizations` for organizations, members, invitations and audit log."""
+    """Routes under `/organizations` for organizations, members, invitations and audit log.
+
+    Args:
+        current_actor: Dependency that resolves the signed-in actor.
+
+    Returns:
+        The router with every organization route registered.
+    """
     router = APIRouter(
         prefix="/organizations",
         tags=["organizations"],
         responses=problem_responses(401, 403, 404, 422),
     )
+    _add_organization_routes(router, current_actor)
+    _add_member_routes(router, current_actor)
+    _add_invitation_routes(router, current_actor)
+    _add_audit_routes(router, current_actor)
+    return router
+
+
+def _add_organization_routes(router: APIRouter, current_actor: ActorDependency) -> None:
+    """Register the organization list, create, read, rename and delete routes on `router`.
+
+    Args:
+        router: The `/organizations` router to add the routes to.
+        current_actor: Dependency that resolves the signed-in actor.
+    """
     CurrentActor = Annotated[Actor, Depends(current_actor)]
 
     @router.get("", name="organizations:list")
@@ -114,6 +135,16 @@ def build_organizations_router(current_actor: ActorDependency) -> APIRouter:
             actor, organization_id, confirm_name=body.confirm_name
         )
         return no_content()
+
+
+def _add_member_routes(router: APIRouter, current_actor: ActorDependency) -> None:
+    """Register the member list, role, removal and leave routes on `router`.
+
+    Args:
+        router: The `/organizations` router to add the routes to.
+        current_actor: Dependency that resolves the signed-in actor.
+    """
+    CurrentActor = Annotated[Actor, Depends(current_actor)]
 
     @router.get("/{organization_id}/members", name="organizations:members.list")
     async def list_members(
@@ -174,6 +205,16 @@ def build_organizations_router(current_actor: ActorDependency) -> APIRouter:
             actor, organization_id
         )
         return no_content()
+
+
+def _add_invitation_routes(router: APIRouter, current_actor: ActorDependency) -> None:
+    """Register the invitation routes on `router`.
+
+    Args:
+        router: The `/organizations` router to add the routes to.
+        current_actor: Dependency that resolves the signed-in actor.
+    """
+    CurrentActor = Annotated[Actor, Depends(current_actor)]
 
     @router.get("/{organization_id}/invitations", name="invitations:list")
     async def list_invitations(
@@ -262,6 +303,16 @@ def build_organizations_router(current_actor: ActorDependency) -> APIRouter:
             actor, organization_id, invitation_id, locale=locale
         )
 
+
+def _add_audit_routes(router: APIRouter, current_actor: ActorDependency) -> None:
+    """Register the organization audit log routes on `router`.
+
+    Args:
+        router: The `/organizations` router to add the routes to.
+        current_actor: Dependency that resolves the signed-in actor.
+    """
+    CurrentActor = Annotated[Actor, Depends(current_actor)]
+
     @router.get("/{organization_id}/audit", name="audit:organization")
     async def organization_audit(
         organization_id: uuid.UUID,
@@ -273,5 +324,3 @@ def build_organizations_router(current_actor: ActorDependency) -> APIRouter:
         return await require_organizations(container).audit.for_organization(
             actor, organization_id, limit=limit, cursor=cursor
         )
-
-    return router

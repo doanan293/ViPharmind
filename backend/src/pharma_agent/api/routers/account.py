@@ -82,16 +82,25 @@ def no_content() -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def build_account_router(
-    current_user_id: UserIdDependency, session_login: Callable[..., Any]
-) -> APIRouter:
-    """Routes for one-time-code flows, the current user's profile, sign-in methods and sessions."""
-    router = APIRouter()
-    UserId = Annotated[str, Depends(current_user_id)]
-    Login = Annotated[SessionLogin, Depends(session_login)]
+def uid(user_id: str) -> uuid.UUID:
+    """Parse a user id string into a UUID.
 
-    def uid(user_id: str) -> uuid.UUID:
-        return uuid.UUID(hex=user_id)
+    Args:
+        user_id: Hex form of the user's UUID.
+
+    Returns:
+        The user id as a UUID.
+    """
+    return uuid.UUID(hex=user_id)
+
+
+def _add_code_routes(router: APIRouter, Login: Any) -> None:
+    """Register the sign-in, verification and reset routes that use one-time codes.
+
+    Args:
+        router: Router the routes are added to.
+        Login: Annotated dependency that signs the user in and returns the response.
+    """
 
     @router.post(
         "/auth/email/verify/request",
@@ -189,6 +198,15 @@ def build_account_router(
         )
         return await login(user_id)
 
+
+def _add_profile_routes(router: APIRouter, UserId: Any) -> None:
+    """Register the routes that read and update the current user's profile.
+
+    Args:
+        router: Router the routes are added to.
+        UserId: Annotated dependency resolving the signed-in user's id.
+    """
+
     @router.get(
         "/users/me",
         name="users:current_user",
@@ -210,6 +228,15 @@ def build_account_router(
         return await require_account(container).update_profile(
             uid(user_id), body.display_name
         )
+
+
+def _add_contact_routes(router: APIRouter, UserId: Any) -> None:
+    """Register the routes that change the account's email address and phone number.
+
+    Args:
+        router: Router the routes are added to.
+        UserId: Annotated dependency resolving the signed-in user's id.
+    """
 
     @router.post(
         "/account/email",
@@ -280,6 +307,15 @@ def build_account_router(
             uid(user_id), body.phone, body.code
         )
 
+
+def _add_security_routes(router: APIRouter, UserId: Any) -> None:
+    """Register the password, linked Google account and session routes.
+
+    Args:
+        router: Router the routes are added to.
+        UserId: Annotated dependency resolving the signed-in user's id.
+    """
+
     @router.put(
         "/account/password",
         status_code=204,
@@ -346,4 +382,16 @@ def build_account_router(
         await require_account(container).revoke_other_sessions(uid(user_id), token)
         return no_content()
 
+
+def build_account_router(
+    current_user_id: UserIdDependency, session_login: Callable[..., Any]
+) -> APIRouter:
+    """Routes for one-time-code flows, the current user's profile, sign-in methods and sessions."""
+    router = APIRouter()
+    UserId = Annotated[str, Depends(current_user_id)]
+    Login = Annotated[SessionLogin, Depends(session_login)]
+    _add_code_routes(router, Login)
+    _add_profile_routes(router, UserId)
+    _add_contact_routes(router, UserId)
+    _add_security_routes(router, UserId)
     return router

@@ -52,6 +52,21 @@ def build_admin_router(current_superadmin: ActorDependency) -> APIRouter:
     router = APIRouter(
         prefix="/admin", tags=["admin"], responses=problem_responses(401, 404, 422)
     )
+    _add_user_routes(router, current_superadmin)
+    _add_organization_routes(router, current_superadmin)
+    _add_corpus_routes(router, current_superadmin)
+    _add_conversation_routes(router, current_superadmin)
+    _add_audit_routes(router, current_superadmin)
+    return router
+
+
+def _add_user_routes(router: APIRouter, current_superadmin: ActorDependency) -> None:
+    """Register the user list and user update routes.
+
+    Args:
+        router: The `/admin` router the handlers are registered on.
+        current_superadmin: Dependency that resolves the superadmin actor.
+    """
     Admin = Annotated[Actor, Depends(current_superadmin)]
 
     @router.get("/users", name="admin:users.list")
@@ -88,6 +103,18 @@ def build_admin_router(current_superadmin: ActorDependency) -> APIRouter:
             )
         return view
 
+
+def _add_organization_routes(
+    router: APIRouter, current_superadmin: ActorDependency
+) -> None:
+    """Register the organization list and quota update routes.
+
+    Args:
+        router: The `/admin` router the handlers are registered on.
+        current_superadmin: Dependency that resolves the superadmin actor.
+    """
+    Admin = Annotated[Actor, Depends(current_superadmin)]
+
     @router.get("/organizations", name="admin:organizations.list")
     async def list_organizations(
         actor: Admin,
@@ -113,6 +140,16 @@ def build_admin_router(current_superadmin: ActorDependency) -> APIRouter:
             collection_quota=body.collection_quota,
         )
 
+
+def _add_corpus_routes(router: APIRouter, current_superadmin: ActorDependency) -> None:
+    """Register the collection overview and ingest job routes.
+
+    Args:
+        router: The `/admin` router the handlers are registered on.
+        current_superadmin: Dependency that resolves the superadmin actor.
+    """
+    Admin = Annotated[Actor, Depends(current_superadmin)]
+
     @router.get("/collections", name="admin:collections.list")
     async def list_collections(
         actor: Admin, container: ContainerDep
@@ -124,6 +161,18 @@ def build_admin_router(current_superadmin: ActorDependency) -> APIRouter:
         actor: Admin, container: ContainerDep, limit: PageSize = 50
     ) -> list[JobView]:
         return await require_publishing(container).recent(actor, limit=limit)
+
+
+def _add_conversation_routes(
+    router: APIRouter, current_superadmin: ActorDependency
+) -> None:
+    """Register the routes that read a user's conversations and messages.
+
+    Args:
+        router: The `/admin` router the handlers are registered on.
+        current_superadmin: Dependency that resolves the superadmin actor.
+    """
+    Admin = Annotated[Actor, Depends(current_superadmin)]
 
     @router.get("/users/{user_id}/conversations", name="admin:users.conversations")
     async def user_conversations(
@@ -154,6 +203,16 @@ def build_admin_router(current_superadmin: ActorDependency) -> APIRouter:
             user_id.hex, conversation_id, limit=limit, cursor=cursor
         )
 
+
+def _add_audit_routes(router: APIRouter, current_superadmin: ActorDependency) -> None:
+    """Register the route that lists the whole audit log.
+
+    Args:
+        router: The `/admin` router the handlers are registered on.
+        current_superadmin: Dependency that resolves the superadmin actor.
+    """
+    Admin = Annotated[Actor, Depends(current_superadmin)]
+
     @router.get("/audit", name="admin:audit")
     async def all_audit(
         actor: Admin,
@@ -164,5 +223,3 @@ def build_admin_router(current_superadmin: ActorDependency) -> APIRouter:
         return await require_organizations(container).audit.everything(
             actor, limit=limit, cursor=cursor
         )
-
-    return router

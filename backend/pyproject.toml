@@ -54,12 +54,8 @@ extend-select = ["C90", "D", "PLR0915"]
 extend-ignore = ["D100", "D104"]
 
 [tool.ruff.lint.per-file-ignores]
-# Test names describe the behaviour, so docstrings are not required in tests; end-to-end
-# scenario tests read top to bottom, so the statement limit does not apply to them either.
-"tests/**" = ["D", "PLR0915"]
-# Router factories: the route handlers nested in build_*_router count toward its complexity;
-# each handler stays short (docs/engineering-guide.md, "Code").
-"src/pharma_agent/api/routers/*.py" = ["C901"]
+# Test names describe the behaviour; docstrings are not required in tests.
+"tests/**" = ["D"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

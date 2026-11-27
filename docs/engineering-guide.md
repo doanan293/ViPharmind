@@ -101,9 +101,7 @@ frontend/app/
   (`send_email`); booleans start with `is_`/`has_`/`can_`; `@property` is a noun;
   modules are nouns (`user_service.py`). TypeScript: components `PascalCase`, hooks `useX`
 - Functions: aim for 15–20 lines; ruff enforces complexity ≤ 10 (`C901`) and
-  ≤ 40 statements (`PLR0915`). Router factories in `api/routers/` are exempt from `C901`
-  because the route handlers nested in them count toward it; each handler stays short. Tests
-  are exempt from docstrings and from `PLR0915` (end-to-end scenarios read top to bottom)
+  ≤ 40 statements (`PLR0915`)
 - Fix lint and type errors in code: no `# noqa`, `# type: ignore`, `# pyrefly: ignore`,
   `@ts-ignore`, and no disabled rules
 

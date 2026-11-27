@@ -28,6 +28,18 @@ def build_documents_router(current_actor: ActorDependency) -> APIRouter:
         tags=["documents"],
         responses=problem_responses(401, 403, 404, 422),
     )
+    _add_document_routes(router, current_actor)
+    _add_vocabulary_routes(router, current_actor)
+    return router
+
+
+def _add_document_routes(router: APIRouter, current_actor: ActorDependency) -> None:
+    """Register the document list, create, upload, get, update and delete routes.
+
+    Args:
+        router: The collection-scoped router the handlers are added to.
+        current_actor: Dependency that resolves the calling actor.
+    """
     CurrentActor = Annotated[Actor, Depends(current_actor)]
 
     @router.get("/documents", name="documents:list")
@@ -103,6 +115,16 @@ def build_documents_router(current_actor: ActorDependency) -> APIRouter:
         )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+
+def _add_vocabulary_routes(router: APIRouter, current_actor: ActorDependency) -> None:
+    """Register the glossary, colloquial-name and section routes.
+
+    Args:
+        router: The collection-scoped router the handlers are added to.
+        current_actor: Dependency that resolves the calling actor.
+    """
+    CurrentActor = Annotated[Actor, Depends(current_actor)]
+
     @router.get("/glossary", name="collections:glossary.get")
     async def get_glossary(
         collection_id: uuid.UUID, actor: CurrentActor, container: ContainerDep
@@ -142,5 +164,3 @@ def build_documents_router(current_actor: ActorDependency) -> APIRouter:
         collection_id: uuid.UUID, actor: CurrentActor, container: ContainerDep
     ) -> list[SectionChoice]:
         return await require_content(container).sections(actor, collection_id)
-
-    return router
