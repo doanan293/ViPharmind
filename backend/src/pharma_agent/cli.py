@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import sys
 import uuid
 from collections.abc import Awaitable, Callable
@@ -17,7 +18,6 @@ from pharma_agent.domain.corpus.bundle import BundleValidationError
 from pharma_agent.domain.corpus.models import ReleaseSummary
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.retrieval.models import Hit, page_label
-from pharma_agent.domain.retrieval.ports import RetrievalError
 from pharma_agent.domain.shared.errors import DomainError
 from pharma_agent.infrastructure.auth.session_cleanup import clean_account_tables
 from pharma_agent.infrastructure.auth.superadmin import (
@@ -37,6 +37,8 @@ from pharma_agent.infrastructure.corpus_factory import (
     open_corpus_services,
 )
 from pharma_agent.infrastructure.settings import Settings
+
+logger = logging.getLogger(__name__)
 
 app = typer.Typer(help="Pharma agent developer CLI", no_args_is_help=True)
 
@@ -175,14 +177,16 @@ async def _check(settings: Settings) -> list[tuple[str, bool, str]]:
                     f"current release for {', '.join(settings.retrieval.collections)}",
                 )
             )
-        except RetrievalError as exc:
+        except Exception as exc:  # a diagnostic: every failure is a line, never a crash
+            logger.debug("check step failed", exc_info=True)
             results.append(("corpus", False, f"CORPUS_NOT_READY: {exc}"))
         try:
             vectors = await retrieval.embedder.embed(["kiểm tra"])
             results.append(
                 ("embedding", True, f"{embedding.model} -> {len(vectors[0])} dims")
             )
-        except RetrievalError as exc:
+        except Exception as exc:  # a diagnostic: every failure is a line, never a crash
+            logger.debug("check step failed", exc_info=True)
             results.append(("embedding", False, str(exc)))
         try:
             ranked = await retrieval.reranker.rerank(
@@ -195,7 +199,8 @@ async def _check(settings: Settings) -> list[tuple[str, bool, str]]:
                     f"{settings.retrieval.rerank.protocol} score {ranked[0].rerank_score}",
                 )
             )
-        except RetrievalError as exc:
+        except Exception as exc:  # a diagnostic: every failure is a line, never a crash
+            logger.debug("check step failed", exc_info=True)
             results.append(("rerank", False, str(exc)))
     finally:
         await retrieval.aclose()

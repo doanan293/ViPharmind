@@ -171,6 +171,47 @@ def test_check_reports_corpus_embedding_and_rerank(
     assert closed == [True]
 
 
+def test_check_reports_unexpected_failures_and_keeps_going(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A diagnostic command: Postgres down (a raw OSError) is a failed line, not a crash."""
+
+    class Retriever:
+        async def verify_corpus(self, *, embedding_model: str, dimension: int) -> None:
+            raise ConnectionRefusedError(
+                111, f"Connection refused ({embedding_model}, {dimension})"
+            )
+
+    class Embedder:
+        async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+            raise OSError(f"embedding server unreachable ({len(texts)} texts)")
+
+    class Reranker:
+        async def rerank(self, query: str, hits: object, top_n: int) -> object:
+            raise RuntimeError(
+                f"reranker returned garbage for {query!r} ({hits}, {top_n})"
+            )
+
+    async def aclose() -> None:
+        return None
+
+    def build_stack(_settings: Settings) -> SimpleNamespace:
+        return SimpleNamespace(
+            retriever=Retriever(),
+            embedder=Embedder(),
+            reranker=Reranker(),
+            aclose=aclose,
+        )
+
+    monkeypatch.setattr(cli, "build_retrieval_service", build_stack)
+    result = CliRunner().invoke(cli.app, ["check"])
+    assert result.exit_code == 1, result.output
+    assert "ERR corpus: CORPUS_NOT_READY:" in result.output
+    assert "Connection refused" in result.output
+    assert "ERR embedding: embedding server unreachable" in result.output
+    assert "ERR rerank: reranker returned garbage" in result.output
+
+
 def test_export_openapi_is_deterministic_and_matches_the_app(tmp_path: Path) -> None:
     nested, flat = tmp_path / "frontend" / "openapi.json", tmp_path / "openapi.json"
     for output in (nested, flat):
