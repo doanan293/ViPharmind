@@ -17,6 +17,7 @@ async def set_superadmin(conninfo: str, email: str, value: bool) -> bool:
 
 
 async def list_superadmins(conninfo: str) -> list[str]:
+    """Emails of every superadmin account, sorted."""
     async with await AsyncConnection.connect(conninfo) as connection:
         cursor = await connection.execute(_LIST)
         return [row[0] for row in await cursor.fetchall()]

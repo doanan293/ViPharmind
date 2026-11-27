@@ -9,18 +9,26 @@ from pharma_agent.domain.retrieval.models import ReleaseScope
 
 
 class PostgresScopeResolver:
-    """Visible collections, narrowed to the conversation's choice, mapped to the
-    current release of each. Leaving an organization or a deletion applies at once."""
+    """Resolves what a user may search, read from Postgres at every turn.
+
+    Visible collections, narrowed to the conversation's choice, mapped to the current
+    release of each. Leaving an organization or a deletion applies at once.
+    """
 
     def __init__(
         self, actors: ActorResolver, collections: CollectionRepository
     ) -> None:
+        """Resolve actors with `actors` and their collections with `collections`."""
         self._actors = actors
         self._collections = collections
 
     async def resolve(
         self, *, user_id: str, requested: Sequence[uuid.UUID] | None
     ) -> ReleaseScope:
+        """The current release of each collection `user_id` may search.
+
+        `requested` narrows the visible collections; None keeps them all.
+        """
         actor = await self._actors.resolve(uuid.UUID(hex=user_id))
         visible = [c.id for c in await self._collections.visible_for(actor)]
         if requested is not None:

@@ -11,16 +11,25 @@ __all__ = ["Actor", "ActorResolver", "Role"]
 
 
 class ActorResolver:
-    """Reads the user's superadmin flag and memberships fresh on every call, so a role
-    change or a removal applies to the very next request."""
+    """Resolves the acting user for a request.
+
+    Reads the user's superadmin flag and memberships fresh on every call, so a role
+    change or a removal applies to the very next request.
+    """
 
     def __init__(
         self, accounts: AccountRepository, organizations: OrganizationRepository
     ) -> None:
+        """Wire the resolver to the account and organization repositories."""
         self._accounts = accounts
         self._organizations = organizations
 
     async def resolve(self, user_id: uuid.UUID) -> Actor:
+        """Build the actor for a user from their current account and memberships.
+
+        Raises:
+            AccountNotFound: If the user does not exist.
+        """
         user = await self._accounts.get(user_id)
         if user is None:
             raise AccountNotFound(str(user_id))

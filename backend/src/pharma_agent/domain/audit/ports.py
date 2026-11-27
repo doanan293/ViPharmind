@@ -9,6 +9,8 @@ type Cursor = tuple[datetime, str]
 
 
 class AuditLog(Protocol):
+    """Append-only store of audit events."""
+
     async def record(self, event: AuditEvent, tx: Transaction) -> None:
         """Append inside `tx`, so the event commits with the change it describes."""
         ...
@@ -25,4 +27,6 @@ class AuditLog(Protocol):
         """Events whose subject is the user."""
         ...
 
-    async def all(self, *, limit: int, cursor: Cursor | None) -> list[AuditEvent]: ...
+    async def all(self, *, limit: int, cursor: Cursor | None) -> list[AuditEvent]:
+        """Every event, newest first, keyset on (occurred_at, id)."""
+        ...

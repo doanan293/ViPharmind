@@ -40,6 +40,8 @@ from pharma_agent.infrastructure.settings import Settings
 
 @dataclass(frozen=True)
 class OrganizationServices:
+    """The organization-related application services built together."""
+
     actors: ActorResolver
     organizations: OrganizationService
     invitations: InvitationService
@@ -54,6 +56,10 @@ def build_organization_services(
     clock: Clock,
     email: EmailSender | None = None,
 ) -> OrganizationServices:
+    """Build the organization services over Postgres.
+
+    `email` replaces the sender built from settings for invitation emails.
+    """
     accounts = PostgresAccountRepository(sessions)
     organizations = PostgresOrganizationRepository(sessions)
     audit = PostgresAuditLog(sessions)

@@ -138,6 +138,7 @@ def openapi_export_settings() -> Settings:
 
 
 def render_openapi(app: FastAPI) -> str:
+    """The app's OpenAPI document as stable JSON: sorted keys, two-space indent, trailing newline."""
     return (
         json.dumps(app.openapi(), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     )

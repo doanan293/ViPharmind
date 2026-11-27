@@ -16,7 +16,10 @@ from pharma_agent.infrastructure.persistence.postgres.tables import OneTimeCodeT
 
 
 class PostgresOneTimeCodeStore:
+    """OneTimeCodeStore over `one_time_codes`; each method runs in its own transaction."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Store codes through sessions from `sessions`."""
         self._sessions = sessions
 
     async def issue(
@@ -29,6 +32,7 @@ class PostgresOneTimeCodeStore:
         expires_at: datetime,
         now: datetime,
     ) -> uuid.UUID:
+        """Store a code and drop every unused code for the same purpose and destination."""
         code_id = uuid.uuid4()
         async with self._sessions.begin() as session:
             await session.execute(
@@ -56,6 +60,7 @@ class PostgresOneTimeCodeStore:
     async def find_active(
         self, purpose: OtpPurpose, destination: str, now: datetime
     ) -> OneTimeCode | None:
+        """The newest unused, unexpired code with fewer than MAX_ATTEMPTS failures."""
         statement = (
             select(OneTimeCodeTable)
             .where(
@@ -83,6 +88,10 @@ class PostgresOneTimeCodeStore:
         )
 
     async def claim_attempt(self, code_id: uuid.UUID) -> bool:
+        """Count one guess before it is compared; False once MAX_ATTEMPTS were claimed.
+
+        A single conditional UPDATE, so parallel guesses cannot exceed the limit.
+        """
         async with self._sessions.begin() as session:
             result = await session.execute(
                 update(OneTimeCodeTable)
@@ -97,6 +106,7 @@ class PostgresOneTimeCodeStore:
             return result.first() is not None
 
     async def consume(self, code_id: uuid.UUID, now: datetime) -> bool:
+        """Mark the code used; False if it was already used (exactly one caller wins)."""
         async with self._sessions.begin() as session:
             result = await session.execute(
                 update(OneTimeCodeTable)
@@ -110,6 +120,7 @@ class PostgresOneTimeCodeStore:
             return result.first() is not None
 
     async def revoke(self, code_id: uuid.UUID, now: datetime) -> None:
+        """Mark the code used if it is not already."""
         async with self._sessions.begin() as session:
             await session.execute(
                 update(OneTimeCodeTable)

@@ -36,6 +36,8 @@ NAMING_CONVENTION = {
 
 
 class Base(DeclarativeBase):
+    """Declarative base whose metadata names constraints and indexes by NAMING_CONVENTION."""
+
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
@@ -85,14 +87,17 @@ class UserTable(SQLAlchemyBaseUserTableUUID, Base):
 
     @property
     def email_verified(self) -> bool:
+        """Whether the email has a verification time."""
         return self.email_verified_at is not None
 
     @property
     def phone_verified(self) -> bool:
+        """Whether the phone number has a verification time."""
         return self.phone_verified_at is not None
 
     @property
     def google_linked(self) -> bool:
+        """Whether a Google OAuth account is linked; reads the eagerly joined `oauth_accounts`."""
         return any(account.oauth_name == "google" for account in self.oauth_accounts)
 
 
@@ -113,6 +118,8 @@ class AccessTokenTable(SQLAlchemyBaseAccessTokenTableUUID, Base):
 
 
 class ConversationTable(Base):
+    """A user's conversation with its title and rolling summary."""
+
     __tablename__ = "conversations"
     __table_args__ = (
         Index("ix_conversations_user_updated_id", "user_id", "updated_at", "id"),
@@ -144,6 +151,8 @@ class ConversationTable(Base):
 
 
 class MessageTable(Base):
+    """One user or assistant message of a conversation."""
+
     __tablename__ = "messages"
     __table_args__ = (
         CheckConstraint("role IN ('user', 'assistant')", name="role"),
@@ -195,6 +204,8 @@ class MessageCitationTable(Base):
 
 
 class FeedbackTable(Base):
+    """A user's rating and note on a message; at most one per user and message."""
+
     __tablename__ = "feedback"
     __table_args__ = (
         UniqueConstraint("user_id", "message_id", name="uq_feedback_user_message"),
@@ -260,6 +271,8 @@ class RateLimitBucketTable(Base):
 
 
 class OrganizationTable(Base):
+    """An organization with its optional quota overrides; NULL uses the configured default."""
+
     __tablename__ = "organizations"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
@@ -275,6 +288,8 @@ class OrganizationTable(Base):
 
 
 class OrganizationMemberTable(Base):
+    """A user's membership and role in an organization."""
+
     __tablename__ = "organization_members"
     __table_args__ = (
         CheckConstraint("role IN ('owner', 'editor', 'member')", name="role"),
@@ -292,6 +307,8 @@ class OrganizationMemberTable(Base):
 
 
 class OrganizationInvitationTable(Base):
+    """An invitation to join an organization; at most one open per organization and email."""
+
     __tablename__ = "organization_invitations"
     __table_args__ = (
         CheckConstraint(
@@ -337,8 +354,11 @@ class OrganizationInvitationTable(Base):
 
 
 class AuditEventTable(Base):
-    """Append-only. The subject columns carry no foreign keys, so an event outlives the
-    organization, user or collection it describes."""
+    """Append-only record of who did what.
+
+    The subject columns carry no foreign keys, so an event outlives the organization, user
+    or collection it describes.
+    """
 
     __tablename__ = "audit_events"
     __table_args__ = (

@@ -1,5 +1,8 @@
-"""The ReAct agent's chat model (spec v2 §2.4): LangChain's ChatOpenAI on the agent role's
-endpoint, so any OpenAI-compatible server serves it like the other roles."""
+"""The ReAct agent's chat model (spec v2 §2.4).
+
+LangChain's ChatOpenAI on the agent role's endpoint, so any OpenAI-compatible server
+serves it like the other roles.
+"""
 
 from typing import Any
 

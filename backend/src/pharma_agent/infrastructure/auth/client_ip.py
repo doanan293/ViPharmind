@@ -29,6 +29,12 @@ def _from_our_proxy(request: Request, proxy_secret: str | None) -> bool:
 def client_ip_of(
     request: Request, *, trusted_hops: int, proxy_secret: str | None = None
 ) -> str | None:
+    """The client's IP: the `trusted_hops`-th `X-Forwarded-For` entry from the right.
+
+    A request carrying `proxy_secret` in `X-Vipharmind-Proxy` trusts one more hop. Falls
+    back to the TCP peer when no hop is trusted or the header has too few entries; None
+    when the request has no peer either.
+    """
     peer = None if request.client is None else request.client.host
     if trusted_hops > 0 and _from_our_proxy(request, proxy_secret):
         trusted_hops += 1

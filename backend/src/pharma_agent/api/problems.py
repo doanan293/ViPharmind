@@ -23,6 +23,8 @@ def humanize_code(code: str) -> str:
 
 
 class ProblemResponse(JSONResponse):
+    """JSON response served as application/problem+json."""
+
     media_type = PROBLEM_MEDIA_TYPE
 
 
@@ -34,6 +36,10 @@ def problem_response(
     errors: list[ProblemItem] | None = None,
     headers: Mapping[str, str] | None = None,
 ) -> ProblemResponse:
+    """Build a problem response whose title is derived from `code`.
+
+    An empty `detail` is left out of the body, like every other unset field.
+    """
     problem = Problem(
         type=problem_type(code),
         title=humanize_code(code),

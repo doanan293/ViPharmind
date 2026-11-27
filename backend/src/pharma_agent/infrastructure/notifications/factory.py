@@ -9,6 +9,11 @@ from pharma_agent.infrastructure.settings import EmailSettings
 
 
 def build_email_sender(settings: EmailSettings) -> EmailSender:
+    """Resend when the provider is `resend`, otherwise the log sender.
+
+    Raises:
+        ValueError: When the provider is `resend` without PHARMA_EMAIL__RESEND_API_KEY.
+    """
     if settings.provider == "resend":
         if settings.resend_api_key is None:
             raise ValueError("set PHARMA_EMAIL__RESEND_API_KEY")

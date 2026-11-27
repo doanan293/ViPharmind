@@ -18,6 +18,8 @@ DEFAULT_THRESHOLDS = GuardThresholds()
 
 
 class GuardrailOutcome(BaseModel):
+    """The guard verdict with its usage, failure flag, asked intents and decision."""
+
     model_config = ConfigDict(frozen=True)
 
     verdict: Verdict
@@ -28,8 +30,11 @@ class GuardrailOutcome(BaseModel):
 
 
 class GuardrailService:
-    """Regex first, then the decision model when the guard role has one, else a small LLM
-    classifier. Any model failure fails open."""
+    """Screens a user turn before the agent runs.
+
+    Regex first, then the decision model when the guard role has one, else a small LLM
+    classifier. Any model failure fails open.
+    """
 
     def __init__(
         self,
@@ -37,17 +42,20 @@ class GuardrailService:
         decision: DecisionPort | None = None,
         thresholds: GuardThresholds = DEFAULT_THRESHOLDS,
     ) -> None:
+        """Use `decision` (with `thresholds`) when given, else the `llm` classifier."""
         self._llm = llm
         self._decision = decision
         self._thresholds = thresholds
 
     @property
     def thresholds(self) -> GuardThresholds:
+        """Thresholds the decision-model verdict uses."""
         return self._thresholds
 
     async def check(
         self, query: str, context: ConversationContext | None = None
     ) -> GuardrailOutcome:
+        """Screen `query`; `context` is read by the decision model only."""
         regex_verdict = regex_screen(query)
         if regex_verdict is not None:
             return GuardrailOutcome(verdict=regex_verdict)

@@ -9,11 +9,18 @@ from pharma_agent.domain.shared.transaction import Transaction
 
 
 class PostgresTransactionFactory:
+    """TransactionFactory whose handles are SQLAlchemy `AsyncSession`s."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Begin transactions on sessions from `sessions`."""
         self._sessions = sessions
 
     @asynccontextmanager
     async def begin(self) -> AsyncGenerator[Transaction]:
+        """Yield a session inside a transaction.
+
+        Commits when the block exits normally and rolls back when it raises.
+        """
         async with self._sessions.begin() as session:
             yield session
 

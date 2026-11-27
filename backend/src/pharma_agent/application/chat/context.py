@@ -45,6 +45,7 @@ class PipelineOptions:
     refine_mode: Literal["llm", "template"] = "llm"
 
     def __post_init__(self) -> None:
+        """Reject an unknown `refine_mode`."""
         if self.refine_mode not in ("llm", "template"):
             raise ValueError(f"unknown refine_mode {self.refine_mode!r}")
 

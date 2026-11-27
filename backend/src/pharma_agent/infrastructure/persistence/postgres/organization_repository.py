@@ -55,10 +55,14 @@ def _organization(
 
 
 class PostgresOrganizationRepository:
+    """OrganizationRepository over `organizations` and `organization_members`."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Read through sessions from `sessions`; writes use the caller's transaction."""
         self._sessions = sessions
 
     async def get(self, organization_id: uuid.UUID) -> Organization | None:
+        """The organization, or None if there is no such id."""
         async with self._sessions() as session:
             row = await session.get(OrganizationTable, organization_id)
         return None if row is None else _organization(row)
@@ -66,6 +70,7 @@ class PostgresOrganizationRepository:
     async def list_for_user(
         self, user_id: uuid.UUID
     ) -> list[tuple[Organization, Role]]:
+        """The user's organizations with the user's role in each, ordered by name."""
         query = (
             select(OrganizationTable, _member.role)
             .join(
@@ -82,6 +87,7 @@ class PostgresOrganizationRepository:
     async def list_all(
         self, *, limit: int, cursor: tuple[datetime, str] | None
     ) -> list[Organization]:
+        """Every organization, newest first, keyset on (created_at, id)."""
         query = select(OrganizationTable).order_by(
             _org.created_at.desc(), _org.id.desc()
         )
@@ -99,6 +105,7 @@ class PostgresOrganizationRepository:
         return [_organization(row) for row in rows]
 
     async def member_count(self, organization_id: uuid.UUID) -> int:
+        """Number of members of the organization."""
         query = select(func.count()).where(_member.organization_id == organization_id)
         async with self._sessions() as session:
             return (await session.execute(query)).scalar_one()
@@ -106,6 +113,7 @@ class PostgresOrganizationRepository:
     async def create(
         self, organization: Organization, owner_id: uuid.UUID, tx: Transaction
     ) -> None:
+        """Insert the organization with `owner_id` as its first owner, inside `tx`."""
         session = session_of(tx)
         await session.execute(
             insert(OrganizationTable).values(
@@ -129,6 +137,7 @@ class PostgresOrganizationRepository:
     async def rename(
         self, organization_id: uuid.UUID, name: str, now: datetime, tx: Transaction
     ) -> None:
+        """Change the organization's name inside `tx`."""
         await session_of(tx).execute(
             update(OrganizationTable)
             .where(_org.id == organization_id)
@@ -144,6 +153,7 @@ class PostgresOrganizationRepository:
         now: datetime,
         tx: Transaction,
     ) -> None:
+        """Overwrite both quota overrides inside `tx`; None uses the configured default."""
         await session_of(tx).execute(
             update(OrganizationTable)
             .where(_org.id == organization_id)
@@ -155,6 +165,12 @@ class PostgresOrganizationRepository:
         )
 
     async def delete(self, organization_id: uuid.UUID, tx: Transaction) -> None:
+        """Delete the organization inside `tx`, cascading to its members and invitations.
+
+        Its live collections are only marked deleted (with the database time) and lose their
+        current release, so cited chunks survive; `pharma-agent corpus purge-deleted` cleans
+        them up afterwards.
+        """
         session = session_of(tx)
         # Collections are deleted softly: cited chunks must survive (spec §4.6).
         # `pharma-agent corpus purge-deleted` retires and unindexes them afterwards.
@@ -171,6 +187,7 @@ class PostgresOrganizationRepository:
         )
 
     async def members(self, organization_id: uuid.UUID) -> list[MemberView]:
+        """The organization's members with their names and roles, longest-standing first."""
         query = (
             select(
                 _member.user_id,
@@ -197,6 +214,7 @@ class PostgresOrganizationRepository:
         ]
 
     async def memberships_of(self, user_id: uuid.UUID) -> dict[uuid.UUID, Role]:
+        """Map organization_id -> the user's role, for every organization the user is in."""
         query = select(_member.organization_id, _member.role).where(
             _member.user_id == user_id
         )
@@ -205,6 +223,7 @@ class PostgresOrganizationRepository:
         return {organization_id: Role(role) for organization_id, role in rows}
 
     async def owner_count(self, organization_id: uuid.UUID) -> int:
+        """Number of owners of the organization."""
         query = select(func.count()).where(
             _member.organization_id == organization_id,
             _member.role == Role.OWNER.value,
@@ -213,6 +232,7 @@ class PostgresOrganizationRepository:
             return (await session.execute(query)).scalar_one()
 
     async def add_member(self, membership: Membership, tx: Transaction) -> None:
+        """Insert the membership inside `tx`."""
         await session_of(tx).execute(
             insert(OrganizationMemberTable).values(
                 organization_id=membership.organization_id,
@@ -229,6 +249,7 @@ class PostgresOrganizationRepository:
         role: Role,
         tx: Transaction,
     ) -> None:
+        """Change a member's role inside `tx`; does nothing for a non-member."""
         await session_of(tx).execute(
             update(OrganizationMemberTable)
             .where(
@@ -241,6 +262,7 @@ class PostgresOrganizationRepository:
     async def remove_member(
         self, organization_id: uuid.UUID, user_id: uuid.UUID, tx: Transaction
     ) -> bool:
+        """Delete the membership inside `tx`; False if the user was not a member."""
         result = await session_of(tx).execute(
             delete(OrganizationMemberTable)
             .where(

@@ -18,6 +18,8 @@ Provider = Literal["openai", "systemone"]
 
 
 class LlmEndpoint(BaseModel):
+    """One LLM endpoint as configured; unset fields fall back to the default."""
+
     # "openai": any OpenAI-compatible chat server. "systemone": TypeSafe's decision model
     # (POST /v1/systemone), which only the guard and judge roles can use (spec v2 §2.1).
     provider: Provider | None = None
@@ -37,6 +39,8 @@ class LlmEndpoint(BaseModel):
 
 
 class ResolvedEndpoint(BaseModel):
+    """An endpoint with the default filled in: what a role actually calls."""
+
     model_config = ConfigDict(frozen=True)
 
     provider: Provider = "openai"
@@ -52,6 +56,8 @@ class ResolvedEndpoint(BaseModel):
 
 
 class LlmSettings(BaseModel):
+    """The default LLM endpoint, per-role overrides and call limits (seconds)."""
+
     default: LlmEndpoint = Field(default_factory=LlmEndpoint)
     roles: dict[LlmRole, LlmEndpoint] = Field(default_factory=dict)
     timeout_seconds: float = 60.0
@@ -64,11 +70,17 @@ class LlmSettings(BaseModel):
 
     @property
     def configured(self) -> bool:
+        """Whether every role has an API key, from the default or its own override."""
         return bool(self.default.api_key) or all(
             (self.roles.get(role) or LlmEndpoint()).api_key for role in LlmRole
         )
 
     def resolve(self, role: LlmRole) -> ResolvedEndpoint:
+        """The endpoint `role` calls: its override over the default.
+
+        Raises:
+            ValueError: When the role has no API key or no model.
+        """
         override = self.roles.get(role) or LlmEndpoint()
         api_key = override.api_key or self.default.api_key
         if not api_key:
@@ -96,12 +108,19 @@ class LlmSettings(BaseModel):
         )
 
     def decision_roles(self) -> frozenset[LlmRole]:
+        """The roles served by the systemone decision model.
+
+        Raises:
+            ValueError: When a role has no API key or no model.
+        """
         return frozenset(
             role for role in LlmRole if self.resolve(role).provider == "systemone"
         )
 
 
 class EmbeddingSettings(BaseModel):
+    """The OpenAI-compatible embedding endpoint and its model."""
+
     base_url: str = "http://localhost:11434/v1"
     api_key: str = "llama"
     model: str = "qwen3-embedding:4b-q8_0"
@@ -111,6 +130,8 @@ class EmbeddingSettings(BaseModel):
 
 
 class RerankSettings(BaseModel):
+    """The reranker endpoint and how many candidates it scores."""
+
     protocol: Literal["native_rerank", "none"] = "native_rerank"
     base_url: str = "http://localhost:11435"
     api_key: str | None = None
@@ -125,6 +146,8 @@ class RerankSettings(BaseModel):
 
 
 class RetrievalSettings(BaseModel):
+    """Search over Qdrant and the corpus: modes, fusion and candidate counts."""
+
     # Alias of the physical collection chunks_<embedding model slug> (spec C §8.3).
     qdrant_collection: str = "chunks_current"
     # Scope of runs without a user (evaluation harness, CLI ask/check); each needs a
@@ -141,6 +164,8 @@ class RetrievalSettings(BaseModel):
 
 
 class QdrantSettings(BaseModel):
+    """The Qdrant server connection."""
+
     url: str = "http://localhost:6333"
     api_key: str | None = None
     timeout_seconds: float = 30.0
@@ -151,27 +176,37 @@ class QdrantSettings(BaseModel):
 
 
 class LangfuseSettings(BaseModel):
+    """Langfuse credentials; tracing is on when both keys are set."""
+
     public_key: str | None = None
     secret_key: str | None = None
     host: str = "https://cloud.langfuse.com"
 
     @property
     def enabled(self) -> bool:
+        """Whether both the public and secret key are set."""
         return bool(self.public_key and self.secret_key)
 
 
 class PostgresSettings(BaseModel):
+    """The Postgres connection (SQLAlchemy DSN) and pool."""
+
     dsn: str = "postgresql+psycopg://vipharmind:vipharmind@localhost:5433/vipharmind"
     pool_size: int = 10
     echo: bool = False
 
     @property
     def conninfo(self) -> str:
-        """libpq connection string for raw psycopg connections."""
+        """The libpq connection string for raw psycopg connections."""
         return self.dsn.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
 class AuthSettings(BaseModel):
+    """Sessions, secrets, Google sign-in and account rate limits.
+
+    The JWT, CSRF and OTP secrets must be at least 32 characters when set.
+    """
+
     jwt_secret: SecretStr | None = None
     session_lifetime_seconds: int = Field(default=7 * 24 * 3600, ge=60)
     # Browsers accept Secure cookies on http://localhost, so this stays on in development.
@@ -198,25 +233,43 @@ class AuthSettings(BaseModel):
 
     @property
     def google_enabled(self) -> bool:
+        """Whether the Google client id and secret are both set."""
         return bool(self.google_client_id and self.google_client_secret)
 
     def require_jwt_secret(self) -> str:
+        """The JWT secret.
+
+        Raises:
+            ValueError: When PHARMA_AUTH__JWT_SECRET is not set.
+        """
         if self.jwt_secret is None:
             raise ValueError("set PHARMA_AUTH__JWT_SECRET (at least 32 characters)")
         return self.jwt_secret.get_secret_value()
 
     def require_otp_secret(self) -> str:
+        """The one-time code secret.
+
+        Raises:
+            ValueError: When PHARMA_AUTH__OTP_SECRET is not set.
+        """
         if self.otp_secret is None:
             raise ValueError("set PHARMA_AUTH__OTP_SECRET (at least 32 characters)")
         return self.otp_secret.get_secret_value()
 
     def require_csrf_secret(self) -> str:
+        """The CSRF secret.
+
+        Raises:
+            ValueError: When PHARMA_AUTH__CSRF_SECRET is not set.
+        """
         if self.csrf_secret is None:
             raise ValueError("set PHARMA_AUTH__CSRF_SECRET (at least 32 characters)")
         return self.csrf_secret.get_secret_value()
 
 
 class ApiSettings(BaseModel):
+    """Where the API listens, CORS, and which proxies are trusted for client IPs."""
+
     host: str = "127.0.0.1"
     port: int = 8000
     # The browser reaches the API on the same origin (nginx or the dev proxy): no CORS by default.
@@ -230,6 +283,8 @@ class ApiSettings(BaseModel):
 
 
 class MemorySettings(BaseModel):
+    """How much conversation history a turn sees and when it is summarized."""
+
     context_turns: int = 4
     context_chars: int = 4000
     summary_every_turns: int = 2
@@ -292,6 +347,12 @@ class SmsSettings(BaseModel):
 
 
 class Settings(BaseSettings):
+    """Every setting, read from `PHARMA_*` environment variables and `.env`.
+
+    Nested fields use `__`, e.g. PHARMA_LLM__DEFAULT__MODEL; only CRON_SECRET has no
+    prefix.
+    """
+
     model_config = SettingsConfigDict(
         env_prefix="PHARMA_",
         env_nested_delimiter="__",

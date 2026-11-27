@@ -22,6 +22,7 @@ from pharma_agent.application.corpus.content import (
 
 
 def build_documents_router(current_actor: ActorDependency) -> APIRouter:
+    """Routes for a collection's documents, uploads, glossary and colloquial names."""
     router = APIRouter(
         prefix="/collections/{collection_id}",
         tags=["documents"],

@@ -10,6 +10,8 @@ from pharma_agent.domain.shared.ids import new_id
 
 
 class MessageRole(StrEnum):
+    """Who wrote a message."""
+
     USER = "user"
     ASSISTANT = "assistant"
 
@@ -41,6 +43,8 @@ class CitationBlock(BaseModel):
 
 
 class Turn(BaseModel):
+    """One user question and the assistant's answer, as context for later turns."""
+
     model_config = ConfigDict(frozen=True)
 
     user_text: str
@@ -48,10 +52,13 @@ class Turn(BaseModel):
     status: str
 
     def char_count(self) -> int:
+        """Characters of the question plus the answer."""
         return len(self.user_text) + len(self.assistant_text)
 
 
 class ConversationContext(BaseModel):
+    """What the model sees of earlier turns: a running summary and the recent turns."""
+
     model_config = ConfigDict(frozen=True)
 
     summary: str = ""
@@ -59,6 +66,8 @@ class ConversationContext(BaseModel):
 
 
 class ConversationSummary(BaseModel):
+    """Summary call output."""
+
     model_config = ConfigDict(extra="forbid")
 
     summary: str
@@ -69,6 +78,8 @@ DEFAULT_TITLE = "Cuộc trò chuyện mới"
 
 
 class InvalidTitle(DomainError):
+    """A conversation title is empty or too long after collapsing whitespace."""
+
     code = "INVALID_TITLE"
 
 
@@ -77,6 +88,8 @@ def _clean_title(text: str) -> str:
 
 
 class Conversation(BaseModel):
+    """A user's chat thread with its title, rolling summary and chosen sources."""
+
     conversation_id: str
     user_id: str
     title: str
@@ -92,6 +105,7 @@ class Conversation(BaseModel):
     def create_empty(
         cls, *, user_id: str, now: datetime, conversation_id: str | None = None
     ) -> "Conversation":
+        """A new conversation with the default title and no turns."""
         return cls(
             conversation_id=conversation_id or new_id(),
             user_id=user_id,
@@ -109,6 +123,7 @@ class Conversation(BaseModel):
         now: datetime,
         conversation_id: str | None = None,
     ) -> "Conversation":
+        """A new conversation titled after its first message."""
         conversation = cls.create_empty(
             user_id=user_id, now=now, conversation_id=conversation_id
         )
@@ -129,13 +144,20 @@ class Conversation(BaseModel):
         return True
 
     def record_turn(self, now: datetime) -> None:
+        """Count one more turn and touch `updated_at`."""
         self.turn_count += 1
         self.updated_at = now
 
     def needs_summary(self, every: int) -> bool:
+        """Whether at least `every` turns were added since the last summary."""
         return self.turn_count - self.summarized_turns >= every
 
     def apply_summary(self, summary: str, *, covered_turns: int, now: datetime) -> None:
+        """Store a summary that covers the first `covered_turns` turns.
+
+        Raises:
+            ValueError: `covered_turns` is before the last summary or beyond turn_count.
+        """
         if covered_turns > self.turn_count or covered_turns < self.summarized_turns:
             raise ValueError(
                 f"covered_turns={covered_turns} must be between "
@@ -146,6 +168,11 @@ class Conversation(BaseModel):
         self.updated_at = now
 
     def rename(self, title: str, *, now: datetime) -> None:
+        """Set a title with whitespace collapsed.
+
+        Raises:
+            InvalidTitle: the cleaned title is empty or longer than MAX_TITLE_CHARS.
+        """
         cleaned = _clean_title(title)
         if not cleaned or len(cleaned) > MAX_TITLE_CHARS:
             raise InvalidTitle(f"title must be 1-{MAX_TITLE_CHARS} characters")
@@ -154,6 +181,8 @@ class Conversation(BaseModel):
 
 
 class Message(BaseModel):
+    """A stored chat message; an assistant message carries citations and usage."""
+
     message_id: str
     conversation_id: str
     role: MessageRole

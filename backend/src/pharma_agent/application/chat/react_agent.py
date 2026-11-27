@@ -61,8 +61,10 @@ Notify = Callable[[ProgressEvent], None]
 
 @dataclass(frozen=True)
 class _Call:
-    """One tool call of a model response, checked: `query` when it is a valid search,
-    otherwise `error` says what is wrong."""
+    """One tool call of a model response, checked.
+
+    `query` is set when it is a valid search; otherwise `error` says what is wrong.
+    """
 
     call: ToolCall
     arguments: str
@@ -71,8 +73,10 @@ class _Call:
 
 
 class ReactSession:
-    """What the tool and the middleware of one turn share: the run, the chunks shown and
-    the current search round."""
+    """What the tool and the middleware of one turn share.
+
+    Holds the run, the chunks shown and the current search round.
+    """
 
     def __init__(
         self,
@@ -82,6 +86,7 @@ class ReactSession:
         scope: ReleaseScope | None,
         notify: Notify,
     ) -> None:
+        """Attach the session to the run, creating its ReAct stats when missing."""
         self.run = run
         self.deps = deps
         self.scope = scope
@@ -98,8 +103,15 @@ class ReactSession:
         self._round: asyncio.Future[dict[str, str]] | None = None
 
     async def answer(self, history: Sequence[ChatMessage]) -> AIMessage:
-        """Run the agent to its final message. The parent graph's config carries the
-        callbacks, so the agent's model and tool calls join the turn's trace."""
+        """Run the agent to its final message.
+
+        The parent graph's config carries the callbacks, so the agent's model and tool
+        calls join the turn's trace.
+
+        Raises:
+            InvalidTransition: If no agent model is configured or the agent does not
+                end on an AI message.
+        """
         model = self.deps.agent_model
         if model is None:
             raise InvalidTransition("no agent model is configured")
@@ -119,6 +131,8 @@ class ReactSession:
         return final
 
     def search_tool(self) -> BaseTool:
+        """Build the search tool the agent calls; it reads the current round's results."""
+
         async def search_corpus(
             query: str, tool_call_id: Annotated[str, InjectedToolCallId]
         ) -> str:
@@ -132,6 +146,7 @@ class ReactSession:
         )
 
     def tool_error(self, call_id: str) -> str | None:
+        """Return the error of a malformed call of the current round, or None when it is valid."""
         return self._errors.get(call_id)
 
     def begin_round(self, calls: Sequence[_Call]) -> None:
@@ -217,6 +232,7 @@ class ReactBudget(AgentMiddleware):
     """
 
     def __init__(self, session: ReactSession) -> None:
+        """Bind the middleware to the turn's session."""
         self._session = session
 
     async def awrap_model_call(
@@ -224,6 +240,11 @@ class ReactBudget(AgentMiddleware):
         request: ModelRequest[Any],
         handler: Callable[[ModelRequest[Any]], Awaitable[ModelResponse[Any]]],
     ) -> ModelResponse[Any]:
+        """Call the model under the round cap and LLM budget, then charge and log it.
+
+        When no budget is left for the searches the response asks for, one more call
+        answers without tools.
+        """
         session = self._session
         run, stats = session.run, session.stats
         capped = stats.rounds >= MAX_TOOL_ROUNDS
@@ -275,6 +296,7 @@ class ReactBudget(AgentMiddleware):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]],
     ) -> ToolMessage | Command[Any]:
+        """Answer a malformed call with an error tool message instead of running the tool."""
         call = request.tool_call
         error = self._session.tool_error(call["id"] or "")
         if error is None:
@@ -312,8 +334,11 @@ def _usage(message: AIMessage) -> LlmUsage:
 
 
 def _checked_calls(message: AIMessage) -> list[_Call]:
-    """The response's tool calls in order, each with a unique id: arguments that are not
-    JSON become a call with no arguments and an error, like any other malformed call."""
+    """Return the response's tool calls in order, each with a unique id.
+
+    Arguments that are not JSON become a call with no arguments and an error, like any
+    other malformed call.
+    """
     calls: list[_Call] = []
     ids: set[str] = set()
 

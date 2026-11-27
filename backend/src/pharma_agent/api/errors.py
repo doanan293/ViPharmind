@@ -123,6 +123,11 @@ def _code_and_detail(exc: HTTPException) -> tuple[str, str | None]:
 
 
 async def application_error_handler(request: Request, exc: Exception) -> Response:
+    """Map an `ApplicationError` to its HTTP status and stable `code`.
+
+    Statuses come from `STATUS_BY_ERROR` (400 when none matches); `RateLimited` also
+    sets `Retry-After` in whole seconds.
+    """
     if not isinstance(exc, ApplicationError):
         raise exc
     status = next(
@@ -137,6 +142,7 @@ async def application_error_handler(request: Request, exc: Exception) -> Respons
 
 
 async def http_exception_handler(request: Request, exc: Exception) -> Response:
+    """Render an `HTTPException` as a problem, keeping its status and headers."""
     if not isinstance(exc, HTTPException):
         raise exc
     code, detail = _code_and_detail(exc)
@@ -144,6 +150,7 @@ async def http_exception_handler(request: Request, exc: Exception) -> Response:
 
 
 async def validation_error_handler(request: Request, exc: Exception) -> Response:
+    """Render request validation errors as a 422 `VALIDATION_ERROR` problem listing each field."""
     if not isinstance(exc, RequestValidationError):
         raise exc
     errors = [
@@ -156,12 +163,14 @@ async def validation_error_handler(request: Request, exc: Exception) -> Response
 
 
 async def unhandled_error_handler(request: Request, exc: Exception) -> Response:
+    """Answer any other exception with a bare 500 `INTERNAL_ERROR` problem."""
     # Never echo the exception text: it may contain internals. Starlette re-raises
     # the exception after this response so the server still logs the traceback.
     return problem_response(500, INTERNAL_ERROR)
 
 
 def install_error_handlers(app: FastAPI) -> None:
+    """Register the problem+json handlers for application, HTTP, validation and unhandled errors."""
     app.add_exception_handler(ApplicationError, application_error_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)

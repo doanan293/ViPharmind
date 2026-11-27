@@ -10,6 +10,8 @@ from pharma_agent.domain.access.models import Actor
 
 
 class AuditAction(StrEnum):
+    """What an audit event records, as ``<subject>.<verb>``."""
+
     ORGANIZATION_CREATED = "organization.created"
     ORGANIZATION_RENAMED = "organization.renamed"
     ORGANIZATION_DELETED = "organization.deleted"
@@ -41,6 +43,8 @@ class AuditAction(StrEnum):
 
 @dataclass(frozen=True)
 class AuditEvent:
+    """One audit record: who acted, whether as superadmin, what they did and to whom."""
+
     id: uuid.UUID
     occurred_at: datetime
     actor_user_id: uuid.UUID | None
@@ -62,7 +66,9 @@ def new_event(
     collection_id: uuid.UUID | None = None,
     **details: object,
 ) -> AuditEvent:
-    """`subject_user_id` is the user the event is about; for a personal collection it is
+    """Build an audit event for `actor` doing `action` at `now`.
+
+    `subject_user_id` is the user the event is about; for a personal collection it is
     the collection's owner, so the owner's activity page lists it.
 
     The superadmin flag is set only when the action needed superadmin rights: outside the

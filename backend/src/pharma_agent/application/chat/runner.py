@@ -35,6 +35,8 @@ RECURSION_LIMIT = 64
 
 
 class TurnOutcome(BaseModel):
+    """The result of a turn: the run, the answer text, its citations and context."""
+
     run: AgentRun
     answer_text: str
     citations: list[Citation] = Field(default_factory=list)
@@ -58,6 +60,7 @@ class ChatTurnExecution:
         pipeline: PipelineOptions,
         scope: ReleaseScope | None = None,
     ) -> None:
+        """Start the run record; the graph runs only when `events()` is iterated."""
         self._graph = graph
         self._pipeline = pipeline
         self._scope = scope
@@ -76,6 +79,11 @@ class ChatTurnExecution:
         self.producer_task: asyncio.Task[None] | None = None
 
     async def events(self) -> AsyncGenerator[ProgressEvent]:
+        """Run the graph in a background task and yield its progress events.
+
+        The last event is DONE and `outcome` is set by then. Closing the generator
+        early cancels the graph.
+        """
         queue: asyncio.Queue[ProgressEvent | None] = asyncio.Queue()
         self.producer_task = asyncio.create_task(self._produce(queue))
         try:
@@ -199,6 +207,8 @@ def _done_event(run: AgentRun) -> ProgressEvent:
 
 
 class ChatTurnRunner:
+    """Starts chat turns over one compiled graph with shared deps and limits."""
+
     def __init__(
         self,
         graph: ChatGraph,
@@ -207,6 +217,7 @@ class ChatTurnRunner:
         tracer: TurnTracer | None = None,
         pipeline: PipelineOptions | None = None,
     ) -> None:
+        """Configure the runner; without a tracer turns are not traced."""
         self._graph = graph
         self._deps = deps
         self._limits = limits
@@ -222,6 +233,7 @@ class ChatTurnRunner:
         conversation_id: str | None = None,
         scope: ReleaseScope | None = None,
     ) -> ChatTurnExecution:
+        """Prepare one turn; nothing runs until its `events()` is iterated."""
         return ChatTurnExecution(
             self._graph,
             self._deps,

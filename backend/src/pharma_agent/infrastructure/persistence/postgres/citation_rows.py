@@ -19,6 +19,7 @@ from pharma_agent.infrastructure.persistence.postgres.tables import (
 
 
 def citation_link_rows(message: Message) -> list[MessageCitationTable]:
+    """The `message_citations` rows that link `message` to its cited chunk versions."""
     message_id = uuid.UUID(hex=message.message_id)
     return [
         MessageCitationTable(

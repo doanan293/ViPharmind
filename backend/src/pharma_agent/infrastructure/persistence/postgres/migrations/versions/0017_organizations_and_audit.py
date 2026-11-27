@@ -18,6 +18,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Create the organization and audit tables and add per-user quota overrides."""
     op.add_column("user", sa.Column("text_quota_bytes", sa.BigInteger(), nullable=True))
     op.add_column("user", sa.Column("collection_quota", sa.Integer(), nullable=True))
     op.create_table(
@@ -152,6 +153,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop the organization and audit tables and the quota columns."""
     op.drop_table("audit_events")
     op.drop_table("organization_invitations")
     op.drop_table("organization_members")

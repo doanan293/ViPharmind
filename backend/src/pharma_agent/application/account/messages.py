@@ -69,6 +69,7 @@ _CHANGED: dict[Locale, tuple[str, str]] = {
 
 
 def code_email(purpose: OtpPurpose, code: str, locale: Locale) -> EmailContent:
+    """Build the email that sends a one-time code for `purpose`."""
     subject = _SUBJECTS[purpose][locale]
     text = _BODY[locale].format(code=code, minutes=TTL_MINUTES)
     return EmailContent(
@@ -77,10 +78,12 @@ def code_email(purpose: OtpPurpose, code: str, locale: Locale) -> EmailContent:
 
 
 def code_sms(purpose: OtpPurpose, code: str, locale: Locale) -> str:
+    """Build the SMS text that sends a one-time code, without diacritics."""
     return _SMS[locale].format(code=code, minutes=TTL_MINUTES)
 
 
 def email_changed_notice(new_email: str, locale: Locale) -> EmailContent:
+    """Build the notice that the account's sign-in email changed to `new_email`."""
     subject, body = _CHANGED[locale]
     text = body.format(email=new_email)
     return EmailContent(subject=subject, text=text, html=html_message(subject, text))

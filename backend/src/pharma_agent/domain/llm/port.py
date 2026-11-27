@@ -15,10 +15,14 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class LlmError(DomainError):
+    """An LLM call failed or returned output that could not be used."""
+
     code = "LLM_ERROR"
 
 
 class LlmPort(Protocol):
+    """Calls a chat model for structured output or a streamed answer."""
+
     async def structured(
         self, role: LlmRole, messages: Sequence[ChatMessage], schema: type[T]
     ) -> tuple[T, LlmUsage]:

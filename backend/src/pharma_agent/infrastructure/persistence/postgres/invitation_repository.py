@@ -40,7 +40,10 @@ def _invitation(row: OrganizationInvitationTable) -> Invitation:
 
 
 class PostgresInvitationRepository:
+    """InvitationRepository over `organization_invitations`."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Read through sessions from `sessions`; writes use the caller's transaction."""
         self._sessions = sessions
 
     async def _one(self, *conditions: ColumnElement[bool]) -> Invitation | None:
@@ -50,14 +53,17 @@ class PostgresInvitationRepository:
         return None if row is None else _invitation(row)
 
     async def get(self, invitation_id: uuid.UUID) -> Invitation | None:
+        """The invitation, or None if there is no such id."""
         return await self._one(_inv.id == invitation_id)
 
     async def get_by_token_hash(self, token_hash: str) -> Invitation | None:
+        """The invitation whose token hashes to `token_hash`, if any."""
         return await self._one(_inv.token_hash == token_hash)
 
     async def list_for_organization(
         self, organization_id: uuid.UUID
     ) -> list[Invitation]:
+        """The organization's invitations, newest first."""
         query = (
             select(OrganizationInvitationTable)
             .where(_inv.organization_id == organization_id)
@@ -70,6 +76,7 @@ class PostgresInvitationRepository:
     async def open_for(
         self, organization_id: uuid.UUID, email: str
     ) -> Invitation | None:
+        """The organization's pending or sent invitation for `email`, if any."""
         return await self._one(
             _inv.organization_id == organization_id,
             _inv.email == email,
@@ -77,6 +84,12 @@ class PostgresInvitationRepository:
         )
 
     async def create(self, invitation: Invitation, tx: Transaction) -> None:
+        """Insert the invitation inside `tx`.
+
+        Raises:
+            InvitationConflict: An open invitation exists for the email. A savepoint keeps `tx`
+                usable.
+        """
         session = session_of(tx)
         try:
             # A savepoint keeps the caller's transaction usable after the conflict.
@@ -104,6 +117,11 @@ class PostgresInvitationRepository:
     async def update(
         self, invitation: Invitation, tx: Transaction, *, expected: InvitationStatus
     ) -> bool:
+        """Write the mutable fields if the stored status is still `expected`.
+
+        Returns:
+            False when another request changed the status first.
+        """
         result = await session_of(tx).execute(
             update(OrganizationInvitationTable)
             .where(_inv.id == invitation.id, _inv.status == expected.value)

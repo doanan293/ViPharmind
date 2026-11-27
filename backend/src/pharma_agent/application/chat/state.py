@@ -7,14 +7,18 @@ from pharma_agent.domain.retrieval.models import Query
 
 
 class ReactAnswer(BaseModel):
-    """What the ReAct agent hands to finalize (spec v2 §2.4): the chunks it was shown
-    and its final answer text."""
+    """What the ReAct agent hands to finalize (spec v2 §2.4).
+
+    Holds the chunks it was shown and its final answer text.
+    """
 
     shown: Shown = Field(default_factory=Shown)
     final_text: str = ""
 
 
 class ChatTurnState(BaseModel):
+    """LangGraph state of one chat turn."""
+
     run: AgentRun
     pending_queries: list[Query] = Field(default_factory=list)
     last_gaps: list[str] = Field(default_factory=list)

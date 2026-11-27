@@ -24,6 +24,8 @@ MAX_TITLE_CHARS = 200
 
 
 class JobStatus(StrEnum):
+    """State of an ingest job: queued and running jobs are open."""
+
     QUEUED = "queued"
     RUNNING = "running"
     READY = "ready"
@@ -31,6 +33,8 @@ class JobStatus(StrEnum):
 
 
 class JobStep(StrEnum):
+    """The stage of publishing an ingest job is at."""
+
     BUNDLE = "bundle"
     CHUNK = "chunk"
     EMBED = "embed"
@@ -43,6 +47,8 @@ OPEN_JOB_STATUSES = frozenset({JobStatus.QUEUED, JobStatus.RUNNING})
 
 @dataclass(frozen=True)
 class SourceDocument:
+    """A document authored in the app, stored as markdown in a collection."""
+
     id: uuid.UUID
     collection_id: uuid.UUID
     key: str
@@ -60,6 +66,8 @@ class SourceDocument:
 
 @dataclass(frozen=True)
 class IngestJob:
+    """A job that publishes a collection's authored content as a new release."""
+
     id: uuid.UUID
     collection_id: uuid.UUID
     release_id: uuid.UUID | None
@@ -75,10 +83,12 @@ class IngestJob:
 
     @property
     def is_open(self) -> bool:
+        """Whether the job is queued or running."""
         return self.status in OPEN_JOB_STATUSES
 
 
 def document_problem(title: str, markdown: str) -> str | None:
+    """Why a document's title or markdown cannot be saved, or None when it can."""
     if not title.strip():
         return "the title is required"
     if len(title.strip()) > MAX_TITLE_CHARS:
@@ -91,6 +101,8 @@ def document_problem(title: str, markdown: str) -> str | None:
 
 
 class DocumentKeyConflict(DomainError):
+    """Another document of the collection already has this key."""
+
     code = "DOCUMENT_KEY_CONFLICT"
 
 
@@ -101,27 +113,35 @@ class JobConflict(DomainError):
 
 
 class SourceRepository(Protocol):
+    """Storage of authored documents, glossary entries and colloquial names."""
+
     async def list_documents(self, collection_id: uuid.UUID) -> list[SourceDocument]:
         """Ordered by title."""
         ...
 
-    async def get_document(self, document_id: uuid.UUID) -> SourceDocument | None: ...
+    async def get_document(self, document_id: uuid.UUID) -> SourceDocument | None:
+        """The document with `document_id`, or None."""
+        ...
 
-    async def document_keys(self, collection_id: uuid.UUID) -> set[str]: ...
+    async def document_keys(self, collection_id: uuid.UUID) -> set[str]:
+        """Keys of every document in the collection."""
+        ...
 
     async def create_document(self, document: SourceDocument, tx: Transaction) -> None:
         """Raises DocumentKeyConflict when the key is taken in the collection."""
         ...
 
-    async def update_document(
-        self, document: SourceDocument, tx: Transaction
-    ) -> None: ...
+    async def update_document(self, document: SourceDocument, tx: Transaction) -> None:
+        """Replace the stored fields of an existing document."""
+        ...
 
-    async def delete_document(
-        self, document_id: uuid.UUID, tx: Transaction
-    ) -> None: ...
+    async def delete_document(self, document_id: uuid.UUID, tx: Transaction) -> None:
+        """Delete the document."""
+        ...
 
-    async def count_documents(self, collection_id: uuid.UUID) -> int: ...
+    async def count_documents(self, collection_id: uuid.UUID) -> int:
+        """Number of authored documents in the collection."""
+        ...
 
     async def purge_content(self, collection_id: uuid.UUID, tx: Transaction) -> None:
         """Delete the documents, glossary and colloquial names of a deleted collection."""
@@ -131,31 +151,45 @@ class SourceRepository(Protocol):
         """Characters of authored text across the owner's live collections."""
         ...
 
-    async def glossary(self, collection_id: uuid.UUID) -> list[GlossaryEntry]: ...
+    async def glossary(self, collection_id: uuid.UUID) -> list[GlossaryEntry]:
+        """The collection's glossary, in stored order."""
+        ...
 
     async def replace_glossary(
         self,
         collection_id: uuid.UUID,
         entries: list[GlossaryEntry],
         tx: Transaction,
-    ) -> None: ...
+    ) -> None:
+        """Replace the collection's glossary with `entries`, kept in order."""
+        ...
 
     async def colloquial(
         self, collection_id: uuid.UUID
-    ) -> list[ColloquialMappingRecord]: ...
+    ) -> list[ColloquialMappingRecord]:
+        """The collection's colloquial names, in stored order."""
+        ...
 
     async def replace_colloquial(
         self,
         collection_id: uuid.UUID,
         mappings: list[ColloquialMappingRecord],
         tx: Transaction,
-    ) -> None: ...
+    ) -> None:
+        """Replace the collection's colloquial names with `mappings`, kept in order."""
+        ...
 
 
 class IngestJobRepository(Protocol):
-    async def get(self, job_id: uuid.UUID) -> IngestJob | None: ...
+    """Storage of ingest jobs."""
 
-    async def open_for(self, collection_id: uuid.UUID) -> IngestJob | None: ...
+    async def get(self, job_id: uuid.UUID) -> IngestJob | None:
+        """The job with `job_id`, or None."""
+        ...
+
+    async def open_for(self, collection_id: uuid.UUID) -> IngestJob | None:
+        """The collection's queued or running job, if any."""
+        ...
 
     async def create(self, job: IngestJob, tx: Transaction) -> None:
         """Raises JobConflict when the collection already has an open job."""
@@ -165,10 +199,14 @@ class IngestJobRepository(Protocol):
         """Progress updates commit on their own so readers see them at once."""
         ...
 
-    async def list_recent(self, *, limit: int) -> list[IngestJob]: ...
+    async def list_recent(self, *, limit: int) -> list[IngestJob]:
+        """The newest `limit` jobs across all collections."""
+        ...
 
 
 class JobDispatcher(Protocol):
+    """Runs ingest jobs in the background."""
+
     async def enqueue(self, job_id: uuid.UUID) -> None:
         """Arrange for the job to run soon, outside the current request."""
         ...

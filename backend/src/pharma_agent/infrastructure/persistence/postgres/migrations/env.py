@@ -22,6 +22,7 @@ def _dsn() -> str:
 
 
 def run_migrations_offline() -> None:
+    """Emit the migrations as SQL against the configured DSN without connecting."""
     context.configure(
         url=_dsn(),
         target_metadata=target_metadata,
@@ -47,6 +48,7 @@ def _run_with_connection(connection: Connection) -> None:
 
 
 async def run_migrations_online() -> None:
+    """Run the migrations over an async engine connection, then dispose of the engine."""
     engine = create_async_engine(_dsn())
     async with engine.connect() as connection:
         await connection.run_sync(_run_with_connection)

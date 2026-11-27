@@ -39,10 +39,14 @@ def _event_of(row: AuditEventTable) -> AuditEvent:
 
 
 class PostgresAuditLog:
+    """AuditLog over `audit_events`."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Read pages through sessions from `sessions`; writes use the caller's transaction."""
         self._sessions = sessions
 
     async def record(self, event: AuditEvent, tx: Transaction) -> None:
+        """Append inside `tx`, so the event commits with the change it describes."""
         details: dict[str, Any] = dict(event.details)
         await session_of(tx).execute(
             insert(AuditEventTable).values(
@@ -79,6 +83,7 @@ class PostgresAuditLog:
     async def for_organization(
         self, organization_id: uuid.UUID, *, limit: int, cursor: Cursor | None
     ) -> list[AuditEvent]:
+        """Events of the organization, newest first, keyset on (occurred_at, id)."""
         return await self._page(
             _event.organization_id == organization_id, limit, cursor
         )
@@ -86,7 +91,9 @@ class PostgresAuditLog:
     async def for_user(
         self, user_id: uuid.UUID, *, limit: int, cursor: Cursor | None
     ) -> list[AuditEvent]:
+        """Events whose subject is the user, newest first."""
         return await self._page(_event.subject_user_id == user_id, limit, cursor)
 
     async def all(self, *, limit: int, cursor: Cursor | None) -> list[AuditEvent]:
+        """Every event, newest first."""
         return await self._page(true(), limit, cursor)

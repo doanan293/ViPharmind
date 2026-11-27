@@ -26,6 +26,7 @@ def _discard_audit_and_citations() -> None:
 
 
 def upgrade() -> None:
+    """Discard existing audit rows and citations and key retrieval hits by chunk version."""
     _discard_audit_and_citations()
     op.drop_column("retrieval_runs", "corpus_version")
     op.add_column(
@@ -48,6 +49,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Discard audit rows and citations again and restore the position-based columns."""
     _discard_audit_and_citations()
     op.drop_column("retrieval_hits", "table_key")
     op.drop_column("retrieval_hits", "section_key")

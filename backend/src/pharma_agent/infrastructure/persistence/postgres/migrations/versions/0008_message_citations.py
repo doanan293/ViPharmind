@@ -20,6 +20,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Create message_citations and drop `messages.citations` without a backfill."""
     op.create_table(
         "message_citations",
         sa.Column("message_id", sa.Uuid(), nullable=False),
@@ -72,6 +73,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop message_citations and restore an empty `messages.citations` column."""
     op.add_column(
         "messages",
         sa.Column(

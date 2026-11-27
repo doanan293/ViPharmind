@@ -186,10 +186,14 @@ async def _delete_unreferenced(
 
 
 class PostgresCorpusRepository:
+    """CorpusRepository over schema `corpus`; each method runs in its own transaction."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Read and write through sessions from `sessions`."""
         self._sessions = sessions
 
     async def get_collection(self, key: str) -> Collection | None:
+        """The collection with `key`, or None; deleted collections included."""
         async with self._sessions() as session:
             row = (
                 await session.execute(
@@ -199,6 +203,7 @@ class PostgresCorpusRepository:
         return _collection(row) if row is not None else None
 
     async def get_release(self, release_id: uuid.UUID) -> Release | None:
+        """The release with `release_id`, or None."""
         async with self._sessions() as session:
             row = await session.get(ReleaseTable, release_id)
         return _release(row) if row is not None else None
@@ -211,6 +216,7 @@ class PostgresCorpusRepository:
         chunker_version: str,
         embedding_model: str,
     ) -> Release | None:
+        """Newest non-retired release of the collection built from the same inputs."""
         query = (
             select(ReleaseTable)
             .where(
@@ -228,6 +234,10 @@ class PostgresCorpusRepository:
         return _release(row) if row is not None else None
 
     async def list_releases(self, collection_key: str | None) -> list[ReleaseSummary]:
+        """Releases with their chunk counts, by collection key, then number descending.
+
+        With `collection_key`, only that collection's releases.
+        """
         chunk_counts = (
             select(
                 ReleaseChunkTable.release_id,
@@ -269,6 +279,15 @@ class PostgresCorpusRepository:
         embedding_model: str,
         at: datetime,
     ) -> Release:
+        """Store a snapshot and its `building` release in one transaction, idempotently.
+
+        Upserts the collection title, documents and sections, inserts missing chunk versions,
+        and creates the release (next number) with its `release_chunks` unless `release_id`
+        already exists.
+
+        Returns:
+            The stored release.
+        """
         collection = snapshot.collection
         async with self._sessions.begin() as session:
             statement = insert(CollectionTable).values(
@@ -337,6 +356,11 @@ class PostgresCorpusRepository:
             return _release(row)
 
     async def index_items(self, release_ids: Sequence[uuid.UUID]) -> list[IndexItem]:
+        """Items for every chunk version in the releases, ordered by chunk version id.
+
+        `release_ids` of each item lists the non-retired releases containing it (possibly
+        empty); the embedding text is rebuilt from the stored columns.
+        """
         if not release_ids:
             return []
         chunk_ids = select(ReleaseChunkTable.chunk_version_id).where(
@@ -406,6 +430,7 @@ class PostgresCorpusRepository:
     async def mark_ready(
         self, release_id: uuid.UUID, stats: ReleaseStats, at: datetime
     ) -> None:
+        """Set the release to ready with its stats and ready time."""
         async with self._sessions.begin() as session:
             await session.execute(
                 update(ReleaseTable)
@@ -418,6 +443,11 @@ class PostgresCorpusRepository:
             )
 
     async def publish(self, release_id: uuid.UUID, at: datetime) -> None:
+        """Make the release its collection's current one and set its first published_at.
+
+        Raises:
+            ReleaseNotFound: No release has `release_id`.
+        """
         async with self._sessions.begin() as session:
             row = await session.get(ReleaseTable, release_id)
             if row is None:
@@ -434,6 +464,7 @@ class PostgresCorpusRepository:
             )
 
     async def retire(self, release_ids: Sequence[uuid.UUID], at: datetime) -> None:
+        """Mark the releases retired at `at`; releases already retired are left as they are."""
         if not release_ids:
             return
         async with self._sessions.begin() as session:
@@ -447,6 +478,12 @@ class PostgresCorpusRepository:
             )
 
     async def purge_retired(self, collection_id: uuid.UUID) -> PurgeResult:
+        """Delete the rows only retired releases of the collection still hold.
+
+        Drops the retired releases' `release_chunks`, then chunk versions no release holds
+        (keeping those a citation still references), then sections and documents that no chunk
+        version or release chunk refers to. The release rows themselves stay.
+        """
         retired = select(ReleaseTable.id).where(
             ReleaseTable.collection_id == collection_id,
             ReleaseTable.status == ReleaseStatus.RETIRED.value,

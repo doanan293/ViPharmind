@@ -35,6 +35,8 @@ from pharma_agent.infrastructure.settings import Settings
 
 @dataclass(frozen=True)
 class Publishing:
+    """The publish service and the dispatcher that runs its jobs."""
+
     service: PublishService
     dispatcher: JobDispatcher
 
@@ -48,8 +50,11 @@ def build_publishing(
     clock: Clock,
     dispatcher: JobDispatcher | None = None,
 ) -> Publishing:
-    """The in-process dispatcher calls back into the service it serves, so the service
-    is bound to it after both exist."""
+    """Build the publish service and the dispatcher `settings.jobs` selects.
+
+    `dispatcher` replaces that dispatcher. The dispatcher calls back into the service it
+    serves, so the service is bound to it after both exist.
+    """
     corpus = PostgresCorpusRepository(sessions)
     batch = settings.corpus
     bound: list[PublishService] = []

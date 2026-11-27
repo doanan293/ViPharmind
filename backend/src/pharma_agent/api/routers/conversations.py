@@ -26,6 +26,7 @@ Cursor = Annotated[
 
 
 def build_conversations_router(current_user_id: UserIdDependency) -> APIRouter:
+    """Routes under `/conversations` for the signed-in user's conversations and messages."""
     router = APIRouter(
         prefix="/conversations",
         tags=["conversations"],

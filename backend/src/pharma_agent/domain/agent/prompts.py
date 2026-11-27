@@ -59,6 +59,7 @@ Trả về JSON:
 def rephrase_messages(
     original_query: str, context: ConversationContext
 ) -> list[ChatMessage]:
+    """Rephrase call messages: the summary, recent turns and the new question."""
     lines: list[str] = []
     if context.summary:
         lines.append(f"Tóm tắt hội thoại trước:\n{context.summary}")
@@ -89,6 +90,7 @@ Lưu ý: evidence chỉ là đoạn tóm tắt; nếu tiêu đề/mục đúng c
 
 
 def judge_messages(run: AgentRun, evidence_summary: str) -> list[ChatMessage]:
+    """LLM judge messages: the standalone query, audience and evidence summary."""
     content = (
         f"Câu hỏi: {run.standalone_query}\n"
         f"Đối tượng hỏi: {run.audience.value}\n\n"
@@ -112,6 +114,7 @@ Quy tắc:
 def refine_messages(
     run: AgentRun, gaps: Sequence[str], term_hints: Sequence[str]
 ) -> list[ChatMessage]:
+    """Messages for the LLM refine: the query, the gaps, used queries and term hints."""
     used = "\n".join(f"- {q}" for q in run.used_queries) or "- (chưa có)"
     hints = ", ".join(term_hints) if term_hints else "(không có)"
     gap_lines = (
@@ -180,6 +183,10 @@ def _question_block(run: AgentRun) -> str:
 def answer_messages(
     run: AgentRun, plan: AnswerPlan, context_text: str
 ) -> list[ChatMessage]:
+    """Messages for the answer call, from the audience, language and answer mode.
+
+    A grounded plan adds `context_text` as the documents, and a note when partial.
+    """
     system_parts = [
         ASSISTANT_ROLE,
         _AUDIENCE_RULES[run.audience],
@@ -198,6 +205,7 @@ def answer_messages(
 
 
 def fallback_text(status: RunStatus) -> str:
+    """The Vietnamese apology shown when a turn ends without an answer."""
     if status is RunStatus.TIMEOUT:
         return "Xin lỗi, xử lý câu hỏi về thuốc này mất quá lâu và đã bị dừng. Bạn thử hỏi ngắn gọn hơn hoặc gửi lại sau ít phút."
     return "Xin lỗi, hệ thống gặp lỗi khi xử lý câu hỏi về thuốc này. Bạn thử gửi lại sau ít phút."

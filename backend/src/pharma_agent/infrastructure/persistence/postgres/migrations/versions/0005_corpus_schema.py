@@ -1,5 +1,7 @@
-"""Corpus schema: collections, documents, sections, immutable section revisions and chunk
-versions, releases and the embedding cache (spec 2026-09-13 corpus platform §6.2).
+"""Corpus schema (spec 2026-09-13 corpus platform §6.2).
+
+Collections, documents, sections, immutable section revisions and chunk versions, releases
+and the embedding cache.
 
 Revision ID: 0005
 Create Date: 2026-09-13 12:00:00
@@ -34,6 +36,7 @@ def _optional_at(name: str) -> sa.Column[datetime]:
 
 
 def upgrade() -> None:
+    """Create the `corpus` schema and its tables."""
     op.execute(sa.schema.CreateSchema(SCHEMA))
     op.create_table(
         "collections",
@@ -303,6 +306,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop the corpus tables and the `corpus` schema."""
     op.drop_constraint(
         op.f("fk_collections_current_release_id_releases"),
         "collections",

@@ -50,8 +50,11 @@ from pharma_agent.infrastructure.settings import (
 
 @dataclass
 class RetrievalStack:
-    """Retrieval over Postgres (schema `corpus`) and Qdrant. Public entry point for the
-    pharma-lab evaluation (spec C §4); release everything with `aclose`."""
+    """Retrieval over Postgres (schema `corpus`) and Qdrant.
+
+    Public entry point for the pharma-lab evaluation (spec C §4); release everything
+    with `aclose`.
+    """
 
     settings: RetrievalSettings
     service: RetrievalService
@@ -65,6 +68,7 @@ class RetrievalStack:
     owns_database: bool
 
     async def aclose(self) -> None:
+        """Close the Qdrant, embedding and reranker clients, and an owned database."""
         await self.qdrant.close()
         if self.embed_client is not None:
             await self.embed_client.close()
@@ -77,12 +81,15 @@ class RetrievalStack:
 
 @dataclass
 class Application:
+    """The chat agent: its turn dependencies, runner and the retrieval behind them."""
+
     settings: Settings
     deps: TurnDeps
     runner: ChatTurnRunner
     retrieval: RetrievalStack
 
     async def aclose(self) -> None:
+        """Close retrieval and every decision-model adapter."""
         await self.retrieval.aclose()
         # One adapter serves every decision role; close it once.
         for port in {id(port): port for port in self.deps.decisions.values()}.values():
@@ -187,9 +194,11 @@ def build_retrieval_service(
 
 
 def guard_thresholds(llm: LlmSettings) -> GuardThresholds:
-    """The guard role's extra_body["thresholds"] (block, review, scope, asks) when the
-    decision model serves that role; missing keys keep the defaults, an unknown key is
-    refused so a misspelt tuned value cannot be silently dropped."""
+    """The guard role's extra_body["thresholds"] (block, review, scope, asks).
+
+    Read only when the decision model serves that role; missing keys keep the defaults,
+    an unknown key is refused so a misspelt tuned value cannot be silently dropped.
+    """
     if LlmRole.GUARDRAIL not in llm.decision_roles():
         return GuardThresholds()
     configured = (llm.resolve(LlmRole.GUARDRAIL).extra_body or {}).get(
@@ -215,9 +224,12 @@ def build_application(
     decision: DecisionPort | None = None,
     agent_model: BaseChatModel | None = None,
 ) -> Application:
-    """`llm` and `embedder` replace the OpenAI-compatible adapters built from settings;
+    """Build the chat application from settings.
+
+    `llm` and `embedder` replace the OpenAI-compatible adapters built from settings;
     `decision` replaces the SystemOneAdapter that serves the systemone roles and
-    `agent_model` the ReAct agent's ChatOpenAI."""
+    `agent_model` the ReAct agent's ChatOpenAI.
+    """
     _export_langfuse_environment(settings)
     client_factory = (
         langfuse_client_factory if settings.langfuse.enabled else default_client_factory

@@ -9,6 +9,8 @@ from pharma_agent.domain.llm.models import LlmRole
 
 
 class NoulQuestion(BaseModel):
+    """One yes/no question, optionally with what counts as true and as false."""
+
     model_config = ConfigDict(frozen=True)
 
     instructions: str
@@ -17,6 +19,8 @@ class NoulQuestion(BaseModel):
 
 
 class Decision(BaseModel):
+    """The decision model's probability of yes per question key, with call metadata."""
+
     model_config = ConfigDict(frozen=True)
 
     answers: dict[str, float]
@@ -36,6 +40,8 @@ class Decision(BaseModel):
 
 
 class DecisionPort(Protocol):
+    """Asks a decision model the questions about a state."""
+
     async def decide(
         self,
         role: LlmRole,

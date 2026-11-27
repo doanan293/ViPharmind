@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 async def summarize_quietly(
     summarizer: SummarizeConversation | None, user_id: str, conversation_id: str
 ) -> None:
+    """Summarize the conversation if it needs it, logging instead of raising on failure.
+
+    Meant to run as a background task after the response; does nothing without a summarizer.
+    """
     if summarizer is None:
         return
     try:
@@ -31,6 +35,7 @@ async def summarize_quietly(
 
 
 def build_chat_router(current_user_id: UserIdDependency) -> APIRouter:
+    """Chat routes under `/chat`: one turn as JSON or as a UI message stream."""
     router = APIRouter(
         prefix="/chat", tags=["chat"], responses=problem_responses(401, 404, 422, 503)
     )

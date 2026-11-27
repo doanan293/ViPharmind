@@ -12,6 +12,7 @@ CitationIndex = Annotated[int, Path(ge=1, le=999)]
 
 
 def build_citations_router(current_user_id: UserIdDependency) -> APIRouter:
+    """Route for the detail of one citation in a message."""
     router = APIRouter(
         prefix="/messages",
         tags=["citations"],

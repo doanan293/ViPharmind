@@ -27,11 +27,15 @@ logger = logging.getLogger(__name__)
 
 
 class MemoryPolicy(BaseModel):
+    """How much earlier conversation the rephrase step sees: turns and characters."""
+
     context_turns: int = 4
     context_chars: int = 4000
 
 
 class ChatTurnResult(BaseModel):
+    """The persisted outcome of one chat turn."""
+
     conversation_id: str
     message_id: str | None
     run_id: str
@@ -45,6 +49,8 @@ class ChatTurnResult(BaseModel):
 
 
 class ChatSession:
+    """One open chat turn: stream its events, then read `result`."""
+
     def __init__(
         self,
         execution: ChatTurnExecution,
@@ -56,6 +62,7 @@ class ChatSession:
         conversations: ConversationRepository,
         clock: Clock,
     ) -> None:
+        """Hold the turn's execution and the ids its messages will be saved under."""
         self._execution = execution
         self._conversation = conversation
         self._created = created
@@ -67,17 +74,25 @@ class ChatSession:
 
     @property
     def conversation_id(self) -> str:
+        """Id of the conversation the turn belongs to."""
         return self._conversation.conversation_id
 
     @property
     def user_message_id(self) -> str:
+        """Id the user's message is saved under."""
         return self._user_message_id
 
     @property
     def assistant_message_id(self) -> str:
+        """Id the assistant's answer is saved under."""
         return self._assistant_message_id
 
     async def events(self) -> AsyncGenerator[ProgressEvent]:
+        """Yield the turn's progress events, saving the turn before the final DONE.
+
+        The first event is CONVERSATION; DONE carries the saved message id and whether
+        saving succeeded. A failed save is logged, not raised.
+        """
         yield ProgressEvent(
             type=EventType.CONVERSATION,
             data={
@@ -148,6 +163,8 @@ class ChatSession:
 
 
 class ChatService:
+    """Runs chat turns inside a user's conversations."""
+
     def __init__(
         self,
         runner: ChatTurnRunner,
@@ -157,6 +174,7 @@ class ChatService:
         *,
         scopes: ScopeResolver | None = None,
     ) -> None:
+        """Wire the service; without `scopes` turns search the default scope."""
         self._runner = runner
         self._conversations = conversations
         self._clock = clock
@@ -171,8 +189,14 @@ class ChatService:
         conversation_id: str | None,
         collection_ids: Sequence[uuid.UUID] | None = None,
     ) -> ChatSession:
-        """`collection_ids` narrows a new conversation's sources; a follow-up uses the
-        sources stored on the conversation."""
+        """Start a turn in a new or existing conversation; it runs when its events are read.
+
+        `collection_ids` narrows a new conversation's sources; a follow-up uses the
+        sources stored on the conversation.
+
+        Raises:
+            ConversationNotFound: If `conversation_id` is not one of the user's.
+        """
         if conversation_id is None:
             conversation = Conversation.start(
                 user_id=user_id, first_message=message, now=self._clock.now()
@@ -235,6 +259,11 @@ class ChatService:
         conversation_id: str | None,
         collection_ids: Sequence[uuid.UUID] | None = None,
     ) -> ChatTurnResult:
+        """Run one turn to the end and return its persisted result.
+
+        Raises:
+            ConversationNotFound: If `conversation_id` is not one of the user's.
+        """
         session = await self.open_turn(
             user_id=user_id,
             message=message,

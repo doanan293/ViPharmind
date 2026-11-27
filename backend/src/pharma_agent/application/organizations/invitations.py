@@ -57,12 +57,16 @@ HOUR = 3600
 
 @dataclass(frozen=True)
 class InvitationPolicy:
+    """Invitation settings: the frontend URL links point to, and hourly send limits."""
+
     frontend_url: str
     invites_per_inviter_per_hour: int = 20
     invites_per_email_per_hour: int = 5
 
 
 class InvitationView(BaseModel):
+    """An invitation as the organization sees it; `status` accounts for expiry."""
+
     id: uuid.UUID
     organization_id: uuid.UUID
     email: str
@@ -75,6 +79,8 @@ class InvitationView(BaseModel):
 
 
 class InvitationPreview(BaseModel):
+    """What the holder of an invitation link may see about it."""
+
     organization_name: str
     inviter_name: str
     role: Role
@@ -88,6 +94,8 @@ def email_hint(email: str) -> str:
 
 
 class InvitationService:
+    """Invitation use cases, for the organization and for the invited person."""
+
     def __init__(
         self,
         *,
@@ -101,6 +109,7 @@ class InvitationService:
         clock: Clock,
         policy: InvitationPolicy,
     ) -> None:
+        """Wire the service to its repositories, audit log, mail sender, limiter and clock."""
         self._organizations = organizations
         self._invitations = invitations
         self._accounts = accounts
@@ -157,6 +166,11 @@ class InvitationService:
     async def list(
         self, actor: Actor, organization_id: uuid.UUID
     ) -> list[InvitationView]:
+        """List the organization's invitations; members see only the ones they sent.
+
+        Raises:
+            OrganizationNotFound: If it is missing or not visible to the actor.
+        """
         await self._organization(actor, organization_id)
         rows = await self._invitations.list_for_organization(organization_id)
         if not policy.can_decide_invitation(actor, organization_id):
@@ -172,6 +186,18 @@ class InvitationService:
         *,
         locale: Locale,
     ) -> InvitationView:
+        """Invite an email address; a member's invitation waits for approval.
+
+        Otherwise the email is sent at once, in the same transaction as the invitation.
+
+        Raises:
+            OrganizationNotFound: If it is missing or not visible to the actor.
+            ForbiddenRole: If the actor may not invite with `role`.
+            AlreadyMember: If the address belongs to a member.
+            InvitationAlreadyOpen: If an invitation to the address is already open.
+            RateLimited: If the inviter or the address got too many invitations.
+            DeliveryFailed: If the email could not be sent.
+        """
         organization = await self._organization(actor, organization_id)
         if role not in policy.invitable_roles(actor, organization_id):
             raise ForbiddenRole(f"you cannot invite someone as {role.value}")
@@ -302,6 +328,16 @@ class InvitationService:
         *,
         locale: Locale,
     ) -> InvitationView:
+        """Approve an invitation that waits for approval and send it.
+
+        Raises:
+            OrganizationNotFound: If the organization is missing or not visible to the actor.
+            InvitationNotFound: If the invitation is not one of the organization's.
+            InvitationNotPending: If it no longer waits for approval.
+            ForbiddenRole: If the actor is not an owner or editor.
+            RateLimited: If the inviter or the address got too many invitations.
+            DeliveryFailed: If the email could not be sent.
+        """
         organization, invitation = await self._decide(
             actor,
             organization_id,
@@ -320,6 +356,14 @@ class InvitationService:
     async def reject(
         self, actor: Actor, organization_id: uuid.UUID, invitation_id: uuid.UUID
     ) -> InvitationView:
+        """Reject an invitation that waits for approval.
+
+        Raises:
+            OrganizationNotFound: If the organization is missing or not visible to the actor.
+            InvitationNotFound: If the invitation is not one of the organization's.
+            InvitationNotPending: If it no longer waits for approval.
+            ForbiddenRole: If the actor is not an owner or editor.
+        """
         _, invitation = await self._decide(
             actor,
             organization_id,
@@ -338,6 +382,14 @@ class InvitationService:
     async def revoke(
         self, actor: Actor, organization_id: uuid.UUID, invitation_id: uuid.UUID
     ) -> InvitationView:
+        """Revoke an invitation that waits for approval or was sent.
+
+        Raises:
+            OrganizationNotFound: If the organization is missing or not visible to the actor.
+            InvitationNotFound: If the invitation is not one of the organization's.
+            InvitationNotPending: If it is no longer open.
+            ForbiddenRole: If the actor is neither an owner, an editor nor its sender.
+        """
         _, invitation = await self._decide(
             actor,
             organization_id,
@@ -457,6 +509,17 @@ class InvitationService:
             )
 
     async def accept(self, actor: Actor, token: str) -> OrganizationView:
+        """Join the organization with the invitation's role.
+
+        The signed-in user's verified email must be the invited address. A user who is
+        already a member keeps their role.
+
+        Raises:
+            InvitationNotFound: If the token or its organization does not exist.
+            InvitationExpired: If the invitation has expired.
+            InvitationNotPending: If it is no longer open.
+            InvitationEmailMismatch: If the user's verified email is not the invited one.
+        """
         invitation = await self._open_by_token(token)
         await self._invitee(actor, invitation)
         organization = await self._organizations.get(invitation.organization_id)
@@ -507,6 +570,14 @@ class InvitationService:
         )
 
     async def decline(self, actor: Actor, token: str) -> None:
+        """Decline the invitation as the invited person.
+
+        Raises:
+            InvitationNotFound: If the token does not exist.
+            InvitationExpired: If the invitation has expired.
+            InvitationNotPending: If it is no longer open.
+            InvitationEmailMismatch: If the user's verified email is not the invited one.
+        """
         invitation = await self._open_by_token(token)
         await self._invitee(actor, invitation)
         closed = replace(

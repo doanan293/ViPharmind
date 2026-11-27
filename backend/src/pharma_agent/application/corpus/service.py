@@ -27,6 +27,8 @@ from pharma_agent.domain.shared.clock import Clock
 
 
 class GcReport(BaseModel):
+    """What `gc` retired, and the index points it updated or deleted."""
+
     model_config = ConfigDict(frozen=True)
 
     retired: list[uuid.UUID]
@@ -38,6 +40,8 @@ class GcReport(BaseModel):
 
 
 class ReindexReport(BaseModel):
+    """What `reindex` wrote: points upserted, points per release, releases skipped."""
+
     model_config = ConfigDict(frozen=True)
 
     points_upserted: int
@@ -58,6 +62,7 @@ class CorpusService:
         embed_batch_size: int,
         embed_max_concurrent: int,
     ) -> None:
+        """Wire the service; the batch size and concurrency bound the embedding calls."""
         self._repository = repository
         self._index = index
         self._embedder = embedder
@@ -72,9 +77,16 @@ class CorpusService:
     async def list_releases(
         self, collection_key: str | None = None
     ) -> list[ReleaseSummary]:
+        """List releases, of one collection or of all; newest first within a collection."""
         return await self._repository.list_releases(collection_key)
 
     async def publish(self, release_id: uuid.UUID) -> Release:
+        """Make a ready release the collection's current one.
+
+        Raises:
+            ReleaseNotFound: If the release does not exist.
+            ReleaseNotPublishable: If it is not ready.
+        """
         release = await self._release(release_id)
         if release.status is not ReleaseStatus.READY:
             raise ReleaseNotPublishable(
@@ -84,6 +96,12 @@ class CorpusService:
         return await self._release(release_id)
 
     async def rollback(self, collection_key: str) -> Release:
+        """Publish again the release published just before the current one.
+
+        Raises:
+            CollectionNotFound: If the collection does not exist.
+            NoEarlierRelease: If there is no current release or no ready one published before it.
+        """
         collection = await self._collection(collection_key)
         if collection.current_release_id is None:
             raise NoEarlierRelease(
@@ -116,6 +134,14 @@ class CorpusService:
         return await self._release(target.id)
 
     async def gc(self, collection_key: str, keep: int) -> GcReport:
+        """Retire old releases and drop their chunks and index points.
+
+        Keeps the current release and the `keep` newest live ones, then deletes the
+        collection's points that no live release names.
+
+        Raises:
+            CollectionNotFound: If the collection does not exist.
+        """
         collection = await self._collection(collection_key)
         summaries = await self._repository.list_releases(collection_key)
         doomed = releases_to_retire(
@@ -173,6 +199,13 @@ class CorpusService:
         )
 
     async def reindex(self, collection_key: str) -> ReindexReport:
+        """Re-embed and overwrite the points of every live release.
+
+        Releases embedded with another model than the current embedder are skipped.
+
+        Raises:
+            CollectionNotFound: If the collection does not exist.
+        """
         await self._collection(collection_key)
         live = [
             summary.release

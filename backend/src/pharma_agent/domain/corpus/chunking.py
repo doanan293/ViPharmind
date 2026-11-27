@@ -238,7 +238,8 @@ def chunk_document(
 
     With `enrichment` off the indexed text is the chunk text alone, without the
     context header, colloquial names or term expansions (the enrichment ablation,
-    spec v2 §2.6); the context header still labels the evidence."""
+    spec v2 §2.6); the context header still labels the evidence.
+    """
     groups: list[tuple[list[SectionRecord], str]] = []
     current: list[SectionRecord] = []
     current_text = ""

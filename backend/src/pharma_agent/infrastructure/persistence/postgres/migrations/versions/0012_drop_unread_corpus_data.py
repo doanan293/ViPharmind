@@ -25,6 +25,7 @@ SCHEMA = "corpus"
 
 
 def upgrade() -> None:
+    """Drop the glossary and colloquial tables and the unread corpus columns."""
     op.drop_table("colloquial_mappings", schema=SCHEMA)
     op.drop_table("glossary_entries", schema=SCHEMA)
     for column in ("blocks", "start_page", "end_page", "char_count"):
@@ -42,6 +43,7 @@ def _add_required(table: str, column: sa.Column, placeholder: str) -> None:
 
 
 def downgrade() -> None:
+    """Restore the dropped schema, filling restored NOT NULL columns with placeholders."""
     _add_required(
         "documents", sa.Column("kind", sa.String(length=32), nullable=False), "''"
     )

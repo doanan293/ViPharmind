@@ -30,6 +30,7 @@ _TEXT: dict[Locale, tuple[str, str, str]] = {
 def invitation_email(
     *, organization: str, inviter: str, role: Role, link: str, locale: Locale
 ) -> EmailContent:
+    """Build the email inviting someone to join an organization with `role`."""
     subject_template, body_template, button = _TEXT[locale]
     values = {
         "organization": organization,

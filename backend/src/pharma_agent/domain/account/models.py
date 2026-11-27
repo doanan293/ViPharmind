@@ -10,6 +10,8 @@ from pharma_agent.domain.shared.errors import DomainError
 
 
 class OtpPurpose(StrEnum):
+    """What a one-time code is for; CHANNEL_BY_PURPOSE says how it is sent."""
+
     VERIFY_EMAIL = "verify_email"
     RESET_PASSWORD = "reset_password"
     CHANGE_EMAIL = "change_email"
@@ -18,6 +20,8 @@ class OtpPurpose(StrEnum):
 
 
 class Channel(StrEnum):
+    """How a one-time code reaches the user."""
+
     EMAIL = "email"
     SMS = "sms"
 
@@ -32,6 +36,8 @@ CHANNEL_BY_PURPOSE: dict[OtpPurpose, Channel] = {
 
 
 class SignInMethod(StrEnum):
+    """A way to sign in to an account."""
+
     PASSWORD = "password"
     PHONE = "phone"
     GOOGLE = "google"
@@ -45,6 +51,8 @@ class AccountConflict(DomainError):
 
 @dataclass(frozen=True)
 class AccountUser:
+    """An account and how it can sign in."""
+
     id: uuid.UUID
     email: str | None
     phone_number: str | None
@@ -74,6 +82,8 @@ class AccountUser:
 
 @dataclass(frozen=True)
 class OneTimeCode:
+    """A stored one-time code: HMAC digest, destination, expiry and attempts so far."""
+
     id: uuid.UUID
     purpose: OtpPurpose
     destination: str
@@ -85,6 +95,8 @@ class OneTimeCode:
 
 @dataclass(frozen=True)
 class SessionRecord:
+    """A signed-in session with its client details."""
+
     token: str
     created_at: datetime
     last_used_at: datetime | None
@@ -93,6 +105,7 @@ class SessionRecord:
 
 
 def normalize_email(email: str) -> str:
+    """Strip and lowercase an email address."""
     return email.strip().lower()
 
 

@@ -27,19 +27,28 @@ class OpenAiEmbedder:
     """Embeddings through an OpenAI-compatible /v1/embeddings endpoint (OpenRouter, llama.cpp)."""
 
     def __init__(self, client: Any, *, model: str, dimension: int) -> None:
+        """Embed with `model` through `client`; vectors must have `dimension` values."""
         self._client = client
         self._model = model
         self._dimension = dimension
 
     @property
     def model(self) -> str:
+        """The embedding model name."""
         return self._model
 
     @property
     def dimension(self) -> int:
+        """The configured vector dimension."""
         return self._dimension
 
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        """One vector per text, in input order.
+
+        Raises:
+            RetrievalError: When the request fails or returns the wrong number or
+                size of vectors.
+        """
         if not texts:
             return []
         try:
@@ -92,6 +101,8 @@ def _scored_point(point: Any) -> tuple[UUID, UUID, float]:
 
 
 class QdrantHybridRetriever:
+    """Hybrid, dense or BM25 search in Qdrant, with chunks loaded from Postgres."""
+
     def __init__(
         self,
         client: Any,
@@ -105,6 +116,12 @@ class QdrantHybridRetriever:
         rrf_k: int = 2,
         max_concurrent: int = 3,
     ) -> None:
+        """Search Qdrant collection `collection` in `mode`.
+
+        `scope` lists the collection keys searched when no user scope is given;
+        `prefetch_k` and `rrf_k` tune hybrid fusion; at most `max_concurrent` queries
+        run at a time.
+        """
         self._client = client
         self._embedder = embedder
         self._reader = reader
@@ -118,8 +135,15 @@ class QdrantHybridRetriever:
     async def search_many(
         self, queries: Sequence[Query], top_k: int, scope: ReleaseScope | None = None
     ) -> list[list[Hit]]:
-        """`scope` is what a user may search; None falls back to the configured
-        collections, for runs without a user (evaluation, CLI)."""
+        """One ranked hit list per query, in the order of `queries`.
+
+        `scope` is what a user may search; None falls back to the configured
+        collections, for runs without a user (evaluation, CLI).
+
+        Raises:
+            RetrievalError: When embedding, Qdrant or Postgres fails, or no configured
+                collection has a current release.
+        """
         if not queries:
             return []
         releases = dict(scope) if scope is not None else await self._default_releases()
@@ -253,8 +277,11 @@ class QdrantHybridRetriever:
         return releases
 
     async def verify_corpus(self, *, embedding_model: str, dimension: int) -> None:
-        """Raise RetrievalError unless the collection matches the embedding settings and every
-        scoped corpus collection has a current release (spec C §9, health `corpus`)."""
+        """Raise RetrievalError unless the corpus is ready to search.
+
+        The collection must match the embedding settings and every scoped corpus
+        collection must have a current release (spec C §9, health `corpus`).
+        """
         await self.verify_collection(
             embedding_model=embedding_model, dimension=dimension
         )

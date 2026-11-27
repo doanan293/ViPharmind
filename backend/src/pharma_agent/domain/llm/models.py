@@ -4,12 +4,16 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ChatRole(StrEnum):
+    """Author of a chat message."""
+
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
 
 
 class ChatMessage(BaseModel):
+    """One chat message sent to a model."""
+
     model_config = ConfigDict(frozen=True)
 
     role: ChatRole
@@ -17,6 +21,8 @@ class ChatMessage(BaseModel):
 
 
 class LlmUsage(BaseModel):
+    """Tokens one or more LLM calls used."""
+
     model_config = ConfigDict(frozen=True)
 
     prompt_tokens: int = 0
@@ -26,9 +32,11 @@ class LlmUsage(BaseModel):
 
     @property
     def total_tokens(self) -> int:
+        """Prompt plus completion tokens."""
         return self.prompt_tokens + self.completion_tokens
 
     def __add__(self, other: "LlmUsage") -> "LlmUsage":
+        """Field-wise sum of two usages."""
         return LlmUsage(
             prompt_tokens=self.prompt_tokens + other.prompt_tokens,
             completion_tokens=self.completion_tokens + other.completion_tokens,
@@ -37,6 +45,8 @@ class LlmUsage(BaseModel):
 
 
 class LlmRole(StrEnum):
+    """Which step a model call serves; each role can be configured separately."""
+
     GUARDRAIL = "guardrail"
     REPHRASE = "rephrase"
     JUDGE = "judge"
@@ -48,6 +58,8 @@ class LlmRole(StrEnum):
 
 
 class StreamDelta(BaseModel):
+    """A piece of a streamed answer; the final piece carries the usage."""
+
     model_config = ConfigDict(frozen=True)
 
     text: str = ""
@@ -55,8 +67,10 @@ class StreamDelta(BaseModel):
 
 
 def system(content: str) -> ChatMessage:
+    """A system message with `content`."""
     return ChatMessage(role=ChatRole.SYSTEM, content=content)
 
 
 def user(content: str) -> ChatMessage:
+    """A user message with `content`."""
     return ChatMessage(role=ChatRole.USER, content=content)

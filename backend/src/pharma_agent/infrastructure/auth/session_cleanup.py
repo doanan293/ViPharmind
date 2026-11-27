@@ -48,6 +48,8 @@ async def delete_stale_account_rows(conninfo: str) -> tuple[int, int]:
 
 @dataclass(frozen=True)
 class AccountCleanup:
+    """How many sessions, one-time codes and rate-limit buckets one cleanup deleted."""
+
     sessions: int
     codes: int
     rate_limit_buckets: int

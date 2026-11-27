@@ -6,10 +6,13 @@ from pharma_agent.domain.guardrail.models import Verdict, VerdictSource
 
 @dataclass(frozen=True)
 class PatternGroup:
+    """A labelled set of case-insensitive regexes for one kind of attack."""
+
     label: str
     patterns: tuple[re.Pattern[str], ...]
 
     def check(self, text_lower: str) -> tuple[str, ...] | None:
+        """The patterns that match `text_lower`, or None when none does."""
         hits = tuple(p.pattern for p in self.patterns if p.search(text_lower))
         return hits or None
 

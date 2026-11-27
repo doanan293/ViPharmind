@@ -29,6 +29,7 @@ def default_systemone_client(
 
 
 def question_payload(question: NoulQuestion) -> dict[str, object]:
+    """The SystemOne request form of a noul question; criteria only for those set."""
     payload: dict[str, object] = {"type": "noul", "instructions": question.instructions}
     criteria = {
         k: v
@@ -50,16 +51,25 @@ def raw_body(response: Any) -> dict[str, Any]:
 
 
 class SystemOneAdapter:
+    """DecisionPort over TypeSafe's SystemOne; one client per base URL and API key."""
+
     def __init__(
         self,
         settings: LlmSettings,
         client_factory: SystemOneClientFactory = default_systemone_client,
     ) -> None:
+        """Use `client_factory` to build clients on first use."""
         self._settings = settings
         self._factory = client_factory
         self._clients: dict[tuple[str | None, str], Any] = {}
 
     def endpoint(self, role: LlmRole) -> ResolvedEndpoint:
+        """The resolved endpoint of `role`.
+
+        Raises:
+            LlmError: When the role's provider is not systemone.
+            ValueError: When the role has no API key or model.
+        """
         endpoint = self._settings.resolve(role)
         if endpoint.provider != "systemone":
             raise LlmError(
@@ -92,6 +102,14 @@ class SystemOneAdapter:
         state: Mapping[str, object],
         questions: Mapping[str, NoulQuestion],
     ) -> Decision:
+        """Ask the decision model every question about `state`.
+
+        Returns one probability in [0, 1] per question key, with the model, input
+        tokens, latency, raw body and request id.
+
+        Raises:
+            LlmError: On any request failure or a malformed answer.
+        """
         endpoint = self.endpoint(role)
         client = self._client(endpoint)
         payload = {key: question_payload(q) for key, q in questions.items()}
@@ -130,8 +148,11 @@ def request_id(response: Any) -> str | None:
 
 
 def probability(role: LlmRole, response: Any, key: str) -> float:
-    """The noul answer for `key` as a probability; anything else is an LlmError, so a
-    malformed answer degrades like every other decision-model failure."""
+    """The noul answer for `key` as a probability.
+
+    Anything else is an LlmError, so a malformed answer degrades like every other
+    decision-model failure.
+    """
     try:
         value = getattr(response.answers.get(key), "noul", None)
     except AttributeError as exc:

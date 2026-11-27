@@ -39,6 +39,11 @@ def create_app(
     *,
     container_factory: ContainerFactory = open_container,
 ) -> FastAPI:
+    """Build the FastAPI app: auth, CSRF, CORS, error handlers and every `/api/v1` router.
+
+    The container is opened by `container_factory` in the lifespan, so nothing connects
+    until the app starts. `settings` defaults to `Settings()` from the environment.
+    """
     resolved = settings if settings is not None else Settings()
     auth = build_auth(resolved.auth, session_factory)
 

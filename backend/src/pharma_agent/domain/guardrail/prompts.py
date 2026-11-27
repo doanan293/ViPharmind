@@ -12,4 +12,5 @@ Câu hỏi có thể bằng tiếng Việt, tiếng Anh hoặc pha trộn. Chỉ
 
 
 def guardrail_messages(query: str) -> list[ChatMessage]:
+    """Messages for the LLM guard classifier."""
     return [system(GUARDRAIL_SYSTEM_PROMPT), user(query)]

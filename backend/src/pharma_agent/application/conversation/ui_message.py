@@ -18,6 +18,8 @@ from pharma_agent.domain.feedback.models import Feedback, Rating
 
 
 class CamelModel(BaseModel):
+    """Base of the wire models: camelCase aliases, populated by name or alias."""
+
     model_config = ConfigDict(
         alias_generator=to_camel,
         validate_by_name=True,
@@ -27,6 +29,8 @@ class CamelModel(BaseModel):
 
 
 class MessageStatus(StrEnum):
+    """Final status of a message as shown to the client."""
+
     COMPLETED = "completed"
     PARTIAL = "partial"
     ABSTAINED = "abstained"
@@ -37,6 +41,8 @@ class MessageStatus(StrEnum):
 
 
 class EvidenceItem(CamelModel):
+    """One numbered evidence chunk streamed during a turn."""
+
     index: int
     source: str
     title: str
@@ -47,6 +53,8 @@ class EvidenceItem(CamelModel):
 
 
 class PharmaSourceMetadata(CamelModel):
+    """Pharma-specific metadata of a cited source; `is_current` says its release is current."""
+
     index: int
     source: str
     title: str
@@ -58,15 +66,21 @@ class PharmaSourceMetadata(CamelModel):
 
 
 class SourceProviderMetadata(CamelModel):
+    """Provider metadata of a source part, under the `pharma` key."""
+
     pharma: PharmaSourceMetadata
 
 
 class TextUIPart(CamelModel):
+    """The text of a message."""
+
     type: Literal["text"]
     text: str
 
 
 class SourceDocumentUIPart(CamelModel):
+    """One cited source of an assistant message."""
+
     type: Literal["source-document"]
     source_id: str
     media_type: Literal["text/markdown"]
@@ -80,6 +94,8 @@ UIMessagePart = Annotated[
 
 
 class MessageUsage(CamelModel):
+    """Token and call usage of an assistant turn."""
+
     llm_calls: int
     prompt_tokens: int
     completion_tokens: int
@@ -87,11 +103,15 @@ class MessageUsage(CamelModel):
 
 
 class MessageFeedback(CamelModel):
+    """The user's rating of an assistant message."""
+
     rating: Rating
     note: str
 
 
 class MessageMetadata(CamelModel):
+    """Status, timing, usage and feedback of a message."""
+
     status: MessageStatus
     created_at: datetime
     error_code: str | None = None
@@ -102,6 +122,8 @@ class MessageMetadata(CamelModel):
 
 
 class UIMessage(CamelModel):
+    """A chat message in AI SDK `UIMessage` shape."""
+
     id: str
     role: Literal["user", "assistant"]
     parts: list[UIMessagePart]
@@ -109,6 +131,8 @@ class UIMessage(CamelModel):
 
 
 class PhaseData(CamelModel):
+    """Payload of a `data-phase` stream part."""
+
     phase: Literal[
         "guarding",
         "understanding",
@@ -120,10 +144,14 @@ class PhaseData(CamelModel):
 
 
 class EvidenceData(CamelModel):
+    """Payload of a `data-evidence` stream part."""
+
     items: list[EvidenceItem]
 
 
 class ConversationData(CamelModel):
+    """Payload of a `data-conversation` stream part."""
+
     id: str
     title: str
 
@@ -139,6 +167,7 @@ class PharmaDataParts(CamelModel):
 def source_document_part(
     citation: Citation, *, is_current: bool
 ) -> SourceDocumentUIPart:
+    """Build the source part of a citation."""
     return SourceDocumentUIPart(
         type="source-document",
         source_id=str(citation.chunk_version_id),
@@ -170,6 +199,7 @@ def source_document_parts_from_event(
 
 
 def evidence_items_from_event(data: Mapping[str, Any]) -> list[EvidenceItem]:
+    """Parse the evidence items of an `evidence` progress event."""
     return [EvidenceItem.model_validate(item) for item in data["items"]]
 
 
@@ -179,6 +209,7 @@ def ui_message_of(
     feedback: Feedback | None,
     current_release_ids: Collection[uuid.UUID],
 ) -> UIMessage:
+    """Build the UI message of a stored message, with its sources and feedback."""
     text = TextUIPart(type="text", text=message.content)
     status = MessageStatus(message.status)
     if message.role is MessageRole.USER:

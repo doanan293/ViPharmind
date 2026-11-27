@@ -18,6 +18,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Create the users, OAuth accounts, conversations, messages and retrieval audit tables."""
     op.create_table(
         "user",
         sa.Column(
@@ -206,6 +207,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop every table this revision created."""
     op.drop_table("retrieval_hits")
     op.drop_index("ix_retrieval_runs_message", table_name="retrieval_runs")
     op.drop_table("retrieval_runs")

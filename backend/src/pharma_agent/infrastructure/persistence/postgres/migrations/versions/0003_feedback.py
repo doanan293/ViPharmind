@@ -1,4 +1,4 @@
-"""feedback
+"""Feedback: one rating and note per user and message.
 
 Revision ID: 0003
 Create Date: 2026-09-12 07:56:20.463408
@@ -16,6 +16,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Create the feedback table."""
     op.create_table(
         "feedback",
         sa.Column("feedback_id", sa.Uuid(), nullable=False),
@@ -42,4 +43,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop the feedback table."""
     op.drop_table("feedback")

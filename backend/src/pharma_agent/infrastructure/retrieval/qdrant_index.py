@@ -29,10 +29,12 @@ KEYWORD_PAYLOAD_FIELDS = ("release_ids", "document_id")
 
 
 def physical_collection_name(model: str) -> str:
+    """The Qdrant collection that holds vectors of embedding `model`."""
     return f"chunks_{model_slug(model)}"
 
 
 def point_payload(item: IndexItem) -> dict[str, object]:
+    """The routing payload of one point; it carries no text."""
     return {
         "collection_id": str(item.collection_id),
         "release_ids": [str(release_id) for release_id in item.release_ids],
@@ -41,6 +43,8 @@ def point_payload(item: IndexItem) -> dict[str, object]:
 
 
 class QdrantVectorIndex:
+    """VectorIndex over one Qdrant collection per embedding model."""
+
     def __init__(
         self,
         client: AsyncQdrantClient,
@@ -50,6 +54,10 @@ class QdrantVectorIndex:
         alias: str = CURRENT_ALIAS,
         on_disk_vectors: bool = False,
     ) -> None:
+        """Index vectors of `model` with `dimension` values behind `alias`.
+
+        `on_disk_vectors` keeps dense vectors on disk when the collection is created.
+        """
         self._client = client
         # Dense vectors on disk (memory-mapped) when RAM is short, e.g. a small cloud tier.
         self._on_disk_vectors = on_disk_vectors
@@ -61,6 +69,14 @@ class QdrantVectorIndex:
         self.alias = alias
 
     async def ensure_collection(self) -> str:
+        """Create the collection or check its metadata, then payload indexes and alias.
+
+        Returns the physical collection name.
+
+        Raises:
+            IndexMismatch: When an existing collection was built for another model or
+                dimension.
+        """
         if await self._client.collection_exists(self.collection_name):
             await self._verify_metadata()
         else:
@@ -85,6 +101,7 @@ class QdrantVectorIndex:
         return self.collection_name
 
     async def existing_ids(self, ids: Sequence[uuid.UUID]) -> set[uuid.UUID]:
+        """The ids among `ids` that already have a point."""
         found: set[uuid.UUID] = set()
         for batch in itertools.batched(ids, IDS_PER_REQUEST):
             records = await self._client.retrieve(
@@ -99,6 +116,12 @@ class QdrantVectorIndex:
     async def upsert(
         self, items: Sequence[IndexItem], vectors: Mapping[str, Sequence[float]]
     ) -> None:
+        """Write a point per item, its vector looked up by `embedding_text_sha256`.
+
+        Raises:
+            ValueError: When `vectors` has no vector for an item.
+            IndexMismatch: When a vector has the wrong dimension.
+        """
         for batch in itertools.batched(items, POINTS_PER_UPSERT):
             points: list[models.PointStruct] = []
             for item in batch:
@@ -129,6 +152,7 @@ class QdrantVectorIndex:
             )
 
     async def set_release_ids(self, items: Sequence[IndexItem]) -> None:
+        """Replace each item's `release_ids` payload with the item's releases."""
         groups: dict[tuple[str, ...], list[models.ExtendedPointId]] = {}
         for item in items:
             key = tuple(str(release_id) for release_id in item.release_ids)
@@ -150,6 +174,7 @@ class QdrantVectorIndex:
             )
 
     async def delete(self, ids: Sequence[uuid.UUID]) -> None:
+        """Delete the points with `ids`."""
         for batch in itertools.batched(ids, IDS_PER_REQUEST):
             points: list[models.ExtendedPointId] = [str(point_id) for point_id in batch]
             await self._client.delete(
@@ -161,6 +186,10 @@ class QdrantVectorIndex:
     async def delete_unreleased(
         self, collection_id: uuid.UUID, live_release_ids: Sequence[uuid.UUID]
     ) -> int:
+        """Delete the collection's points that are in none of `live_release_ids`.
+
+        Returns how many points were deleted.
+        """
         unreleased = models.Filter(
             must=[
                 models.FieldCondition(
@@ -189,6 +218,7 @@ class QdrantVectorIndex:
         return found.count
 
     async def count_release(self, release_id: uuid.UUID) -> int:
+        """How many points list `release_id`."""
         result = await self._client.count(
             collection_name=self.collection_name,
             count_filter=models.Filter(

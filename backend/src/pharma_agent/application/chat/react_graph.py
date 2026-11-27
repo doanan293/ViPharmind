@@ -64,6 +64,7 @@ async def agent_node(
 async def finalize_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
+    """Number and cite the chunks the agent was shown and emit the final answer."""
     run, deps = state.run, runtime.context.deps
     answer, stats = _answer(state)
     emit(ProgressEvent.phase(Phase.ANSWERING))
@@ -100,6 +101,7 @@ async def finalize_node(
 
 
 def route_after_guard(state: ChatTurnState) -> Literal["agent", "answer", "fallback"]:
+    """Go to the agent when the guard allows processing, else straight to answer."""
     if routing.failed(state):
         return "fallback"
     verdict = state.run.guard_verdict
@@ -107,11 +109,12 @@ def route_after_guard(state: ChatTurnState) -> Literal["agent", "answer", "fallb
 
 
 def route_after_agent(state: ChatTurnState) -> Literal["finalize", "fallback"]:
+    """Finalize unless the agent failed."""
     return "fallback" if routing.failed(state) else "finalize"
 
 
 def build_react_graph() -> ChatGraph:
-    """guard → agent → finalize, with answer (blocked, redirect) and fallback."""
+    """Build the ReAct graph: guard → agent → finalize, with answer (blocked, redirect) and fallback."""
     builder = StateGraph(ChatTurnState, context_schema=TurnContext)
     builder.add_node("guard", nodes.guard_node)
     builder.add_node("agent", agent_node)

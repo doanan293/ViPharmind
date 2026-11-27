@@ -1,7 +1,8 @@
 """Rerankers over an OpenAI-style `/v1/rerank` endpoint (llama.cpp, OpenRouter, TEI, vLLM).
 
 The rerank template ships inside the GGUF, so the agent and the pharma-lab evaluation
-score candidates with the same computation without copying prompts."""
+score candidates with the same computation without copying prompts.
+"""
 
 import asyncio
 from collections.abc import Sequence
@@ -13,12 +14,14 @@ from pharma_agent.domain.retrieval.ports import RetrievalError
 
 
 def document_text(hit: Hit) -> str:
+    """The text a reranker scores: the embedding text, else header and chunk text."""
     return hit.embedding_text or f"{hit.context_header}\n\n{hit.chunk_text}".strip()
 
 
 def sorted_top(
     hits: Sequence[Hit], scores: Sequence[float | None], top_n: int
 ) -> list[Hit]:
+    """`hits` with `scores` as rerank scores, the best `top_n` by `Hit.score`."""
     scored = [
         h.model_copy(update={"rerank_score": s})
         for h, s in zip(hits, scores, strict=True)
@@ -33,14 +36,23 @@ class NativeReranker:
     def __init__(
         self, http: httpx.AsyncClient, *, model: str, max_concurrent: int = 2
     ) -> None:
+        """Post to `http`'s base URL, at most `max_concurrent` requests at a time."""
         self._http = http
         self._model = model
         self._semaphore = asyncio.Semaphore(max_concurrent)
 
     async def aclose(self) -> None:
+        """Close the HTTP client."""
         await self._http.aclose()
 
     async def rerank(self, query: str, hits: Sequence[Hit], top_n: int) -> list[Hit]:
+        """Score every hit against `query` and return the best `top_n`.
+
+        A hit the response leaves out keeps no rerank score.
+
+        Raises:
+            RetrievalError: When the request fails or the response has no results.
+        """
         if not hits:
             return []
         body = {
@@ -72,5 +84,8 @@ class NativeReranker:
 
 
 class NoopReranker:
+    """Reranker that keeps the fusion order; selected with protocol `none`."""
+
     async def rerank(self, query: str, hits: Sequence[Hit], top_n: int) -> list[Hit]:
+        """The `top_n` hits with the highest fusion score."""
         return sorted(hits, key=lambda h: h.fusion_score, reverse=True)[:top_n]

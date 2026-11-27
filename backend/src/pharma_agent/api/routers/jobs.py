@@ -12,6 +12,7 @@ from pharma_agent.application.corpus.jobs import JobView, ReleaseView
 
 
 def build_jobs_router(current_actor: ActorDependency) -> APIRouter:
+    """Routes to publish a collection, list its releases and follow publish jobs."""
     router = APIRouter(tags=["publishing"], responses=problem_responses(401, 403, 404))
     CurrentActor = Annotated[Actor, Depends(current_actor)]
 

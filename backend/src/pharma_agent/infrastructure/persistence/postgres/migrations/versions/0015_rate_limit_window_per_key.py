@@ -16,6 +16,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Clear the buckets and key them by `key` alone."""
     # Buckets live an hour at most; dropping them only resets the current limits.
     op.execute("DELETE FROM rate_limit_buckets")
     op.drop_constraint("pk_rate_limit_buckets", "rate_limit_buckets", type_="primary")
@@ -23,6 +24,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Key the buckets by `key` and `window_start` again."""
     op.drop_constraint("pk_rate_limit_buckets", "rate_limit_buckets", type_="primary")
     op.create_primary_key(
         "pk_rate_limit_buckets", "rate_limit_buckets", ["key", "window_start"]

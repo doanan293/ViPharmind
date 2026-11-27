@@ -11,6 +11,7 @@ MessageId = Annotated[str, Path(pattern=MESSAGE_ID_PATTERN)]
 
 
 def build_feedback_router(current_user_id: UserIdDependency) -> APIRouter:
+    """Routes for the signed-in user's feedback on assistant messages."""
     router = APIRouter(
         prefix="/messages",
         tags=["feedback"],

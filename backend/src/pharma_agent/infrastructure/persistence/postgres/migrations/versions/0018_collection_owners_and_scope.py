@@ -18,6 +18,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Add collection owners and conversation scopes; ownerless collections become public."""
     op.add_column(
         "collections",
         sa.Column("owner_organization_id", sa.Uuid(), nullable=True),
@@ -84,6 +85,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Remove ownership and scopes; organization-visible collections become private."""
     op.drop_column("conversations", "collection_ids")
     op.drop_index(
         "ix_collections_owner_organization_id",

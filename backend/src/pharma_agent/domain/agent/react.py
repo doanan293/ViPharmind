@@ -74,8 +74,10 @@ class Shown(BaseModel):
 
 
 def react_history(context: ConversationContext, question: str) -> list[ChatMessage]:
-    """The turn's messages after the system prompt: the summary, the earlier turns and
-    the question."""
+    """The turn's messages after the system prompt.
+
+    They are the summary, the earlier turns and the question.
+    """
     messages: list[ChatMessage] = []
     if context.summary:
         messages.append(user(f"Tóm tắt hội thoại trước:\n{context.summary}"))
@@ -89,6 +91,7 @@ def react_history(context: ConversationContext, question: str) -> list[ChatMessa
 
 
 def normalize_query(text: str) -> str:
+    """Lowercase `text` and collapse runs of whitespace to single spaces."""
     return " ".join(text.lower().split())
 
 

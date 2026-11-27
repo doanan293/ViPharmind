@@ -9,7 +9,7 @@ ChatGraph = CompiledStateGraph[ChatTurnState, TurnContext, ChatTurnState, ChatTu
 
 
 def build_chat_graph() -> ChatGraph:
-    """guard → rephrase → search ⇄ (judge → refine) → answer, with fallback."""
+    """Build the chat graph: guard → rephrase → search ⇄ (judge → refine) → answer, with fallback."""
     builder = StateGraph(ChatTurnState, context_schema=TurnContext)
     builder.add_node("guard", nodes.guard_node)
     builder.add_node("rephrase", nodes.rephrase_node)

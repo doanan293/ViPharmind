@@ -10,11 +10,15 @@ there is nothing the user may search."""
 
 
 class QueryOrigin(StrEnum):
+    """Where a query came from: the user's turn or a refinement."""
+
     INITIAL = "initial"
     REFINED = "refined"
 
 
 class Query(BaseModel):
+    """A search query and its origin."""
+
     model_config = ConfigDict(frozen=True)
 
     text: str
@@ -22,16 +26,21 @@ class Query(BaseModel):
 
     @property
     def normalized(self) -> str:
+        """Lowercased with whitespace collapsed, for duplicate checks."""
         return " ".join(self.text.lower().split())
 
 
 class TermAnnotation(BaseModel):
+    """Expansions of a glossary term found in a chunk, in Vietnamese and English."""
+
     term: str
     vi: list[str] = Field(default_factory=list)
     en: list[str] = Field(default_factory=list)
 
 
 class ColloquialMapping(BaseModel):
+    """Colloquial names attached to a chunk's sections."""
+
     key: str = ""
     aliases: list[str] = Field(default_factory=list)
     visual_sign: str = ""
@@ -73,6 +82,7 @@ class Hit(BaseModel):
 
     @property
     def score(self) -> float:
+        """The rerank score, or the fusion score when the hit was not reranked."""
         return self.rerank_score if self.rerank_score is not None else self.fusion_score
 
     @property
@@ -82,9 +92,11 @@ class Hit(BaseModel):
 
     @property
     def page_label(self) -> str:
+        """Vietnamese page label of the chunk; empty without page numbers."""
         return page_label(self.start_page, self.end_page)
 
     def term_hints(self) -> list[str]:
+        """Colloquial names and glossary expansions, de-duplicated ignoring case."""
         hints: list[str] = []
         if self.colloquial_mapping is not None:
             hints.extend(self.colloquial_mapping.aliases)
@@ -127,9 +139,11 @@ class ChunkRecord(BaseModel):
 
     @property
     def section(self) -> str:
+        """The headings of the sections this chunk holds, in reading order."""
         return "; ".join(h for h in self.headings if h)
 
     def to_hit(self, *, fusion_score: float, query_text: str) -> Hit:
+        """A search hit of this chunk matched by `query_text`, not yet reranked."""
         return Hit.model_validate(
             {
                 **self.model_dump(),

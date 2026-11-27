@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 
 
 class Phase(StrEnum):
+    """Coarse stage of a chat turn shown to the user."""
+
     GUARDING = "guarding"
     UNDERSTANDING = "understanding"
     SEARCHING = "searching"
@@ -16,6 +18,8 @@ class Phase(StrEnum):
 
 
 class EventType(StrEnum):
+    """Kind of a progress event streamed to the client."""
+
     CONVERSATION = "conversation"
     PHASE = "phase"
     EVIDENCE = "evidence"
@@ -25,13 +29,17 @@ class EventType(StrEnum):
 
 
 class ProgressEvent(BaseModel):
+    """One progress event; `data` holds the payload of its `type`."""
+
     type: EventType
     data: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def phase(cls, phase: Phase, **extra: Any) -> "ProgressEvent":
+        """Build a phase event; `extra` adds fields to its data."""
         return cls(type=EventType.PHASE, data={"phase": phase.value, **extra})
 
     @classmethod
     def token(cls, text: str) -> "ProgressEvent":
+        """Build an event carrying one chunk of answer text."""
         return cls(type=EventType.TOKEN, data={"text": text})

@@ -6,6 +6,8 @@ from pharma_agent.domain.conversation.models import CitationBlock
 
 
 class CitationDetail(BaseModel):
+    """The full text of a cited chunk and where it comes from."""
+
     index: int
     source: str
     document_title: str
@@ -17,6 +19,7 @@ class CitationDetail(BaseModel):
 
     @classmethod
     def of(cls, block: CitationBlock) -> "CitationDetail":
+        """Build the detail of a stored citation block."""
         citation = block.citation
         return cls(
             index=citation.index,

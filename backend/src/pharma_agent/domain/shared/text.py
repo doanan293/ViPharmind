@@ -51,8 +51,11 @@ def make_snippet(text: str, max_chars: int) -> str:
 
 
 def make_preview(text: str, max_chars: int) -> str:
-    """Like make_snippet, for people to read: markdown heading, list and emphasis markers
-    dropped. The agent's own evidence views keep make_snippet."""
+    """Like make_snippet, for people to read.
+
+    Markdown heading, list and emphasis markers are dropped. The agent's own evidence
+    views keep make_snippet.
+    """
     lines = [_BLOCK_MARKER_RE.sub("", line) for line in text.splitlines()]
     plain = _EMPHASIS_RE.sub(lambda m: m.group(2) or m.group(4), "\n".join(lines))
     return make_snippet(plain, max_chars)

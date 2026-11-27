@@ -12,20 +12,28 @@ from pharma_agent.domain.shared.errors import DomainError
 
 
 class RetrievalError(DomainError):
+    """Search or rerank failed."""
+
     code = "RETRIEVAL_ERROR"
 
 
 class Retriever(Protocol):
+    """Finds candidate chunks for queries."""
+
     async def search_many(
         self, queries: Sequence[Query], top_k: int, scope: ReleaseScope | None = None
     ) -> list[list[Hit]]:
-        """One ranked hit list per query, same order as `queries`, reading only the
-        releases in `scope`. None means the configured default collections, for runs
-        without a user (evaluation, CLI). Raises RetrievalError."""
+        """One ranked hit list per query, same order as `queries`.
+
+        Reads only the releases in `scope`. None means the configured default
+        collections, for runs without a user (evaluation, CLI). Raises RetrievalError.
+        """
         ...
 
 
 class ScopeResolver(Protocol):
+    """Works out which releases a user may search."""
+
     async def resolve(
         self, *, user_id: str, requested: Sequence[UUID] | None
     ) -> ReleaseScope:
@@ -34,6 +42,8 @@ class ScopeResolver(Protocol):
 
 
 class Reranker(Protocol):
+    """Scores hits against a query with a reranker."""
+
     async def rerank(self, query: str, hits: Sequence[Hit], top_n: int) -> list[Hit]:
         """Return up to top_n hits sorted by rerank_score desc. Raises RetrievalError."""
         ...

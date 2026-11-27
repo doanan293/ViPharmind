@@ -14,6 +14,7 @@ Token = Annotated[str, Path(min_length=16, max_length=128, pattern=r"^[A-Za-z0-9
 
 
 def build_invitations_router(current_actor: ActorDependency) -> APIRouter:
+    """Routes for the invited person: preview (public), accept and decline."""
     router = APIRouter(prefix="/invitations", tags=["invitations"])
     CurrentActor = Annotated[Actor, Depends(current_actor)]
 

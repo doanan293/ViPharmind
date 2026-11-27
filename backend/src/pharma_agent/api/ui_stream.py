@@ -35,9 +35,15 @@ class UIMessageStreamEncoder:
     """One instance per turn; the only state is whether the text part is open."""
 
     def __init__(self) -> None:
+        """Start with the text part closed."""
         self._text_open = False
 
     def encode(self, event: ProgressEvent) -> list[Chunk]:
+        """Map one progress event to the stream chunks it produces, possibly none.
+
+        The text part is opened by the first non-empty token and closed before citations
+        or the finish chunk.
+        """
         data = event.data
         match event.type:
             case EventType.CONVERSATION:
@@ -117,6 +123,7 @@ def _finish(data: dict[str, Any]) -> Chunk:
 async def ui_message_chunks(
     events: AsyncIterable[ProgressEvent],
 ) -> AsyncIterator[Chunk]:
+    """Encode a turn's progress events as UI message stream chunks, in order."""
     encoder = UIMessageStreamEncoder()
     async for event in events:
         for chunk in encoder.encode(event):
@@ -126,6 +133,7 @@ async def ui_message_chunks(
 async def ui_message_stream(
     events: AsyncIterable[ProgressEvent],
 ) -> AsyncIterator[ServerSentEvent]:
+    """Frame a turn's chunks as server-sent events, ending with `[DONE]`."""
     async for chunk in ui_message_chunks(events):
         yield ServerSentEvent(
             raw_data=json.dumps(chunk, ensure_ascii=False, separators=(",", ":"))

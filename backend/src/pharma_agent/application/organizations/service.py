@@ -27,6 +27,8 @@ from pharma_agent.domain.shared.transaction import TransactionFactory
 
 
 class OrganizationView(BaseModel):
+    """An organization with the actor's role in it (None when not a member)."""
+
     id: uuid.UUID
     name: str
     role: Role | None
@@ -35,6 +37,8 @@ class OrganizationView(BaseModel):
 
 
 class MemberItem(BaseModel):
+    """One member of an organization."""
+
     user_id: uuid.UUID
     display_name: str
     email: str | None
@@ -43,6 +47,8 @@ class MemberItem(BaseModel):
 
 
 class OrganizationService:
+    """Organization use cases; every change is audited in the same transaction."""
+
     def __init__(
         self,
         *,
@@ -51,6 +57,7 @@ class OrganizationService:
         tx: TransactionFactory,
         clock: Clock,
     ) -> None:
+        """Wire the service to the repository, the audit log, transactions and the clock."""
         self._organizations = organizations
         self._audit = audit
         self._tx = tx
@@ -83,6 +90,7 @@ class OrganizationService:
         return name.strip()
 
     async def list_mine(self, actor: Actor) -> list[OrganizationView]:
+        """List the organizations the actor belongs to, with their role in each."""
         return [
             await self._view(actor, organization, role)
             for organization, role in await self._organizations.list_for_user(
@@ -91,9 +99,19 @@ class OrganizationService:
         ]
 
     async def get(self, actor: Actor, organization_id: uuid.UUID) -> OrganizationView:
+        """Return one organization the actor can see.
+
+        Raises:
+            OrganizationNotFound: If it is missing or not visible to the actor.
+        """
         return await self._view(actor, await self._visible(actor, organization_id))
 
     async def create(self, actor: Actor, name: str) -> OrganizationView:
+        """Create an organization owned by the actor.
+
+        Raises:
+            OrganizationNameInvalid: If the name is not acceptable.
+        """
         now = self._clock.now()
         organization = Organization(
             uuid.uuid4(), self._name(name), None, None, now, now
@@ -120,6 +138,13 @@ class OrganizationService:
     async def rename(
         self, actor: Actor, organization_id: uuid.UUID, name: str
     ) -> OrganizationView:
+        """Rename an organization.
+
+        Raises:
+            OrganizationNotFound: If it is missing or not visible to the actor.
+            ForbiddenRole: If the actor is not an owner.
+            OrganizationNameInvalid: If the name is not acceptable.
+        """
         organization = await self._visible(actor, organization_id)
         if not policy.can_manage_organization(actor, organization_id):
             raise ForbiddenRole("only owners rename the organization")
@@ -142,6 +167,13 @@ class OrganizationService:
     async def delete(
         self, actor: Actor, organization_id: uuid.UUID, *, confirm_name: str
     ) -> None:
+        """Delete an organization once `confirm_name` matches its name.
+
+        Raises:
+            OrganizationNotFound: If it is missing or not visible to the actor.
+            ForbiddenRole: If the actor is not an owner.
+            InvalidInput: If `confirm_name` does not match.
+        """
         organization = await self._visible(actor, organization_id)
         if not policy.can_manage_organization(actor, organization_id):
             raise ForbiddenRole("only owners delete the organization")
@@ -165,6 +197,11 @@ class OrganizationService:
     async def members(
         self, actor: Actor, organization_id: uuid.UUID
     ) -> list[MemberItem]:
+        """List the members of an organization the actor can see.
+
+        Raises:
+            OrganizationNotFound: If it is missing or not visible to the actor.
+        """
         await self._visible(actor, organization_id)
         return [
             MemberItem(
@@ -195,6 +232,14 @@ class OrganizationService:
     async def set_role(
         self, actor: Actor, organization_id: uuid.UUID, user_id: uuid.UUID, role: Role
     ) -> None:
+        """Change a member's role; nothing happens when it is already `role`.
+
+        Raises:
+            OrganizationNotFound: If it is missing or not visible to the actor.
+            ForbiddenRole: If the actor cannot manage members.
+            MemberNotFound: If the user is not a member.
+            LastOwner: If it would demote the last owner.
+        """
         await self._visible(actor, organization_id)
         if not policy.can_manage_members(actor, organization_id):
             raise ForbiddenRole("only owners change roles")
@@ -220,6 +265,14 @@ class OrganizationService:
     async def remove_member(
         self, actor: Actor, organization_id: uuid.UUID, user_id: uuid.UUID
     ) -> None:
+        """Remove a member from an organization.
+
+        Raises:
+            OrganizationNotFound: If it is missing or not visible to the actor.
+            ForbiddenRole: If the actor cannot manage members.
+            MemberNotFound: If the user is not a member.
+            LastOwner: If the member is the last owner.
+        """
         await self._visible(actor, organization_id)
         if not policy.can_manage_members(actor, organization_id):
             raise ForbiddenRole("only owners remove members")
@@ -228,6 +281,12 @@ class OrganizationService:
         await self._remove(actor, organization_id, user_id, AuditAction.MEMBER_REMOVED)
 
     async def leave(self, actor: Actor, organization_id: uuid.UUID) -> None:
+        """Remove the actor from an organization they belong to.
+
+        Raises:
+            OrganizationNotFound: If the actor is not a member.
+            LastOwner: If the actor is its last owner.
+        """
         if actor.role_in(organization_id) is None:
             raise OrganizationNotFound(str(organization_id))
         owners = await self._organizations.owner_count(organization_id)

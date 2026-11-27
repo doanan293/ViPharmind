@@ -23,6 +23,7 @@ ClientFactory = Callable[[ResolvedEndpoint, float, int], Any]
 def default_client_factory(
     endpoint: ResolvedEndpoint, timeout: float, max_retries: int
 ) -> Any:
+    """An AsyncOpenAI client for `endpoint` without Langfuse tracing."""
     return build_async_openai(
         api_key=endpoint.api_key,
         base_url=endpoint.base_url,
@@ -46,11 +47,21 @@ def langfuse_client_factory(
 
 
 class OpenAiLlmAdapter:
+    """LlmPort over OpenAI-compatible Chat Completions, one endpoint per role.
+
+    Roles on the same base URL and API key share one client.
+    """
+
     def __init__(
         self,
         settings: LlmSettings,
         client_factory: ClientFactory = default_client_factory,
     ) -> None:
+        """Resolve every role's endpoint now; clients are built on first use.
+
+        Raises:
+            ValueError: When a role has no API key or model.
+        """
         self._settings = settings
         self._factory = client_factory
         self._endpoints: dict[LlmRole, ResolvedEndpoint] = {
@@ -72,6 +83,12 @@ class OpenAiLlmAdapter:
     async def structured(
         self, role: LlmRole, messages: Sequence[ChatMessage], schema: type[T]
     ) -> tuple[T, LlmUsage]:
+        """Ask `role` for output parsed into `schema`.
+
+        Raises:
+            LlmError: On an API error, output that does not match `schema`, no
+                choices or no parsed output (e.g. a refusal).
+        """
         client, endpoint = self._client(role)
         try:
             completion = await client.chat.completions.parse(
@@ -101,6 +118,11 @@ class OpenAiLlmAdapter:
     async def stream(
         self, role: LlmRole, messages: Sequence[ChatMessage]
     ) -> AsyncIterator[StreamDelta]:
+        """Stream the answer of `role` as text deltas, then one delta with the usage.
+
+        Raises:
+            LlmError: On an API error.
+        """
         client, endpoint = self._client(role)
         try:
             stream = await client.chat.completions.create(

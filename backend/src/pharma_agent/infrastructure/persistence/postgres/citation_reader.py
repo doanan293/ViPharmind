@@ -30,12 +30,16 @@ def _uuid(value: str) -> uuid.UUID | None:
 
 
 class PostgresCitationReader:
+    """CitationReader joining `message_citations` with schema `corpus`."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Read through sessions from `sessions`."""
         self._sessions = sessions
 
     async def current_release_ids(
         self, release_ids: Collection[uuid.UUID]
     ) -> set[uuid.UUID]:
+        """The subset of `release_ids` that is the current release of its collection."""
         if not release_ids:
             return set()
         query = select(CollectionTable.current_release_id).where(
@@ -48,6 +52,11 @@ class PostgresCitationReader:
     async def citation_block(
         self, user_id: str, message_id: str, index: int
     ) -> CitationBlock | None:
+        """The cited chunk with its full text, or None.
+
+        None also when either id is not a UUID or the message is not in one of the user's
+        conversations.
+        """
         owner, key = _uuid(user_id), _uuid(message_id)
         if owner is None or key is None:
             return None

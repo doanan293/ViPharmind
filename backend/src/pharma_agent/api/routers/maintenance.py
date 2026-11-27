@@ -11,6 +11,7 @@ from pharma_agent.api.deps import (
 
 
 def build_maintenance_router() -> APIRouter:
+    """Route for the daily maintenance run that Vercel Cron calls."""
     router = APIRouter(prefix="/maintenance", include_in_schema=False)
 
     # Vercel Cron only sends GET requests.

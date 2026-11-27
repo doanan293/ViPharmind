@@ -23,6 +23,7 @@ class SummarizeConversation:
         every: int,
         max_chars: int,
     ) -> None:
+        """Configure the job; `max_chars` caps the summary length."""
         self._llm = llm
         self._conversations = conversations
         self._clock = clock
@@ -30,6 +31,14 @@ class SummarizeConversation:
         self._max_chars = max_chars
 
     async def run_if_needed(self, *, user_id: str, conversation_id: str) -> bool:
+        """Summarize the conversation when it is due.
+
+        Turns that are excluded from context only advance the covered count. An LLM
+        failure is logged and leaves the summary unchanged.
+
+        Returns:
+            True when a new summary was written.
+        """
         conversation = await self._conversations.get(user_id, conversation_id)
         if conversation is None or not conversation.needs_summary(self._every):
             return False

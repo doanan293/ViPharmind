@@ -28,6 +28,8 @@ from pharma_agent.domain.shared.clock import Clock
 
 
 class ConversationView(BaseModel):
+    """A conversation as returned to the client."""
+
     id: str
     title: str
     turn_count: int
@@ -38,6 +40,7 @@ class ConversationView(BaseModel):
 
     @classmethod
     def of(cls, conversation: Conversation) -> "ConversationView":
+        """Build the view of a stored conversation."""
         return cls(
             id=conversation.conversation_id,
             title=conversation.title,
@@ -60,6 +63,8 @@ KEEP = Keep.KEEP
 
 
 class ConversationPage(BaseModel):
+    """One page of conversations, most recently updated first."""
+
     items: list[ConversationView]
     next_cursor: str | None
 
@@ -82,6 +87,7 @@ class ConversationService:
         feedback: FeedbackRepository,
         citations: CitationReader,
     ) -> None:
+        """Wire the service to its repositories and the clock."""
         self._conversations = conversations
         self._clock = clock
         self._feedback = feedback
@@ -90,6 +96,7 @@ class ConversationService:
     async def list_conversations(
         self, user_id: str, *, limit: int, cursor: str | None = None
     ) -> ConversationPage:
+        """Return a page of the user's conversations, most recently updated first."""
         after = decode_cursor(cursor) if cursor else None
         rows = await self._conversations.list_for_user(
             user_id, limit=limit + 1, cursor=after
@@ -107,9 +114,15 @@ class ConversationService:
     async def get_conversation(
         self, user_id: str, conversation_id: str
     ) -> ConversationView:
+        """Return one of the user's conversations.
+
+        Raises:
+            ConversationNotFound: If it is missing or not the user's.
+        """
         return ConversationView.of(await self._owned(user_id, conversation_id))
 
     async def create(self, user_id: str) -> ConversationView:
+        """Create an empty conversation for the user."""
         conversation = Conversation.create_empty(user_id=user_id, now=self._clock.now())
         await self._conversations.create(conversation)
         return ConversationView.of(conversation)
@@ -122,6 +135,11 @@ class ConversationService:
         limit: int,
         cursor: str | None = None,
     ) -> MessagePage:
+        """Return a page of a conversation's messages, going back in time.
+
+        Raises:
+            ConversationNotFound: If it is missing or not the user's.
+        """
         before = decode_cursor(cursor) if cursor else None
         await self._owned(user_id, conversation_id)
         rows = await self._conversations.messages(
@@ -142,6 +160,11 @@ class ConversationService:
     async def get_citation(
         self, user_id: str, message_id: str, index: int
     ) -> CitationDetail:
+        """Return the full text behind one citation of a message.
+
+        Raises:
+            CitationNotFound: If the message has no citation with that index.
+        """
         block = await self._citations.citation_block(user_id, message_id, index)
         if block is None:
             raise CitationNotFound(f"citation {index} of message {message_id}")
@@ -150,6 +173,7 @@ class ConversationService:
     async def rename(
         self, user_id: str, conversation_id: str, title: str
     ) -> ConversationView:
+        """Rename a conversation; see `update`."""
         return await self.update(user_id, conversation_id, title=title)
 
     async def update(
@@ -178,6 +202,11 @@ class ConversationService:
         return ConversationView.of(conversation)
 
     async def delete(self, user_id: str, conversation_id: str) -> None:
+        """Delete one of the user's conversations.
+
+        Raises:
+            ConversationNotFound: If it is missing or not the user's.
+        """
         if not await self._conversations.delete(user_id, conversation_id):
             raise ConversationNotFound(conversation_id)
 

@@ -27,9 +27,11 @@ CHECKPOINT_TABLES = (
 
 
 def upgrade() -> None:
+    """Drop the checkpoint tables if they exist."""
     for table in CHECKPOINT_TABLES:
         op.execute(f"DROP TABLE IF EXISTS {table}")
 
 
 def downgrade() -> None:
+    """Do nothing: the earlier service version recreates the tables on start."""
     pass

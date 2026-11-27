@@ -38,6 +38,11 @@ def _created_at() -> Mapped[datetime]:
 
 
 class CollectionTable(Base):
+    """A collection owned by a user, an organization, or nobody (the public system corpus).
+
+    Deleted softly through `deleted_at`; `current_release_id` is the published release.
+    """
+
     __tablename__ = "collections"
     __table_args__ = (
         UniqueConstraint("key", name="uq_collections_key"),
@@ -92,6 +97,8 @@ class CollectionTable(Base):
 
 
 class DocumentTable(Base):
+    """A document of a published bundle, keyed within its collection."""
+
     __tablename__ = "documents"
     __table_args__ = (
         UniqueConstraint("collection_id", "key", name="uq_documents_collection_key"),
@@ -108,6 +115,8 @@ class DocumentTable(Base):
 
 
 class SectionTable(Base):
+    """A section of a document, keyed within its document."""
+
     __tablename__ = "sections"
     __table_args__ = (
         UniqueConstraint("document_id", "key", name="uq_sections_document_key"),
@@ -157,6 +166,8 @@ class ChunkVersionTable(Base):
 
 
 class ReleaseTable(Base):
+    """A numbered release of a collection: building, then ready, then retired."""
+
     __tablename__ = "releases"
     __table_args__ = (
         UniqueConstraint(
@@ -191,6 +202,8 @@ class ReleaseTable(Base):
 
 
 class ReleaseChunkTable(Base):
+    """Membership of an immutable chunk version in a release, in document order."""
+
     __tablename__ = "release_chunks"
     __table_args__ = (
         Index(
@@ -257,6 +270,8 @@ class SourceDocumentTable(Base):
 
 
 class GlossaryEntryTable(Base):
+    """An authored glossary term of a collection with its expansions and aliases."""
+
     __tablename__ = "glossary_entries"
     __table_args__ = (
         UniqueConstraint(
@@ -287,6 +302,8 @@ class GlossaryEntryTable(Base):
 
 
 class ColloquialMappingTable(Base):
+    """An authored colloquial name of a collection and the products and sections it maps to."""
+
     __tablename__ = "colloquial_mappings"
     __table_args__ = (
         UniqueConstraint(
@@ -314,6 +331,8 @@ class ColloquialMappingTable(Base):
 
 
 class IngestJobTable(Base):
+    """A publish job of a collection; at most one queued or running per collection."""
+
     __tablename__ = "ingest_jobs"
     __table_args__ = (
         CheckConstraint(

@@ -1,5 +1,8 @@
-"""Read side of schema `corpus` for retrieval (spec C §9). One indexed query per call and no
-cache, so a publish or rollback applies to the very next search."""
+"""Read side of schema `corpus` for retrieval (spec C §9).
+
+One indexed query per call and no cache, so a publish or rollback applies to the very
+next search.
+"""
 
 from collections.abc import Sequence
 from uuid import UUID
@@ -58,12 +61,20 @@ def _record(
 
 
 class PostgresCorpusReader:
+    """CorpusReader over the Postgres `corpus` schema."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Open a session per call from `sessions`."""
         self._sessions = sessions
 
     async def current_releases(
         self, collection_keys: Sequence[str]
     ) -> dict[UUID, UUID]:
+        """collection_id -> current release_id for the keys that have a current release.
+
+        Raises:
+            RetrievalError: When the query fails.
+        """
         if not collection_keys:
             return {}
         query = select(CollectionTable.id, CollectionTable.current_release_id).where(
@@ -82,6 +93,11 @@ class PostgresCorpusReader:
         }
 
     async def load_chunks(self, keys: Sequence[ChunkKey]) -> list[ChunkRecord]:
+        """The chunk records for `keys` that exist, in no particular order.
+
+        Raises:
+            RetrievalError: When the query fails.
+        """
         if not keys:
             return []
         query = (

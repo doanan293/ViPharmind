@@ -18,6 +18,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Create the access_tokens table."""
     op.create_table(
         "access_tokens",
         sa.Column("token", sa.String(length=43), nullable=False),
@@ -46,5 +47,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop the access_tokens table."""
     op.drop_index(op.f("ix_access_tokens_created_at"), table_name="access_tokens")
     op.drop_table("access_tokens")

@@ -15,19 +15,25 @@ class Evidence(BaseModel):
 
     @property
     def score(self) -> float:
+        """The hit's rerank score, or its fusion score when it was not reranked."""
         return self.hit.score
 
     def text(self) -> str:
+        """The chunk text."""
         return self.hit.chunk_text
 
     def char_count(self) -> int:
+        """Length of the chunk text."""
         return len(self.hit.chunk_text)
 
 
 class EvidenceSet(BaseModel):
+    """The evidence of one run, kept in first-found order; refs are E1, E2, ..."""
+
     items: list[Evidence] = Field(default_factory=list)
 
     def active(self) -> list[Evidence]:
+        """Evidence that is not superseded, highest score first."""
         return sorted(
             (e for e in self.items if not e.superseded),
             key=lambda e: e.score,
@@ -43,10 +49,16 @@ class EvidenceSet(BaseModel):
         }
 
     def supersede_all(self) -> None:
+        """Mark every item superseded, before a new search round replaces them."""
         for evidence in self.items:
             evidence.superseded = True
 
     def merge(self, retrieved: list[Hit]) -> list[Evidence]:
+        """Add new hits and refresh known chunks, then return the active evidence.
+
+        A known chunk keeps the higher rerank and fusion scores, gains the new matched
+        queries and is active again.
+        """
         by_chunk = {e.hit.chunk_version_id: e for e in self.items}
         for hit in retrieved:
             existing = by_chunk.get(hit.chunk_version_id)
@@ -72,8 +84,11 @@ class EvidenceSet(BaseModel):
         return self.active()
 
     def pack(self, max_chars: int) -> list[Evidence]:
-        """Whole chunks by score; once one does not fit, it and every lower one are
-        dropped, so the budget cuts the weakest evidence, never truncates a chunk."""
+        """Whole active chunks by score that fit in `max_chars`.
+
+        Once one does not fit, it and every lower one are dropped, so the budget cuts
+        the weakest evidence, never truncates a chunk.
+        """
         packed: list[Evidence] = []
         remaining = max_chars
         for evidence in self.active():
@@ -84,6 +99,7 @@ class EvidenceSet(BaseModel):
         return packed
 
     def summary_view(self, snippet_chars: int = 300) -> str:
+        """One line per active item: ref, header, pages, snippet and term hints."""
         lines: list[str] = []
         for evidence in self.active():
             hit = evidence.hit
@@ -103,6 +119,7 @@ class EvidenceSet(BaseModel):
     def context_view(
         self, packed: list[Evidence]
     ) -> tuple[str, list[tuple[int, Evidence]]]:
+        """Numbered [n] blocks of `packed` for the answer prompt, and the numbering."""
         numbered: list[tuple[int, Evidence]] = []
         blocks: list[str] = []
         for index, evidence in enumerate(packed, start=1):

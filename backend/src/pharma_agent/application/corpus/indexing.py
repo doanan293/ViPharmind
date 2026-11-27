@@ -16,6 +16,8 @@ from pharma_agent.domain.corpus.ports import Embedder, VectorIndex
 
 
 class IndexCounts(BaseModel):
+    """Points written by one `IndexWriter.write`, and where their vectors came from."""
+
     model_config = ConfigDict(frozen=True)
 
     upserted: int
@@ -25,6 +27,8 @@ class IndexCounts(BaseModel):
 
 
 class IndexWriter:
+    """Writes index items to the vector index in concurrent batches."""
+
     def __init__(
         self,
         index: VectorIndex,
@@ -33,6 +37,11 @@ class IndexWriter:
         batch_size: int,
         max_concurrent: int,
     ) -> None:
+        """Configure the writer.
+
+        Raises:
+            ValueError: If `batch_size` or `max_concurrent` is below 1.
+        """
         if batch_size < 1:
             raise ValueError("batch_size must be at least 1")
         if max_concurrent < 1:
@@ -49,8 +58,10 @@ class IndexWriter:
         bundled: Mapping[str, Sequence[float]],
         overwrite: bool = False,
     ) -> IndexCounts:
-        """Upsert the points Qdrant lacks (all of them with `overwrite`) and refresh the
-        release ids of the rest. Counts are per point."""
+        """Upsert the points Qdrant lacks and refresh the release ids of the rest.
+
+        With `overwrite` every point is upserted. Counts are per point.
+        """
         if overwrite:
             new, existing = list(items), []
         else:

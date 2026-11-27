@@ -27,6 +27,11 @@ from pharma_agent.infrastructure.settings import Settings
 
 
 def account_policy(settings: Settings) -> AccountPolicy:
+    """The account rules taken from auth and SMS settings.
+
+    Raises:
+        ValueError: When PHARMA_AUTH__OTP_SECRET is not set.
+    """
     return AccountPolicy(
         otp_secret=settings.auth.require_otp_secret(),
         allowed_sms_regions=frozenset(settings.sms.allowed_country_codes),
@@ -45,6 +50,11 @@ def build_account_service(
     email: EmailSender | None = None,
     sms: SmsSender | None = None,
 ) -> AccountService:
+    """Build the AccountService over Postgres.
+
+    `email` and `sms` replace the senders built from settings; without `sms` codes go to
+    the log.
+    """
     return AccountService(
         accounts=PostgresAccountRepository(sessions),
         codes=PostgresOneTimeCodeStore(sessions),

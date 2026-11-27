@@ -53,6 +53,7 @@ def main(
         help="Đọc PHARMA_* từ file này thay cho backend/.env (ví dụ .env.production)",
     ),
 ) -> None:
+    """Pharma agent developer CLI."""
     global _env_file
     _env_file = env_file
 

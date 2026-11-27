@@ -60,10 +60,14 @@ def _values(document: SourceDocument) -> dict[str, object]:
 
 
 class PostgresSourceRepository:
+    """SourceRepository over the authored-content tables of schema `corpus`."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Read through sessions from `sessions`; writes use the caller's transaction."""
         self._sessions = sessions
 
     async def list_documents(self, collection_id: uuid.UUID) -> list[SourceDocument]:
+        """The collection's documents, ordered by title."""
         query = (
             select(SourceDocumentTable)
             .where(_doc.collection_id == collection_id)
@@ -74,16 +78,24 @@ class PostgresSourceRepository:
         return [_document(row) for row in rows]
 
     async def get_document(self, document_id: uuid.UUID) -> SourceDocument | None:
+        """The document, or None if there is no such id."""
         async with self._sessions() as session:
             row = await session.get(SourceDocumentTable, document_id)
         return None if row is None else _document(row)
 
     async def document_keys(self, collection_id: uuid.UUID) -> set[str]:
+        """Keys of the collection's documents."""
         query = select(_doc.key).where(_doc.collection_id == collection_id)
         async with self._sessions() as session:
             return set((await session.scalars(query)).all())
 
     async def create_document(self, document: SourceDocument, tx: Transaction) -> None:
+        """Insert the document inside `tx`.
+
+        Raises:
+            DocumentKeyConflict: The key is taken in the collection. A savepoint keeps `tx`
+                usable.
+        """
         session = session_of(tx)
         try:
             async with session.begin_nested():
@@ -101,6 +113,7 @@ class PostgresSourceRepository:
             raise DocumentKeyConflict(f"the key {document.key} is taken") from exc
 
     async def update_document(self, document: SourceDocument, tx: Transaction) -> None:
+        """Overwrite the document's editable fields inside `tx`."""
         await session_of(tx).execute(
             update(SourceDocumentTable)
             .where(_doc.id == document.id)
@@ -108,11 +121,13 @@ class PostgresSourceRepository:
         )
 
     async def delete_document(self, document_id: uuid.UUID, tx: Transaction) -> None:
+        """Delete the document inside `tx`."""
         await session_of(tx).execute(
             delete(SourceDocumentTable).where(_doc.id == document_id)
         )
 
     async def purge_content(self, collection_id: uuid.UUID, tx: Transaction) -> None:
+        """Delete the documents, glossary and colloquial names of a deleted collection."""
         session = session_of(tx)
         await session.execute(
             delete(SourceDocumentTable).where(_doc.collection_id == collection_id)
@@ -125,11 +140,13 @@ class PostgresSourceRepository:
         )
 
     async def count_documents(self, collection_id: uuid.UUID) -> int:
+        """Number of documents in the collection."""
         query = select(func.count()).where(_doc.collection_id == collection_id)
         async with self._sessions() as session:
             return (await session.execute(query)).scalar_one()
 
     async def text_usage(self, owner: CollectionOwner) -> int:
+        """Characters of authored text across the owner's live collections."""
         query = (
             select(func.coalesce(func.sum(_doc.char_count), 0))
             .join(CollectionTable, _c.id == _doc.collection_id)
@@ -147,6 +164,7 @@ class PostgresSourceRepository:
             return int((await session.execute(query)).scalar_one())
 
     async def glossary(self, collection_id: uuid.UUID) -> list[GlossaryEntry]:
+        """The collection's glossary entries in their stored order."""
         query = (
             select(GlossaryEntryTable)
             .where(_gloss.collection_id == collection_id)
@@ -172,6 +190,7 @@ class PostgresSourceRepository:
         entries: list[GlossaryEntry],
         tx: Transaction,
     ) -> None:
+        """Replace the collection's glossary with `entries`, in order; terms are stripped."""
         session = session_of(tx)
         await session.execute(
             delete(GlossaryEntryTable).where(_gloss.collection_id == collection_id)
@@ -198,6 +217,7 @@ class PostgresSourceRepository:
     async def colloquial(
         self, collection_id: uuid.UUID
     ) -> list[ColloquialMappingRecord]:
+        """The collection's colloquial names in their stored order."""
         query = (
             select(ColloquialMappingTable)
             .where(_coll.collection_id == collection_id)
@@ -222,6 +242,10 @@ class PostgresSourceRepository:
         mappings: list[ColloquialMappingRecord],
         tx: Transaction,
     ) -> None:
+        """Replace the collection's colloquial names with `mappings`, in order.
+
+        Keys are stripped.
+        """
         session = session_of(tx)
         await session.execute(
             delete(ColloquialMappingTable).where(_coll.collection_id == collection_id)

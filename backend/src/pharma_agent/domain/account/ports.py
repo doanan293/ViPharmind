@@ -22,13 +22,19 @@ class DeliveryError(DomainError):
 
 
 class AccountRepository(Protocol):
-    async def get(self, user_id: uuid.UUID) -> AccountUser | None: ...
+    """Storage of user accounts and their sign-in details."""
+
+    async def get(self, user_id: uuid.UUID) -> AccountUser | None:
+        """The account with `user_id`, or None."""
+        ...
 
     async def get_by_email(self, email: str) -> AccountUser | None:
         """Case-insensitive lookup."""
         ...
 
-    async def get_by_phone(self, phone: str) -> AccountUser | None: ...
+    async def get_by_phone(self, phone: str) -> AccountUser | None:
+        """The account with this E.164 phone number, or None."""
+        ...
 
     async def create_phone_user(
         self, *, phone: str, hashed_password: str, now: datetime
@@ -36,7 +42,9 @@ class AccountRepository(Protocol):
         """A verified phone-only account; raises AccountConflict if the number is taken."""
         ...
 
-    async def mark_email_verified(self, user_id: uuid.UUID, now: datetime) -> None: ...
+    async def mark_email_verified(self, user_id: uuid.UUID, now: datetime) -> None:
+        """Mark the account's email, and so the account, verified at `now`."""
+        ...
 
     async def set_email(self, user_id: uuid.UUID, email: str, now: datetime) -> None:
         """Set a verified email; raises AccountConflict if another account has it."""
@@ -50,16 +58,22 @@ class AccountRepository(Protocol):
         """Store the hash and mark the password as chosen by the user."""
         ...
 
-    async def hashed_password(self, user_id: uuid.UUID) -> str | None: ...
+    async def hashed_password(self, user_id: uuid.UUID) -> str | None:
+        """The stored password hash, or None when the account has none."""
+        ...
 
-    async def unlink_oauth(self, user_id: uuid.UUID, oauth_name: str) -> None: ...
+    async def unlink_oauth(self, user_id: uuid.UUID, oauth_name: str) -> None:
+        """Delete the account's link to the `oauth_name` provider, if any."""
+        ...
 
-    async def update_display_name(
-        self, user_id: uuid.UUID, display_name: str
-    ) -> None: ...
+    async def update_display_name(self, user_id: uuid.UUID, display_name: str) -> None:
+        """Replace the account's display name."""
+        ...
 
 
 class OneTimeCodeStore(Protocol):
+    """Storage of one-time codes as digests."""
+
     async def issue(
         self,
         *,
@@ -90,7 +104,9 @@ class OneTimeCodeStore(Protocol):
         """Mark the code used; False if it was already used (exactly one caller wins)."""
         ...
 
-    async def revoke(self, code_id: uuid.UUID, now: datetime) -> None: ...
+    async def revoke(self, code_id: uuid.UUID, now: datetime) -> None:
+        """Mark the code used if it is not already."""
+        ...
 
 
 class RateLimiter(Protocol):
@@ -124,39 +140,55 @@ class RateLimiter(Protocol):
 
 
 class EmailSender(Protocol):
+    """Sends account emails."""
+
     async def send(self, *, to: str, subject: str, text: str, html: str) -> None:
         """Raises DeliveryError when the provider does not take the message."""
         ...
 
 
 class SmsSender(Protocol):
+    """Sends account text messages."""
+
     async def send(self, *, to: str, text: str) -> None:
         """Raises DeliveryError when the provider does not take the message."""
         ...
 
 
 class PasswordHasher(Protocol):
-    def hash(self, password: str) -> str: ...
+    """Hashes and checks passwords."""
 
-    def verify(self, password: str, hashed: str) -> bool: ...
+    def hash(self, password: str) -> str:
+        """A hash of `password` to store."""
+        ...
+
+    def verify(self, password: str, hashed: str) -> bool:
+        """Whether `password` matches the stored `hashed` value."""
+        ...
 
 
 class SessionStore(Protocol):
+    """Storage of signed-in sessions."""
+
     async def for_user(self, user_id: uuid.UUID) -> Sequence[SessionRecord]:
         """Unexpired sessions, newest first."""
         ...
 
-    async def delete(self, user_id: uuid.UUID, token: str) -> bool: ...
+    async def delete(self, user_id: uuid.UUID, token: str) -> bool:
+        """Delete one of the user's sessions; False if the user has no such token."""
+        ...
 
-    async def delete_all(
-        self, user_id: uuid.UUID, *, keep: str | None = None
-    ) -> int: ...
+    async def delete_all(self, user_id: uuid.UUID, *, keep: str | None = None) -> int:
+        """Delete every session of the user except `keep`; returns how many went."""
+        ...
 
 
 class AccountAdmin(Protocol):
     """What the superadmin console changes on accounts, inside a transaction."""
 
-    async def get(self, user_id: uuid.UUID) -> AccountUser | None: ...
+    async def get(self, user_id: uuid.UUID) -> AccountUser | None:
+        """The account with `user_id`, or None."""
+        ...
 
     async def search(
         self,
@@ -170,7 +202,9 @@ class AccountAdmin(Protocol):
 
     async def set_active(
         self, user_id: uuid.UUID, active: bool, tx: Transaction
-    ) -> None: ...
+    ) -> None:
+        """Enable or disable the account."""
+        ...
 
     async def set_quotas(
         self,
@@ -179,4 +213,6 @@ class AccountAdmin(Protocol):
         text_quota_bytes: int | None,
         collection_quota: int | None,
         tx: Transaction,
-    ) -> None: ...
+    ) -> None:
+        """Set the account's quota overrides; None uses the configured default."""
+        ...

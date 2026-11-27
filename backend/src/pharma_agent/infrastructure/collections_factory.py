@@ -29,6 +29,7 @@ from pharma_agent.infrastructure.settings import Settings
 
 
 def quota_policy(settings: Settings) -> QuotaPolicy:
+    """The default quotas from settings."""
     quotas = settings.quotas
     return QuotaPolicy(
         document_chars=quotas.document_chars,
@@ -47,6 +48,7 @@ def build_collection_service(
     index: VectorIndex,
     clock: Clock,
 ) -> CollectionService:
+    """Build the CollectionService over Postgres repositories and `index`."""
     return CollectionService(
         collections=PostgresCollectionRepository(sessions),
         organizations=PostgresOrganizationRepository(sessions),
@@ -64,6 +66,7 @@ def build_collection_service(
 def build_content_service(
     settings: Settings, sessions: async_sessionmaker[AsyncSession], *, clock: Clock
 ) -> ContentService:
+    """Build the ContentService over Postgres repositories."""
     return ContentService(
         collections=PostgresCollectionRepository(sessions),
         sources=PostgresSourceRepository(sessions),

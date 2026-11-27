@@ -16,6 +16,8 @@ PURGE_BUDGET = timedelta(seconds=180)
 
 
 class MaintenanceReport(BaseModel):
+    """Rows and collections one maintenance run removed."""
+
     sessions_deleted: int
     codes_deleted: int
     rate_limit_buckets_deleted: int
@@ -23,6 +25,8 @@ class MaintenanceReport(BaseModel):
 
 
 class Maintenance:
+    """Account table cleanup and the purge of deleted collections, as one daily run."""
+
     def __init__(
         self,
         *,
@@ -31,12 +35,14 @@ class Maintenance:
         collections: CollectionService,
         purge_budget: timedelta = PURGE_BUDGET,
     ) -> None:
+        """Purge collections until `purge_budget` is spent; the rest wait a day."""
         self._conninfo = conninfo
         self._session_lifetime_seconds = session_lifetime_seconds
         self._collections = collections
         self._purge_budget = purge_budget
 
     async def run(self) -> MaintenanceReport:
+        """Clean the account tables, then purge deleted collections in the budget."""
         accounts = await clean_account_tables(
             self._conninfo, session_lifetime_seconds=self._session_lifetime_seconds
         )

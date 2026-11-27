@@ -78,10 +78,17 @@ def _message_row(message: Message) -> MessageTable:
 
 
 class PostgresConversationRepository:
+    """ConversationRepository over `conversations`, `messages` and `message_citations`.
+
+    Each method runs in its own session. Ids that are not hex UUIDs match nothing.
+    """
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Read and write through sessions from `sessions`."""
         self._sessions = sessions
 
     async def create(self, conversation: Conversation) -> None:
+        """Insert the conversation."""
         async with self._sessions.begin() as session:
             session.add(
                 ConversationTable(
@@ -100,6 +107,7 @@ class PostgresConversationRepository:
             )
 
     async def get(self, user_id: str, conversation_id: str) -> Conversation | None:
+        """The conversation, only when it belongs to `user_id`."""
         owner, key = _uuid(user_id), _uuid(conversation_id)
         if owner is None or key is None:
             return None
@@ -120,6 +128,10 @@ class PostgresConversationRepository:
         limit: int,
         cursor: tuple[datetime, str] | None = None,
     ) -> list[Conversation]:
+        """Conversations with at least one turn, newest updated first.
+
+        With a cursor, only the rows strictly after that (updated_at, id) position.
+        """
         owner = _uuid(user_id)
         if owner is None:
             return []
@@ -147,11 +159,13 @@ class PostgresConversationRepository:
         return [_conversation(row) for row in rows]
 
     async def update_title(self, conversation: Conversation) -> None:
+        """Persist only title and updated_at."""
         await self._update(
             conversation, title=conversation.title, updated_at=conversation.updated_at
         )
 
     async def update_scope(self, conversation: Conversation) -> None:
+        """Store the conversation's chosen sources (collection_ids); updated_at is kept."""
         await self._update(
             conversation,
             collection_ids=None
@@ -160,6 +174,7 @@ class PostgresConversationRepository:
         )
 
     async def update_summary(self, conversation: Conversation) -> None:
+        """Persist only summary, summarized_turns and updated_at."""
         await self._update(
             conversation,
             summary=conversation.summary,
@@ -168,6 +183,7 @@ class PostgresConversationRepository:
         )
 
     async def delete(self, user_id: str, conversation_id: str) -> bool:
+        """Delete the user's conversation and its messages; False if the user has no such one."""
         owner, key = _uuid(user_id), _uuid(conversation_id)
         if owner is None or key is None:
             return False
@@ -185,6 +201,11 @@ class PostgresConversationRepository:
         user_message: Message,
         assistant_message: Message,
     ) -> None:
+        """Write both messages and the citations and count the turn, in one transaction.
+
+        Raises:
+            ConversationRowMissing: The conversation is not in the database.
+        """
         key = uuid.UUID(hex=conversation.conversation_id)
         async with self._sessions.begin() as session:
             updated = await session.execute(
@@ -205,10 +226,12 @@ class PostgresConversationRepository:
             session.add_all(citation_link_rows(assistant_message))
 
     async def recent_turns(self, conversation_id: str, limit: int) -> list[Turn]:
+        """The last `limit` turns, oldest first, with citations."""
         messages = await self.messages(conversation_id, limit=limit * 2)
         return pair_turns(messages)[-limit:]
 
     async def turns_since(self, conversation_id: str, skip: int) -> list[Turn]:
+        """All turns after the first `skip` turns, oldest first, without citations."""
         key = _uuid(conversation_id)
         if key is None:
             return []
@@ -229,6 +252,10 @@ class PostgresConversationRepository:
         limit: int,
         cursor: tuple[datetime, str] | None = None,
     ) -> list[Message]:
+        """The newest `limit` messages strictly older than the (created_at, id) cursor.
+
+        Returned oldest first with their citations; ties on created_at are broken by id.
+        """
         key = _uuid(conversation_id)
         if key is None:
             return []
@@ -254,6 +281,7 @@ class PostgresConversationRepository:
         return [_message(row, citations.get(row.id, [])) for row in reversed(rows)]
 
     async def get_message(self, user_id: str, message_id: str) -> Message | None:
+        """A message with its citations, only if it is in one of the user's conversations."""
         owner, key = _uuid(user_id), _uuid(message_id)
         if owner is None or key is None:
             return None

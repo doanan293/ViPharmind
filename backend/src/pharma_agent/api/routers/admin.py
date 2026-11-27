@@ -41,11 +41,14 @@ class UpdateUser(BaseModel):
 
 
 class UpdateOrganization(BaseModel):
+    """Both quotas of an organization; a null or missing quota restores the default."""
+
     text_quota_bytes: int | None = Field(default=None, ge=0)
     collection_quota: int | None = Field(default=None, ge=0)
 
 
 def build_admin_router(current_superadmin: ActorDependency) -> APIRouter:
+    """Superadmin routes under `/admin`: users, organizations, collections, jobs and conversations."""
     router = APIRouter(
         prefix="/admin", tags=["admin"], responses=problem_responses(401, 404, 422)
     )

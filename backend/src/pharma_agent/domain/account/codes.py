@@ -13,14 +13,17 @@ MAX_ATTEMPTS = 5
 
 
 def generate_code() -> str:
+    """A random code of CODE_LENGTH digits, zero-padded."""
     return f"{secrets.randbelow(10**CODE_LENGTH):0{CODE_LENGTH}d}"
 
 
 def code_digest(secret: str, purpose: OtpPurpose, destination: str, code: str) -> str:
+    """Hex HMAC-SHA256 of `code`, its purpose and destination, keyed by `secret`."""
     message = "\x1f".join((purpose.value, destination, code)).encode()
     return hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
 
 
 def code_matches(secret: str, record: OneTimeCode, code: str) -> bool:
+    """Whether `code` matches the stored digest, compared in constant time."""
     expected = code_digest(secret, record.purpose, record.destination, code)
     return hmac.compare_digest(record.digest, expected)

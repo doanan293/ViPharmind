@@ -5,6 +5,7 @@ PASSWORD_MAX_LENGTH = 128
 
 
 def password_problem(password: str) -> str | None:
+    """Why `password` breaks the length rule, or None when it is acceptable."""
     if len(password) < PASSWORD_MIN_LENGTH:
         return f"password must be at least {PASSWORD_MIN_LENGTH} characters"
     if len(password) > PASSWORD_MAX_LENGTH:

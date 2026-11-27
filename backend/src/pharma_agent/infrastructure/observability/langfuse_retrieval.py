@@ -16,11 +16,18 @@ class LangfuseTracedReranker:
     def __init__(
         self, inner: Reranker, client: Langfuse, *, protocol: str, model: str
     ) -> None:
+        """Wrap `inner`; `protocol` and `model` go into each observation's metadata."""
         self._inner = inner
         self._client = client
         self._metadata = {"protocol": protocol, "model": model}
 
     async def rerank(self, query: str, hits: Sequence[Hit], top_n: int) -> list[Hit]:
+        """Rerank with the inner reranker and record the candidates and scores.
+
+        Raises:
+            RetrievalError: From the inner reranker, after marking the observation as an
+                error.
+        """
         with self._client.start_as_current_observation(
             name=RERANK_OBSERVATION_NAME,
             as_type="retriever",
@@ -44,6 +51,7 @@ class LangfuseTracedReranker:
             return ranked
 
     async def aclose(self) -> None:
+        """Close the inner reranker when it can be closed."""
         close = getattr(self._inner, "aclose", None)
         if close is not None:
             await close()

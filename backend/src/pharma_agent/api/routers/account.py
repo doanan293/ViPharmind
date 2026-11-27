@@ -23,50 +23,69 @@ CODE_PATTERN = r"^\d{6}$"
 
 
 class EmailBody(BaseModel):
+    """An email address that a one-time code is sent to."""
+
     email: EmailStr
 
 
 class EmailCodeBody(EmailBody):
+    """An email address and the six-digit code sent to it."""
+
     code: str = Field(pattern=CODE_PATTERN)
 
 
 class EmailVerifyBody(EmailCodeBody):
+    """Email verification code, plus the password when the account has one."""
+
     # Required whenever the account has a password; see AccountService.verify_email.
     password: str | None = Field(default=None, max_length=1024)
 
 
 class PasswordResetBody(EmailCodeBody):
+    """Email reset code and the new password."""
+
     password: str = Field(min_length=1, max_length=1024)
 
 
 class PhoneBody(BaseModel):
+    """A phone number that a one-time code is sent to."""
+
     phone: str = Field(min_length=3, max_length=32)
 
 
 class PhoneCodeBody(PhoneBody):
+    """A phone number and the six-digit code sent to it."""
+
     code: str = Field(pattern=CODE_PATTERN)
 
 
 class PasswordChangeBody(BaseModel):
+    """New password; `current_password` is needed when the account already has one."""
+
     current_password: str | None = None
     new_password: str = Field(min_length=1, max_length=1024)
 
 
 class ProfileUpdate(BaseModel):
+    """The current user's new display name."""
+
     display_name: str = Field(min_length=1, max_length=100)
 
 
 def accepted() -> Response:
+    """An empty 202 Accepted response."""
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
 
 def no_content() -> Response:
+    """An empty 204 No Content response."""
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def build_account_router(
     current_user_id: UserIdDependency, session_login: Callable[..., Any]
 ) -> APIRouter:
+    """Routes for one-time-code flows, the current user's profile, sign-in methods and sessions."""
     router = APIRouter()
     UserId = Annotated[str, Depends(current_user_id)]
     Login = Annotated[SessionLogin, Depends(session_login)]

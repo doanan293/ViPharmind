@@ -14,6 +14,8 @@ NAME_MAX_LENGTH = 100
 
 
 class InvitationStatus(StrEnum):
+    """Lifecycle of an invitation; pending approval and sent are open."""
+
     PENDING_APPROVAL = "pending_approval"
     SENT = "sent"
     ACCEPTED = "accepted"
@@ -28,6 +30,8 @@ OPEN_STATUSES = frozenset({InvitationStatus.PENDING_APPROVAL, InvitationStatus.S
 
 @dataclass(frozen=True)
 class Organization:
+    """An organization with its optional quota overrides."""
+
     id: uuid.UUID
     name: str
     text_quota_bytes: int | None
@@ -38,6 +42,8 @@ class Organization:
 
 @dataclass(frozen=True)
 class Membership:
+    """A user's role in an organization."""
+
     organization_id: uuid.UUID
     user_id: uuid.UUID
     role: Role
@@ -46,6 +52,8 @@ class Membership:
 
 @dataclass(frozen=True)
 class MemberView:
+    """A member as the members page shows them."""
+
     user_id: uuid.UUID
     display_name: str
     email: str | None
@@ -55,6 +63,8 @@ class MemberView:
 
 @dataclass(frozen=True)
 class Invitation:
+    """An invitation to join an organization by email; only its token hash is stored."""
+
     id: uuid.UUID
     organization_id: uuid.UUID
     email: str
@@ -79,6 +89,7 @@ class Invitation:
 
 
 def generate_invitation_token() -> str:
+    """A new random URL-safe invitation token."""
     return secrets.token_urlsafe(32)
 
 
@@ -88,6 +99,7 @@ def invitation_token_hash(token: str) -> str:
 
 
 def organization_name_problem(name: str) -> str | None:
+    """Why `name` is not a valid organization name, or None when it is."""
     stripped = name.strip()
     if not stripped:
         return "the name is required"

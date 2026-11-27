@@ -18,6 +18,7 @@ def _at_least(actor: Actor, organization_id: uuid.UUID, role: Role) -> bool:
 
 
 def can_view_organization(actor: Actor, organization_id: uuid.UUID) -> bool:
+    """See the organization and its members: any member."""
     return _at_least(actor, organization_id, Role.MEMBER)
 
 
@@ -32,10 +33,12 @@ def can_manage_members(actor: Actor, organization_id: uuid.UUID) -> bool:
 
 
 def can_view_audit(actor: Actor, organization_id: uuid.UUID) -> bool:
+    """Read the organization's audit log: editors and owners."""
     return _at_least(actor, organization_id, Role.EDITOR)
 
 
 def invitable_roles(actor: Actor, organization_id: uuid.UUID) -> frozenset[Role]:
+    """Roles the actor may invite: owner any, editor editor/member, member member."""
     if actor.is_superadmin:
         return frozenset(Role)
     match actor.role_in(organization_id):
@@ -69,6 +72,7 @@ def can_cancel_invitation(
 
 
 def can_leave(actor: Actor, organization_id: uuid.UUID, *, owner_count: int) -> bool:
+    """Leave the organization: any member, except its last owner."""
     role = actor.role_in(organization_id)
     if role is None:
         return False
@@ -76,6 +80,12 @@ def can_leave(actor: Actor, organization_id: uuid.UUID, *, owner_count: int) -> 
 
 
 def can_view_collection(actor: Actor, collection: Collection) -> bool:
+    """Read the collection.
+
+    Superadmin reads every collection and everyone reads a public one. Otherwise a
+    personal collection is for its owner, and an organization collection for its
+    members (organization visibility) or its editors (private).
+    """
     if actor.is_superadmin or collection.visibility is Visibility.PUBLIC:
         return True
     if collection.owner_user_id is not None:
@@ -105,6 +115,11 @@ def can_edit_collection(actor: Actor, collection: Collection) -> bool:
 def can_set_visibility(
     actor: Actor, collection: Collection, visibility: Visibility
 ) -> bool:
+    """Change the collection's visibility to `visibility`.
+
+    System collections never change; only superadmin makes a collection public;
+    organization visibility needs an organization owner; otherwise editors decide.
+    """
     if collection.is_system:
         # System collections are public by construction.
         return False
@@ -124,6 +139,11 @@ def can_create_collection_for(
     owner_user_id: uuid.UUID | None,
     owner_organization_id: uuid.UUID | None,
 ) -> bool:
+    """Create a collection for the given owner, which must be at most one.
+
+    A user may create for themselves and editors for their organization; superadmin
+    may create for anyone, and only superadmin for the system (no owner).
+    """
     if owner_user_id is not None and owner_organization_id is not None:
         return False
     if owner_user_id is not None:

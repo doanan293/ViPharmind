@@ -19,6 +19,11 @@ def build_turn_messages(
     citations: Sequence[Citation],
     now: datetime,
 ) -> tuple[Message, Message]:
+    """The user and assistant messages of one turn.
+
+    Both carry the run's status and id; the assistant message holds the citations and
+    usage and is timestamped just after the user message so it sorts second.
+    """
     status = run.status.value
     user_message = Message(
         message_id=user_message_id,

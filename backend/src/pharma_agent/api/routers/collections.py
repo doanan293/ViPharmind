@@ -18,17 +18,22 @@ from pharma_agent.application.corpus.collections import (
 
 
 class CreateCollection(BaseModel):
+    """A new collection; a null owner organization makes it personal."""
+
     title: str = Field(min_length=1, max_length=200)
     # Null creates a personal collection.
     owner_organization_id: uuid.UUID | None = None
 
 
 class UpdateCollection(BaseModel):
+    """Collection fields to change; fields left out stay as they are."""
+
     title: str | None = Field(default=None, min_length=1, max_length=200)
     visibility: Visibility | None = None
 
 
 def build_collections_router(current_actor: ActorDependency) -> APIRouter:
+    """Routes under `/collections` to list, create, update and delete collections."""
     router = APIRouter(
         prefix="/collections",
         tags=["collections"],

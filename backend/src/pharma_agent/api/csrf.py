@@ -38,6 +38,7 @@ class ProblemCSRFMiddleware(CSRFMiddleware):
 
 
 def install_csrf(app: FastAPI, settings: AuthSettings) -> None:
+    """Add the CSRF middleware, which checks unsafe requests that carry the session cookie."""
     app.add_middleware(
         ProblemCSRFMiddleware,
         secret=settings.require_csrf_secret(),

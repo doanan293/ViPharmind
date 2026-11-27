@@ -28,6 +28,8 @@ from pharma_agent.domain.shared.transaction import TransactionFactory
 
 
 class AdminUserView(BaseModel):
+    """An account as the console shows it; a None quota uses the configured default."""
+
     id: uuid.UUID
     email: str | None
     phone_number: str | None
@@ -40,6 +42,7 @@ class AdminUserView(BaseModel):
 
     @classmethod
     def of(cls, user: AccountUser) -> "AdminUserView":
+        """Build the console view of an account."""
         return cls(
             id=user.id,
             email=user.email,
@@ -54,11 +57,15 @@ class AdminUserView(BaseModel):
 
 
 class AdminUserPage(BaseModel):
+    """One page of accounts, newest first; `next_cursor` is None on the last page."""
+
     items: list[AdminUserView]
     next_cursor: str | None
 
 
 class AdminOrganizationView(BaseModel):
+    """An organization as the console shows it; a None quota uses the configured default."""
+
     id: uuid.UUID
     name: str
     member_count: int
@@ -68,11 +75,15 @@ class AdminOrganizationView(BaseModel):
 
 
 class AdminOrganizationPage(BaseModel):
+    """One page of organizations, newest first; `next_cursor` is None on the last page."""
+
     items: list[AdminOrganizationView]
     next_cursor: str | None
 
 
 class AdminService:
+    """Superadmin console: accounts, their active flag, and user and organization quotas."""
+
     def __init__(
         self,
         *,
@@ -83,6 +94,7 @@ class AdminService:
         tx: TransactionFactory,
         clock: Clock,
     ) -> None:
+        """Wire the service to its repositories, the audit log, transactions and the clock."""
         self._accounts = accounts
         self._organizations = organizations
         self._sessions = sessions
@@ -102,12 +114,23 @@ class AdminService:
         return user
 
     async def get_user(self, actor: Actor, user_id: uuid.UUID) -> AdminUserView:
+        """Return one account.
+
+        Raises:
+            ForbiddenRole: If the actor is not a superadmin.
+            AccountNotFound: If the user does not exist.
+        """
         self._require(actor)
         return AdminUserView.of(await self._user(user_id))
 
     async def users(
         self, actor: Actor, *, query: str | None, limit: int, cursor: str | None
     ) -> AdminUserPage:
+        """Return a page of accounts, newest first; `query` matches email, phone or name.
+
+        Raises:
+            ForbiddenRole: If the actor is not a superadmin.
+        """
         self._require(actor)
         rows = await self._accounts.search(
             query.strip() if query else None,
@@ -128,6 +151,15 @@ class AdminService:
     async def set_user_active(
         self, actor: Actor, user_id: uuid.UUID, *, active: bool
     ) -> AdminUserView:
+        """Enable or disable an account, and audit it.
+
+        Disabling also signs out every session of the account.
+
+        Raises:
+            ForbiddenRole: If the actor is not a superadmin.
+            InvalidInput: If the actor tries to disable their own account.
+            AccountNotFound: If the user does not exist.
+        """
         self._require(actor)
         if user_id == actor.user_id and not active:
             raise InvalidInput("you cannot disable your own account")
@@ -156,6 +188,12 @@ class AdminService:
         text_quota_bytes: int | None,
         collection_quota: int | None,
     ) -> AdminUserView:
+        """Set an account's quota overrides (None uses the default), and audit it.
+
+        Raises:
+            ForbiddenRole: If the actor is not a superadmin.
+            AccountNotFound: If the user does not exist.
+        """
         self._require(actor)
         await self._user(user_id)
         async with self._tx.begin() as tx:
@@ -193,6 +231,11 @@ class AdminService:
     async def organizations(
         self, actor: Actor, *, limit: int, cursor: str | None
     ) -> AdminOrganizationPage:
+        """Return a page of every organization, newest first, with member counts.
+
+        Raises:
+            ForbiddenRole: If the actor is not a superadmin.
+        """
         self._require(actor)
         rows = await self._organizations.list_all(
             limit=limit + 1, cursor=None if cursor is None else decode_cursor(cursor)
@@ -216,6 +259,12 @@ class AdminService:
         text_quota_bytes: int | None,
         collection_quota: int | None,
     ) -> AdminOrganizationView:
+        """Set an organization's quota overrides (None uses the default), and audit it.
+
+        Raises:
+            ForbiddenRole: If the actor is not a superadmin.
+            OrganizationNotFound: If the organization does not exist.
+        """
         self._require(actor)
         if await self._organizations.get(organization_id) is None:
             raise OrganizationNotFound(str(organization_id))

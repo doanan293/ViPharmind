@@ -66,6 +66,11 @@ CORPUS_NOT_READY = "CORPUS_NOT_READY"
 
 @dataclass
 class Container:
+    """The application services and health checks the HTTP service uses.
+
+    A service left as None is disabled by configuration (no OTP secret, no LLM).
+    """
+
     sessions: async_sessionmaker[AsyncSession] | None
     conversations: ConversationService
     account: AccountService | None = None

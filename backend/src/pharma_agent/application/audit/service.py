@@ -18,6 +18,8 @@ from pharma_agent.domain.shared.clock import Clock
 
 
 class AuditEventView(BaseModel):
+    """One audit event with the display names of its actor and subject."""
+
     id: uuid.UUID
     occurred_at: datetime
     actor_user_id: uuid.UUID | None
@@ -33,11 +35,15 @@ class AuditEventView(BaseModel):
 
 
 class AuditPage(BaseModel):
+    """One page of audit events; `next_cursor` is None on the last page."""
+
     items: list[AuditEventView]
     next_cursor: str | None
 
 
 class AuditService:
+    """Reads audit log pages, enforcing who may read which log."""
+
     def __init__(
         self,
         *,
@@ -46,6 +52,7 @@ class AuditService:
         organizations: OrganizationRepository,
         clock: Clock,
     ) -> None:
+        """Wire the service to the audit log, the repositories and the clock."""
         self._audit = audit
         self._accounts = accounts
         self._organizations = organizations
@@ -103,6 +110,12 @@ class AuditService:
         limit: int,
         cursor: str | None,
     ) -> AuditPage:
+        """Return a page of one organization's log, newest first.
+
+        Raises:
+            OrganizationNotFound: If the organization is missing or not visible to the actor.
+            ForbiddenRole: If the actor is not an owner or editor of it.
+        """
         if await self._organizations.get(
             organization_id
         ) is None or not policy.can_view_organization(actor, organization_id):
@@ -115,6 +128,7 @@ class AuditService:
         return await self._page(events, limit)
 
     async def mine(self, actor: Actor, *, limit: int, cursor: str | None) -> AuditPage:
+        """Return a page of the events the actor took part in."""
         events = await self._audit.for_user(
             actor.user_id, limit=limit + 1, cursor=self._after(cursor)
         )
@@ -123,6 +137,11 @@ class AuditService:
     async def everything(
         self, actor: Actor, *, limit: int, cursor: str | None
     ) -> AuditPage:
+        """Return a page of the whole log.
+
+        Raises:
+            ForbiddenRole: If the actor is not a superadmin.
+        """
         if not actor.is_superadmin:
             raise ForbiddenRole("only superadmins read the whole log")
         events = await self._audit.all(limit=limit + 1, cursor=self._after(cursor))

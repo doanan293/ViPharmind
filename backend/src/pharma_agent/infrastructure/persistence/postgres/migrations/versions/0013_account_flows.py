@@ -17,6 +17,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Make email optional, add phone sign-in, one-time codes, rate limits and session details."""
     op.alter_column("user", "email", existing_type=sa.String(length=320), nullable=True)
     op.add_column(
         "user", sa.Column("phone_number", sa.String(length=16), nullable=True)
@@ -106,6 +107,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Remove the account-flow schema; deletes accounts that have no email."""
     op.drop_table("rate_limit_buckets")
     op.drop_index("ix_one_time_codes_lookup", table_name="one_time_codes")
     op.drop_table("one_time_codes")

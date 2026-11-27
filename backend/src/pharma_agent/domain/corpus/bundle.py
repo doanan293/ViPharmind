@@ -52,12 +52,16 @@ _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class DocumentKind(StrEnum):
+    """What a bundle document is: a drug monograph, a general monograph or a leaflet."""
+
     DRUG_MONOGRAPH = "drug_monograph"
     GENERAL_MONOGRAPH = "general_monograph"
     LEAFLET = "leaflet"
 
 
 class BlockKind(StrEnum):
+    """How a block's markdown is laid out."""
+
     PROSE = "prose"
     TABLE = "table"
     LIST = "list"
@@ -65,6 +69,8 @@ class BlockKind(StrEnum):
 
 
 class SourceInfo(BaseModel):
+    """Where a document comes from: a title and an optional URL."""
+
     model_config = _STRICT
 
     title: str
@@ -72,6 +78,8 @@ class SourceInfo(BaseModel):
 
 
 class DocumentRecord(BaseModel):
+    """One line of ``documents.jsonl``; `key` is unique within the bundle."""
+
     model_config = _STRICT
 
     key: str
@@ -82,6 +90,8 @@ class DocumentRecord(BaseModel):
 
 
 class BlockRecord(BaseModel):
+    """A run of markdown inside a section, with optional source pages."""
+
     model_config = _STRICT
 
     kind: BlockKind
@@ -92,6 +102,12 @@ class BlockRecord(BaseModel):
 
 
 class SectionRecord(BaseModel):
+    """One line of ``sections.jsonl``.
+
+    `key` is unique within the bundle, `document_key` names a document and `ordinal`
+    is unique within that document; `blocks` must not be empty.
+    """
+
     model_config = _STRICT
 
     key: str
@@ -138,6 +154,8 @@ class ColloquialMappingRecord(BaseModel):
 
 
 class BundleCollection(BaseModel):
+    """The collection a bundle fills."""
+
     model_config = _STRICT
 
     key: str
@@ -145,6 +163,8 @@ class BundleCollection(BaseModel):
 
 
 class BundleGenerator(BaseModel):
+    """The tool and build that produced a bundle."""
+
     model_config = _STRICT
 
     name: str
@@ -153,6 +173,8 @@ class BundleGenerator(BaseModel):
 
 
 class BundleFile(BaseModel):
+    """Size in bytes and sha256 hex digest of one bundle file."""
+
     model_config = _STRICT
 
     sha256: str
@@ -160,6 +182,8 @@ class BundleFile(BaseModel):
 
 
 class BundleEmbeddingFile(BaseModel):
+    """The embedding file of one model and the dimension of its vectors."""
+
     model_config = _STRICT
 
     model: str
@@ -177,10 +201,12 @@ MAX_CHUNK_CHARS = 5600
 
 
 class BundleChunking(BaseModel):
-    """How the chunker packs this bundle's sections. The default is the packed reading
-    unit; target_chars=1 gives every section its own chunk (spec v2 §4.D, D7), and
-    enrichment=False indexes the chunk text without header, colloquial names or term
-    expansions (D2)."""
+    """How the chunker packs this bundle's sections.
+
+    The default is the packed reading unit; target_chars=1 gives every section its own
+    chunk (spec v2 §4.D, D7), and enrichment=False indexes the chunk text without
+    header, colloquial names or term expansions (D2).
+    """
 
     model_config = _STRICT
 
@@ -198,6 +224,8 @@ class BundleChunking(BaseModel):
 
 
 class BundleManifest(BaseModel):
+    """Contents of ``manifest.json``: identity, counts, file digests and chunking."""
+
     model_config = _STRICT
 
     schema_version: Literal["knowledge-bundle/v1"]
@@ -224,23 +252,33 @@ class KnowledgeBundle(BaseModel):
 
 
 class BundleValidationError(DomainError):
+    """A bundle failed validation; `problems` lists every problem found."""
+
     code = "BUNDLE_INVALID"
     problems: list[str]
 
     def __init__(self, problems: Sequence[str]) -> None:
+        """Keep `problems` and put them all in the message, one per line."""
         self.problems = list(problems)
         super().__init__("knowledge bundle is invalid:\n" + "\n".join(self.problems))
 
 
 def model_slug(model: str) -> str:
+    """File-name-safe slug of `model`: lowercase letters and digits joined by ``_``."""
     return _SLUG_RE.sub("_", model.lower()).strip("_")
 
 
 def encode_vector(values: Sequence[float]) -> str:
+    """Base64 of `values` packed as little-endian float32."""
     return base64.b64encode(struct.pack(f"<{len(values)}f", *values)).decode("ascii")
 
 
 def decode_vector(data: str, dims: int) -> list[float]:
+    """Inverse of ``encode_vector``.
+
+    Raises:
+        ValueError: `data` is not valid base64 or does not hold `dims` floats.
+    """
     return list(struct.unpack(f"<{dims}f", _vector_bytes(data, dims)))
 
 
@@ -546,6 +584,42 @@ def _read_manifest_files(
     Digest problems follow the manifest's file order in `problems`; embedding files are
     streamed and their line problems go to `line_problems`.
     """
+    expected_embedding_files, embedding_dims = _embedding_entries(manifest, problems)
+    problems.extend(
+        f"{MANIFEST_FILE}: files.{name}: missing entry"
+        for name in REQUIRED_FILES
+        if name not in manifest.files
+    )
+    texts: dict[str, str] = {}
+    for name, expected in manifest.files.items():
+        if name not in REQUIRED_FILES and name not in expected_embedding_files:
+            problems.append(
+                f"{MANIFEST_FILE}: files.{name}: not part of {BUNDLE_SCHEMA_VERSION}"
+            )
+            continue
+        path = directory / name
+        if not path.is_file():
+            problems.append(f"{name}: file is missing")
+            continue
+        if name not in REQUIRED_FILES:
+            size, digest = _scan_embedding_file(
+                path, name, embedding_dims.get(name), line_problems
+            )
+            problems.extend(_digest_problems(name, size, digest, expected))
+            continue
+        text = _read_content_file(path, name, expected, problems)
+        if text is not None:
+            texts[name] = text
+    return texts
+
+
+def _embedding_entries(
+    manifest: BundleManifest, problems: list[str]
+) -> tuple[set[str], dict[str, int]]:
+    """Check the manifest's embedding entries.
+
+    Returns the expected embedding file names and the dims of each valid listed file.
+    """
     expected_embedding_files: set[str] = set()
     embedding_dims: dict[str, int] = {}
     seen_models: set[str] = set()
@@ -569,40 +643,22 @@ def _read_manifest_files(
         elif entry.dims >= 1:
             embedding_dims.setdefault(entry.file, entry.dims)
         expected_embedding_files.add(expected_file)
+    return expected_embedding_files, embedding_dims
 
+
+def _read_content_file(
+    path: Path, name: str, expected: BundleFile, problems: list[str]
+) -> str | None:
+    """Check a content file's digest and return its text, or None if it is not UTF-8."""
+    data = path.read_bytes()
     problems.extend(
-        f"{MANIFEST_FILE}: files.{name}: missing entry"
-        for name in REQUIRED_FILES
-        if name not in manifest.files
+        _digest_problems(name, len(data), hashlib.sha256(data).hexdigest(), expected)
     )
-    texts: dict[str, str] = {}
-    for name, expected in manifest.files.items():
-        if name not in REQUIRED_FILES and name not in expected_embedding_files:
-            problems.append(
-                f"{MANIFEST_FILE}: files.{name}: not part of {BUNDLE_SCHEMA_VERSION}"
-            )
-            continue
-        path = directory / name
-        if not path.is_file():
-            problems.append(f"{name}: file is missing")
-            continue
-        if name not in REQUIRED_FILES:
-            size, digest = _scan_embedding_file(
-                path, name, embedding_dims.get(name), line_problems
-            )
-            problems.extend(_digest_problems(name, size, digest, expected))
-            continue
-        data = path.read_bytes()
-        problems.extend(
-            _digest_problems(
-                name, len(data), hashlib.sha256(data).hexdigest(), expected
-            )
-        )
-        try:
-            texts[name] = data.decode("utf-8")
-        except UnicodeDecodeError:
-            problems.append(f"{name}: file is not valid UTF-8")
-    return texts
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        problems.append(f"{name}: file is not valid UTF-8")
+        return None
 
 
 def _scan_embedding_file(
@@ -724,7 +780,22 @@ def _content_problems(
     glossary: Sequence[GlossaryEntry],
     mappings: Sequence[ColloquialMappingRecord],
 ) -> list[str]:
+    """Cross-record problems: duplicate or empty keys, unknown references, bad pages.
+
+    Records are paired with their line number (or 1-based position) for messages.
+    """
     problems: list[str] = []
+    document_lines = _document_lines(documents, problems)
+    section_lines = _section_lines(sections, document_lines, problems)
+    _glossary_problems(glossary, problems)
+    _mapping_problems(mappings, section_lines, problems)
+    return problems
+
+
+def _document_lines(
+    documents: Sequence[tuple[int, DocumentRecord]], problems: list[str]
+) -> dict[str, int]:
+    """Check document keys and return the first line of each valid key."""
     document_lines: dict[str, int] = {}
     for line, document in documents:
         where = f"{DOCUMENTS_FILE}:{line}"
@@ -737,7 +808,15 @@ def _content_problems(
             )
         else:
             document_lines[document.key] = line
+    return document_lines
 
+
+def _section_lines(
+    sections: Sequence[tuple[int, SectionRecord]],
+    document_lines: dict[str, int],
+    problems: list[str],
+) -> dict[str, int]:
+    """Check sections and return the first line of each valid section key."""
     section_lines: dict[str, int] = {}
     ordinal_lines: dict[tuple[str, int], int] = {}
     for line, section in sections:
@@ -764,16 +843,25 @@ def _content_problems(
         else:
             ordinal_lines[ordinal_key] = line
         problems.extend(_page_problems(where, "", section.start_page, section.end_page))
-        if not section.blocks:
-            problems.append(f"{where}: blocks: must contain at least one block")
-        for index, block in enumerate(section.blocks):
-            prefix = f"blocks[{index}]."
-            if not block.markdown.strip():
-                problems.append(f"{where}: {prefix}markdown: must not be empty")
-            problems.extend(
-                _page_problems(where, prefix, block.start_page, block.end_page)
-            )
+        problems.extend(_block_problems(where, section.blocks))
+    return section_lines
 
+
+def _block_problems(where: str, blocks: Sequence[BlockRecord]) -> list[str]:
+    """Problems of one section's blocks: none at all, empty markdown, bad pages."""
+    problems: list[str] = []
+    if not blocks:
+        problems.append(f"{where}: blocks: must contain at least one block")
+    for index, block in enumerate(blocks):
+        prefix = f"blocks[{index}]."
+        if not block.markdown.strip():
+            problems.append(f"{where}: {prefix}markdown: must not be empty")
+        problems.extend(_page_problems(where, prefix, block.start_page, block.end_page))
+    return problems
+
+
+def _glossary_problems(glossary: Sequence[GlossaryEntry], problems: list[str]) -> None:
+    """Report empty terms and terms repeated case-insensitively."""
     term_indexes: dict[str, int] = {}
     for index, entry in enumerate(glossary):
         where = f"{GLOSSARY_FILE}: [{index}].term"
@@ -788,6 +876,13 @@ def _content_problems(
         else:
             term_indexes[term.casefold()] = index
 
+
+def _mapping_problems(
+    mappings: Sequence[ColloquialMappingRecord],
+    section_lines: dict[str, int],
+    problems: list[str],
+) -> None:
+    """Report mapped sections that are unknown or already mapped by another record."""
     mapped_by: dict[str, int] = {}
     for index, record in enumerate(mappings):
         for key_index, section_key in enumerate(record.section_keys):
@@ -801,7 +896,6 @@ def _content_problems(
                 )
             else:
                 mapped_by[section_key] = index
-    return problems
 
 
 def _jsonl_bytes(records: Sequence[BaseModel]) -> bytes:

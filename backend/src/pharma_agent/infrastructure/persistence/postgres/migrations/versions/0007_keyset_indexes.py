@@ -16,6 +16,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Replace the conversation and message sort indexes with ones ending in the id."""
     op.drop_index("ix_conversations_user_updated", table_name="conversations")
     op.create_index(
         "ix_conversations_user_updated_id",
@@ -33,6 +34,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Restore the sort indexes without the id tie-breaker."""
     op.drop_index("ix_messages_conversation_created_id", table_name="messages")
     op.create_index(
         "ix_messages_conversation_created",

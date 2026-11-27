@@ -9,6 +9,8 @@ from pharma_agent.domain.retrieval.ports import Reranker, RetrievalError, Retrie
 
 
 class RetrievalConfig(BaseModel):
+    """Pool sizes for one search: candidates per query, reranked pool and hits kept."""
+
     model_config = ConfigDict(frozen=True)
 
     candidate_k: int = 20
@@ -17,6 +19,8 @@ class RetrievalConfig(BaseModel):
 
 
 class SearchResult(BaseModel):
+    """The hits of one search round with rerank counts, timings and any error."""
+
     items: list[Hit] = Field(default_factory=list)
     queries: list[Query] = Field(default_factory=list)
     rerank_failed: bool = False
@@ -29,6 +33,7 @@ class SearchResult(BaseModel):
 
     @property
     def succeeded(self) -> bool:
+        """Whether the retrieval itself did not fail."""
         return self.error is None
 
 
@@ -38,6 +43,7 @@ class RetrievalService:
     def __init__(
         self, retriever: Retriever, reranker: Reranker, config: RetrievalConfig
     ) -> None:
+        """Search with `retriever`, rerank with `reranker`, sized by `config`."""
         self._retriever = retriever
         self._reranker = reranker
         self._config = config

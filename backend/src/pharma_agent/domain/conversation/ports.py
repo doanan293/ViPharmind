@@ -12,7 +12,11 @@ from pharma_agent.domain.conversation.models import (
 
 
 class ConversationRepository(Protocol):
-    async def create(self, conversation: Conversation) -> None: ...
+    """Storage of conversations and their messages."""
+
+    async def create(self, conversation: Conversation) -> None:
+        """Insert a new conversation."""
+        ...
 
     async def get(self, user_id: str, conversation_id: str) -> Conversation | None:
         """Return the conversation only when it belongs to user_id."""
@@ -43,7 +47,9 @@ class ConversationRepository(Protocol):
         """Persist only summary, summarized_turns and updated_at."""
         ...
 
-    async def delete(self, user_id: str, conversation_id: str) -> bool: ...
+    async def delete(self, user_id: str, conversation_id: str) -> bool:
+        """Delete the user's conversation and its messages; False if there is none."""
+        ...
 
     async def append_turn(
         self,

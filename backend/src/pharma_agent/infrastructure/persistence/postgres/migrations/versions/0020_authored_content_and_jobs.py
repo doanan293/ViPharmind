@@ -18,6 +18,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Create the source documents, glossary, colloquial and ingest job tables."""
     op.create_table(
         "colloquial_mappings",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -202,6 +203,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop the tables this revision created."""
     op.drop_index(
         "uq_ingest_jobs_open",
         table_name="ingest_jobs",

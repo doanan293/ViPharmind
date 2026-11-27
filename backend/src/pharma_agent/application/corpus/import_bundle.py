@@ -31,12 +31,16 @@ from pharma_agent.domain.shared.clock import Clock
 
 
 class ImportOutcome(StrEnum):
+    """How an import ended: a new release built, a ready release reused, or the current one kept."""
+
     IMPORTED = "imported"
     REUSED = "reused"
     NO_CHANGE = "no_change"
 
 
 class ImportReport(BaseModel):
+    """The result of one import: its outcome, the collection and the stored release."""
+
     model_config = ConfigDict(frozen=True)
 
     outcome: ImportOutcome
@@ -70,6 +74,8 @@ def bundle_vectors(
 
 
 class ImportKnowledgeBundle:
+    """Imports a knowledge bundle into the corpus and the vector index."""
+
     def __init__(
         self,
         repository: CorpusRepository,
@@ -80,6 +86,7 @@ class ImportKnowledgeBundle:
         embed_batch_size: int,
         embed_max_concurrent: int,
     ) -> None:
+        """Wire the use case; the batch size and concurrency bound the embedding calls."""
         self._repository = repository
         self._index = index
         self._embedder = embedder
@@ -99,8 +106,10 @@ class ImportKnowledgeBundle:
         publish: bool,
         on_step: StepCallback | None = None,
     ) -> ImportReport:
-        """Import `bundle`; an unchanged bundle reuses its release, and its vectors are read
-        only to restore points the index lost.
+        """Import `bundle` as a release and publish it when `publish` is set.
+
+        An unchanged bundle reuses its release, and its vectors are read only to restore
+        points the index lost.
 
         `on_step` hears each stage as it starts, for progress shown to a user.
         """
@@ -163,8 +172,11 @@ class ImportKnowledgeBundle:
     async def _restore_points(
         self, snapshot: CorpusSnapshot, embeddings: BundleEmbeddings, release: Release
     ) -> None:
-        """Write back, from the bundle's vectors, the points of a ready release that the
-        vector index lost (a dropped or rebuilt collection)."""
+        """Write back the points of a ready release that the vector index lost.
+
+        Uses the bundle's vectors; points get lost when the collection is dropped or
+        rebuilt.
+        """
         await self._index.ensure_collection()
         if await self._index.count_release(release.id) == len(snapshot.release_chunks):
             return

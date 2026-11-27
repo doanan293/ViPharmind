@@ -73,12 +73,16 @@ HOUR = 3600
 
 
 class MembershipView(BaseModel):
+    """One organization the user belongs to, with their role in it."""
+
     organization_id: uuid.UUID
     name: str
     role: Role
 
 
 class AccountView(BaseModel):
+    """The signed-in user's account as returned to the client."""
+
     id: uuid.UUID
     email: str | None
     phone_number: str | None
@@ -103,6 +107,7 @@ class AccountView(BaseModel):
         phone_sign_in_enabled: bool = True,
         google_sign_in_enabled: bool = False,
     ) -> "AccountView":
+        """Build the view of an account; the sign-in flags say which methods the server offers."""
         return cls(
             id=user.id,
             email=user.email,
@@ -127,6 +132,8 @@ class AccountView(BaseModel):
 
 
 class SessionView(BaseModel):
+    """An active sign-in session; `current` marks the one making the request."""
+
     id: str
     created_at: datetime
     last_used_at: datetime | None
@@ -137,6 +144,8 @@ class SessionView(BaseModel):
 
 @dataclass(frozen=True)
 class AccountPolicy:
+    """Account settings: the OTP secret, SMS regions, send and sign-in limits, enabled methods."""
+
     otp_secret: str
     allowed_sms_regions: frozenset[str] = frozenset({"VN"})
     send_cooldown_seconds: int = 60
@@ -151,6 +160,8 @@ class AccountPolicy:
 
 
 class AccountService:
+    """Account use cases: codes, password reset, phone sign-in, profile and sessions."""
+
     def __init__(
         self,
         *,
@@ -165,6 +176,7 @@ class AccountService:
         policy: AccountPolicy,
         memberships: MembershipLookup | None = None,
     ) -> None:
+        """Wire the service; without `memberships` accounts list no organizations."""
         self._accounts = accounts
         self._codes = codes
         self._limiter = limiter
@@ -297,6 +309,14 @@ class AccountService:
     async def request_email_verification(
         self, email: str, *, locale: Locale, client_ip: str | None
     ) -> None:
+        """Email a verification code when the address has an unverified account.
+
+        Answers the same whether or not the account exists.
+
+        Raises:
+            RateLimited: If the address or the client IP sent too many codes.
+            DeliveryFailed: If the email could not be sent.
+        """
         address = normalize_email(email)
         await self._limit_send(OtpPurpose.VERIFY_EMAIL, address, client_ip)
         user = await self._accounts.get_by_email(address)
@@ -338,6 +358,14 @@ class AccountService:
     async def request_password_reset(
         self, email: str, *, locale: Locale, client_ip: str | None
     ) -> None:
+        """Email a password reset code when the address has an active account.
+
+        Answers the same whether or not the account exists.
+
+        Raises:
+            RateLimited: If the address or the client IP sent too many codes.
+            DeliveryFailed: If the email could not be sent.
+        """
         address = normalize_email(email)
         await self._limit_send(OtpPurpose.RESET_PASSWORD, address, client_ip)
         user = await self._accounts.get_by_email(address)
@@ -346,6 +374,15 @@ class AccountService:
         await self._deliver_code(OtpPurpose.RESET_PASSWORD, address, user.id, locale)
 
     async def reset_password(self, email: str, code: str, new_password: str) -> None:
+        """Set a new password with a reset code and sign out every session.
+
+        Also marks the email verified, since the code reached its inbox.
+
+        Raises:
+            PasswordInvalid: If the new password is too weak.
+            InvalidCode: If the code is wrong, expired or not for this account.
+            AccountDisabled: If the account is disabled.
+        """
         self._check_password(new_password)
         address = normalize_email(email)
         record = await self._consume(OtpPurpose.RESET_PASSWORD, address, code)
@@ -365,6 +402,15 @@ class AccountService:
     async def request_phone_login(
         self, phone: str, *, locale: Locale, client_ip: str | None
     ) -> None:
+        """Text a sign-in code to a phone number, with or without an account.
+
+        Raises:
+            PhoneSignInDisabled: If SMS is turned off.
+            PhoneNumberInvalid: If the number is not valid.
+            PhoneCountryNotAllowed: If SMS cannot be sent to its country.
+            RateLimited: If the number or the client IP sent too many codes.
+            DeliveryFailed: If the SMS could not be sent.
+        """
         self._require_sms()
         number = self._phone(phone)
         await self._limit_send(OtpPurpose.PHONE_LOGIN, number, client_ip)
@@ -374,6 +420,17 @@ class AccountService:
         )
 
     async def login_with_phone(self, phone: str, code: str) -> uuid.UUID:
+        """Sign in with a phone code, creating a phone-only account on first use.
+
+        Returns:
+            The id of the signed-in user.
+
+        Raises:
+            PhoneNumberInvalid: If the number is not valid.
+            PhoneCountryNotAllowed: If its country is not allowed.
+            InvalidCode: If the code is wrong or expired.
+            AccountDisabled: If the account is disabled.
+        """
         number = self._phone(phone)
         await self._consume(OtpPurpose.PHONE_LOGIN, number, code)
         user = await self._accounts.get_by_phone(number)
@@ -402,6 +459,11 @@ class AccountService:
         return keys
 
     async def check_login_allowed(self, email: str, client_ip: str | None) -> None:
+        """Refuse a password sign-in while the email or IP has too many recent failures.
+
+        Raises:
+            RateLimited: If either limit is reached.
+        """
         for key in self._login_keys(email, client_ip):
             retry_after = await self._limiter.check(
                 key,
@@ -412,6 +474,7 @@ class AccountService:
                 raise RateLimited(retry_after)
 
     async def record_login_failure(self, email: str, client_ip: str | None) -> None:
+        """Count a failed password sign-in against the email and the client IP."""
         for key in self._login_keys(email, client_ip):
             await self._limiter.hit(
                 key,
@@ -428,6 +491,11 @@ class AccountService:
         return user
 
     async def get_account(self, user_id: uuid.UUID) -> AccountView:
+        """Return the user's account with their organizations.
+
+        Raises:
+            AccountNotFound: If the user does not exist.
+        """
         user = await self._require(user_id)
         memberships = (
             []
@@ -448,6 +516,11 @@ class AccountService:
     async def update_profile(
         self, user_id: uuid.UUID, display_name: str
     ) -> AccountView:
+        """Set the user's display name, trimmed.
+
+        Raises:
+            AccountNotFound: If the user does not exist.
+        """
         await self._require(user_id)
         await self._accounts.update_display_name(user_id, display_name.strip())
         return await self.get_account(user_id)
@@ -455,6 +528,15 @@ class AccountService:
     async def request_email_change(
         self, user_id: uuid.UUID, email: str, *, locale: Locale, client_ip: str | None
     ) -> None:
+        """Email a code that confirms a new sign-in email.
+
+        Raises:
+            AccountNotFound: If the user does not exist.
+            RateLimited: If the address or the client IP sent too many codes.
+            EmailAlreadyUsed: If another account has the address.
+            InvalidInput: If it is already the user's verified email.
+            DeliveryFailed: If the email could not be sent.
+        """
         user = await self._require(user_id)
         address = normalize_email(email)
         # Limit first: the 409 below tells a signed-in user which addresses have accounts.
@@ -469,6 +551,15 @@ class AccountService:
     async def confirm_email_change(
         self, user_id: uuid.UUID, email: str, code: str, *, locale: Locale
     ) -> AccountView:
+        """Switch to the new email with its code and notify the previous address.
+
+        A failed notice is logged, not raised.
+
+        Raises:
+            EmailAlreadyUsed: If another account has the address.
+            InvalidCode: If the code is wrong, expired or not the user's.
+            AccountNotFound: If the user does not exist.
+        """
         address = normalize_email(email)
         # Check before the code is used: a refusal here must leave it for a retry.
         owner = await self._accounts.get_by_email(address)
@@ -498,6 +589,17 @@ class AccountService:
     async def request_phone_change(
         self, user_id: uuid.UUID, phone: str, *, locale: Locale, client_ip: str | None
     ) -> None:
+        """Text a code that confirms a new phone number.
+
+        Raises:
+            AccountNotFound: If the user does not exist.
+            PhoneSignInDisabled: If SMS is turned off.
+            PhoneNumberInvalid: If the number is not valid.
+            PhoneCountryNotAllowed: If SMS cannot be sent to its country.
+            RateLimited: If the number or the client IP sent too many codes.
+            PhoneAlreadyUsed: If another account has the number.
+            DeliveryFailed: If the SMS could not be sent.
+        """
         await self._require(user_id)
         self._require_sms()
         number = self._phone(phone)
@@ -510,6 +612,14 @@ class AccountService:
     async def confirm_phone_change(
         self, user_id: uuid.UUID, phone: str, code: str
     ) -> AccountView:
+        """Switch to the new phone number with its code.
+
+        Raises:
+            PhoneNumberInvalid: If the number is not valid.
+            PhoneCountryNotAllowed: If its country is not allowed.
+            PhoneAlreadyUsed: If another account has the number.
+            InvalidCode: If the code is wrong, expired or not the user's.
+        """
         number = self._phone(phone)
         owner = await self._accounts.get_by_phone(number)
         if owner is not None and owner.id != user_id:
@@ -528,6 +638,13 @@ class AccountService:
     async def change_password(
         self, user_id: uuid.UUID, *, current_password: str | None, new_password: str
     ) -> None:
+        """Set a new password; the current one is required when a password is set.
+
+        Raises:
+            PasswordInvalid: If the new password is too weak.
+            AccountNotFound: If the user does not exist.
+            CurrentPasswordInvalid: If the current password is missing or wrong.
+        """
         self._check_password(new_password)
         user = await self._require(user_id)
         if user.password_set:
@@ -541,6 +658,12 @@ class AccountService:
         await self._accounts.set_password(user_id, self._hasher.hash(new_password))
 
     async def unlink_google(self, user_id: uuid.UUID) -> AccountView:
+        """Unlink the user's Google sign-in, if linked.
+
+        Raises:
+            AccountNotFound: If the user does not exist.
+            LastSignInMethod: If Google is the only way left to sign in.
+        """
         user = await self._require(user_id)
         if user.google_linked:
             if not user.sign_in_methods() - {SignInMethod.GOOGLE}:
@@ -555,6 +678,7 @@ class AccountService:
     async def list_sessions(
         self, user_id: uuid.UUID, current_token: str | None
     ) -> list[SessionView]:
+        """List the user's unexpired sessions, newest first, marking the one of `current_token`."""
         return [
             SessionView(
                 id=session_id_of(record.token),
@@ -569,6 +693,11 @@ class AccountService:
         ]
 
     async def revoke_session(self, user_id: uuid.UUID, session_id: str) -> None:
+        """Sign out one of the user's sessions by its public id.
+
+        Raises:
+            SessionNotFound: If the user has no such session.
+        """
         for record in await self._sessions.for_user(user_id):
             if hmac.compare_digest(session_id_of(record.token), session_id):
                 await self._sessions.delete(user_id, record.token)
@@ -578,4 +707,5 @@ class AccountService:
     async def revoke_other_sessions(
         self, user_id: uuid.UUID, current_token: str | None
     ) -> int:
+        """Sign out every session of the user but the current one; return how many ended."""
         return await self._sessions.delete_all(user_id, keep=current_token)

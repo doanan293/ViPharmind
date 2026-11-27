@@ -13,6 +13,8 @@ class Transaction(Protocol):
 
 
 class TransactionFactory(Protocol):
+    """Opens database transactions."""
+
     def begin(self) -> AbstractAsyncContextManager[Transaction]:
         """Commit when the block exits normally, roll back when it raises."""
         ...

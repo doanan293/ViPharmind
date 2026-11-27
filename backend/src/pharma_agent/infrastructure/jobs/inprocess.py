@@ -13,8 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 class InProcessDispatcher:
-    """`run` raises while the job has attempts left, so this calls it again after a
-    pause until it returns or `max_runs` (the job's max attempts) is reached."""
+    """JobDispatcher that runs each job in a background task of the API process.
+
+    `run` raises while the job has attempts left, so this calls it again after a
+    pause until it returns or `max_runs` (the job's max attempts) is reached.
+    """
 
     def __init__(
         self,
@@ -23,6 +26,10 @@ class InProcessDispatcher:
         retry_delay_seconds: float = 5.0,
         max_runs: int = 10,
     ) -> None:
+        """Retry a failed `run` up to `max_runs` times.
+
+        The pause before run n+1 is `retry_delay_seconds` times n.
+        """
         self._run = run
         self._retry_delay = retry_delay_seconds
         self._max_runs = max_runs
@@ -30,6 +37,7 @@ class InProcessDispatcher:
         self._tasks: set[asyncio.Task[None]] = set()
 
     async def enqueue(self, job_id: uuid.UUID) -> None:
+        """Start the job in a background task and return at once."""
         task = asyncio.create_task(self._safely(job_id))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)

@@ -17,6 +17,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Add `deleted_at` to collections and drop the organization cascade."""
     op.add_column(
         "collections",
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
@@ -31,6 +32,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Delete collections of removed organizations and restore the cascade."""
     op.execute(
         "DELETE FROM corpus.collections WHERE owner_organization_id IS NOT NULL"
         " AND owner_organization_id NOT IN (SELECT id FROM organizations)"

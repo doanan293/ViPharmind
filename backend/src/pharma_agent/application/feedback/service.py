@@ -15,10 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 class MessageNotFound(ApplicationError):
+    """The message does not exist, is not the user's, or is not an assistant reply."""
+
     code = "MESSAGE_NOT_FOUND"
 
 
 class FeedbackView(BaseModel):
+    """A user's rating of an assistant message, as returned to the client."""
+
     message_id: str
     rating: Rating
     note: str
@@ -26,6 +30,7 @@ class FeedbackView(BaseModel):
 
     @classmethod
     def of(cls, feedback: Feedback) -> "FeedbackView":
+        """Build the view of a stored feedback."""
         return cls(
             message_id=feedback.message_id,
             rating=feedback.rating,
@@ -35,6 +40,8 @@ class FeedbackView(BaseModel):
 
 
 class FeedbackService:
+    """Records thumbs up/down feedback on assistant messages."""
+
     def __init__(
         self,
         conversations: ConversationRepository,
@@ -42,6 +49,7 @@ class FeedbackService:
         sink: ScoreSink,
         clock: Clock,
     ) -> None:
+        """Wire the service to its repositories, the score sink and the clock."""
         self._conversations = conversations
         self._feedback = feedback
         self._sink = sink
@@ -50,6 +58,15 @@ class FeedbackService:
     async def submit(
         self, *, user_id: str, message_id: str, rating: str, note: str
     ) -> FeedbackView:
+        """Store the user's rating of an assistant message and forward it to tracing.
+
+        A failure to record the score in the trace is logged, not raised.
+
+        Raises:
+            MessageNotFound: If the message is missing, not the user's, or not an
+                assistant reply.
+            InvalidInput: If the rating is not "up" or "down" or the note is invalid.
+        """
         message = await self._conversations.get_message(user_id, message_id)
         if message is None or message.role is not MessageRole.ASSISTANT:
             raise MessageNotFound(message_id)

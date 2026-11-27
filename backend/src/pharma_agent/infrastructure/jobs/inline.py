@@ -17,8 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 class InlineDispatcher:
-    """`run` raises while the job has attempts left, so it is called again after a short
-    pause until it returns or `max_runs` (the job's max attempts) is reached."""
+    """JobDispatcher that runs each job to completion inside `enqueue`.
+
+    `run` raises while the job has attempts left, so it is called again after a short
+    pause until it returns or `max_runs` (the job's max attempts) is reached.
+    """
 
     def __init__(
         self,
@@ -27,11 +30,19 @@ class InlineDispatcher:
         retry_delay_seconds: float = 2.0,
         max_runs: int = 3,
     ) -> None:
+        """Retry a failed `run` up to `max_runs` times.
+
+        The pause before run n+1 is `retry_delay_seconds` times n.
+        """
         self._run = run
         self._retry_delay = retry_delay_seconds
         self._max_runs = max_runs
 
     async def enqueue(self, job_id: uuid.UUID) -> None:
+        """Run the job now and return once it succeeded or used every run.
+
+        Failures are logged, never raised: the job records its own failure.
+        """
         for attempt in range(1, self._max_runs + 1):
             try:
                 await self._run(job_id)

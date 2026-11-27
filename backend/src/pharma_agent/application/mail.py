@@ -9,12 +9,15 @@ Locale = Literal["vi", "en"]
 
 @dataclass(frozen=True)
 class EmailContent:
+    """A rendered email: subject, plain-text body and HTML body."""
+
     subject: str
     text: str
     html: str
 
 
 def locale_from_accept_language(header: str | None) -> Locale:
+    """Return "en" when the first Accept-Language entry is English, else "vi"."""
     first = (header or "").split(",")[0].strip().lower()
     return "en" if first.startswith("en") else "vi"
 

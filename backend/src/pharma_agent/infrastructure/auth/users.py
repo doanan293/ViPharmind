@@ -1,5 +1,6 @@
-"""fastapi-users wiring: cookie sessions backed by the access_tokens table, registration,
-current user and Google OAuth.
+"""fastapi-users wiring: cookie sessions, registration, current user and Google OAuth.
+
+Sessions are backed by the access_tokens table.
 
 Every session is a database row, so logging out or revoking a session takes effect at
 once. PHARMA_AUTH__JWT_SECRET only signs the short-lived OAuth state and the user
@@ -60,6 +61,8 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
 
 
 class UserCreate(schemas.BaseUserCreate):
+    """Registration request body: the fastapi-users fields plus a display name."""
+
     display_name: str = ""
 
 
@@ -72,6 +75,12 @@ def _already_exists() -> HTTPException:
 
 
 class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
+    """User manager with the app's password, login-limit and OAuth linking rules.
+
+    Without an AccountService, login is not rate limited and no verification code is
+    sent after registration.
+    """
+
     def __init__(
         self,
         user_db: UserDatabase,
@@ -80,6 +89,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
         account: AccountService | None = None,
         request: Request | None = None,
     ) -> None:
+        """Use `secret` for reset and verification tokens.
+
+        `account` adds login limits and verification emails; `request` supplies the
+        client IP and locale.
+        """
         super().__init__(user_db)
         self.reset_password_token_secret = secret
         self.verification_token_secret = secret
@@ -89,6 +103,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
     async def validate_password(
         self, password: str, user: schemas.UC | UserTable
     ) -> None:
+        """Reject a password that breaks the domain password rules.
+
+        Raises:
+            InvalidPasswordException: With the rule's reason.
+        """
         problem = password_problem(password)
         if problem is not None:
             raise exceptions.InvalidPasswordException(reason=problem)
@@ -96,6 +115,14 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
     async def authenticate(
         self, credentials: OAuth2PasswordRequestForm
     ) -> UserTable | None:
+        """Check email and password, counting failures per account and client IP.
+
+        Returns None on wrong credentials.
+
+        Raises:
+            HTTPException: 403 EMAIL_NOT_VERIFIED when the email is not verified yet.
+            RateLimited: When the AccountService refuses further attempts.
+        """
         ip = _client_ip(self._request)
         if self._account is not None:
             await self._account.check_login_allowed(credentials.username, ip)
@@ -111,6 +138,10 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
     async def on_after_register(
         self, user: UserTable, request: Request | None = None
     ) -> None:
+        """Send an email verification code to the new account.
+
+        A rate limit or delivery failure is only logged; the user can ask again later.
+        """
         if self._account is None or not user.email:
             return
         locale = locale_from_accept_language(
@@ -137,6 +168,14 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
         associate_by_email: bool = False,
         is_verified_by_default: bool = False,
     ) -> UserTable:
+        """Sign in with Google, creating or linking the account as fastapi-users does.
+
+        An account created here has its email verified and no password set.
+
+        Raises:
+            HTTPException: 400 OAUTH_USER_ALREADY_EXISTS when the email belongs to an
+                unverified registration, which linking would hand to the Google user.
+        """
         created = False
         try:
             await self.get_by_oauth_account(oauth_name, account_id)
@@ -175,6 +214,14 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserTable, uuid.UUID]):
         refresh_token: str | None = None,
         request: Request | None = None,
     ) -> UserTable:
+        """Link a Google account to the signed-in `user`.
+
+        An account without an email takes the Google address as its verified email.
+
+        Raises:
+            HTTPException: 400 OAUTH_USER_ALREADY_EXISTS when the Google account or its
+                email already belongs to another user.
+        """
         try:
             owner = await self.get_by_oauth_account(oauth_name, account_id)
         except exceptions.UserNotExists:
@@ -220,6 +267,7 @@ class TrackedDatabaseStrategy(DatabaseStrategy[UserTable, uuid.UUID, AccessToken
         user_agent: str,
         ip_address: str,
     ) -> None:
+        """Record `user_agent` and `ip_address`, cut to column size, on new sessions."""
         super().__init__(database, lifetime_seconds=lifetime_seconds)
         self._user_agent = user_agent[:255]
         self._ip_address = ip_address[:45]
@@ -236,6 +284,10 @@ class TrackedDatabaseStrategy(DatabaseStrategy[UserTable, uuid.UUID, AccessToken
     async def read_token(
         self, token: str | None, user_manager: BaseUserManager[UserTable, uuid.UUID]
     ) -> UserTable | None:
+        """The user of a live session token; None for a missing, expired or orphan one.
+
+        Updates the session's `last_used_at` when older than SESSION_TOUCH_INTERVAL.
+        """
         if token is None:
             return None
         now = datetime.now(UTC)
@@ -259,6 +311,8 @@ class TrackedDatabaseStrategy(DatabaseStrategy[UserTable, uuid.UUID, AccessToken
 
 @dataclass(frozen=True)
 class Auth:
+    """The fastapi-users objects and settings the API routers need."""
+
     users: FastAPIUsers[UserTable, uuid.UUID]
     cookie_backend: AuthenticationBackend[UserTable, uuid.UUID]
     current_active_user: Callable[..., Any]
@@ -272,6 +326,13 @@ class Auth:
 def build_auth(
     settings: AuthSettings, resolve_sessions: SessionFactoryResolver
 ) -> Auth:
+    """Wire fastapi-users: cookie sessions, the user manager and optional Google OAuth.
+
+    `resolve_sessions` gives the session factory of the app serving a request.
+
+    Raises:
+        ValueError: When PHARMA_AUTH__JWT_SECRET is not set.
+    """
     secret = settings.require_jwt_secret()
 
     async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
@@ -363,6 +424,7 @@ def build_auth(
 
 
 def include_auth_routes(router: APIRouter, auth: Auth) -> None:
+    """Mount cookie login, registration and, when enabled, the Google OAuth routes."""
     router.include_router(
         auth.users.get_auth_router(auth.cookie_backend),
         prefix="/auth/cookie",

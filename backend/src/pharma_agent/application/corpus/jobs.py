@@ -58,6 +58,8 @@ logger = logging.getLogger(__name__)
 
 
 class JobView(BaseModel):
+    """A publish job as returned to the client; `progress` is a percentage."""
+
     id: uuid.UUID
     collection_id: uuid.UUID
     status: JobStatus
@@ -72,6 +74,8 @@ class JobView(BaseModel):
 
 
 class ReleaseView(BaseModel):
+    """A release of a collection; `current` marks the one being served."""
+
     id: uuid.UUID
     number: int
     status: ReleaseStatus
@@ -81,6 +85,8 @@ class ReleaseView(BaseModel):
 
 
 class PublishService:
+    """Publishes authored collections through background jobs, and rolls them back."""
+
     def __init__(
         self,
         *,
@@ -97,6 +103,7 @@ class PublishService:
         max_attempts: int = 3,
         stale_after: timedelta,
     ) -> None:
+        """Wire the service; `stale_after` is how long an open job may run before it counts as abandoned."""
         self._collections = collections
         self._sources = sources
         self._jobs = jobs
@@ -147,6 +154,21 @@ class PublishService:
         return collection
 
     async def publish(self, actor: Actor, collection_id: uuid.UUID) -> JobView:
+        """Queue a publish job for the collection and hand it to the dispatcher.
+
+        An open job older than `stale_after` is marked failed and replaced. If the
+        dispatcher cannot queue the job, it is marked failed and the error is raised.
+
+        Returns:
+            The job's state after the dispatcher took it (it may have finished inline).
+
+        Raises:
+            CollectionNotFoundForActor: If the collection is missing or not visible.
+            SystemCollectionReadOnly: If it is the system corpus.
+            ForbiddenRole: If the actor's role cannot edit it.
+            InvalidInput: If the collection has no document.
+            PublishInProgress: If another job for it is still open.
+        """
         await self._writable(actor, collection_id)
         if await self._sources.count_documents(collection_id) == 0:
             raise InvalidInput("add a document before publishing")
@@ -205,6 +227,11 @@ class PublishService:
         return self._clock.now() - started > self._stale_after
 
     async def recent(self, actor: Actor, *, limit: int) -> list[JobView]:
+        """Return the most recent jobs of every collection.
+
+        Raises:
+            ForbiddenRole: If the actor is not a superadmin.
+        """
         if not actor.is_superadmin:
             raise ForbiddenRole("only superadmins list every job")
         return [
@@ -212,6 +239,11 @@ class PublishService:
         ]
 
     async def get_job(self, actor: Actor, job_id: uuid.UUID) -> JobView:
+        """Return one job of a collection the actor can see.
+
+        Raises:
+            CollectionNotFoundForActor: If the job or its collection is missing or not visible.
+        """
         job = await self._jobs.get(job_id)
         if job is None:
             raise CollectionNotFoundForActor(str(job_id))
@@ -308,6 +340,11 @@ class PublishService:
     async def releases(
         self, actor: Actor, collection_id: uuid.UUID
     ) -> list[ReleaseView]:
+        """List the releases of a collection the actor can see.
+
+        Raises:
+            CollectionNotFoundForActor: If the collection is missing or not visible.
+        """
         collection = await self._visible(actor, collection_id)
         return [
             ReleaseView(
@@ -322,6 +359,14 @@ class PublishService:
         ]
 
     async def rollback(self, actor: Actor, collection_id: uuid.UUID) -> ReleaseView:
+        """Serve the release before the current one again, and audit it.
+
+        Raises:
+            CollectionNotFoundForActor: If the collection is missing or not visible.
+            SystemCollectionReadOnly: If it is the system corpus.
+            ForbiddenRole: If the actor's role cannot edit it.
+            InvalidInput: If there is no earlier release.
+        """
         collection = await self._writable(actor, collection_id)
         try:
             release = await self._releases.rollback(collection.key)

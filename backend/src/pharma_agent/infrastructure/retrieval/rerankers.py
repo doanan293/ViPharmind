@@ -11,6 +11,7 @@ from pharma_agent.infrastructure.settings import RerankSettings
 
 
 def build_reranker(settings: RerankSettings) -> Reranker:
+    """NoopReranker for protocol `none`, else a NativeReranker on the endpoint."""
     if settings.protocol == "none":
         return NoopReranker()
     headers = (

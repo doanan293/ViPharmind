@@ -21,6 +21,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Drop retrieval_runs, retrieval_hits and `messages.phases`."""
     op.drop_table("retrieval_hits")
     op.drop_index("ix_retrieval_runs_message", table_name="retrieval_runs")
     op.drop_table("retrieval_runs")
@@ -28,6 +29,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Restore the dropped tables and column, empty."""
     op.add_column(
         "messages",
         sa.Column(

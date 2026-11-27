@@ -30,42 +30,60 @@ from pharma_agent.domain.shared.errors import DomainError
 
 
 class Visibility(StrEnum):
+    """Who may read a collection: its owner, the owner's organization or everyone."""
+
     PRIVATE = "private"
     ORGANIZATION = "organization"
     PUBLIC = "public"
 
 
 class ReleaseStatus(StrEnum):
+    """Lifecycle of a release: building, then ready to publish, then retired."""
+
     BUILDING = "building"
     READY = "ready"
     RETIRED = "retired"
 
 
 class CorpusError(DomainError):
+    """Base class of the corpus domain errors."""
+
     code = "CORPUS_ERROR"
 
 
 class CorpusImportError(CorpusError):
+    """A knowledge bundle could not be turned into release rows."""
+
     code = "CORPUS_IMPORT_FAILED"
 
 
 class CollectionNotFound(CorpusError):
+    """No collection has the requested key."""
+
     code = "COLLECTION_NOT_FOUND"
 
 
 class ReleaseNotFound(CorpusError):
+    """No release has the requested id."""
+
     code = "RELEASE_NOT_FOUND"
 
 
 class ReleaseNotPublishable(CorpusError):
+    """Only a ready release can be published."""
+
     code = "RELEASE_NOT_PUBLISHABLE"
 
 
 class NoEarlierRelease(CorpusError):
+    """A rollback found no release published before the current one."""
+
     code = "NO_EARLIER_RELEASE"
 
 
 class IndexMismatch(CorpusError):
+    """The vector index does not match the configured embedding model or dimension."""
+
     code = "CORPUS_INDEX_MISMATCH"
 
 
@@ -74,6 +92,8 @@ class _Frozen(BaseModel):
 
 
 class Collection(_Frozen):
+    """A named set of documents with its owner, visibility and current release."""
+
     id: uuid.UUID
     key: str
     title: str
@@ -96,15 +116,23 @@ class CollectionOwner:
     organization_id: uuid.UUID | None = None
 
     def __post_init__(self) -> None:
+        """Reject an owner that is both a user and an organization.
+
+        Raises:
+            ValueError: both `user_id` and `organization_id` are set.
+        """
         if self.user_id is not None and self.organization_id is not None:
             raise ValueError("a collection has one owner")
 
     @property
     def is_system(self) -> bool:
+        """No owner: the shared system corpus."""
         return self.user_id is None and self.organization_id is None
 
 
 class ReleaseStats(_Frozen):
+    """Row and embedding counts recorded for one release."""
+
     documents: int = 0
     sections: int = 0
     chunks: int = 0
@@ -117,6 +145,8 @@ class ReleaseStats(_Frozen):
 
 
 class Release(_Frozen):
+    """One numbered import of a collection's bundle."""
+
     id: uuid.UUID
     collection_id: uuid.UUID
     number: int
@@ -132,6 +162,8 @@ class Release(_Frozen):
 
 
 class ReleaseSummary(_Frozen):
+    """A release with its collection key, chunk count and whether it is current."""
+
     collection_key: str
     release: Release
     chunk_count: int
@@ -139,6 +171,8 @@ class ReleaseSummary(_Frozen):
 
 
 class Document(_Frozen):
+    """A document row of a collection; its id is derived from the collection and key."""
+
     id: uuid.UUID
     collection_id: uuid.UUID
     key: str
@@ -147,6 +181,8 @@ class Document(_Frozen):
 
 
 class Section(_Frozen):
+    """A section row of a document; its id is derived from the document and key."""
+
     id: uuid.UUID
     document_id: uuid.UUID
     key: str
@@ -154,6 +190,11 @@ class Section(_Frozen):
 
 
 class ChunkVersion(_Frozen):
+    """An immutable chunk with its text, embedding text and enrichment.
+
+    The id is derived from the content, so releases share unchanged chunks.
+    """
+
     id: uuid.UUID
     document_id: uuid.UUID
     ordinal: int
@@ -171,6 +212,8 @@ class ChunkVersion(_Frozen):
 
 
 class ReleaseChunk(_Frozen):
+    """Membership of a chunk version in a release, at its ordinal in the document."""
+
     chunk_version_id: uuid.UUID
     document_id: uuid.UUID
     ordinal: int
@@ -190,6 +233,7 @@ class CorpusSnapshot(_Frozen):
     colloquial_mappings: list[ColloquialMappingRecord]
 
     def stats(self) -> ReleaseStats:
+        """Row counts of this snapshot; the embedding and index counts stay zero."""
         return ReleaseStats(
             documents=len(self.documents),
             sections=len(self.sections),
@@ -211,6 +255,8 @@ class IndexItem(_Frozen):
 
 
 class PurgeResult(_Frozen):
+    """Row counts removed and kept when retired releases are purged."""
+
     release_chunks_deleted: int = 0
     chunk_versions_deleted: int = 0
     chunk_versions_kept: int = 0
@@ -219,20 +265,25 @@ class PurgeResult(_Frozen):
 
 
 def collection_id_for(key: str) -> uuid.UUID:
+    """Stable id of the collection with `key`."""
     return uuid.uuid5(CORPUS_NAMESPACE, f"collection\x1f{key}")
 
 
 def document_id_for(collection_id: uuid.UUID, key: str) -> uuid.UUID:
+    """Stable id of the document with `key` in a collection."""
     return uuid.uuid5(CORPUS_NAMESPACE, f"document\x1f{collection_id}\x1f{key}")
 
 
 def section_id_for(document_id: uuid.UUID, key: str) -> uuid.UUID:
+    """Stable id of the section with `key` in a document."""
     return uuid.uuid5(CORPUS_NAMESPACE, f"section\x1f{document_id}\x1f{key}")
 
 
 def bundle_digest(bundle: KnowledgeBundle) -> str:
-    """sha256 of the knowledge content and its chunking; the rest of the manifest and
-    precomputed vectors are excluded."""
+    """Sha256 of the knowledge content and its chunking.
+
+    The rest of the manifest and precomputed vectors are excluded.
+    """
     content = {
         "documents": [record.model_dump(mode="json") for record in bundle.documents],
         "sections": [record.model_dump(mode="json") for record in bundle.sections],

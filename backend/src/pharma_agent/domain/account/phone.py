@@ -6,6 +6,8 @@ from pharma_agent.domain.shared.errors import DomainError
 
 
 class InvalidPhoneNumber(DomainError):
+    """The text could not be parsed as a valid phone number."""
+
     code = "PHONE_NUMBER_INVALID"
 
 

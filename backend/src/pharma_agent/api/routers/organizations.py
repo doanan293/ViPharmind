@@ -27,27 +27,37 @@ PageSize = Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)]
 
 
 class OrganizationName(BaseModel):
+    """The name of an organization."""
+
     name: str = Field(min_length=1, max_length=100)
 
 
 class DeleteOrganization(BaseModel):
+    """Confirmation for deleting an organization: its name typed again."""
+
     confirm_name: str = Field(min_length=1, max_length=100)
 
 
 class RoleBody(BaseModel):
+    """The role to give a member."""
+
     role: Role
 
 
 class InvitationBody(BaseModel):
+    """An email address to invite and the role the invitee will get."""
+
     email: EmailStr
     role: Role = Role.MEMBER
 
 
 def no_content() -> Response:
+    """An empty 204 No Content response."""
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def build_organizations_router(current_actor: ActorDependency) -> APIRouter:
+    """Routes under `/organizations` for organizations, members, invitations and audit log."""
     router = APIRouter(
         prefix="/organizations",
         tags=["organizations"],

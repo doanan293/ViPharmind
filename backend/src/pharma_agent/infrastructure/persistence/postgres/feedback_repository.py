@@ -28,10 +28,14 @@ def _feedback(row: FeedbackTable) -> Feedback:
 
 
 class PostgresFeedbackRepository:
+    """FeedbackRepository over `feedback`, one row per user and message."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Read and write through sessions from `sessions`."""
         self._sessions = sessions
 
     async def save(self, feedback: Feedback) -> None:
+        """Insert the feedback, or replace the rating, note and time of the user's earlier one."""
         statement = insert(FeedbackTable).values(
             feedback_id=uuid.UUID(hex=feedback.feedback_id),
             user_id=uuid.UUID(hex=feedback.user_id),
@@ -52,6 +56,7 @@ class PostgresFeedbackRepository:
             await session.execute(statement)
 
     async def get(self, user_id: str, message_id: str) -> Feedback | None:
+        """The user's feedback on the message; None also when either id is not a UUID."""
         owner, key = _uuid(user_id), _uuid(message_id)
         if owner is None or key is None:
             return None
@@ -68,6 +73,10 @@ class PostgresFeedbackRepository:
     async def for_messages(
         self, user_id: str, message_ids: Sequence[str]
     ) -> dict[str, Feedback]:
+        """The user's feedback on the given messages, keyed by message id.
+
+        Ids that are not UUIDs are skipped.
+        """
         owner = _uuid(user_id)
         keys = [key for value in message_ids if (key := _uuid(value)) is not None]
         if owner is None or not keys:

@@ -11,6 +11,7 @@ from pharma_agent.application.audit.service import AuditPage
 
 
 def build_audit_router(current_actor: ActorDependency) -> APIRouter:
+    """Route for the signed-in user's own activity log."""
     router = APIRouter(tags=["audit"])
     CurrentActor = Annotated[Actor, Depends(current_actor)]
 

@@ -25,15 +25,23 @@ class MembershipLookup(Protocol):
 
     async def list_for_user(
         self, user_id: uuid.UUID
-    ) -> list[tuple[Organization, Role]]: ...
+    ) -> list[tuple[Organization, Role]]:
+        """The user's organizations with the user's role in each, ordered by name."""
+        ...
 
 
 class OrganizationRepository(Protocol):
-    async def get(self, organization_id: uuid.UUID) -> Organization | None: ...
+    """Storage of organizations and their memberships."""
+
+    async def get(self, organization_id: uuid.UUID) -> Organization | None:
+        """The organization, or None if there is no such id."""
+        ...
 
     async def list_for_user(
         self, user_id: uuid.UUID
-    ) -> list[tuple[Organization, Role]]: ...
+    ) -> list[tuple[Organization, Role]]:
+        """The user's organizations with the user's role in each, ordered by name."""
+        ...
 
     async def list_all(
         self, *, limit: int, cursor: tuple[datetime, str] | None
@@ -41,7 +49,9 @@ class OrganizationRepository(Protocol):
         """Newest first, keyset on (created_at, id)."""
         ...
 
-    async def member_count(self, organization_id: uuid.UUID) -> int: ...
+    async def member_count(self, organization_id: uuid.UUID) -> int:
+        """Number of members of the organization."""
+        ...
 
     async def create(
         self, organization: Organization, owner_id: uuid.UUID, tx: Transaction
@@ -51,7 +61,9 @@ class OrganizationRepository(Protocol):
 
     async def rename(
         self, organization_id: uuid.UUID, name: str, now: datetime, tx: Transaction
-    ) -> None: ...
+    ) -> None:
+        """Change the organization's name inside `tx`."""
+        ...
 
     async def set_quotas(
         self,
@@ -61,17 +73,32 @@ class OrganizationRepository(Protocol):
         collection_quota: int | None,
         now: datetime,
         tx: Transaction,
-    ) -> None: ...
+    ) -> None:
+        """Overwrite both quota overrides inside `tx`; None uses the default."""
+        ...
 
-    async def delete(self, organization_id: uuid.UUID, tx: Transaction) -> None: ...
+    async def delete(self, organization_id: uuid.UUID, tx: Transaction) -> None:
+        """Delete the organization inside `tx`, with its members and invitations.
 
-    async def members(self, organization_id: uuid.UUID) -> list[MemberView]: ...
+        Its collections are only marked deleted, so cited chunks survive.
+        """
+        ...
 
-    async def memberships_of(self, user_id: uuid.UUID) -> dict[uuid.UUID, Role]: ...
+    async def members(self, organization_id: uuid.UUID) -> list[MemberView]:
+        """The organization's members with names and roles, longest-standing first."""
+        ...
 
-    async def owner_count(self, organization_id: uuid.UUID) -> int: ...
+    async def memberships_of(self, user_id: uuid.UUID) -> dict[uuid.UUID, Role]:
+        """The user's role per organization id, for every organization they are in."""
+        ...
 
-    async def add_member(self, membership: Membership, tx: Transaction) -> None: ...
+    async def owner_count(self, organization_id: uuid.UUID) -> int:
+        """Number of owners of the organization."""
+        ...
+
+    async def add_member(self, membership: Membership, tx: Transaction) -> None:
+        """Insert the membership inside `tx`."""
+        ...
 
     async def set_role(
         self,
@@ -79,17 +106,27 @@ class OrganizationRepository(Protocol):
         user_id: uuid.UUID,
         role: Role,
         tx: Transaction,
-    ) -> None: ...
+    ) -> None:
+        """Change a member's role inside `tx`; does nothing for a non-member."""
+        ...
 
     async def remove_member(
         self, organization_id: uuid.UUID, user_id: uuid.UUID, tx: Transaction
-    ) -> bool: ...
+    ) -> bool:
+        """Delete the membership inside `tx`; False if the user was not a member."""
+        ...
 
 
 class InvitationRepository(Protocol):
-    async def get(self, invitation_id: uuid.UUID) -> Invitation | None: ...
+    """Storage of organization invitations."""
 
-    async def get_by_token_hash(self, token_hash: str) -> Invitation | None: ...
+    async def get(self, invitation_id: uuid.UUID) -> Invitation | None:
+        """The invitation, or None if there is no such id."""
+        ...
+
+    async def get_by_token_hash(self, token_hash: str) -> Invitation | None:
+        """The invitation whose token hashes to `token_hash`, if any."""
+        ...
 
     async def list_for_organization(
         self, organization_id: uuid.UUID
@@ -99,7 +136,9 @@ class InvitationRepository(Protocol):
 
     async def open_for(
         self, organization_id: uuid.UUID, email: str
-    ) -> Invitation | None: ...
+    ) -> Invitation | None:
+        """The organization's pending or sent invitation for `email`, if any."""
+        ...
 
     async def create(self, invitation: Invitation, tx: Transaction) -> None:
         """Raises InvitationConflict when an open invitation exists for the email."""
@@ -108,6 +147,9 @@ class InvitationRepository(Protocol):
     async def update(
         self, invitation: Invitation, tx: Transaction, *, expected: InvitationStatus
     ) -> bool:
-        """Write status, token hash, deadline and decision fields if the stored status is
-        still `expected`; False when another request changed it first."""
+        """Write status, token hash, deadline and decision fields.
+
+        Only when the stored status is still `expected`; False when another request
+        changed it first.
+        """
         ...

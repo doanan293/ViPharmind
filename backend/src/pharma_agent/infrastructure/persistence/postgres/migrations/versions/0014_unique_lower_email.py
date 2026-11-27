@@ -17,10 +17,12 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Add a unique index on the lower-cased email."""
     op.create_index(
         "uq_user_email_lower", "user", [sa.text("lower(email)")], unique=True
     )
 
 
 def downgrade() -> None:
+    """Drop the lower-cased email index."""
     op.drop_index("uq_user_email_lower", table_name="user")

@@ -16,6 +16,7 @@ Quy tắc:
 def summary_messages(
     previous_summary: str, turns: Sequence[Turn], *, max_chars: int
 ) -> list[ChatMessage]:
+    """Messages for the summary call: the previous summary and the new turns."""
     rendered = "\n\n".join(
         f"Người dùng: {turn.user_text}\nTrợ lý: {turn.assistant_text}" for turn in turns
     )

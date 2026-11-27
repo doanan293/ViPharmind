@@ -102,7 +102,8 @@ frontend/app/
   modules are nouns (`user_service.py`). TypeScript: components `PascalCase`, hooks `useX`
 - Functions: aim for 15–20 lines; ruff enforces complexity ≤ 10 (`C901`) and
   ≤ 40 statements (`PLR0915`). Router factories in `api/routers/` are exempt from `C901`
-  because the route handlers nested in them count toward it; each handler stays short
+  because the route handlers nested in them count toward it; each handler stays short. Tests
+  are exempt from docstrings and from `PLR0915` (end-to-end scenarios read top to bottom)
 - Fix lint and type errors in code: no `# noqa`, `# type: ignore`, `# pyrefly: ignore`,
   `@ts-ignore`, and no disabled rules
 

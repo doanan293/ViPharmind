@@ -44,9 +44,12 @@ def _wait(window_start: datetime, now: datetime, window_seconds: int) -> float:
 
 
 class PostgresRateLimiter:
+    """RateLimiter with one `rate_limit_buckets` row per key."""
+
     def __init__(
         self, sessions: async_sessionmaker[AsyncSession], clock: Clock
     ) -> None:
+        """Count in sessions from `sessions`, reading the time from `clock`."""
         self._sessions = sessions
         self._clock = clock
 
@@ -66,6 +69,10 @@ class PostgresRateLimiter:
         return window_start, count
 
     async def check(self, key: str, *, limit: int, window_seconds: int) -> float | None:
+        """Seconds until `key` may act again, or None while it is under `limit`.
+
+        Counts nothing.
+        """
         now = self._clock.now()
         async with self._sessions() as session:
             window = await self._open_window(session, key, now, window_seconds)
@@ -74,6 +81,7 @@ class PostgresRateLimiter:
         return _wait(window[0], now, window_seconds)
 
     async def hit(self, key: str, *, limit: int, window_seconds: int) -> float | None:
+        """Count one action; seconds to wait if this action went over `limit`."""
         now = self._clock.now()
         async with self._sessions.begin() as session:
             result = await session.execute(
@@ -87,6 +95,12 @@ class PostgresRateLimiter:
     async def acquire(
         self, key: str, *, limit: int, window_seconds: int
     ) -> float | None:
+        """Count one action only while under `limit`, atomically.
+
+        Returns:
+            None when the action was counted, or the seconds to wait when it was refused; a
+            refusal counts nothing.
+        """
         now = self._clock.now()
         async with self._sessions.begin() as session:
             counted = (
@@ -102,6 +116,7 @@ class PostgresRateLimiter:
         )
 
     async def release(self, key: str, *, window_seconds: int) -> None:
+        """Give back one action in the current window, never going below zero."""
         now = self._clock.now()
         async with self._sessions.begin() as session:
             await session.execute(

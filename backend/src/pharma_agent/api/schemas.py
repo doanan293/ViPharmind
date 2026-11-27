@@ -8,6 +8,8 @@ MESSAGE_ID_PATTERN = CONVERSATION_ID_PATTERN
 
 
 class ChatRequest(BaseModel):
+    """One user message, sent to an existing conversation or starting a new one."""
+
     message: str = Field(min_length=1, max_length=4000)
     conversation_id: str | None = Field(default=None, pattern=CONVERSATION_ID_PATTERN)
     # Sources of a new conversation; ignored when conversation_id is set.
@@ -22,6 +24,8 @@ class UpdateConversationRequest(BaseModel):
 
 
 class HealthResponse(BaseModel):
+    """Health of the service and of each dependency check."""
+
     status: Literal["ok", "degraded"]
     agent: bool
     checks: dict[str, bool]
@@ -52,5 +56,7 @@ class Problem(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
+    """A rating of one assistant message, with an optional note."""
+
     rating: Literal["up", "down"]
     note: str = Field(default="", max_length=2000)

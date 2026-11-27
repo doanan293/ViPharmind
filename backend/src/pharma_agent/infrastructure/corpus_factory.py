@@ -31,6 +31,8 @@ CORPUS_POOL_SIZE = 2
 
 @dataclass
 class CorpusServices:
+    """The corpus services and the index and embedder they share."""
+
     importer: ImportKnowledgeBundle
     releases: CorpusService
     collections: CollectionService

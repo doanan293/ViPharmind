@@ -27,14 +27,20 @@ RESERVED_CALLS = 3  # judge + answer + one spare, kept free for rephrase
 
 
 class EvidenceRequired(DomainError):
+    """A grounded answer was planned without active evidence."""
+
     code = "EVIDENCE_REQUIRED"
 
 
 class InvalidTransition(DomainError):
+    """A run was moved to a state its current state does not allow."""
+
     code = "INVALID_TRANSITION"
 
 
 class Step(StrEnum):
+    """A step the pipeline loop may take next."""
+
     SEARCH = "search"
     JUDGE = "judge"
     REFINE = "refine"
@@ -42,6 +48,8 @@ class Step(StrEnum):
 
 
 class AnswerMode(StrEnum):
+    """How the answer is produced: from evidence, without retrieval, or a refusal."""
+
     GROUNDED = "grounded"
     NO_RETRIEVAL = "no_retrieval"
     ABSTAIN = "abstain"
@@ -50,6 +58,8 @@ class AnswerMode(StrEnum):
 
 
 class AnswerPlan(BaseModel):
+    """The answer mode for a turn; `partial` marks a grounded answer given early."""
+
     model_config = ConfigDict(frozen=True)
 
     mode: AnswerMode
@@ -57,6 +67,8 @@ class AnswerPlan(BaseModel):
 
 
 class RunStatus(StrEnum):
+    """Final state of a run; RUNNING until it completes, fails or times out."""
+
     RUNNING = "running"
     COMPLETED = "completed"
     PARTIAL = "partial"
@@ -68,6 +80,8 @@ class RunStatus(StrEnum):
 
 
 class ErrorCode(StrEnum):
+    """Why a run ended in error."""
+
     REPHRASE_FAILED = "REPHRASE_FAILED"
     SEARCH_FAILED = "SEARCH_FAILED"
     JUDGE_FAILED = "JUDGE_FAILED"
@@ -109,6 +123,7 @@ class ReactStats(BaseModel):
     model_seconds: float = 0.0
 
     def record_model_call(self, usage: LlmUsage, seconds: float) -> None:
+        """Add one agent-model call's tokens and duration."""
         self.model_calls += 1
         self.prompt_tokens += usage.prompt_tokens
         self.completion_tokens += usage.completion_tokens
@@ -156,6 +171,7 @@ class AgentRun(BaseModel):
         conversation_id: str | None = None,
         run_id: str | None = None,
     ) -> "AgentRun":
+        """A new running turn for the stripped `original_query`."""
         query = original_query.strip()
         return cls(
             run_id=run_id or new_id(),
@@ -171,16 +187,23 @@ class AgentRun(BaseModel):
 
     @property
     def is_finished(self) -> bool:
+        """Whether the run has left RUNNING."""
         return self.status is not RunStatus.RUNNING
 
     @property
     def calls_left(self) -> int:
+        """LLM calls still allowed by the budget."""
         return self.limits.max_llm_calls - self.usage.llm_calls
 
     def has_evidence(self) -> bool:
+        """Whether any evidence is active."""
         return bool(self.evidence.active())
 
     def allowed_steps(self) -> frozenset[Step]:
+        """Steps the pipeline may take next, by guard verdict, intent and last action.
+
+        Empty once the run is finished.
+        """
         if self.is_finished:
             return frozenset()
         if self.guard_verdict is not None and not self.guard_verdict.allows_processing:
@@ -209,9 +232,15 @@ class AgentRun(BaseModel):
         )
 
     def can_afford_rephrase(self) -> bool:
+        """Whether a rephrase call still leaves RESERVED_CALLS for the rest."""
         return self.usage.llm_calls + RESERVED_CALLS <= self.limits.max_llm_calls
 
     def charge(self, usage: LlmUsage) -> None:
+        """Count one LLM call's usage against the budget.
+
+        Raises:
+            BudgetExhausted: the call or token limit is now exceeded; the usage is kept.
+        """
         self.usage = self.usage.charged(usage)
         if self.usage.llm_calls > self.limits.max_llm_calls:
             raise BudgetExhausted(
@@ -233,6 +262,7 @@ class AgentRun(BaseModel):
         asked_intents: Sequence[str] = (),
         decision: Decision | None = None,
     ) -> None:
+        """Store the guard verdict and its asked intents, and log the action."""
         self.guard_verdict = verdict
         self.asked_intents = list(asked_intents)
         payload: dict[str, Any] = {
@@ -261,6 +291,11 @@ class AgentRun(BaseModel):
         skipped: bool = False,
         failed: bool = False,
     ) -> None:
+        """Apply the rephrase result and log it.
+
+        Without a result the original query stands and the action is logged as
+        skipped or failed. Empty subjects fall back to the standalone query.
+        """
         if result is not None:
             self.standalone_query = (
                 result.standalone_query.strip() or self.original_query
@@ -289,6 +324,10 @@ class AgentRun(BaseModel):
     def record_search(
         self, queries: Sequence[Query], result: SearchResult, *, now: datetime
     ) -> None:
+        """Replace the evidence with this search round's results and log the round.
+
+        Earlier evidence is superseded; the queries count as used.
+        """
         self.evidence.supersede_all()
         active = self.evidence.merge(result.items)
         self.usage = self.usage.with_search()
@@ -385,8 +424,11 @@ class AgentRun(BaseModel):
         malformed: Sequence[bool] = (),
         finish_reason: str = "",
     ) -> None:
-        """One response of the ReAct model: the tools it called with their JSON
-        arguments, or its answer when it called none."""
+        """Log one response of the ReAct model.
+
+        The response is the tools it called with their JSON arguments, or its answer
+        when it called none.
+        """
         self._log(
             ActionKind.AGENT,
             now,
@@ -412,8 +454,11 @@ class AgentRun(BaseModel):
         decision: Decision | None = None,
         intents_decision: Decision | None = None,
     ) -> None:
-        """`intents_decision` is the asks_<intent> call a decision-model judge makes
-        when the guard did not ask them; the e2e record keeps it as a guardrail call."""
+        """Store the judge's outcome and log it.
+
+        `intents_decision` is the asks_<intent> call a decision-model judge makes
+        when the guard did not ask them; the e2e record keeps it as a guardrail call.
+        """
         self.last_judge = outcome
         if failed:
             self.partial_reason = "judge_failed"
@@ -454,6 +499,10 @@ class AgentRun(BaseModel):
         failed: bool = False,
         mode: str = "llm",
     ) -> list[Query]:
+        """Log the proposed queries and return those not used before.
+
+        A failed or all-duplicate refinement sets `partial_reason`.
+        """
         fresh: list[Query] = []
         seen = set(self.used_queries)
         for text in queries:
@@ -479,6 +528,7 @@ class AgentRun(BaseModel):
     # ----- answering -----------------------------------------------------
 
     def decide_answer(self) -> AnswerPlan:
+        """Choose the answer mode from guard verdict, intent, evidence and judge."""
         if self.guard_verdict is not None and not self.guard_verdict.passed:
             return AnswerPlan(mode=AnswerMode.BLOCKED)
         if self.guard_verdict is not None and not self.guard_verdict.in_scope:
@@ -494,6 +544,11 @@ class AgentRun(BaseModel):
         return AnswerPlan(mode=AnswerMode.GROUNDED, partial=forced)
 
     def submit_plan(self, plan: AnswerPlan, *, now: datetime) -> None:
+        """Store the plan and log the answer action.
+
+        Raises:
+            EvidenceRequired: the plan is grounded but no evidence is active.
+        """
         if plan.mode is AnswerMode.GROUNDED and not self.has_evidence():
             raise EvidenceRequired("grounded answer requires active evidence")
         self.plan = plan
@@ -505,6 +560,11 @@ class AgentRun(BaseModel):
         )
 
     def complete(self) -> None:
+        """Finish the run with the status its plan implies.
+
+        Raises:
+            InvalidTransition: no plan was submitted or the run already finished.
+        """
         if self.plan is None:
             raise InvalidTransition("complete() requires a submitted plan")
         self._require_running()
@@ -514,17 +574,28 @@ class AgentRun(BaseModel):
             self.status = _FINAL_STATUS[self.plan.mode]
 
     def fail(self, code: ErrorCode, *, detail: str = "") -> None:
+        """Finish the run as an error; `detail` is cut to 500 characters.
+
+        Raises:
+            InvalidTransition: the run already finished.
+        """
         self._require_running()
         self.status = RunStatus.ERROR
         self.error_code = code
         self.error_detail = detail[:500]
 
     def timeout(self) -> None:
+        """Finish the run as timed out.
+
+        Raises:
+            InvalidTransition: the run already finished.
+        """
         self._require_running()
         self.status = RunStatus.TIMEOUT
         self.error_code = ErrorCode.DEADLINE_EXCEEDED
 
     def to_trace(self) -> dict[str, Any]:
+        """Summary of the run and its actions for the trace log."""
         return {
             "run_id": self.run_id,
             "status": self.status.value,

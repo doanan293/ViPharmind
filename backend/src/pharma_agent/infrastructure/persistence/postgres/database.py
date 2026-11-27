@@ -8,7 +8,10 @@ from sqlalchemy.ext.asyncio import (
 
 
 class Database:
+    """The async engine and session factory for one Postgres DSN."""
+
     def __init__(self, dsn: str, *, pool_size: int = 10, echo: bool = False) -> None:
+        """Create a pre-pinging engine and a session factory that keeps objects after commit."""
         self.engine: AsyncEngine = create_async_engine(
             dsn, pool_size=pool_size, echo=echo, pool_pre_ping=True
         )
@@ -17,6 +20,7 @@ class Database:
         )
 
     async def ping(self) -> bool:
+        """Whether a `SELECT 1` succeeds; any error counts as False."""
         try:
             async with self.engine.connect() as connection:
                 await connection.execute(text("SELECT 1"))
@@ -25,4 +29,5 @@ class Database:
         return True
 
     async def dispose(self) -> None:
+        """Close every pooled connection."""
         await self.engine.dispose()

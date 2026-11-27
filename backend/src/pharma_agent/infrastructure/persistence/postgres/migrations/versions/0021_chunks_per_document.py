@@ -18,6 +18,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    """Delete releases, chunks and citations and key chunks by document instead of section."""
     # Chunks are re-cut per document; every published release and its citations are
     # rebuilt from the bundle, so the old rows go (production starts from an empty
     # database).
@@ -96,6 +97,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Delete releases, chunks and citations and restore the section-based schema."""
     # The old layout cannot be rebuilt from document chunks: rows go, the schema returns.
     op.execute("DELETE FROM message_citations")
     op.execute("UPDATE corpus.collections SET current_release_id = NULL")

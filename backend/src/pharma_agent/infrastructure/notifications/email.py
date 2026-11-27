@@ -11,13 +11,18 @@ RESEND_URL = "https://api.resend.com/emails"
 
 
 class LogEmailSender:
+    """EmailSender that only logs the message: local runs and tests."""
+
     async def send(self, *, to: str, subject: str, text: str, html: str) -> None:
+        """Log the recipient, subject and text instead of sending."""
         logger.warning(
             "email provider is 'log'; not sent to %s: %s | %s", to, subject, text
         )
 
 
 class ResendEmailSender:
+    """EmailSender over the Resend HTTP API."""
+
     def __init__(
         self,
         *,
@@ -26,12 +31,22 @@ class ResendEmailSender:
         timeout: float,
         client: httpx.AsyncClient | None = None,
     ) -> None:
+        """Send as `sender` with `api_key`.
+
+        `timeout` is in seconds. Without `client`, each send opens and closes its own
+        client.
+        """
         self._api_key = api_key
         self._sender = sender
         self._timeout = timeout
         self._client = client
 
     async def send(self, *, to: str, subject: str, text: str, html: str) -> None:
+        """Send one email through Resend.
+
+        Raises:
+            DeliveryError: When the request fails or Resend answers HTTP 400 or above.
+        """
         payload = {
             "from": self._sender,
             "to": [to],

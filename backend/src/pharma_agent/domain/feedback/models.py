@@ -10,11 +10,15 @@ MAX_NOTE_CHARS = 2000
 
 
 class Rating(StrEnum):
+    """Thumbs up or down."""
+
     UP = "up"
     DOWN = "down"
 
 
 class InvalidNote(DomainError):
+    """The feedback note is too long."""
+
     code = "INVALID_NOTE"
 
 
@@ -34,6 +38,11 @@ class Feedback(BaseModel):
     def create(
         cls, *, user_id: str, message_id: str, rating: Rating, note: str, now: datetime
     ) -> "Feedback":
+        """New feedback with a stripped note and a fresh id.
+
+        Raises:
+            InvalidNote: the stripped note is longer than MAX_NOTE_CHARS.
+        """
         cleaned = note.strip()
         if len(cleaned) > MAX_NOTE_CHARS:
             raise InvalidNote(f"note must be at most {MAX_NOTE_CHARS} characters")

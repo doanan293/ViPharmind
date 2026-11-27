@@ -84,10 +84,14 @@ def _owned_by(owner: CollectionOwner) -> ColumnElement[bool]:
 
 
 class PostgresCollectionRepository:
+    """CollectionRepository over `corpus.collections`; deleted rows are invisible here."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Read through sessions from `sessions`; writes use the caller's transaction."""
         self._sessions = sessions
 
     async def get(self, collection_id: uuid.UUID) -> Collection | None:
+        """The live collection with `collection_id`, or None."""
         query = select(CollectionTable).where(
             _c.id == collection_id, _c.deleted_at.is_(None)
         )
@@ -96,6 +100,7 @@ class PostgresCollectionRepository:
         return None if row is None else _collection(row)
 
     async def visible_for(self, actor: Actor) -> list[Collection]:
+        """Every live collection the actor may see, ordered by title."""
         query = (
             select(CollectionTable)
             .where(_c.deleted_at.is_(None), visible_condition(actor))
@@ -106,6 +111,7 @@ class PostgresCollectionRepository:
         return [_collection(row) for row in rows]
 
     async def count_owned(self, owner: CollectionOwner) -> int:
+        """Number of live collections `owner` has."""
         query = select(func.count()).where(_c.deleted_at.is_(None), _owned_by(owner))
         async with self._sessions() as session:
             return (await session.execute(query)).scalar_one()
@@ -113,6 +119,7 @@ class PostgresCollectionRepository:
     async def create(
         self, collection: Collection, now: datetime, tx: Transaction
     ) -> None:
+        """Insert a new collection inside `tx`, created and updated at `now`."""
         await session_of(tx).execute(
             insert(CollectionTable).values(
                 id=collection.id,
@@ -136,6 +143,7 @@ class PostgresCollectionRepository:
     async def rename(
         self, collection_id: uuid.UUID, title: str, now: datetime, tx: Transaction
     ) -> None:
+        """Change the collection's title inside `tx`."""
         await self._update(collection_id, tx, title=title, updated_at=now)
 
     async def set_visibility(
@@ -145,6 +153,7 @@ class PostgresCollectionRepository:
         now: datetime,
         tx: Transaction,
     ) -> None:
+        """Change who may read the collection inside `tx`."""
         await self._update(
             collection_id, tx, visibility=visibility.value, updated_at=now
         )
@@ -152,6 +161,7 @@ class PostgresCollectionRepository:
     async def mark_deleted(
         self, collection_id: uuid.UUID, now: datetime, tx: Transaction
     ) -> None:
+        """Hide the collection and clear its current release inside `tx`."""
         await self._update(
             collection_id, tx, deleted_at=now, current_release_id=None, updated_at=now
         )
@@ -159,6 +169,7 @@ class PostgresCollectionRepository:
     async def current_releases(
         self, collection_ids: Sequence[uuid.UUID]
     ) -> dict[uuid.UUID, uuid.UUID]:
+        """Map collection_id -> current release for live collections that have one."""
         if not collection_ids:
             return {}
         query = select(_c.id, _c.current_release_id).where(
@@ -171,6 +182,7 @@ class PostgresCollectionRepository:
         return dict(rows)
 
     async def live_release_ids(self, collection_id: uuid.UUID) -> list[uuid.UUID]:
+        """Releases of the collection that are not retired, deleted collections included."""
         query = select(_r.id).where(
             _r.collection_id == collection_id,
             _r.status != ReleaseStatus.RETIRED.value,
@@ -179,6 +191,7 @@ class PostgresCollectionRepository:
             return list((await session.scalars(query)).all())
 
     async def deleted_with_releases(self) -> list[uuid.UUID]:
+        """Deleted collections that still have live releases or authored content to clean."""
         # Deleted collections that still have a live release or authored content (an
         # organization's deletion marks its collections without cleaning them).
         live_release = (

@@ -56,18 +56,26 @@ NodeUpdate = dict[str, Any]
 
 
 class Node(Protocol):
+    """An async graph node: takes the turn state and runtime, returns a state update."""
+
     def __call__(
         self, state: ChatTurnState, *, runtime: Runtime[TurnContext]
-    ) -> Awaitable[NodeUpdate]: ...
+    ) -> Awaitable[NodeUpdate]:
+        """Run the node for one step of the turn."""
+        ...
 
 
 def emit(event: ProgressEvent) -> None:
+    """Write a progress event to the current graph's custom stream."""
     get_stream_writer()(event.model_dump(mode="json"))
 
 
 def emitter() -> Callable[[ProgressEvent], None]:
-    """`emit` bound to this node's stream, for code that runs inside a nested graph
-    (the ReAct agent), whose own stream does not reach the turn's events."""
+    """Return `emit` bound to this node's stream.
+
+    For code that runs inside a nested graph (the ReAct agent), whose own stream
+    does not reach the turn's events.
+    """
     writer = get_stream_writer()
     return lambda event: writer(event.model_dump(mode="json"))
 
@@ -93,6 +101,7 @@ def guarded(code: ErrorCode) -> Callable[[Node], Node]:
 
 
 def emit_evidence(numbered: Sequence[tuple[int, Evidence]]) -> None:
+    """Emit the numbered evidence with a short snippet each; nothing when empty."""
     if not numbered:
         return
     emit(
@@ -117,6 +126,7 @@ def emit_evidence(numbered: Sequence[tuple[int, Evidence]]) -> None:
 
 
 def emit_citations(citations: Sequence[Citation]) -> None:
+    """Emit the citations of the answer."""
     emit(
         ProgressEvent(
             type=EventType.CITATIONS,
@@ -129,6 +139,7 @@ def emit_citations(citations: Sequence[Citation]) -> None:
 async def guard_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
+    """Check the question with the guardrail and record the verdict."""
     run, deps = state.run, runtime.context.deps
     emit(ProgressEvent.phase(Phase.GUARDING))
     if not runtime.context.pipeline.guard:
@@ -162,6 +173,7 @@ async def guard_node(
 async def rephrase_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
+    """Rewrite the question as a standalone query; skipped or failed rephrase is recorded."""
     run, deps = state.run, runtime.context.deps
     emit(ProgressEvent.phase(Phase.UNDERSTANDING))
     now = deps.clock.now()
@@ -186,6 +198,7 @@ async def rephrase_node(
 async def search_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
+    """Search for the pending queries (or the initial query) and record the results."""
     run, deps = state.run, runtime.context.deps
     search_query = (
         query_with_history(run.original_query, runtime.context.conversation)
@@ -212,6 +225,11 @@ async def search_node(
 async def judge_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
+    """Judge whether the evidence is enough to answer or more search is needed.
+
+    Uses the decision model when one serves the judge role, else the LLM. An LLM
+    failure or exhausted budget records a failed judgement that answers.
+    """
     run, deps = state.run, runtime.context.deps
     now = deps.clock.now()
     if not runtime.context.pipeline.judge_refine:
@@ -308,6 +326,7 @@ def _judge_asks_intents(run: AgentRun) -> bool:
 async def refine_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
+    """Write follow-up queries from the judge's gaps, by LLM or by template."""
     run, deps = state.run, runtime.context.deps
     now = deps.clock.now()
     if runtime.context.pipeline.refine_mode == "template":
@@ -339,6 +358,7 @@ async def refine_node(
 async def answer_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
+    """Stream the answer over the packed evidence and emit its citations."""
     run, deps = state.run, runtime.context.deps
     emit(ProgressEvent.phase(Phase.ANSWERING))
     plan = run.decide_answer()
@@ -386,6 +406,7 @@ async def answer_node(
 async def fallback_node(
     state: ChatTurnState, *, runtime: Runtime[TurnContext]
 ) -> NodeUpdate:
+    """Emit the fallback text for the run's status, failing the run first if unfinished."""
     run = state.run
     if not run.is_finished:
         run.fail(ErrorCode.INTERNAL, detail="fallback reached without a recorded error")

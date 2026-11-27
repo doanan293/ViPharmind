@@ -15,15 +15,20 @@ _INDEX = re.compile(r"\d{1,3}")
 
 
 class CitationSanitizer:
-    """Stateful filter over streamed text: keeps valid [n] markers (a grouped "[1, 2]" becomes
-    "[1], [2]"), drops invalid ones, never leaks half markers."""
+    """Stateful filter over streamed text that keeps only valid [n] citation markers.
+
+    A grouped "[1, 2]" becomes "[1], [2]", invalid markers are dropped and half markers
+    never leak.
+    """
 
     def __init__(self, valid_indexes: Iterable[int]) -> None:
+        """Keep markers in `valid_indexes`; `used` lists them in first-use order."""
         self._valid = set(valid_indexes)
         self._buffer = ""
         self.used: list[int] = []
 
     def feed(self, delta: str) -> str:
+        """Sanitized text of `delta`; a trailing partial marker waits for more text."""
         text = self._buffer + delta
         self._buffer = ""
         out: list[str] = []
@@ -56,6 +61,7 @@ class CitationSanitizer:
         return "".join(out)
 
     def flush(self) -> str:
+        """Return the held-back text unchanged, for the end of the stream."""
         leftover, self._buffer = self._buffer, ""
         return leftover
 
@@ -63,6 +69,7 @@ class CitationSanitizer:
 def citations_from(
     numbered: Sequence[tuple[int, Evidence]], used: Sequence[int]
 ) -> list[Citation]:
+    """One citation per index in `used`, in order; unknown indexes are skipped."""
     by_index = dict(numbered)
     citations: list[Citation] = []
     for index in used:

@@ -5,11 +5,15 @@ from pharma_agent.domain.feedback.models import Feedback
 
 
 class FeedbackRepository(Protocol):
+    """Storage of message feedback."""
+
     async def save(self, feedback: Feedback) -> None:
         """Insert, or replace the user's earlier feedback on the same message."""
         ...
 
-    async def get(self, user_id: str, message_id: str) -> Feedback | None: ...
+    async def get(self, user_id: str, message_id: str) -> Feedback | None:
+        """The user's feedback on the message, or None."""
+        ...
 
     async def for_messages(
         self, user_id: str, message_ids: Sequence[str]

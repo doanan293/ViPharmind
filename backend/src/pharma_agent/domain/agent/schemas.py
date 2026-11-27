@@ -6,29 +6,39 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class Audience(StrEnum):
+    """Who the question is for, as the rephrase step judged it."""
+
     GENERAL_PUBLIC = "general_public"
     PROFESSIONAL = "professional"
     UNKNOWN = "unknown"
 
 
 class Language(StrEnum):
+    """Language of the question."""
+
     VI = "vi"
     EN = "en"
     OTHER = "other"
 
 
 class Intent(StrEnum):
+    """What the user wants: a pharmacy question, small talk or meta (about the bot)."""
+
     PHARMA_QUESTION = "pharma_question"
     SMALLTALK = "smalltalk"
     META = "meta"
 
 
 class JudgeOutcome(StrEnum):
+    """The judge's verdict: answer now or search more."""
+
     ANSWER = "answer"
     SEARCH_MORE = "search_more"
 
 
 class RephraseResult(BaseModel):
+    """Rephrase step output: standalone query, audience, language, intent, subjects."""
+
     model_config = ConfigDict(extra="forbid")
 
     standalone_query: str
@@ -39,6 +49,8 @@ class RephraseResult(BaseModel):
 
 
 class JudgeDecision(BaseModel):
+    """Judge step output; `confidence` must lie in [0, 1]."""
+
     model_config = ConfigDict(extra="forbid")
 
     decision: JudgeOutcome
@@ -57,6 +69,8 @@ class JudgeDecision(BaseModel):
 
 
 class RefineResult(BaseModel):
+    """Refine step output; queries stripped, blanks dropped, at most three kept."""
+
     model_config = ConfigDict(extra="forbid")
 
     queries: list[str]

@@ -17,6 +17,8 @@ _tokens = AccessTokenTable.__table__.c
 
 
 class PostgresSessionStore:
+    """SessionStore over the fastapi-users `access_tokens` table."""
+
     def __init__(
         self,
         sessions: async_sessionmaker[AsyncSession],
@@ -24,11 +26,16 @@ class PostgresSessionStore:
         lifetime_seconds: int,
         clock: Clock,
     ) -> None:
+        """Read and delete tokens through `sessions`.
+
+        A token counts as expired `lifetime_seconds` after it was created, by `clock`.
+        """
         self._sessions = sessions
         self._lifetime = timedelta(seconds=lifetime_seconds)
         self._clock = clock
 
     async def for_user(self, user_id: uuid.UUID) -> Sequence[SessionRecord]:
+        """Unexpired sessions of the user, newest first."""
         oldest = self._clock.now() - self._lifetime
         statement = (
             select(AccessTokenTable)
@@ -52,6 +59,7 @@ class PostgresSessionStore:
         ]
 
     async def delete(self, user_id: uuid.UUID, token: str) -> bool:
+        """Delete one of the user's sessions; False if the user has no such token."""
         async with self._sessions.begin() as session:
             result = await session.execute(
                 delete(AccessTokenTable)
@@ -61,6 +69,7 @@ class PostgresSessionStore:
             return result.first() is not None
 
     async def delete_all(self, user_id: uuid.UUID, *, keep: str | None = None) -> int:
+        """Delete every session of the user except `keep`; returns how many went."""
         statement = delete(AccessTokenTable).where(_tokens.user_id == user_id)
         if keep is not None:
             statement = statement.where(_tokens.token != keep)

@@ -36,6 +36,7 @@ def canonical_json(value: object) -> str:
 
 
 def sha256_hex(text: str) -> str:
+    """Hex sha256 of `text` encoded as UTF-8."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
@@ -46,9 +47,12 @@ def chunk_version_id(
     embedding_text: str,
     chunker_version: str,
 ) -> uuid.UUID:
-    """Scoped to one document of one collection, and to the sections the chunk holds, so
+    """Stable id of a chunk version, a uuid5 of its document, sections and texts.
+
+    Scoped to one document of one collection, and to the sections the chunk holds, so
     the same leaflet in two collections, or repeated text in one leaflet, never shares a
-    row."""
+    row.
+    """
     digest = sha256_hex(
         _SEPARATOR.join(
             (

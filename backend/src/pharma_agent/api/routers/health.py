@@ -19,6 +19,7 @@ HEALTH_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 
 def build_health_router() -> APIRouter:
+    """Route for `/health`, which runs every dependency check."""
     router = APIRouter(tags=["health"], responses=HEALTH_RESPONSES)
 
     @router.get("/health", response_model=HealthResponse)

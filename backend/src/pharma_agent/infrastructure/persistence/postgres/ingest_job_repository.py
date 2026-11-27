@@ -53,15 +53,20 @@ def _values(job: IngestJob) -> dict[str, object]:
 
 
 class PostgresIngestJobRepository:
+    """IngestJobRepository over `corpus.ingest_jobs`."""
+
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        """Read and update through `sessions`; creation uses the caller's transaction."""
         self._sessions = sessions
 
     async def get(self, job_id: uuid.UUID) -> IngestJob | None:
+        """The job, or None if there is no such id."""
         async with self._sessions() as session:
             row = await session.get(IngestJobTable, job_id)
         return None if row is None else _ingest_job(row)
 
     async def open_for(self, collection_id: uuid.UUID) -> IngestJob | None:
+        """The collection's queued or running job, if any."""
         query = select(IngestJobTable).where(
             _job.collection_id == collection_id,
             _job.status.in_([status.value for status in OPEN_JOB_STATUSES]),
@@ -71,6 +76,11 @@ class PostgresIngestJobRepository:
         return None if row is None else _ingest_job(row)
 
     async def create(self, job: IngestJob, tx: Transaction) -> None:
+        """Insert the job inside `tx`.
+
+        Raises:
+            JobConflict: The collection already has an open job. A savepoint keeps `tx` usable.
+        """
         session = session_of(tx)
         try:
             async with session.begin_nested():
@@ -87,12 +97,14 @@ class PostgresIngestJobRepository:
             raise JobConflict("the collection is already being published") from exc
 
     async def update(self, job: IngestJob) -> None:
+        """Write the job's progress fields in their own transaction, seen by readers at once."""
         async with self._sessions.begin() as session:
             await session.execute(
                 update(IngestJobTable).where(_job.id == job.id).values(**_values(job))
             )
 
     async def list_recent(self, *, limit: int) -> list[IngestJob]:
+        """The newest `limit` jobs across all collections."""
         query = (
             select(IngestJobTable)
             .order_by(_job.created_at.desc(), _job.id.desc())

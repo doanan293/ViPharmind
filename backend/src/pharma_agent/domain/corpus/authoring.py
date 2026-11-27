@@ -42,10 +42,12 @@ def slugify(text: str, *, max_length: int = 80) -> str:
 
 
 def document_key(collection: Collection, document: SourceDocument) -> str:
+    """Bundle key of an authored document: ``<collection key>:<document key>``."""
     return f"{collection.key}:{document.key}"
 
 
 def section_key(document_key: str, path: Sequence[str]) -> str:
+    """Bundle key of the section at heading `path`; an empty path gives ``#body``."""
     if not path:
         return f"{document_key}#body"
     return f"{document_key}#{'/'.join(slugify(part) for part in path)}"
@@ -53,6 +55,8 @@ def section_key(document_key: str, path: Sequence[str]) -> str:
 
 @dataclass(frozen=True)
 class MarkdownSection:
+    """A section split from authored markdown: heading, path, ordinal and blocks."""
+
     heading: str
     path: tuple[str, ...]
     ordinal: int
@@ -99,9 +103,11 @@ def _blocks(lines: Sequence[str], next_table: list[int]) -> list[BlockRecord]:
 
 
 def split_markdown(markdown: str, *, fallback_heading: str) -> list[MarkdownSection]:
-    """Split on headings outside fenced code. Text before the first heading, or a
-    document without headings, is a section titled `fallback_heading`. Sections without
-    any content are dropped."""
+    """Split on headings outside fenced code.
+
+    Text before the first heading, or a document without headings, is a section titled
+    `fallback_heading`. Sections without any content are dropped.
+    """
     parts: list[tuple[str, tuple[str, ...], list[str]]] = [(fallback_heading, (), [])]
     stack: list[tuple[int, str]] = []
     in_fence = False
@@ -147,8 +153,11 @@ def build_bundle(
     glossary: Sequence[GlossaryEntry],
     colloquial: Sequence[ColloquialMappingRecord],
 ) -> KnowledgeBundle:
-    """Deterministic: the same content gives the same bundle digest, so republishing
-    unchanged content is a no-op."""
+    """Build the knowledge bundle of a collection's authored content.
+
+    Deterministic: the same content gives the same bundle digest, so republishing
+    unchanged content is a no-op.
+    """
     document_records: list[DocumentRecord] = []
     section_records: list[SectionRecord] = []
     for document in sorted(documents, key=lambda d: d.key):

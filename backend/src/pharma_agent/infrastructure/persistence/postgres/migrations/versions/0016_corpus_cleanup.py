@@ -25,6 +25,7 @@ CORPUS_TABLES = (
 
 
 def upgrade() -> None:
+    """Drop the embedding cache, `embedding_text` and leftovers, then vacuum the corpus."""
     op.drop_table("embedding_cache", schema="corpus")
     op.drop_column("chunk_versions", "embedding_text", schema="corpus")
     # Left over from migrations removed in commit ab5d822; never part of the models.
@@ -36,6 +37,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Restore the embedding cache and an empty `embedding_text` column."""
     op.add_column(
         "chunk_versions",
         sa.Column("embedding_text", sa.Text(), nullable=False, server_default=""),

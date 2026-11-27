@@ -16,10 +16,17 @@ INVALID_CURSOR_MESSAGE = "the cursor is not valid"
 
 
 class InvalidCursor(InvalidInput):
+    """The cursor cannot be decoded or does not hold a timestamp and a row id."""
+
     code = "INVALID_CURSOR"
 
 
 def encode_cursor(timestamp: datetime, id: str) -> str:
+    """Encode the position of the last row of a page as an opaque cursor.
+
+    Raises:
+        ValueError: If `timestamp` is naive.
+    """
     if timestamp.tzinfo is None:
         raise ValueError("cursor timestamps must be timezone-aware")
     payload = json.dumps(
@@ -32,6 +39,11 @@ def encode_cursor(timestamp: datetime, id: str) -> str:
 
 def decode_cursor(cursor: str) -> tuple[datetime, str]:
     # binascii.Error, UnicodeDecodeError and JSONDecodeError are all ValueErrors.
+    """Decode a cursor into its UTC timestamp and row id (UUID hex).
+
+    Raises:
+        InvalidCursor: If the cursor is malformed.
+    """
     try:
         raw = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4))
         payload = json.loads(raw)

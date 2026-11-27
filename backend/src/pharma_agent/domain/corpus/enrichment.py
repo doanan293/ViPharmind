@@ -32,7 +32,7 @@ def _normalized_list(values: Iterable[str]) -> list[str]:
 
 
 def build_context_header(title: str, context_path: Sequence[str]) -> str:
-    """``title\\n> path...`` without blank lines or colloquial label lines."""
+    r"""``title\n> path...`` without blank lines or colloquial label lines."""
     raw = "\n> ".join(line for line in (title, *context_path) if line)
     labels = (
         f"{COLLOQUIAL_ALIAS_LABEL}:".casefold(),
@@ -87,6 +87,10 @@ def detect_terms(text: str, glossary: Sequence[GlossaryEntry]) -> list[TermAnnot
 def mapping_for_section(
     section_key: str, mappings: Sequence[ColloquialMappingRecord]
 ) -> ColloquialMapping | None:
+    """Colloquial names of the first record that maps `section_key`.
+
+    None when no record maps it or the mapping is empty after normalisation.
+    """
     for record in mappings:
         if section_key not in record.section_keys:
             continue
