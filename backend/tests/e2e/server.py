@@ -8,7 +8,7 @@ fixture bundle under the alias `e2e_chunks_current`, then serves the production 
 with `ScenarioLlm` and `FakeEmbedder` injected (spec A §9). Publish jobs run in process;
 `POST /api/v1/__e2e/jobs/drain` waits for them and `POST /api/v1/__e2e/superadmin` grants
 the flag. `GET /api/v1/__e2e/outbox/messages?to=` returns every email and SMS sent to an
-address. Environment: E2E_POSTGRES_DSN, E2E_QDRANT_URL.
+address. Environment: E2E_POSTGRES_DSN, E2E_QDRANT_URL, E2E_CODE_SENDS_PER_IP_PER_HOUR.
 """
 
 import argparse
@@ -70,12 +70,18 @@ class E2EConfig:
     postgres_dsn: str = DEFAULT_POSTGRES_DSN
     qdrant_url: str = DEFAULT_QDRANT_URL
     deadline_seconds: float = 5.0
+    # Every test user signs up from 127.0.0.1, so a long browser session can hit the
+    # production limit of 20 code sends per address per hour; suites may raise it.
+    code_sends_per_ip_per_hour: int = 20
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str]) -> "E2EConfig":
         return cls(
             postgres_dsn=environ.get("E2E_POSTGRES_DSN", DEFAULT_POSTGRES_DSN),
             qdrant_url=environ.get("E2E_QDRANT_URL", DEFAULT_QDRANT_URL),
+            code_sends_per_ip_per_hour=int(
+                environ.get("E2E_CODE_SENDS_PER_IP_PER_HOUR", "20")
+            ),
         )
 
 
@@ -115,6 +121,7 @@ def e2e_settings(config: E2EConfig) -> Settings:
             "csrf_secret": E2E_CSRF_SECRET,
             "otp_secret": E2E_OTP_SECRET,
             "cookie_secure": False,
+            "code_sends_per_ip_per_hour": config.code_sends_per_ip_per_hour,
         },
     )
 

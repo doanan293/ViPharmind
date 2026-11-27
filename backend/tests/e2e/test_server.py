@@ -94,3 +94,9 @@ def test_outbox_messages_lists_every_email_and_sms_to_an_address() -> None:
     assert outbox_messages(email, sms, "+84900000001") == [
         {"channel": "sms", "to": "+84900000001", "subject": "", "text": "Mã 123456"}
     ]
+
+
+def test_code_sends_per_ip_limit_defaults_to_production_and_can_be_raised() -> None:
+    assert server.E2EConfig.from_env({}).code_sends_per_ip_per_hour == 20
+    raised = server.E2EConfig.from_env({"E2E_CODE_SENDS_PER_IP_PER_HOUR": "1000"})
+    assert server.e2e_settings(raised).auth.code_sends_per_ip_per_hour == 1000
