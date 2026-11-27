@@ -1,7 +1,7 @@
-import { describe, expect, test, vi } from "vitest"
+import { afterEach, describe, expect, test, vi } from "vitest"
 
 import { ApiError } from "~/api/problem"
-import { createQueryClient, shouldRetry } from "~/api/query-client"
+import { createQueryClient, queryClient, shouldRetry } from "~/api/query-client"
 
 function unauthorized(): ApiError {
   return new ApiError({
@@ -95,5 +95,48 @@ describe("createQueryClient", () => {
     ).rejects.toBeInstanceOf(ApiError)
 
     expect(onUnauthorized).not.toHaveBeenCalled()
+  })
+})
+
+describe("the app's query client", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  /** Puts the tab on `path` and returns the spy that records navigations. */
+  function openPage(pathname: string, search = "") {
+    const assign = vi.fn<(url: string) => void>()
+    vi.stubGlobal("window", { location: { pathname, search, assign } })
+    return assign
+  }
+
+  test("sends the user to login after a 401, remembering the page", async () => {
+    const assign = openPage("/chat", "?q=1")
+
+    await expect(
+      queryClient.fetchQuery({
+        queryKey: ["redirect-test", "chat"],
+        queryFn: () => Promise.reject(unauthorized()),
+      })
+    ).rejects.toBeInstanceOf(ApiError)
+
+    expect(assign).toHaveBeenCalledExactlyOnceWith(
+      "/login?next=%2Fchat%3Fq%3D1"
+    )
+  })
+
+  test("stays put after a 401 on the login and register pages", async () => {
+    for (const pathname of ["/login", "/register"]) {
+      const assign = openPage(pathname)
+
+      await expect(
+        queryClient.fetchQuery({
+          queryKey: ["redirect-test", pathname],
+          queryFn: () => Promise.reject(unauthorized()),
+        })
+      ).rejects.toBeInstanceOf(ApiError)
+
+      expect(assign).not.toHaveBeenCalled()
+    }
   })
 })

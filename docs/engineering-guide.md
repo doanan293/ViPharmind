@@ -108,7 +108,7 @@ app/{api,components,hooks,i18n,lib}/  shared; app/api/gen/ is generated (orval)
   `tests/*_fakes.py` instead of mocks; real-Postgres tests marked `integration`.
 - Frontend tests beside the code: `*.test.ts(x)`, `*.browser.test.tsx`; Playwright in
   `tests/e2e/`.
-- Coverage: backend ≥ 90% (whole suite), frontend ≥ 80% of lines.
+- Coverage: backend ≥ 90% (whole suite), frontend ≥ 90% of lines.
 - Test names describe behaviour: `test_<behavior>`, `it("…")`.
 
 ## API

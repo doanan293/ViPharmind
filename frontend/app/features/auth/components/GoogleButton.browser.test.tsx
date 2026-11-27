@@ -8,6 +8,8 @@ import { GoogleButton } from "~/features/auth/components/GoogleButton"
 import { worker } from "../../../../tests/msw/browser"
 import { TestProviders } from "../../../../tests/utils/providers"
 
+const HTTP_SERVICE_UNAVAILABLE = 503
+
 function health(google: boolean) {
   return http.get("*/api/v1/health", () =>
     HttpResponse.json({
@@ -48,5 +50,29 @@ describe("GoogleButton", () => {
       .element(page.getByRole("button", { name: "Tiếp tục với Google" }))
       .not.toBeInTheDocument()
     await expect.element(page.getByText("hoặc")).not.toBeInTheDocument()
+  })
+
+  test("shows why Google sign-in could not start and lets the user retry", async () => {
+    worker.use(
+      health(true),
+      http.get("*/api/v1/auth/google/authorize", () =>
+        HttpResponse.json(
+          { title: "Unavailable", code: "BACKEND_UNAVAILABLE" },
+          {
+            status: HTTP_SERVICE_UNAVAILABLE,
+            headers: { "Content-Type": "application/problem+json" },
+          }
+        )
+      )
+    )
+    await renderButton()
+    const button = page.getByRole("button", { name: "Tiếp tục với Google" })
+
+    await button.click()
+
+    await expect
+      .element(page.getByText("Máy chủ đang tạm ngừng. Vui lòng thử lại sau."))
+      .toBeVisible()
+    await expect.element(button).toBeEnabled()
   })
 })

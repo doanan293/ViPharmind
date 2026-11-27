@@ -52,3 +52,46 @@ describe("MarkdownEditor", () => {
     expect(changes).toEqual([])
   })
 })
+
+describe("MarkdownEditor toolbar", () => {
+  test("formatting buttons turn the selected text into Markdown", async () => {
+    const changes = await open()
+    await page.getByRole("textbox", { name: "Nội dung" }).click()
+    await userEvent.keyboard("Liều dùng")
+    await userEvent.keyboard("{Control>}a{/Control}")
+    await page.getByRole("button", { name: "Đậm" }).click()
+    await expect.poll(() => changes.at(-1)).toBe("**Liều dùng**")
+    await page.getByRole("button", { name: "Tiêu đề 2" }).click()
+    await expect.poll(() => changes.at(-1)).toBe("## **Liều dùng**")
+  })
+
+  test("lists and italics come from their buttons", async () => {
+    const changes = await open()
+    await page.getByRole("textbox", { name: "Nội dung" }).click()
+    await userEvent.keyboard("Uống")
+    await page.getByRole("button", { name: "Danh sách", exact: true }).click()
+    await expect.poll(() => changes.at(-1)).toBe("- Uống")
+    await page.getByRole("button", { name: "Danh sách số" }).click()
+    await expect.poll(() => changes.at(-1)).toBe("1. Uống")
+    await userEvent.keyboard("{Control>}a{/Control}")
+    await page.getByRole("button", { name: "Nghiêng" }).click()
+    await expect.poll(() => changes.at(-1)).toBe("1. *Uống*")
+  })
+
+  test("inside a table, rows can be added and the table removed", async () => {
+    const changes = await open()
+    await page.getByRole("textbox", { name: "Nội dung" }).click()
+    await page.getByRole("button", { name: "Chèn bảng" }).click()
+    await expect.poll(() => changes.at(-1)).toContain("|")
+    const rowsBefore = changes.at(-1)?.split("\n").length ?? 0
+    await page.getByRole("button", { name: "Thêm hàng" }).click()
+    await expect
+      .poll(() => changes.at(-1)?.split("\n").length)
+      .toBe(rowsBefore + 1)
+    await page.getByRole("button", { name: "Xoá bảng" }).click()
+    await expect.poll(() => changes.at(-1)).not.toContain("|")
+    await expect
+      .element(page.getByRole("button", { name: "Xoá bảng" }))
+      .not.toBeInTheDocument()
+  })
+})

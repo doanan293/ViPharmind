@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
 
-import type { CollectionView } from "~/api/gen/schemas"
+import type { CollectionView, DocumentDetail } from "~/api/gen/schemas"
 import { Toaster } from "~/components/ui/toast"
 import { DocumentEditorPage } from "~/features/collections/components/DocumentEditorPage"
 
@@ -13,6 +13,47 @@ import { TestProviders } from "../../../../tests/utils/providers"
 
 const ID = "44444444-4444-4444-8444-444444444444"
 const DOC = "66666666-6666-4666-8666-666666666666"
+const DOCUMENT_URL = `*/api/v1/collections/${ID}/documents/${DOC}`
+const UPLOAD_URL = `*/api/v1/collections/${ID}/documents/upload`
+const HTTP_NOT_FOUND = 404
+const HTTP_UNPROCESSABLE = 422
+const PROBLEM_HEADERS = { "Content-Type": "application/problem+json" }
+
+const STORED: DocumentDetail = {
+  id: DOC,
+  collection_id: ID,
+  key: "paracetamol",
+  title: "Paracetamol",
+  kind: "drug_monograph",
+  source_title: "Dược thư",
+  source_url: null,
+  markdown: "Giảm đau",
+  char_count: 8,
+  updated_at: "2026-10-11T09:00:00Z",
+}
+
+/** A problem response saying the collection or document is gone. */
+function notFound() {
+  return HttpResponse.json(
+    {
+      type: "urn:pharma-agent:problem:collection-not-found",
+      title: "Not found",
+      status: HTTP_NOT_FOUND,
+      code: "COLLECTION_NOT_FOUND",
+    },
+    { status: HTTP_NOT_FOUND, headers: PROBLEM_HEADERS }
+  )
+}
+
+/** Waits for the text quota, so its request does not outlive the test. */
+async function quotaShown() {
+  await expect.element(page.getByText(/^Đã dùng/)).toBeVisible()
+}
+
+/** The file a user picks to fill the form. */
+const UPLOADED = new File(["# Ibuprofen\n\nKháng viêm"], "ibuprofen.md", {
+  type: "text/markdown",
+})
 
 const COLLECTION: CollectionView = {
   id: ID,
@@ -132,5 +173,156 @@ describe("DocumentEditorPage", () => {
     // The native file input shows browser chrome ("Choose File") in the browser's language.
     // Only a real button shows its label as text; the native input shows "Choose File".
     await expect.element(page.getByText("Tải lên .md hoặc .txt")).toBeVisible()
+    await quotaShown()
+  })
+})
+
+describe("DocumentEditorPage existing documents", () => {
+  test("saving a stored document replaces it and returns to the list", async () => {
+    serve()
+    const bodies: unknown[] = []
+    worker.use(
+      http.get(DOCUMENT_URL, () => HttpResponse.json(STORED)),
+      http.put(DOCUMENT_URL, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(STORED)
+      })
+    )
+    await open(DOC)
+    const title = page.getByLabelText("Tiêu đề", { exact: true })
+    await expect.element(title).toHaveValue("Paracetamol")
+    await title.fill("Paracetamol 500")
+    await page.getByRole("button", { name: "Lưu tài liệu" }).click()
+    await expect.element(page.getByText("Đã lưu tài liệu.")).toBeVisible()
+    await expect.element(page.getByText("Bộ")).toBeVisible()
+    expect(bodies).toEqual([
+      {
+        title: "Paracetamol 500",
+        kind: "drug_monograph",
+        source_title: "Dược thư",
+        source_url: null,
+        markdown: "Giảm đau",
+      },
+    ])
+  })
+
+  test("a document that cannot be loaded shows the error", async () => {
+    serve()
+    worker.use(http.get(DOCUMENT_URL, notFound))
+    await open(DOC)
+    await expect
+      .element(page.getByText("Không tìm thấy bộ tài liệu."))
+      .toBeVisible()
+  })
+
+  test("a collection that cannot be loaded shows the error", async () => {
+    worker.use(http.get(`*/api/v1/collections/${ID}`, notFound))
+    await open()
+    await expect
+      .element(page.getByText("Không tìm thấy bộ tài liệu."))
+      .toBeVisible()
+  })
+})
+
+describe("DocumentEditorPage save errors", () => {
+  test("a field the API rejects shows its message on that field", async () => {
+    serve()
+    worker.use(http.get(DOCUMENT_URL, () => HttpResponse.json(STORED)))
+    worker.use(
+      http.put(DOCUMENT_URL, () =>
+        HttpResponse.json(
+          {
+            type: "urn:pharma-agent:problem:validation-error",
+            title: "Validation error",
+            status: HTTP_UNPROCESSABLE,
+            code: "VALIDATION_ERROR",
+            errors: [
+              {
+                loc: ["body", "title"],
+                message: "Tiêu đề đã có",
+                type: "value_error",
+              },
+            ],
+          },
+          { status: HTTP_UNPROCESSABLE, headers: PROBLEM_HEADERS }
+        )
+      )
+    )
+    await open(DOC)
+    await expect
+      .element(page.getByLabelText("Tiêu đề", { exact: true }))
+      .toHaveValue("Paracetamol")
+    await page.getByRole("button", { name: "Lưu tài liệu" }).click()
+    await expect.element(page.getByText("Tiêu đề đã có")).toBeVisible()
+    await quotaShown()
+  })
+
+  test("any other refusal shows under the form", async () => {
+    serve()
+    worker.use(
+      http.get(DOCUMENT_URL, () => HttpResponse.json(STORED)),
+      http.put(DOCUMENT_URL, notFound)
+    )
+    await open(DOC)
+    await expect
+      .element(page.getByLabelText("Tiêu đề", { exact: true }))
+      .toHaveValue("Paracetamol")
+    await page.getByRole("button", { name: "Lưu tài liệu" }).click()
+    await expect
+      .element(page.getByText("Không tìm thấy bộ tài liệu."))
+      .toBeVisible()
+    await quotaShown()
+  })
+})
+
+describe("DocumentEditorPage uploads", () => {
+  test("uploading over typed content asks first and replaces it on confirm", async () => {
+    serve()
+    worker.use(
+      http.post(UPLOAD_URL, () =>
+        HttpResponse.json({
+          title: "Ibuprofen",
+          markdown: "# Ibuprofen\n\nKháng viêm",
+          char_count: 22,
+        })
+      )
+    )
+    await open()
+    const title = page.getByLabelText("Tiêu đề", { exact: true })
+    await title.fill("Bản nháp")
+    await page.getByLabelText("Tải lên .md hoặc .txt").upload(UPLOADED)
+    await expect
+      .element(page.getByText("Thay nội dung hiện tại bằng tệp này?"))
+      .toBeVisible()
+    await page.getByRole("button", { name: "Lưu", exact: true }).click()
+    await expect.element(title).toHaveValue("Ibuprofen")
+    await quotaShown()
+  })
+
+  test("declining the replacement keeps the typed content", async () => {
+    serve()
+    worker.use(
+      http.post(UPLOAD_URL, () =>
+        HttpResponse.json({ title: "Ibuprofen", markdown: "x", char_count: 1 })
+      )
+    )
+    await open()
+    const title = page.getByLabelText("Tiêu đề", { exact: true })
+    await title.fill("Bản nháp")
+    await page.getByLabelText("Tải lên .md hoặc .txt").upload(UPLOADED)
+    await page.getByRole("button", { name: "Huỷ" }).click()
+    await expect.element(title).toHaveValue("Bản nháp")
+    await quotaShown()
+  })
+
+  test("a refused upload shows the error", async () => {
+    serve()
+    worker.use(http.post(UPLOAD_URL, notFound))
+    await open()
+    await page.getByLabelText("Tải lên .md hoặc .txt").upload(UPLOADED)
+    await expect
+      .element(page.getByText("Không tìm thấy bộ tài liệu."))
+      .toBeVisible()
+    await quotaShown()
   })
 })

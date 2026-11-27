@@ -1,6 +1,6 @@
 import { HttpResponse, http } from "msw"
-import { createRoutesStub } from "react-router"
-import { describe, expect, test } from "vitest"
+import { createRoutesStub, useParams } from "react-router"
+import { afterEach, describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
 
@@ -12,7 +12,10 @@ import { adminLoader } from "~/features/admin/lib/require-superadmin"
 
 import { worker } from "../../../../tests/msw/browser"
 import { accountView } from "../../../../tests/utils/account"
-import { TestProviders } from "../../../../tests/utils/providers"
+import {
+  createTestQueryClient,
+  TestProviders,
+} from "../../../../tests/utils/providers"
 
 const USER = "99999999-9999-4999-8999-999999999999"
 
@@ -31,11 +34,10 @@ function user(overrides: Partial<AdminUserView> = {}): AdminUserView {
   }
 }
 
-/** The section the route component passes; `open` sets it before rendering. */
-const route = { section: "users" }
-
+/** Passes the URL's section, as the route module does, so switching tabs navigates. */
 function AdminRoute() {
-  return <AdminPage section={route.section} />
+  const { section } = useParams()
+  return <AdminPage section={section} />
 }
 
 function NotFound() {
@@ -56,6 +58,15 @@ const Stub = createRoutesStub([
   },
 ])
 
+/** The query client of the rendered page. */
+let client = createTestQueryClient()
+
+// Wait until every request has been answered while the test's handlers are still installed;
+// one landing after the reset fails as unhandled.
+afterEach(async () => {
+  await expect.poll(() => client.isFetching() + client.isMutating()).toBe(0)
+})
+
 async function open(
   superadmin: boolean,
   collections: unknown[] = [],
@@ -63,6 +74,7 @@ async function open(
   jobs: unknown[] = []
 ) {
   queryClient.clear()
+  client = createTestQueryClient()
   worker.use(
     http.get("*/api/v1/users/me", () =>
       HttpResponse.json(accountView({ is_superadmin: superadmin }))
@@ -73,11 +85,10 @@ async function open(
     ),
     http.get("*/api/v1/admin/ingest-jobs", () => HttpResponse.json(jobs))
   )
-  route.section = section
   await render(
-    <TestProviders>
+    <TestProviders client={client}>
       <Toaster>
-        <Stub initialEntries={["/admin"]} />
+        <Stub initialEntries={[`/admin/${section}`]} />
       </Toaster>
     </TestProviders>
   )
@@ -199,5 +210,42 @@ describe("AdminPage overview", () => {
     await expect
       .element(page.getByRole("link", { name: "Phác đồ khoa Dược" }))
       .toBeVisible()
+  })
+})
+
+describe("AdminPage log", () => {
+  test("switching to the log tab lists every audit event", async () => {
+    worker.use(
+      http.get("*/api/v1/admin/users", () =>
+        HttpResponse.json({ items: [user()], next_cursor: null })
+      ),
+      http.get("*/api/v1/admin/audit", () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: "e1",
+              occurred_at: "2026-10-11T09:00:00Z",
+              actor_user_id: USER,
+              actor_name: "Bình",
+              actor_was_superadmin: false,
+              action: "member.left",
+              organization_id: null,
+              subject_user_id: USER,
+              subject_name: "Bình",
+              collection_id: null,
+              details: {},
+            },
+          ],
+          next_cursor: null,
+        })
+      )
+    )
+    await open(true)
+    await expect.element(page.getByText("binh@example.com")).toBeVisible()
+    await page.getByRole("tab", { name: "Nhật ký" }).click()
+    await expect.element(page.getByText("Bình đã rời tổ chức")).toBeVisible()
+    await expect
+      .element(page.getByRole("tab", { name: "Nhật ký" }))
+      .toHaveAttribute("aria-selected", "true")
   })
 })

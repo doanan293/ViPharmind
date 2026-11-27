@@ -1,5 +1,5 @@
 import { HttpResponse, http } from "msw"
-import { createRoutesStub } from "react-router"
+import { createRoutesStub, useParams } from "react-router"
 import { describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
@@ -83,11 +83,10 @@ function serve(
   )
 }
 
-/** The tab the route component passes; `open` sets it before rendering. */
-const route = { tab: "members" }
-
+/** Passes the URL's tab, as the route module does, so switching tabs navigates. */
 function OrganizationRoute() {
-  return <OrganizationPage organizationId={ORG} tab={route.tab} />
+  const { tab } = useParams()
+  return <OrganizationPage organizationId={ORG} tab={tab} />
 }
 
 function OrganizationsList() {
@@ -103,7 +102,6 @@ const Stub = createRoutesStub([
 ])
 
 async function open(tab = "members") {
-  route.tab = tab
   await render(
     <TestProviders>
       <Toaster>
@@ -289,6 +287,56 @@ describe("OrganizationPage owner actions", () => {
       .element(page.getByRole("heading", { name: "Khoa Dược" }))
       .toBeVisible()
     await expect.element(page.getByText("Bình")).toBeVisible()
+  })
+})
+
+describe("OrganizationPage log", () => {
+  test("owners switch to the log tab and read the organization's events", async () => {
+    serve("owner")
+    worker.use(
+      http.get(`*/api/v1/organizations/${ORG}/audit`, () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: "e1",
+              occurred_at: "2026-10-11T09:00:00Z",
+              actor_user_id: ME.id,
+              actor_name: "An",
+              actor_was_superadmin: false,
+              action: "member.left",
+              organization_id: ORG,
+              subject_user_id: ME.id,
+              subject_name: "An",
+              collection_id: null,
+              details: {},
+            },
+          ],
+          next_cursor: null,
+        })
+      )
+    )
+    await open()
+    await expect.element(page.getByText("Bình")).toBeVisible()
+    await page.getByRole("tab", { name: "Nhật ký" }).click()
+    await expect.element(page.getByText("An đã rời tổ chức")).toBeVisible()
+    await expect
+      .element(page.getByRole("tab", { name: "Nhật ký" }))
+      .toHaveAttribute("aria-selected", "true")
+  })
+
+  test("cancelling a delete closes the confirmation and keeps the organization", async () => {
+    serve("owner")
+    await open()
+    await expect.element(page.getByText("Bình")).toBeVisible()
+    await page.getByRole("button", { name: "Xoá tổ chức" }).click()
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Huỷ" })
+      .click()
+    await expect.element(page.getByRole("alertdialog")).not.toBeInTheDocument()
+    await expect
+      .element(page.getByRole("heading", { name: "Khoa Dược" }))
+      .toBeVisible()
   })
 })
 

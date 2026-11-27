@@ -190,3 +190,66 @@ describe("ConversationSidebar delete", () => {
     expect(deleted).toEqual(["c2"])
   })
 })
+
+/** A server error the rename and delete endpoints answer with. */
+function serverError() {
+  return HttpResponse.json(
+    { type: "about:blank", title: "Error", status: 500, code: "INTERNAL" },
+    { status: 500, headers: { "Content-Type": "application/problem+json" } }
+  )
+}
+
+describe("ConversationSidebar failures", () => {
+  beforeEach(setDesktopViewport)
+
+  test("a failed rename shows an error, keeps the dialog, and Escape closes it", async () => {
+    worker.use(
+      listHandler([
+        { cursor: null, items: conversations(1, SHORT_LIST), next: null },
+      ]),
+      http.patch("*/api/v1/conversations/:conversationId", serverError)
+    )
+    await renderRoutes(ConversationSidebar, {
+      initialEntry: "/chat",
+      wrap: SidebarWrap,
+    })
+    await page.getByRole("button", { name: "Thao tác với Hội thoại 1" }).click()
+    await page.getByRole("menuitem", { name: "Đổi tên" }).click()
+    await userEvent.fill(page.getByRole("textbox", { name: "Tên" }), "Mới")
+    await page.getByRole("button", { name: "Lưu" }).click()
+    await expect.element(page.getByText("Không đổi tên được")).toBeVisible()
+    await expect.element(page.getByRole("dialog")).toBeVisible()
+    await userEvent.keyboard("{Escape}")
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument()
+    await expect
+      .element(page.getByRole("link", { name: "Hội thoại 1", exact: true }))
+      .toBeVisible()
+  })
+
+  test("a failed delete shows an error, keeps the dialog, and cancelling keeps the conversation", async () => {
+    worker.use(
+      listHandler([
+        { cursor: null, items: conversations(1, SHORT_LIST), next: null },
+      ]),
+      http.delete("*/api/v1/conversations/:conversationId", serverError)
+    )
+    await renderRoutes(ConversationSidebar, {
+      initialEntry: "/chat/c2",
+      wrap: SidebarWrap,
+    })
+    await page.getByRole("button", { name: "Thao tác với Hội thoại 2" }).click()
+    await page.getByRole("menuitem", { name: "Xoá" }).click()
+    const dialog = page.getByRole("alertdialog")
+    await dialog.getByRole("button", { name: "Xoá" }).click()
+    await expect.element(page.getByText("Không xoá được")).toBeVisible()
+    await expect.element(dialog).toBeVisible()
+    await dialog.getByRole("button", { name: "Huỷ" }).click()
+    await expect.element(dialog).not.toBeInTheDocument()
+    await expect
+      .element(page.getByRole("link", { name: "Hội thoại 2", exact: true }))
+      .toBeVisible()
+    await expect
+      .element(page.getByTestId("location"))
+      .toMatchTextContent(/^\/chat\/c2$/)
+  })
+})
