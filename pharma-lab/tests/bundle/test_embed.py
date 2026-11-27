@@ -5,6 +5,8 @@ from pharma_agent.domain.corpus.bundle import (
     BundleEmbeddingFile,
     KnowledgeBundle,
     model_slug,
+)
+from pharma_agent.infrastructure.corpus.bundle_files import (
     read_bundle,
     read_bundle_embeddings,
 )

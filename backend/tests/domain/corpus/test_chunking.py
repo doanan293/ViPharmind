@@ -23,6 +23,7 @@ from pharma_agent.domain.corpus.chunking import (
     chunk_document,
 )
 from pharma_agent.domain.corpus.identity import chunk_version_id, sha256_hex
+from pharma_agent.infrastructure.corpus import bundle_files
 
 GOLDEN: dict[str, Any] = json.loads(
     (Path(__file__).parent / "golden" / "chunking_v2.json").read_text(encoding="utf-8")
@@ -39,11 +40,15 @@ PUBLIC_API: dict[ModuleType, list[str]] = {
         "BUNDLE_SCHEMA_VERSION",
         "KnowledgeBundle",
         "BundleValidationError",
-        "read_bundle",
-        "write_bundle",
         "model_slug",
         "encode_vector",
         "decode_vector",
+    ],
+    bundle_files: [
+        "read_bundle",
+        "read_bundle_embeddings",
+        "write_bundle",
+        "write_bundle_embeddings",
     ],
     identity: ["CORPUS_NAMESPACE", "canonical_json", "sha256_hex", "chunk_version_id"],
     chunking: [

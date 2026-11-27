@@ -60,7 +60,7 @@ def test_evaluation_build_derives_chunks_from_the_bundle(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert captured["request"].chunks_path == tmp_path / "chunks.jsonl"
-    from pharma_agent.domain.corpus.bundle import read_bundle
+    from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 
     from pharma_lab.bundle.evaluation_chunks import evaluation_chunk_rows
 

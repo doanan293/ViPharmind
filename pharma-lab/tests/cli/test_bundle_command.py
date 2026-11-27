@@ -98,7 +98,7 @@ def test_bundle_embed_command_uses_the_selected_backend(
     )
 
     assert result.exit_code == 0, result.output
-    from pharma_agent.domain.corpus.bundle import read_bundle
+    from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 
     from pharma_lab.bundle.embed import collect_embedding_inputs
 

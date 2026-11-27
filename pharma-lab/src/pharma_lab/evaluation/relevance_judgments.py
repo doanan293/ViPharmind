@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from pharma_agent.domain.corpus.bundle import read_bundle
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 
 from pharma_lab.artifacts.manifest import (
     ArtifactContractError,

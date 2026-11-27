@@ -5,7 +5,8 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pharma_agent.domain.corpus.bundle import BundleValidationError, read_bundle
+from pharma_agent.domain.corpus.bundle import BundleValidationError
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 
 from pharma_lab.bundle.corpus_text import corpus_text, section_chunks
 from pharma_lab.bundle.evaluation_chunks import write_evaluation_chunks

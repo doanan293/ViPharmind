@@ -19,16 +19,13 @@ from pathlib import Path
 from typing import Any
 
 from pharma_agent.domain.agent.decisions import judge_state
-from pharma_agent.domain.corpus.bundle import (
-    DocumentRecord,
-    KnowledgeBundle,
-    read_bundle,
-)
+from pharma_agent.domain.corpus.bundle import DocumentRecord, KnowledgeBundle
 from pharma_agent.domain.corpus.chunking import ChunkDraft
 from pharma_agent.domain.llm.models import LlmRole, system, user
 from pharma_agent.domain.llm.port import LlmError, LlmPort
 from pharma_agent.domain.retrieval.evidence import Evidence
 from pharma_agent.domain.retrieval.models import Hit
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 from pydantic import BaseModel
 
 from pharma_lab.artifacts.manifest import iter_jsonl_objects

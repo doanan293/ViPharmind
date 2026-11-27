@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 
-from pharma_agent.domain.corpus.bundle import KnowledgeBundle, read_bundle
+from pharma_agent.domain.corpus.bundle import KnowledgeBundle
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 
 from pharma_lab.bundle.chunks import gold_chunk_label, iter_document_chunks
 

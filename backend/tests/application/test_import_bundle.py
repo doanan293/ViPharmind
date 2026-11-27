@@ -7,13 +7,13 @@ import pytest
 
 from pharma_agent.application.corpus.import_bundle import ImportOutcome
 from pharma_agent.application.corpus.indexing import IndexCounts, IndexWriter
-from pharma_agent.domain.corpus.bundle import read_bundle_embeddings
 from pharma_agent.domain.corpus.models import (
     CorpusImportError,
     ReleaseStatus,
     build_snapshot,
 )
 from pharma_agent.domain.retrieval.ports import RetrievalError
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle_embeddings
 from tests.corpus_fixtures import (
     DOSAGE_SECTION,
     FIXTURE_DIR,

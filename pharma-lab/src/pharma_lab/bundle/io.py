@@ -3,12 +3,8 @@
 import shutil
 from pathlib import Path
 
-from pharma_agent.domain.corpus.bundle import (
-    BundleManifest,
-    KnowledgeBundle,
-    read_bundle,
-    write_bundle,
-)
+from pharma_agent.domain.corpus.bundle import BundleManifest, KnowledgeBundle
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle, write_bundle
 
 
 def write_validated_bundle(bundle: KnowledgeBundle, output_dir: Path) -> BundleManifest:

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from pharma_agent.domain.corpus.bundle import read_bundle
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 from pydantic import ValidationError
 from typer.testing import CliRunner
 

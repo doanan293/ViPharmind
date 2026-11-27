@@ -200,10 +200,11 @@ uv run lint-imports
 uv run pytest -q
 ```
 
-Backend còn đo độ phủ test (ngưỡng trong `docs/engineering-guide.md`):
+Backend còn đo độ phủ test trên toàn bộ bộ test, kể cả test tích hợp (cần Docker; ngưỡng trong
+`docs/engineering-guide.md`):
 
 ```bash
-uv run pytest --cov=src --cov-fail-under=80 -q
+uv run pytest -m "" --cov=src --cov-fail-under=90 -q
 ```
 
 Pre-commit dùng chung cho cả repo, cài một lần từ root:

@@ -22,6 +22,7 @@ PUBLIC_MODULES = (
     "pharma_agent.domain.corpus.chunking",
     "pharma_agent.domain.corpus.enrichment",
     "pharma_agent.infrastructure.composition",
+    "pharma_agent.infrastructure.corpus.bundle_files",
     # The E2E harness runs the chat graph in-process.
     "pharma_agent.application.chat.context",
     "pharma_agent.application.chat.graph",

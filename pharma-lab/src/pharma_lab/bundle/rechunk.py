@@ -10,8 +10,8 @@ from pharma_agent.domain.corpus.bundle import (
     BundleChunking,
     BundleCollection,
     BundleManifest,
-    read_bundle,
 )
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 
 from pharma_lab.bundle.io import write_validated_bundle
 

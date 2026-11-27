@@ -1,151 +1,122 @@
 # Engineering Guide
 
-Rules for `backend/` and `frontend/`. The two projects use different architectures: the
-backend is built with Clean Architecture, the frontend with a feature-based architecture (not
-layered). Names like `Entity`, `<feature>` and `<subdomain>` are placeholders. Check commands
-for each project are in the root `README.md`, section "Kiểm tra".
+Rules for `backend/` (Clean Architecture) and `frontend/` (feature-based). `pharma-lab/` keeps its
+own one-way layers; only "Reuse before writing", naming and test layout apply to it. `Entity`,
+`<feature>`, `<subdomain>` are placeholders.
 
-## Backend layers
+## Reuse before writing
 
-Clean Architecture (ports and adapters): dependencies point inward, toward `domain`.
+Take, in this order:
+
+1. What the repo already has (dependency, service, helper, component).
+2. The language or framework (stdlib, FastAPI, pydantic, SQLAlchemy, React, React Router).
+3. A popular library: ≥ 5,000 GitHub stars or ≥ 100,000 weekly downloads, released in the
+   last 12 months, compatible licence. Nothing below that bar.
+4. Only then your own code.
+
+- UI: shadcn first. Installed components are in `frontend/app/components/ui/`; check the
+  registry (`npx shadcn@latest view <name>`) before building a widget.
+- No raw `button`, `input`, `select`, `textarea`, `dialog`, `table`, `label`, `form` in
+  `app/features/` or `app/routes/`.
+- Python: validation with pydantic, HTTP with httpx; never hand-roll retries, parsing or
+  date handling.
+
+## Backend
 
 ```
 api ──► infrastructure ──► application ──► domain
 ```
 
-```
-backend/
-├── pyproject.toml        # dependencies, ruff/pytest/pyrefly config, import-linter contracts
-├── src/pharma_agent/
-│   ├── api/              # HTTP entry layer (FastAPI): routers, schemas, error → HTTP mapping
-│   ├── application/<feature>/
-│   ├── domain/<subdomain>/
-│   └── infrastructure/   # adapters, settings, composition root
-└── tests/                # mirrors src/pharma_agent/; test doubles in tests/fakes.py, tests/*_fakes.py
-```
-
-| Layer | Contains | May import |
+| Layer | Holds | May import |
 |---|---|---|
-| `domain` | Entities, business rules, ports (`Protocol`), domain errors | stdlib, pure libraries (`pydantic`) |
-| `application` | Use cases that orchestrate `domain` through ports; `<feature>/service.py` holds `<Feature>Service`, each public method is a use case | `domain`; the shared modules at the root of `application/` (`errors`, `progress`, `pagination`, `tracing`) |
-| `infrastructure` | Adapters implementing ports: Postgres, Qdrant, LLM, email, SMS; settings; composition root | `application`, `domain`, drivers, SDKs |
-| `api` | Routers, request/response schemas, error → HTTP mapping | `application`; `infrastructure` only in `api/deps.py` and `api/app.py` |
+| `domain` | entities, rules, ports (`Protocol`), domain errors; no I/O | stdlib, `pydantic` |
+| `application/<feature>/` | `<Feature>Service`: one public method per use case | `domain`; `application/{errors,progress,pagination,tracing}` |
+| `infrastructure` | adapters for ports (Postgres, Qdrant, LLM, email, SMS), settings, composition root | `application`, `domain`, drivers, SDKs |
+| `api` | routers, schemas, error → HTTP | `application`; `infrastructure` only in `api/deps.py`, `api/app.py` |
 
-The layer rules are contracts in `[tool.importlinter]` of `backend/pyproject.toml`, checked by
-`uv run lint-imports`. Fix the import; never loosen or `ignore_imports` a contract to make
-`lint-imports` pass.
-
-## Backend rules
-
-- **Composition root**: `infrastructure/container.py` and `infrastructure/*_factory.py` are the
-  only places that build adapters; services receive ports through their constructor. Routers get
-  services through the `Container` in `api/deps.py`, never a repository directly
-- `domain` does no I/O (network, DB, disk, processes); `infrastructure` holds no business rules
-- **Async end to end**: routes, services and repositories are `async`; I/O goes through async
-  drivers (SQLAlchemy async on psycopg, `httpx.AsyncClient`). No blocking I/O on an async path
-- **Errors**: business errors subclass `application.errors.ApplicationError`; `api/errors.py`
-  maps them to `application/problem+json` with a stable `code`, listed in `errors.json` (shared
-  with the frontend)
-- **Classes where there is state or a dependency**: use cases are methods of a class (the
-  feature's `<Feature>Service`, or one class per large use case) and adapters are classes
-  implementing a port; both receive their dependencies through the constructor. Module-level
-  functions are for pure, stateless logic (domain rules, small helpers), FastAPI route
-  handlers and LangGraph nodes
-- **No module-level state** in `domain`, `application` or `infrastructure`: no global client,
-  connection, cache or registry. A module-level value is a named `UPPER_CASE` constant, a type
-  alias or a logger (checked by `tests/test_architecture.py`)
-- **No hard-coded configuration or rules in logic**: values that differ per deployment (URLs,
-  keys, limits an operator tunes) live in `Settings`; business constraints (limits, allowed
-  values, role ranks) are named constants or policies in `domain`, defined once; no magic
-  numbers or literal lists inside conditions and loops (ruff `PLR2004`)
-- **Same layer**: features in one layer do not import each other (`application/<A>` ↛
-  `application/<B>`); use cases of several features are composed in `api` or `infrastructure`,
-  shared rules live in `domain`
+- Build adapters only in `infrastructure/container.py` and `infrastructure/*_factory.py`;
+  pass ports through constructors. Routers call services via `Container` (`api/deps.py`).
+- Use cases and adapters are classes with dependencies in the constructor. Module-level
+  functions only for pure logic, route handlers and LangGraph nodes.
+- No module-level state (clients, connections, caches, registries). Module-level values are
+  `UPPER_CASE` constants, type aliases or loggers.
+- `application/<A>` never imports `application/<B>`; compose features in `api` or
+  `infrastructure`.
+- Async end to end; no blocking I/O on an async path.
+- Business errors subclass `application.errors.ApplicationError`; they leave the API as
+  problem+json with a `code` from `errors.json`.
+- Deployment values go in `Settings` (`PHARMA_` prefix, documented in `backend/.env.example`);
+  business limits and allowed values are named constants or policies in `domain`. No magic
+  numbers or literal lists in logic.
+- Fix a broken import contract by fixing the import, never the contract.
 
 ```python
-# domain/<subdomain>/ports.py — port
+# domain/<subdomain>/ports.py
 class EntityRepository(Protocol):
     async def get(self, entity_id: UUID) -> Entity | None: ...
 
 
-# application/<feature>/service.py — use case depends on the port
+# application/<feature>/service.py
 class EntityService:
     def __init__(self, repository: EntityRepository) -> None: ...
     async def get(self, entity_id: UUID) -> Entity: ...  # raises EntityNotFound
 
 
-# infrastructure/container.py — composition root builds the adapter
+# infrastructure/container.py
 entities = EntityService(PostgresEntityRepository(sessions))
 
 
-# api/routers/entities.py — route maps the result to a response schema
+# api/routers/entities.py
 @router.get("/{entity_id}")
 async def get_entity(entity_id: UUID, container: ContainerDep) -> EntityResponse:
     return EntityResponse.model_validate(await container.entities.get(entity_id))
 ```
 
-## Frontend architecture
-
-Feature-based, not layered: routes stay thin and compose features.
+## Frontend
 
 ```
-frontend/app/
-├── routes/               # route modules: thin, compose features
-├── features/<feature>/   # components/, hooks/, lib/ (logic without UI)
-├── api/                  # shared; api/gen/ is generated by orval from the backend OpenAPI
-└── components/ hooks/ i18n/ lib/   # shared code
+app/routes/              thin, compose features
+app/features/<feature>/  components/ hooks/ lib/
+app/{api,components,hooks,i18n,lib}/  shared; app/api/gen/ is generated (orval)
 ```
 
-- Shared code never imports features or routes; features never import routes. A feature
-  imports another feature only in the directions listed in `frontend/README.md` ("Structure");
-  no import cycles. Enforced by `npm run lint` and `app/architecture.test.ts`
-- Call the backend only through the orval client in `app/api/gen/`; regenerate it after an API
-  change (`npm run api:check` catches drift)
-- Every user-visible string goes through i18n (`app/i18n/`, `vi` and `en`); error messages
-  come from the problem+json `code`
-- UI widgets come from shadcn as `frontend/README.md` ("UI components") describes
+- Shared code never imports features or routes; features never import routes.
+- Feature → feature imports allowed only: `chat` → `conversations`; `shell` → `auth`,
+  `conversations`; `organizations` → `audit`; `admin` → `auth`, `chat`, `audit`. A new
+  direction goes in both `biome.json` and `app/architecture.test.ts`.
+- Call the backend only through `app/api/gen/`; after an API change run `npm run api:openapi`
+  then `npx orval`.
+- Every user-visible string through i18n (`vi` and `en`); error text from the problem+json
+  `code`.
 
 ## Code
 
-- Python 3.12, type hints on every signature (pyrefly), Google-style docstrings on public
-  functions, methods and classes (tests exempt). TypeScript strict, no `any`
-- Naming (PEP 8): classes are nouns (`PaymentProcessor`); functions are verbs
-  (`send_email`); booleans start with `is_`/`has_`/`can_`; `@property` is a noun;
-  modules are nouns (`user_service.py`). TypeScript: components `PascalCase`, hooks `useX`
-- Functions: aim for 15–20 lines; ruff enforces complexity ≤ 10 (`C901`) and
-  ≤ 40 statements (`PLR0915`)
-- Tools: ruff (pycodestyle, pyflakes, isort, bugbear, comprehensions, pyupgrade, simplify,
-  ruff rules, complexity, docstrings, function size, magic values, async, security, unused
-  arguments, blind excepts, boolean flags, commented-out code, print, naive datetimes,
-  pathlib, returns, performance) and pyrefly (every parameter, return, lambda, container and
-  type argument typed; `@override` on overrides). Tests skip only what pytest requires:
-  docstrings, `assert`, literal expected values and fake fixture passwords
-- Fix lint and type errors in code: no `# noqa`, `# type: ignore`, `# pyrefly: ignore`,
-  `@ts-ignore`, and no disabled rules
+- Python 3.12, types on every parameter and return; TypeScript strict, no `any`, no `!`.
+- Google-style docstrings on public Python classes, functions, methods. JSDoc on every
+  exported TS component, hook, function, class, type (not in `app/api/gen`,
+  `app/components/ui`). Say what the name doesn't.
+- Names: classes nouns, functions verbs, booleans `is_`/`has_`/`can_`, components
+  `PascalCase`, hooks `useX`.
+- Functions: aim for 15–20 lines. Limits: complexity ≤ 10; Python ≤ 40 statements; TS ≤ 60
+  lines and ≤ 4 parameters.
+- No `# noqa`, `# type: ignore`, `# pyrefly: ignore`, `biome-ignore`, `@ts-ignore`, no
+  disabled rules. Fix the code.
 
 ## Tests
 
-- Backend coverage ≥ 80% (`uv run pytest --cov=src --cov-fail-under=80`); unit tests for all
-  `domain` and `application` logic
-- Replace ports with fakes from `tests/fakes.py` and `tests/*_fakes.py` instead of mocking
-  libraries; tests that need a real Postgres are marked `integration`
-- Frontend: `*.test.ts(x)` and `*.browser.test.tsx` beside the code they test; Playwright
-  end-to-end tests in `frontend/tests/e2e/`
-- Names: `test_*.py` files, `test_<behavior>` functions
+- Python tests mirror `src/<package>/` under `tests/`; fakes in `tests/fakes.py`,
+  `tests/*_fakes.py` instead of mocks; real-Postgres tests marked `integration`.
+- Frontend tests beside the code: `*.test.ts(x)`, `*.browser.test.tsx`; Playwright in
+  `tests/e2e/`.
+- Coverage: backend ≥ 90% (whole suite), frontend ≥ 80% of lines.
+- Test names describe behaviour: `test_<behavior>`, `it("…")`.
 
 ## API
 
-- REST + JSON under `/api/v1/`
-- Status codes: `201` created, `204` no content, `401` not signed in, `403` not allowed, `404`
-  not found (also when hiding that something exists), `409` conflict, `413` too large, `422`
-  invalid input, `429` too many requests, `503` a dependency is down; errors are
-  problem+json with a `code`
-- Every new endpoint checks permissions in `application`, not only by hiding a button
-- Document each endpoint with a route docstring, a request-schema example and its
-  error statuses in the OpenAPI document; regenerate the frontend client from it
-
-## Configuration
-
-- Settings use `pydantic-settings` with the prefix `PHARMA_` (nested with `__`); every
-  variable is documented in `backend/.env.example`
-- Never write secrets into files other than `.env`
+- REST + JSON under `/api/v1/`; errors are problem+json with a `code`.
+- Status: `201` created, `204` no content, `401` not signed in, `403` not allowed, `404` not
+  found or hidden, `409` conflict, `413` too large, `422` invalid, `429` too many requests,
+  `503` dependency down.
+- Check permissions in `application`, not only in the UI.
+- Each new endpoint: route docstring, request example, error statuses in OpenAPI.
+- Secrets only in `.env`.

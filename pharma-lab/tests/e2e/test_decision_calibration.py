@@ -6,11 +6,11 @@ from typing import Any
 
 import pytest
 from pharma_agent.domain.agent.decisions import judge_state
-from pharma_agent.domain.corpus.bundle import read_bundle
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.llm.port import LlmError
 from pharma_agent.domain.retrieval.evidence import Evidence
 from pharma_agent.domain.retrieval.models import Hit
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 from pydantic import BaseModel
 from tests.e2e.factories import ScriptedLlm
 

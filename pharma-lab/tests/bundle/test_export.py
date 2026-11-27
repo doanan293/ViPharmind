@@ -12,8 +12,8 @@ from pharma_agent.domain.corpus.bundle import (
     DocumentKind,
     KnowledgeBundle,
     SourceInfo,
-    read_bundle,
 )
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 
 from pharma_lab.bundle.chunks import gold_chunk_label, iter_document_chunks
 from pharma_lab.bundle.export import (

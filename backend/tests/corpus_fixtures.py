@@ -22,10 +22,6 @@ from pharma_agent.domain.corpus.bundle import (
     KnowledgeBundle,
     SectionRecord,
     SourceInfo,
-    read_bundle,
-    read_bundle_embeddings,
-    write_bundle,
-    write_bundle_embeddings,
 )
 from pharma_agent.domain.corpus.chunking import chunk_document
 from pharma_agent.domain.corpus.identity import sha256_hex
@@ -33,6 +29,12 @@ from pharma_agent.domain.corpus.models import (
     CorpusSnapshot,
     collection_id_for,
     document_id_for,
+)
+from pharma_agent.infrastructure.corpus.bundle_files import (
+    read_bundle,
+    read_bundle_embeddings,
+    write_bundle,
+    write_bundle_embeddings,
 )
 from tests.fakes import FAKE_EMBEDDING_MODEL, fake_vector
 

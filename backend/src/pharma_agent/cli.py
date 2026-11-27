@@ -13,11 +13,7 @@ import typer
 
 from pharma_agent.application.corpus.import_bundle import ImportReport
 from pharma_agent.application.progress import EventType, ProgressEvent
-from pharma_agent.domain.corpus.bundle import (
-    BundleValidationError,
-    read_bundle,
-    read_bundle_embeddings,
-)
+from pharma_agent.domain.corpus.bundle import BundleValidationError
 from pharma_agent.domain.corpus.models import ReleaseSummary
 from pharma_agent.domain.llm.models import LlmRole
 from pharma_agent.domain.retrieval.models import Hit, page_label
@@ -31,6 +27,10 @@ from pharma_agent.infrastructure.auth.superadmin import (
 from pharma_agent.infrastructure.composition import (
     build_application,
     build_retrieval_service,
+)
+from pharma_agent.infrastructure.corpus.bundle_files import (
+    read_bundle,
+    read_bundle_embeddings,
 )
 from pharma_agent.infrastructure.corpus_factory import (
     CorpusServices,

@@ -1,42 +1,36 @@
-# Quy tắc chung cho mọi project trong repo
+# Agent rules
 
 @docs/engineering-guide.md
 
-Ba project `frontend/`, `backend/`, `pharma-lab/` có bố cục và ranh giới import riêng, nhưng cùng
-một nguyên tắc: mỗi quy tắc dưới đây có một công cụ ép tự động, và muốn thêm một hướng import mới
-thì sửa cấu hình cùng README, không bỏ qua rule. Không `# noqa`, không `# type: ignore`, không
-`ignore_imports` trong contract import-linter, không tắt rule lint.
+Projects: `backend/` (Clean Architecture), `frontend/` (feature-based), `pharma-lab/` (offline
+data tooling, one-way layers).
 
-## Bố cục
+- Reuse before writing: repo → framework → popular library → own code; UI from shadcn.
+- Fix lint and type errors in the code; never suppress them or loosen a rule or contract.
+- Before saying a task is done, run the checks of every project you changed; all must pass.
 
-- `frontend/`: feature-based. `app/routes/` mỏng và ghép feature; `app/features/<feature>/` có
-  `components/`, `hooks/`, `lib/`; mã dùng chung ở `app/{api,components,hooks,i18n,lib}`.
-  Chi tiết và bảng hướng import giữa feature: `frontend/README.md`, mục "Structure".
-- `backend/`: Clean Architecture bốn tầng `api` → `infrastructure` → `application` → `domain`,
-  mỗi feature trong `application/` độc lập. Chi tiết: `backend/README.md`, mục "Bố cục".
-- `pharma-lab/`: 11 tầng từ `cli` xuống `config` và `hashing`, tầng trên import tầng dưới.
-  Chi tiết: `pharma-lab/README.md`, mục "Cấu trúc project".
+Backend (`cd backend`):
 
-## Vị trí test
+```bash
+uv run ruff check . && uv run ruff format --check .
+uv run pyrefly check --min-severity warn
+uv run lint-imports
+uv run pytest -m "" --cov=src --cov-fail-under=90 -q   # needs Docker
+```
 
-- Frontend đặt `*.test.ts`, `*.test.tsx` và `*.browser.test.tsx` trong `app/`, cạnh code được
-  test (quy ước Vitest). `frontend/tests/` chỉ chứa mã hỗ trợ (setup, MSW, fixture, helper
-  render) và e2e Playwright `tests/e2e/*.e2e.ts`. Ép bằng `app/architecture.test.ts`.
-- Backend và pharma-lab đặt test trong `tests/` theo cây gương của `src/<package>/`; không có
-  `test_*.py`, `*_test.py` hay `conftest.py` dưới `src/`. Ép bằng `tests/test_layout.py` của
-  từng project.
+Frontend (`cd frontend`):
 
-## Ranh giới import
+```bash
+npm run check && npm run typecheck
+npm run test:coverage
+npm run api:check
+```
 
-- Frontend: `no-restricted-imports` trong `.oxlintrc.json` và `app/architecture.test.ts`.
-  Thêm một hướng import giữa hai feature nghĩa là sửa cả bảng trong test lẫn override oxlint;
-  test kiểm tra hai chỗ khớp nhau.
-- Backend và pharma-lab: import-linter, contract trong `[tool.importlinter]` của
-  `pyproject.toml` từng project. Chạy `uv run lint-imports` trong project; pre-commit chạy nó
-  khi file `.py` hoặc `.toml` của project đổi.
+pharma-lab (`cd pharma-lab`):
 
-## Kiểm tra
-
-Lệnh kiểm tra của từng project và pre-commit chung cho cả repo nằm ở `README.md` root, mục
-"Chuẩn tooling chung" và "Kiểm tra". Mọi quy ước tooling Python (ruff, pyrefly, pytest, phiên
-bản dev tool pin ở root) cũng ở đó.
+```bash
+uv run ruff check src tests && uv run ruff format --check src tests
+uv run pyrefly check --min-severity warn
+uv run lint-imports
+uv run pytest -q
+```

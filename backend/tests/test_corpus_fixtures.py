@@ -3,13 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from pharma_agent.domain.corpus.bundle import (
-    BlockKind,
-    DocumentKind,
-    read_bundle,
-)
+from pharma_agent.domain.corpus.bundle import BlockKind, DocumentKind
 from pharma_agent.domain.corpus.chunking import MAX_CHUNK_CHARS, section_text
 from pharma_agent.domain.retrieval.ports import RetrievalError
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 from tests.corpus_fixtures import (
     BRANDS_SECTION,
     COLLECTION_KEY,

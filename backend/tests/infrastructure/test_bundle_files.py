@@ -26,6 +26,8 @@ from pharma_agent.domain.corpus.bundle import (
     SectionRecord,
     SourceInfo,
     encode_vector,
+)
+from pharma_agent.infrastructure.corpus.bundle_files import (
     read_bundle,
     read_bundle_embeddings,
     write_bundle,

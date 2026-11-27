@@ -10,6 +10,8 @@ from pharma_agent.domain.corpus.bundle import (
     BundleManifest,
     KnowledgeBundle,
     model_slug,
+)
+from pharma_agent.infrastructure.corpus.bundle_files import (
     read_bundle,
     write_bundle_embeddings,
 )

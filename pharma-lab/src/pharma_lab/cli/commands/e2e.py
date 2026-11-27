@@ -12,7 +12,7 @@ from typing import Annotated
 
 import typer
 from openai.types import ReasoningEffort
-from pharma_agent.domain.corpus.bundle import read_bundle
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 from pharma_agent.infrastructure.llm.systemone_adapter import SystemOneAdapter
 from pharma_agent.infrastructure.settings import Settings
 from pydantic import TypeAdapter

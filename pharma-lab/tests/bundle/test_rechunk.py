@@ -1,11 +1,8 @@
 from pathlib import Path
 
 import pytest
-from pharma_agent.domain.corpus.bundle import (
-    BundleChunking,
-    BundleCollection,
-    read_bundle,
-)
+from pharma_agent.domain.corpus.bundle import BundleChunking, BundleCollection
+from pharma_agent.infrastructure.corpus.bundle_files import read_bundle
 
 from pharma_lab.bundle.chunks import iter_document_chunks
 from pharma_lab.bundle.export import ExportRequest, export_bundle
