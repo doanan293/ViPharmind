@@ -1,5 +1,7 @@
 # Quy tắc chung cho mọi project trong repo
 
+@docs/engineering-guide.md
+
 Ba project `frontend/`, `backend/`, `pharma-lab/` có bố cục và ranh giới import riêng, nhưng cùng
 một nguyên tắc: mỗi quy tắc dưới đây có một công cụ ép tự động, và muốn thêm một hướng import mới
 thì sửa cấu hình cùng README, không bỏ qua rule. Không `# noqa`, không `# type: ignore`, không

@@ -45,6 +45,30 @@ build-backend = "uv_build"
 extend = "../ruff.toml"
 src = ["src", "tests"]
 
+# docs/engineering-guide.md, section "Code": function size and docstrings on top of the shared
+# rules. Complexity and statement count stand in for "keep functions short".
+[tool.ruff.lint]
+extend-select = ["C90", "D", "PLR0915"]
+# D100, D104: module and package docstrings are optional; classes, functions and methods
+# still need Google-style docstrings.
+extend-ignore = ["D100", "D104"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test names describe the behaviour; docstrings are not required in tests.
+"tests/**" = ["D"]
+# Router factories: the route handlers nested in build_*_router count toward its complexity;
+# each handler stays short (docs/engineering-guide.md, "Code").
+"src/pharma_agent/api/routers/*.py" = ["C901"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-statements = 40
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

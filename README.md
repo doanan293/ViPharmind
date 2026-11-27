@@ -189,7 +189,8 @@ Lỗi lint hoặc lỗi kiểu được sửa trong code, không dùng `# noqa`,
 
 ## Kiểm tra
 
-Quy tắc bố cục, vị trí test và ranh giới import của cả ba project tóm tắt ở `AGENTS.md`.
+Quy tắc bố cục, vị trí test và ranh giới import của cả ba project tóm tắt ở `AGENTS.md`; quy ước
+viết code (kiến trúc, docstring, độ dài hàm, test, API, lỗi) ở `docs/engineering-guide.md`.
 Chạy trong từng project:
 
 ```bash
@@ -197,6 +198,12 @@ uv run ruff check src tests && uv run ruff format --check src tests
 uv run pyrefly check --min-severity warn
 uv run lint-imports
 uv run pytest -q
+```
+
+Backend còn đo độ phủ test (ngưỡng trong `docs/engineering-guide.md`):
+
+```bash
+uv run pytest --cov=src --cov-fail-under=80 -q
 ```
 
 Pre-commit dùng chung cho cả repo, cài một lần từ root:
