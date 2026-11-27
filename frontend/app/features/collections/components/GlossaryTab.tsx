@@ -8,13 +8,14 @@ import {
   useCollectionsGlossaryPut,
 } from "~/api/gen/endpoints"
 import type { GlossaryEntry } from "~/api/gen/schemas"
+import { TagsInput } from "~/components/tags-input"
 import { Button } from "~/components/ui/button"
-import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
-import { TagsInput } from "~/components/tags-input"
 import { toast } from "~/components/ui/toast"
 import { apiErrorMessage } from "~/i18n/error-message"
+
+import { EmptyRows, RowListActions } from "./RowListActions"
 
 interface Row {
   key: number
@@ -56,6 +57,61 @@ function toEntry(row: Row): GlossaryEntry {
   }
 }
 
+type Labels = Record<
+  (typeof TEXT_FIELDS)[number] | (typeof LIST_FIELDS)[number],
+  string
+>
+
+function GlossaryRow({
+  row,
+  labels,
+  editable,
+  onChange,
+  onRemove,
+}: {
+  row: Row
+  labels: Labels
+  editable: boolean
+  onChange: (patch: Partial<Row>) => void
+  onRemove: () => void
+}) {
+  const { t } = useTranslation("collections")
+  return (
+    <li className="grid gap-2 rounded-lg border p-3 sm:grid-cols-5">
+      {TEXT_FIELDS.map((field) => (
+        <Input
+          key={field}
+          aria-label={labels[field]}
+          placeholder={labels[field]}
+          value={row[field]}
+          readOnly={!editable}
+          onChange={(event) => onChange({ [field]: event.target.value })}
+        />
+      ))}
+      {LIST_FIELDS.map((field) => (
+        <TagsInput
+          key={field}
+          label={labels[field]}
+          placeholder={labels[field]}
+          value={row[field]}
+          disabled={!editable}
+          onValueChange={(value) => onChange({ [field]: value })}
+        />
+      ))}
+      {editable ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-self-start"
+          onClick={onRemove}
+        >
+          {t("glossary.remove")}
+        </Button>
+      ) : null}
+    </li>
+  )
+}
+
 function GlossaryEditor({
   collectionId,
   entries,
@@ -70,7 +126,7 @@ function GlossaryEditor({
   const queryClient = useQueryClient()
   const save = useCollectionsGlossaryPut()
   const [rows, setRows] = useState(() => entries.map(toRow))
-  const labels = {
+  const labels: Labels = {
     term: t("glossary.term"),
     vietnamese: t("glossary.vietnamese"),
     english: t("glossary.english"),
@@ -84,100 +140,53 @@ function GlossaryEditor({
     )
   }
 
+  function remove(key: number) {
+    setRows((current) => current.filter((other) => other.key !== key))
+  }
+
+  function saveAll() {
+    save.mutate(
+      {
+        collectionId,
+        data: rows.filter((row) => row.term.trim() !== "").map(toEntry),
+      },
+      {
+        onSuccess: (saved) => {
+          queryClient.setQueryData(
+            getCollectionsGlossaryGetQueryKey(collectionId),
+            saved
+          )
+          toast.add({ type: "success", title: t("glossary.saved") })
+        },
+        onError: (error) =>
+          toast.add({ type: "error", title: apiErrorMessage(error, tErrors) }),
+      }
+    )
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      {rows.length === 0 ? (
-        <Empty className="border">
-          <EmptyHeader>
-            <EmptyDescription>{t("glossary.empty")}</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : null}
+      {rows.length === 0 ? <EmptyRows text={t("glossary.empty")} /> : null}
       <ul className="flex flex-col gap-3">
         {rows.map((row) => (
-          <li
+          <GlossaryRow
             key={row.key}
-            className="grid gap-2 rounded-lg border p-3 sm:grid-cols-5"
-          >
-            {TEXT_FIELDS.map((field) => (
-              <Input
-                key={field}
-                aria-label={labels[field]}
-                placeholder={labels[field]}
-                value={row[field]}
-                readOnly={!editable}
-                onChange={(event) =>
-                  change(row.key, { [field]: event.target.value })
-                }
-              />
-            ))}
-            {LIST_FIELDS.map((field) => (
-              <TagsInput
-                key={field}
-                label={labels[field]}
-                placeholder={labels[field]}
-                value={row[field]}
-                disabled={!editable}
-                onValueChange={(value) => change(row.key, { [field]: value })}
-              />
-            ))}
-            {editable ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="justify-self-start"
-                onClick={() =>
-                  setRows((current) =>
-                    current.filter((other) => other.key !== row.key)
-                  )
-                }
-              >
-                {t("glossary.remove")}
-              </Button>
-            ) : null}
-          </li>
+            row={row}
+            labels={labels}
+            editable={editable}
+            onChange={(patch) => change(row.key, patch)}
+            onRemove={() => remove(row.key)}
+          />
         ))}
       </ul>
       {editable ? (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() =>
-              setRows((current) => [...current, toRow({ term: "" })])
-            }
-          >
-            {t("glossary.add")}
-          </Button>
-          <Button
-            disabled={save.isPending}
-            onClick={() =>
-              save.mutate(
-                {
-                  collectionId,
-                  data: rows
-                    .filter((row) => row.term.trim() !== "")
-                    .map(toEntry),
-                },
-                {
-                  onSuccess: (saved) => {
-                    queryClient.setQueryData(
-                      getCollectionsGlossaryGetQueryKey(collectionId),
-                      saved
-                    )
-                    toast.add({ type: "success", title: t("glossary.saved") })
-                  },
-                  onError: (error) =>
-                    toast.add({
-                      type: "error",
-                      title: apiErrorMessage(error, tErrors),
-                    }),
-                }
-              )
-            }
-          >
-            {t("glossary.save")}
-          </Button>
-        </div>
+        <RowListActions
+          addLabel={t("glossary.add")}
+          saveLabel={t("glossary.save")}
+          saving={save.isPending}
+          onAdd={() => setRows((current) => [...current, toRow({ term: "" })])}
+          onSave={saveAll}
+        />
       ) : null}
     </div>
   )

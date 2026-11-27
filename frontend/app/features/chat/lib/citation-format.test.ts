@@ -2,16 +2,28 @@ import { describe, expect, test } from "vitest"
 
 import { pageLabel } from "./citation-format"
 
+const START_PAGE = 812
+const END_PAGE = 813
+
 describe("pageLabel", () => {
   test("formats single pages and ranges", () => {
-    expect(pageLabel(812, 813)).toEqual({
+    expect(pageLabel(START_PAGE, END_PAGE)).toEqual({
       key: "pages.range",
-      start: 812,
-      end: 813,
+      start: START_PAGE,
+      end: END_PAGE,
     })
-    expect(pageLabel(812, 812)).toEqual({ key: "pages.single", page: 812 })
-    expect(pageLabel(812, null)).toEqual({ key: "pages.single", page: 812 })
-    expect(pageLabel(null, 813)).toEqual({ key: "pages.single", page: 813 })
+    expect(pageLabel(START_PAGE, START_PAGE)).toEqual({
+      key: "pages.single",
+      page: START_PAGE,
+    })
+    expect(pageLabel(START_PAGE, null)).toEqual({
+      key: "pages.single",
+      page: START_PAGE,
+    })
+    expect(pageLabel(null, END_PAGE)).toEqual({
+      key: "pages.single",
+      page: END_PAGE,
+    })
     expect(pageLabel(null, null)).toBeNull()
   })
 })

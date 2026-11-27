@@ -6,11 +6,13 @@ import { Textarea } from "~/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group"
 import { cn } from "~/lib/utils"
 
+/** One reason the user can tick for a not-helpful rating; `label` is already translated. */
 export interface FeedbackReason {
   id: string
   label: string
 }
 
+/** Props of `FeedbackDialog`; the caller owns the selected reasons, the note and whether it was sent. */
 export type FeedbackDialogProps = {
   reasons: readonly FeedbackReason[]
   selected: readonly string[]
@@ -22,6 +24,7 @@ export type FeedbackDialogProps = {
   className?: string
 }
 
+/** The body of the not-helpful dialog: reason toggles, a note and a send button, or a thank-you once `sent`. */
 export function FeedbackDialog({
   reasons,
   selected,

@@ -5,14 +5,17 @@ import { useTranslation } from "react-i18next"
 import { Badge } from "~/components/ui/badge"
 import { Spinner } from "~/components/ui/spinner"
 
+/** What the agent is doing, which picks the status icon and the screen reader text. */
 export type AgentState = "working" | "waiting" | "done"
 
+/** Props of `AgentStatus`; other props go to the `<output>` element. */
 export type AgentStatusProps = Omit<ComponentProps<"output">, "children"> & {
   state: AgentState
   label: string
   elapsed?: string
 }
 
+/** A live status badge with the agent's current step, announced to screen readers through `<output>`. */
 export function AgentStatus({
   state,
   label,

@@ -12,7 +12,7 @@ import type {
 import {
   messageMetadataSchema,
   pharmaDataPartSchemas,
-  pharmaSourceMetadataSchema,
+  type pharmaSourceMetadataSchema,
 } from "./message-schema"
 
 describe("message schemas", () => {

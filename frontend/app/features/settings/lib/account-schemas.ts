@@ -7,7 +7,9 @@ const DISPLAY_NAME_MAX_LENGTH = 100
 const PASSWORD_MIN_LENGTH = 8
 const PASSWORD_MAX_LENGTH = 128
 
+/** Translated validation messages for the profile form. */
 export type ProfileMessages = { required: string; tooLong: string }
+/** Translated validation messages for the password form. */
 export type PasswordMessages = {
   tooShort: string
   tooLong: string

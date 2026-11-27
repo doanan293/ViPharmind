@@ -2,6 +2,9 @@ import { describe, expect, test } from "vitest"
 
 import { createPasswordSchema, createProfileSchema } from "./account-schemas"
 
+/** The server's display name limit (PATCH /users/me). */
+const DISPLAY_NAME_MAX_LENGTH = 100
+
 const profile = createProfileSchema({
   required: "required",
   tooLong: "too-long",
@@ -31,7 +34,11 @@ describe("createProfileSchema", () => {
       "required",
     ])
     expect(
-      messagesOf(profile.safeParse({ display_name: "a".repeat(101) }))
+      messagesOf(
+        profile.safeParse({
+          display_name: "a".repeat(DISPLAY_NAME_MAX_LENGTH + 1),
+        })
+      )
     ).toEqual(["too-long"])
   })
 })

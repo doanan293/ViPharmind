@@ -6,8 +6,19 @@ import {
   InputOTPSlot,
 } from "~/components/ui/input-otp"
 
+/** How many digits a one-time code has; the backend sends codes of this length. */
 export const OTP_LENGTH = 6
 
+/** Slot positions 0..OTP_LENGTH-1; a slot's position is its identity. */
+const SLOT_POSITIONS = Array.from(
+  { length: OTP_LENGTH },
+  (_, position) => position
+)
+
+/**
+ * The digit-only input for a one-time code, one box per digit, with `autocomplete=one-time-code`
+ * so phones offer the SMS code. Controlled: the caller owns `value`.
+ */
 export function OtpCodeField({
   id,
   value,
@@ -34,8 +45,8 @@ export function OtpCodeField({
       aria-invalid={invalid}
     >
       <InputOTPGroup>
-        {Array.from({ length: OTP_LENGTH }, (_, index) => (
-          <InputOTPSlot key={index} index={index} />
+        {SLOT_POSITIONS.map((position) => (
+          <InputOTPSlot key={position} index={position} />
         ))}
       </InputOTPGroup>
     </InputOTP>

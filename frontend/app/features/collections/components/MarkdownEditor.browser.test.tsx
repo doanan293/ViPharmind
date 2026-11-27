@@ -6,6 +6,9 @@ import { MarkdownEditor } from "~/features/collections/components/MarkdownEditor
 
 import { TestProviders } from "../../../../tests/utils/providers"
 
+/** How long to wait for a stray `onChange` the editor might emit after mounting. */
+const SETTLE_MS = 100
+
 async function open(value = "") {
   const changes: string[] = []
   await render(
@@ -45,7 +48,7 @@ describe("MarkdownEditor", () => {
     await expect
       .element(page.getByRole("textbox", { name: "Nội dung" }))
       .toBeVisible()
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, SETTLE_MS))
     expect(changes).toEqual([])
   })
 })

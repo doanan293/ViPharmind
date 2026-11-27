@@ -1,10 +1,11 @@
-import { type Page, expect } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 
 import {
-  type DemoContext,
   caption,
+  type DemoContext,
   logIn,
   makeSuperadmin,
+  PAUSE_MS,
   switchUser,
 } from "../support/demo"
 
@@ -46,5 +47,5 @@ export async function admin(page: Page, ctx: DemoContext): Promise<void> {
   await guestPage.goto("/chat")
   await expect(guestPage).toHaveURL(/\/login/)
   await guest.close()
-  await page.waitForTimeout(800)
+  await page.waitForTimeout(PAUSE_MS)
 }

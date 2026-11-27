@@ -19,6 +19,7 @@ function getServerSnapshot(): boolean {
   return false
 }
 
+/** True below the 768 px mobile breakpoint, re-rendering when it is crossed; always false during SSR. */
 export function useIsMobile(): boolean {
   return React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 }

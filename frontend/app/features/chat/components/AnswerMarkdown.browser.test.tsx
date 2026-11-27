@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from "vitest"
 import { page, userEvent } from "vitest/browser"
 
 import type { PharmaSourceMetadata } from "~/api/gen/schemas"
+import { Button } from "~/components/ui/button"
 import { MessageCitationsProvider } from "~/features/chat/components/citation-context"
 
 import { pharmaSource } from "../../../../tests/chat/fixtures"
@@ -28,7 +29,19 @@ function withCitations(
   )
 }
 
-describe("AnswerMarkdown", () => {
+function StreamingHarness() {
+  const [text, setText] = useState("Đang viết [1")
+  return (
+    <>
+      <AnswerMarkdown text={text} streaming />
+      <Button type="button" onClick={() => setText("Đang viết [1] xong")}>
+        tiếp
+      </Button>
+    </>
+  )
+}
+
+describe("AnswerMarkdown citations", () => {
   test("renders a marker named by its index with a preview, and opens the citation", async () => {
     const openCitation = vi.fn<(index: number) => void>()
     const screen = await renderWithProviders(
@@ -76,24 +89,15 @@ describe("AnswerMarkdown", () => {
       .element(page.getByText("Nguồn đã có phiên bản mới hơn"))
       .toBeVisible()
   })
+})
 
+describe("AnswerMarkdown streaming and unknown markers", () => {
   test("renders a marker only once it is complete while streaming", async () => {
-    function Harness() {
-      const [text, setText] = useState("Đang viết [1")
-      return (
-        <>
-          <AnswerMarkdown text={text} streaming />
-          <button type="button" onClick={() => setText("Đang viết [1] xong")}>
-            tiếp
-          </button>
-        </>
-      )
-    }
     const screen = await renderWithProviders(
       withCitations(
         [pharmaSource(1)],
         vi.fn<(index: number) => void>(),
-        <Harness />
+        <StreamingHarness />
       )
     )
     await expect.element(screen.getByText(/Đang viết/)).toBeVisible()

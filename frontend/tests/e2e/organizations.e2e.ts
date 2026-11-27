@@ -1,11 +1,11 @@
 import type { Browser, Page } from "@playwright/test"
 
 import {
-  type TestUser,
   latestInvitationPath,
   loginUser,
   newUser,
   registerUser,
+  type TestUser,
 } from "./support/api"
 import { expect, test } from "./support/fixtures"
 

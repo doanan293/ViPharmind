@@ -1,5 +1,5 @@
 import type { InfiniteData } from "@tanstack/react-query"
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { useParams } from "react-router"
 import { describe, expect, test, vi } from "vitest"
 import { page, userEvent } from "vitest/browser"
@@ -32,6 +32,12 @@ import { worker } from "../../../../tests/msw/browser"
 import { ChatThread } from "./ChatThread"
 
 const QUESTION = "Liều paracetamol cho người lớn?"
+const HTTP_UNAUTHORIZED = 401
+const HTTP_NOT_FOUND = 404
+const HTTP_UNPROCESSABLE = 422
+const HTTP_SERVICE_UNAVAILABLE = 503
+/** One character over the backend's question length limit of 4000. */
+const OVER_LIMIT_LENGTH = 4001
 
 function ChatPage() {
   const { conversationId } = useParams()
@@ -69,7 +75,7 @@ async function ask(question = QUESTION) {
 
 const marker = () => page.getByRole("button", { name: "1", exact: true })
 
-describe("ChatThread", () => {
+describe("ChatThread answers", () => {
   test("streams phase, answer and sources after the history, then offers feedback", async () => {
     withHistory()
     const requests: StreamRequest[] = []
@@ -111,7 +117,9 @@ describe("ChatThread", () => {
       .element(page.getByRole("region", { name: "Đoạn được trích dẫn" }))
       .toBeVisible()
   })
+})
 
+describe("ChatThread notices", () => {
   test("shows a guardrail notice for a blocked turn", async () => {
     withHistory()
     worker.use(
@@ -162,7 +170,9 @@ describe("ChatThread", () => {
       QUESTION,
     ])
   })
+})
 
+describe("ChatThread turn state", () => {
   test("warns when the turn was not persisted and hides feedback for it", async () => {
     withHistory()
     worker.use(
@@ -193,10 +203,12 @@ describe("ChatThread", () => {
       .element(page.getByRole("button", { name: "Gửi" }))
       .toBeVisible()
   })
+})
 
+describe("ChatThread stream problems", () => {
   test("sends the user to login on 401", async () => {
     withHistory()
-    worker.use(problemHandler(401, "UNAUTHORIZED"))
+    worker.use(problemHandler(HTTP_UNAUTHORIZED, "UNAUTHORIZED"))
     await openThread()
     await ask()
     await expect
@@ -206,7 +218,7 @@ describe("ChatThread", () => {
 
   test("returns to /chat with a toast when the conversation is gone", async () => {
     withHistory()
-    worker.use(problemHandler(404, "CONVERSATION_NOT_FOUND"))
+    worker.use(problemHandler(HTTP_NOT_FOUND, "CONVERSATION_NOT_FOUND"))
     await openThread()
     await ask()
     await expect
@@ -219,7 +231,9 @@ describe("ChatThread", () => {
 
   test("restores the draft and shows the validation detail on 422", async () => {
     withHistory()
-    worker.use(problemHandler(422, "VALIDATION_ERROR", "Câu hỏi quá dài"))
+    worker.use(
+      problemHandler(HTTP_UNPROCESSABLE, "VALIDATION_ERROR", "Câu hỏi quá dài")
+    )
     await openThread()
     await ask()
     await expect.element(page.getByText("Câu hỏi quá dài")).toBeVisible()
@@ -232,13 +246,15 @@ describe("ChatThread", () => {
     )
     expect(thread?.textContent).not.toContain(QUESTION)
   })
+})
 
+describe("ChatThread limits and outages", () => {
   test("blocks a question over the length limit before sending", async () => {
     withHistory()
     await openThread()
     await userEvent.fill(
       page.getByRole("textbox", { name: "Tin nhắn" }),
-      "x".repeat(4001)
+      "x".repeat(OVER_LIMIT_LENGTH)
     )
     await expect
       .element(page.getByText("Câu hỏi dài 4001/4000 ký tự"))
@@ -250,7 +266,7 @@ describe("ChatThread", () => {
 
   test("shows the agent unavailable banner on 503", async () => {
     withHistory()
-    worker.use(problemHandler(503, "AGENT_UNAVAILABLE"))
+    worker.use(problemHandler(HTTP_SERVICE_UNAVAILABLE, "AGENT_UNAVAILABLE"))
     await openThread()
     await ask()
     await expect
@@ -274,7 +290,9 @@ describe("ChatThread", () => {
     await expect.element(marker()).toBeVisible()
     expect(page.getByText(QUESTION, { exact: true }).elements()).toHaveLength(1)
   })
+})
 
+describe("ChatThread navigation", () => {
   test("sends the question passed in navigation state exactly once", async () => {
     const requests: StreamRequest[] = []
     worker.use(

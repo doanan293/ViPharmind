@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { useParams } from "react-router"
 import { describe, expect, test } from "vitest"
 import { page, userEvent } from "vitest/browser"
@@ -28,6 +28,40 @@ function ChatPage() {
       <ChatThread conversationId={conversationId} />
     </div>
   )
+}
+
+/** Serves one private collection, "Ghi chú" (id `c-mine`), for the sources picker. */
+function myNotesCollectionHandler() {
+  return http.get("*/api/v1/collections", () =>
+    HttpResponse.json({
+      public: [],
+      organizations: [],
+      mine: [
+        {
+          id: "c-mine",
+          key: "u-1",
+          title: "Ghi chú",
+          visibility: "private",
+          owner_user_id: "u1",
+          owner_organization_id: null,
+          owner_name: "An",
+          is_system: false,
+          can_edit: true,
+          can_set_public: false,
+          current_release_id: null,
+          current_release_number: null,
+        },
+      ],
+      others: [],
+    })
+  )
+}
+
+/** Picks "Ghi chú" in the sources picker and closes it. */
+async function chooseMyNotes() {
+  await page.getByRole("combobox", { name: "Nguồn" }).click()
+  await page.getByRole("option", { name: "Ghi chú" }).click()
+  await userEvent.keyboard("{Escape}")
 }
 
 describe("new conversation", () => {
@@ -69,7 +103,9 @@ describe("new conversation", () => {
     expect(created).toEqual(["c-new"])
     expect(requests).toEqual([{ conversation_id: "c-new", message: QUESTION }])
   })
+})
 
+describe("new conversation failures", () => {
   test("keeps the draft and shows a toast when the conversation cannot be created", async () => {
     worker.use(
       http.post("*/api/v1/conversations", () =>
@@ -103,7 +139,9 @@ describe("new conversation", () => {
       .element(page.getByRole("textbox", { name: "Tin nhắn" }))
       .toHaveValue(QUESTION)
   })
+})
 
+describe("new conversation with the generated handler", () => {
   test("works with the generated create handler and the Enter key", async () => {
     worker.use(
       getCreateConversationMockHandler(
@@ -139,34 +177,14 @@ describe("new conversation", () => {
     // Wait for the sources picker's request so it does not outlive the test.
     await expect.poll(() => scopeLoads).toBe(1)
   })
+})
 
+describe("new conversation saving sources", () => {
   test("saves the chosen sources before the first question is sent", async () => {
     const order: string[] = []
     const patches: unknown[] = []
     worker.use(
-      http.get("*/api/v1/collections", () =>
-        HttpResponse.json({
-          public: [],
-          organizations: [],
-          mine: [
-            {
-              id: "c-mine",
-              key: "u-1",
-              title: "Ghi chú",
-              visibility: "private",
-              owner_user_id: "u1",
-              owner_organization_id: null,
-              owner_name: "An",
-              is_system: false,
-              can_edit: true,
-              can_set_public: false,
-              current_release_id: null,
-              current_release_number: null,
-            },
-          ],
-          others: [],
-        })
-      ),
+      myNotesCollectionHandler(),
       http.post("*/api/v1/conversations", () => {
         order.push("create")
         return HttpResponse.json(
@@ -197,9 +215,7 @@ describe("new conversation", () => {
         })
       })
     )
-    await page.getByRole("combobox", { name: "Nguồn" }).click()
-    await page.getByRole("option", { name: "Ghi chú" }).click()
-    await userEvent.keyboard("{Escape}")
+    await chooseMyNotes()
     await expect
       .element(page.getByRole("combobox", { name: "Nguồn: 1" }))
       .toBeVisible()
@@ -221,32 +237,12 @@ describe("new conversation", () => {
       .element(page.getByRole("button", { name: "1", exact: true }))
       .toBeVisible()
   })
+})
 
+describe("new conversation source failures", () => {
   test("keeps the draft when the chosen sources cannot be saved", async () => {
     worker.use(
-      http.get("*/api/v1/collections", () =>
-        HttpResponse.json({
-          public: [],
-          organizations: [],
-          mine: [
-            {
-              id: "c-mine",
-              key: "u-1",
-              title: "Ghi chú",
-              visibility: "private",
-              owner_user_id: "u1",
-              owner_organization_id: null,
-              owner_name: "An",
-              is_system: false,
-              can_edit: true,
-              can_set_public: false,
-              current_release_id: null,
-              current_release_number: null,
-            },
-          ],
-          others: [],
-        })
-      ),
+      myNotesCollectionHandler(),
       http.post("*/api/v1/conversations", () =>
         HttpResponse.json(
           conversationView("c-new", "Cuộc trò chuyện mới", { turn_count: 0 }),
@@ -264,9 +260,7 @@ describe("new conversation", () => {
       )
     )
     await renderRoutes(ChatPage, { initialEntry: "/chat" })
-    await page.getByRole("combobox", { name: "Nguồn" }).click()
-    await page.getByRole("option", { name: "Ghi chú" }).click()
-    await userEvent.keyboard("{Escape}")
+    await chooseMyNotes()
     await userEvent.fill(
       page.getByRole("textbox", { name: "Tin nhắn" }),
       QUESTION

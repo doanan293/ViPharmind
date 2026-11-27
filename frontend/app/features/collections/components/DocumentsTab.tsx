@@ -8,6 +8,7 @@ import {
   useDocumentsList,
 } from "~/api/gen/endpoints"
 import { Button, buttonVariants } from "~/components/ui/button"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { Spinner } from "~/components/ui/spinner"
 import {
   Table,
@@ -18,9 +19,12 @@ import {
   TableRow,
 } from "~/components/ui/table"
 import { toast } from "~/components/ui/toast"
-import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { apiErrorMessage } from "~/i18n/error-message"
 
+/**
+ * The collection's documents as a table with size and last change. Editors
+ * also get links to add and edit documents and a delete button per row.
+ */
 export function DocumentsTab({
   collectionId,
   editable,

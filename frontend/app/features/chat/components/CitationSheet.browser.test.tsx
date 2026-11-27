@@ -1,5 +1,5 @@
-import { http, HttpResponse } from "msw"
-import { afterEach, describe, expect, test, vi } from "vitest"
+import { HttpResponse, http } from "msw"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { page, userEvent } from "vitest/browser"
 
 import { getGetMessageCitationMockHandler } from "~/api/gen/endpoints.msw"
@@ -10,25 +10,34 @@ import { worker } from "../../../../tests/msw/browser"
 
 import { CitationSheet } from "./CitationSheet"
 
-function sheetPage(onClose: () => void) {
-  return function Page() {
-    return (
-      <CitationSheet target={{ messageId: "a1", index: 1 }} onClose={onClose} />
-    )
-  }
+const DESKTOP_WIDTH = 1280
+const PHONE_WIDTH = 375
+const VIEWPORT_HEIGHT = 800
+
+/** Receives the sheet's close requests; cleared before each test. */
+const onClose = vi.fn<() => void>()
+
+function SheetPage() {
+  return (
+    <CitationSheet target={{ messageId: "a1", index: 1 }} onClose={onClose} />
+  )
 }
 
 describe("CitationSheet", () => {
+  beforeEach(() => {
+    onClose.mockClear()
+  })
+
   afterEach(async () => {
-    await page.viewport(1280, 800)
+    await page.viewport(DESKTOP_WIDTH, VIEWPORT_HEIGHT)
   })
 
   test("shows the source header and the cited passage", async () => {
-    await page.viewport(1280, 800)
+    await page.viewport(DESKTOP_WIDTH, VIEWPORT_HEIGHT)
     worker.use(
       getGetMessageCitationMockHandler(citationDetail(1, { is_current: false }))
     )
-    await renderRoutes(sheetPage(vi.fn<() => void>()), {
+    await renderRoutes(SheetPage, {
       initialEntry: "/chat/c1",
     })
 
@@ -68,7 +77,7 @@ describe("CitationSheet", () => {
         )
       )
     )
-    await renderRoutes(sheetPage(vi.fn<() => void>()), {
+    await renderRoutes(SheetPage, {
       initialEntry: "/chat/c1",
     })
     await expect
@@ -78,18 +87,17 @@ describe("CitationSheet", () => {
 
   test("calls onClose when dismissed with Escape", async () => {
     worker.use(getGetMessageCitationMockHandler(citationDetail(1)))
-    const onClose = vi.fn<() => void>()
-    await renderRoutes(sheetPage(onClose), { initialEntry: "/chat/c1" })
+    await renderRoutes(SheetPage, { initialEntry: "/chat/c1" })
     await userEvent.keyboard("{Escape}")
     expect(onClose).toHaveBeenCalledOnce()
   })
 
   test("uses a drawer on a phone-sized viewport", async () => {
-    await page.viewport(375, 800)
+    await page.viewport(PHONE_WIDTH, VIEWPORT_HEIGHT)
     worker.use(
       getGetMessageCitationMockHandler(citationDetail(1, { is_current: true }))
     )
-    await renderRoutes(sheetPage(vi.fn<() => void>()), {
+    await renderRoutes(SheetPage, {
       initialEntry: "/chat/c1",
     })
     await expect.element(page.getByText("Liều thường dùng")).toBeVisible()

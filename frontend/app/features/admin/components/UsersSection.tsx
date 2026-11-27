@@ -1,4 +1,8 @@
-import { keepPreviousData, useQueryClient } from "@tanstack/react-query"
+import {
+  type InfiniteData,
+  keepPreviousData,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { SearchIcon } from "lucide-react"
 import { createContext, useContext, useDeferredValue, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -8,7 +12,8 @@ import {
   useAdminUsersListInfinite,
   useAdminUsersUpdate,
 } from "~/api/gen/endpoints"
-import type { AdminUserView } from "~/api/gen/schemas"
+import type { AdminUserPage, AdminUserView } from "~/api/gen/schemas"
+import { DataTable, dataTableColumns } from "~/components/data-table"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -19,7 +24,6 @@ import {
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog"
 import { Badge } from "~/components/ui/badge"
-import { DataTable, dataTableColumns } from "~/components/data-table"
 import { Button } from "~/components/ui/button"
 import {
   InputGroup,
@@ -31,8 +35,8 @@ import { toast } from "~/components/ui/toast"
 import { apiErrorMessage } from "~/i18n/error-message"
 
 import {
-  type AdminKey,
   AdminHeader,
+  type AdminKey,
   DateCell,
   useColumnLabels,
 } from "./columns"
@@ -58,6 +62,7 @@ const LABELS = {
 /** Opens a dialog for a row; provided by UsersSection, used by the actions cell. */
 const OpenDialog = createContext<(dialog: Dialog) => void>(() => undefined)
 
+/** The user's name with a superadmin badge, and their email or phone below. */
 function NameCell({ user }: { user: AdminUserView }) {
   const { t } = useTranslation("admin")
   return (
@@ -75,6 +80,7 @@ function NameCell({ user }: { user: AdminUserView }) {
   )
 }
 
+/** Whether the account is active or disabled. */
 function StatusCell({ active }: { active: boolean }) {
   const { t } = useTranslation("admin")
   return (
@@ -84,6 +90,7 @@ function StatusCell({ active }: { active: boolean }) {
   )
 }
 
+/** Row buttons that open the conversations, quota or enable/disable dialog. */
 function ActionsCell({ user }: { user: AdminUserView }) {
   const { t } = useTranslation("admin")
   const open = useContext(OpenDialog)
@@ -141,14 +148,21 @@ const COLUMNS = column.columns([
   }),
 ])
 
-export function UsersSection() {
-  const { t } = useTranslation("admin")
-  const { t: tErrors } = useTranslation("errors")
-  const queryClient = useQueryClient()
-  const [search, setSearch] = useState("")
+/** Users shown per page of the list. */
+const PAGE_SIZE = 50
+
+/** Every loaded user, or undefined until the first page arrives. */
+function usersOf(
+  data: InfiniteData<AdminUserPage, unknown> | undefined
+): AdminUserView[] | undefined {
+  return data?.pages.flatMap((page) => page.items)
+}
+
+/** The user list filtered by `search`, a page at a time. */
+function useUsers(search: string) {
   const q = useDeferredValue(search.trim())
-  const params = { limit: 50, ...(q === "" ? {} : { q }) }
-  const users = useAdminUsersListInfinite(params, {
+  const params = { limit: PAGE_SIZE, ...(q === "" ? {} : { q }) }
+  return useAdminUsersListInfinite(params, {
     query: {
       initialPageParam: undefined,
       getNextPageParam: (page) => page.next_cursor ?? undefined,
@@ -156,137 +170,185 @@ export function UsersSection() {
       placeholderData: keepPreviousData,
     },
   })
-  const update = useAdminUsersUpdate()
-  const [dialog, setDialog] = useState<Dialog>(null)
-  const labels = useColumnLabels(LABELS)
+}
 
-  const refresh = () =>
+/** Refetches every page of the user list. */
+function useRefreshUsers() {
+  const queryClient = useQueryClient()
+  return () =>
     queryClient.invalidateQueries({
       queryKey: getAdminUsersListInfiniteQueryKey(),
     })
-  const items = users.data?.pages.flatMap((page) => page.items) ?? []
-  const toggling = dialog?.kind === "toggle" ? dialog.user : null
+}
+
+/** Confirms disabling or enabling `user`; null keeps the dialog closed. */
+function ToggleUserDialog({
+  user,
+  onClose,
+}: {
+  user: AdminUserView | null
+  onClose: () => void
+}) {
+  const { t } = useTranslation("admin")
+  const { t: tErrors } = useTranslation("errors")
+  const update = useAdminUsersUpdate()
+  const refresh = useRefreshUsers()
+  const enabling = user?.is_active === false
+
+  function confirm(target: AdminUserView) {
+    const isActive = !target.is_active
+    const name = target.display_name
+    update.mutate(
+      { userId: target.id, data: { is_active: isActive } },
+      {
+        onSuccess: () => {
+          toast.add({
+            type: "success",
+            title: isActive
+              ? t("users.enabledToast", { name })
+              : t("users.disabledToast", { name }),
+          })
+          onClose()
+          void refresh()
+        },
+        onError: (error) =>
+          toast.add({ type: "error", title: apiErrorMessage(error, tErrors) }),
+      }
+    )
+  }
+
+  return (
+    <AlertDialog
+      open={user !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {enabling
+              ? t("users.enableTitle", { name: user.display_name })
+              : t("users.disableTitle", { name: user?.display_name })}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {enabling
+              ? t("users.enableDescription")
+              : t("users.disableDescription")}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+          <Button
+            variant={enabling ? "default" : "destructive"}
+            disabled={update.isPending}
+            onClick={() => {
+              if (user === null) return
+              confirm(user)
+            }}
+          >
+            {t("confirm")}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+/** Edits the quota of `user`, refreshing the list once saved. */
+function UserQuotaDialog({
+  user,
+  onClose,
+}: {
+  user: AdminUserView
+  onClose: () => void
+}) {
+  const { t } = useTranslation("admin")
+  const update = useAdminUsersUpdate()
+  const refresh = useRefreshUsers()
+  return (
+    <QuotaDialog
+      name={user.display_name}
+      quota={user}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+      onSave={async (quota) => {
+        await update.mutateAsync({ userId: user.id, data: quota })
+        toast.add({ type: "success", title: t("quota.saved") })
+        await refresh()
+      }}
+    />
+  )
+}
+
+/** The searchable user table, with a button to load more. */
+function UsersTable() {
+  const { t } = useTranslation("admin")
+  const [search, setSearch] = useState("")
+  const users = useUsers(search)
+  const labels = useColumnLabels(LABELS)
+  const items = usersOf(users.data)
+
+  if (items === undefined) {
+    return <Spinner />
+  }
+  return (
+    <DataTable
+      data={items}
+      columns={COLUMNS}
+      columnLabels={labels}
+      getRowId={(user) => user.id}
+      toolbar={
+        <InputGroup className="max-w-md">
+          <InputGroupAddon>
+            <SearchIcon aria-hidden />
+          </InputGroupAddon>
+          <InputGroupInput
+            type="search"
+            aria-label={t("users.search")}
+            placeholder={t("users.search")}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </InputGroup>
+      }
+      footer={
+        users.hasNextPage ? (
+          <Button
+            variant="outline"
+            className="self-center"
+            disabled={users.isFetchingNextPage}
+            onClick={() => void users.fetchNextPage()}
+          >
+            {t("users.more")}
+          </Button>
+        ) : null
+      }
+    />
+  )
+}
+
+/** The admin user list: search, disable or enable, quotas, and read-only conversations. */
+export function UsersSection() {
+  const [dialog, setDialog] = useState<Dialog>(null)
+  const close = () => setDialog(null)
 
   return (
     <OpenDialog value={setDialog}>
       <div className="flex flex-col gap-4">
-        {users.data === undefined ? (
-          <Spinner />
-        ) : (
-          <DataTable
-            data={items}
-            columns={COLUMNS}
-            columnLabels={labels}
-            getRowId={(user) => user.id}
-            toolbar={
-              <InputGroup className="max-w-md">
-                <InputGroupAddon>
-                  <SearchIcon aria-hidden />
-                </InputGroupAddon>
-                <InputGroupInput
-                  type="search"
-                  aria-label={t("users.search")}
-                  placeholder={t("users.search")}
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </InputGroup>
-            }
-            footer={
-              users.hasNextPage ? (
-                <Button
-                  variant="outline"
-                  className="self-center"
-                  disabled={users.isFetchingNextPage}
-                  onClick={() => void users.fetchNextPage()}
-                >
-                  {t("users.more")}
-                </Button>
-              ) : null
-            }
-          />
-        )}
-
-        <AlertDialog
-          open={toggling !== null}
-          onOpenChange={(open) => {
-            if (!open) setDialog(null)
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {toggling?.is_active === false
-                  ? t("users.enableTitle", { name: toggling.display_name })
-                  : t("users.disableTitle", { name: toggling?.display_name })}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {toggling?.is_active === false
-                  ? t("users.enableDescription")
-                  : t("users.disableDescription")}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-              <Button
-                variant={
-                  toggling?.is_active === false ? "default" : "destructive"
-                }
-                disabled={update.isPending}
-                onClick={() => {
-                  if (toggling === null) return
-                  const isActive = !toggling.is_active
-                  update.mutate(
-                    { userId: toggling.id, data: { is_active: isActive } },
-                    {
-                      onSuccess: () => {
-                        toast.add({
-                          type: "success",
-                          title: isActive
-                            ? t("users.enabledToast", {
-                                name: toggling.display_name,
-                              })
-                            : t("users.disabledToast", {
-                                name: toggling.display_name,
-                              }),
-                        })
-                        setDialog(null)
-                        void refresh()
-                      },
-                      onError: (error) =>
-                        toast.add({
-                          type: "error",
-                          title: apiErrorMessage(error, tErrors),
-                        }),
-                    }
-                  )
-                }}
-              >
-                {t("confirm")}
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
+        <UsersTable />
+        <ToggleUserDialog
+          user={dialog?.kind === "toggle" ? dialog.user : null}
+          onClose={close}
+        />
         {dialog?.kind === "quota" ? (
-          <QuotaDialog
-            name={dialog.user.display_name}
-            quota={dialog.user}
-            open
-            onOpenChange={(open) => {
-              if (!open) setDialog(null)
-            }}
-            onSave={async (quota) => {
-              await update.mutateAsync({ userId: dialog.user.id, data: quota })
-              toast.add({ type: "success", title: t("quota.saved") })
-              await refresh()
-            }}
-          />
+          <UserQuotaDialog user={dialog.user} onClose={close} />
         ) : null}
-
         <UserConversationsSheet
           user={dialog?.kind === "conversations" ? dialog.user : null}
-          onClose={() => setDialog(null)}
+          onClose={close}
         />
       </div>
     </OpenDialog>

@@ -55,23 +55,31 @@ function imports(): { from: string; to: string }[] {
     .flatMap((from) =>
       [...readFileSync(from, "utf8").matchAll(IMPORT)]
         .map((match) => resolveImport(match[1] ?? "", from))
-        .filter((to): to is string => to !== null && to.startsWith(APP))
+        .filter((to): to is string => to?.startsWith(APP) === true)
         .map((to) => ({ from, to }))
     )
 }
 
-// The part of .oxlintrc.json the boundary test reads.
-const OxlintConfig = z.object({
+// The part of biome.json the boundary test reads.
+const BiomeConfig = z.object({
   overrides: z.array(
     z.object({
-      files: z.array(z.string()),
-      rules: z.object({
-        "no-restricted-imports": z.tuple([
-          z.string(),
-          z.object({
-            patterns: z.array(z.object({ group: z.array(z.string()) })),
-          }),
-        ]),
+      includes: z.array(z.string()),
+      linter: z.object({
+        // Overrides that only switch a tool off (generated code) have no rules.
+        rules: z
+          .object({
+            style: z
+              .object({
+                noRestrictedImports: z.object({
+                  options: z.object({
+                    patterns: z.array(z.object({ group: z.array(z.string()) })),
+                  }),
+                }),
+              })
+              .optional(),
+          })
+          .optional(),
       }),
     })
   ),
@@ -80,11 +88,14 @@ const OxlintConfig = z.object({
 const describeEdge = ({ from, to }: { from: string; to: string }) =>
   `${path.relative(APP, from)} -> ${path.relative(APP, to)}`
 
+/** Fewer resolved imports than this means the scan itself is broken. */
+const MIN_EXPECTED_IMPORTS = 100
+
 describe("frontend architecture", () => {
   const edges = imports()
 
   test("finds the imports it checks", () => {
-    expect(edges.length).toBeGreaterThan(100)
+    expect(edges.length).toBeGreaterThan(MIN_EXPECTED_IMPORTS)
   })
 
   test("shared code does not depend on features or routes", () => {
@@ -127,22 +138,24 @@ describe("frontend architecture", () => {
     )
     expect(misplaced).toEqual([])
   })
+})
 
-  test("the oxlint boundary rules match the allowed feature imports", () => {
-    const config = OxlintConfig.parse(
-      JSON.parse(readFileSync(path.join(APP, "..", ".oxlintrc.json"), "utf8"))
+describe("frontend lint boundaries", () => {
+  test("the Biome boundary rules match the allowed feature imports", () => {
+    const config = BiomeConfig.parse(
+      JSON.parse(readFileSync(path.join(APP, "..", "biome.json"), "utf8"))
     )
     const features = readdirSync(FEATURES)
     for (const feature of features) {
       const override = config.overrides.find((item) =>
-        item.files.includes(`app/features/${feature}/**`)
+        item.includes.includes(`app/features/${feature}/**`)
       )
       expect(
         override,
-        `no oxlint override for features/${feature}`
+        `no Biome override for features/${feature}`
       ).toBeDefined()
       const banned = new Set(
-        override?.rules["no-restricted-imports"][1].patterns
+        override?.linter.rules?.style?.noRestrictedImports.options.patterns
           .flatMap((pattern) => pattern.group)
           .filter(
             (group) => group.startsWith("~/features/") && !group.endsWith("/**")
@@ -154,7 +167,10 @@ describe("frontend architecture", () => {
           other !== feature &&
           !(ALLOWED_FEATURE_IMPORTS[feature] ?? []).includes(other)
       )
-      expect([...banned].sort(), `features/${feature}`).toEqual(expected.sort())
+      const byName = (a: string, b: string) => a.localeCompare(b)
+      expect([...banned].sort(byName), `features/${feature}`).toEqual(
+        expected.sort(byName)
+      )
     }
   })
 })

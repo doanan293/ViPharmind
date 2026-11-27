@@ -18,6 +18,11 @@ import type { ChatLocationState } from "../lib/location-state"
 import { Composer } from "./Composer"
 import { type SourceScope, SourcesPopover } from "./SourcesPopover"
 
+/**
+ * The empty chat page with the composer and the sources picker. The first question creates
+ * a conversation, saves the chosen sources, then moves to it with the question in the
+ * location state for `ChatSession` to send.
+ */
 export function NewChat() {
   const { t } = useTranslation("chat")
   const navigate = useNavigate()

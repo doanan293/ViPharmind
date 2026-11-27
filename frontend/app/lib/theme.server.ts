@@ -1,8 +1,9 @@
 import { createCookieSessionStorage } from "react-router"
 import { createThemeSessionResolver } from "remix-themes"
 
-const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365
+import { ONE_YEAR_SECONDS } from "~/lib/time"
 
+/** remix-themes resolver backed by the signed, httpOnly `theme` cookie; read it in loaders and the theme action. */
 export const themeSessionResolver = createThemeSessionResolver(
   createCookieSessionStorage({
     cookie: {

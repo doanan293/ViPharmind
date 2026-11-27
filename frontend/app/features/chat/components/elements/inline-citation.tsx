@@ -1,3 +1,4 @@
+import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { Badge } from "~/components/ui/badge"
 import {
   HoverCard,
@@ -5,6 +6,7 @@ import {
   HoverCardTrigger,
 } from "~/components/ui/hover-card"
 
+/** The translated text the hover preview of a citation shows; null fields are left out. */
 export interface CitationPreview {
   source: string
   heading: string
@@ -13,6 +15,7 @@ export interface CitationPreview {
   note: string | null
 }
 
+/** Props of `Citation`; the caller controls whether the preview is open. */
 export type CitationProps = {
   index: number
   preview: CitationPreview
@@ -21,6 +24,7 @@ export type CitationProps = {
   onSelect: () => void
 }
 
+/** An inline citation number button with a hover preview of the source; clicking it calls `onSelect`. */
 export function Citation({
   index,
   preview,
@@ -35,7 +39,7 @@ export function Citation({
         onClick={onSelect}
         render={
           <Badge
-            render={(props) => <button type="button" {...props} />}
+            render={<ButtonPrimitive />}
             variant={open ? "default" : "secondary"}
             className="mx-0.5 h-4 min-w-4 -translate-y-0.5 cursor-pointer px-1 align-middle text-[10px] tabular-nums"
           >

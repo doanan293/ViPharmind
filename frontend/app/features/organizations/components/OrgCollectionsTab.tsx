@@ -9,7 +9,7 @@ import {
 } from "~/api/gen/endpoints"
 import { NameForm } from "~/components/name-form"
 import { Badge } from "~/components/ui/badge"
-import { Spinner } from "~/components/ui/spinner"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import {
   Item,
   ItemActions,
@@ -17,10 +17,11 @@ import {
   ItemGroup,
   ItemTitle,
 } from "~/components/ui/item"
-import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
+import { Spinner } from "~/components/ui/spinner"
 
-import { type Viewer, atLeast } from "../lib/roles"
+import { atLeast, type Viewer } from "../lib/roles"
 
+/** The organization's collections; editors and above can create one owned by it. */
 export function OrgCollectionsTab({
   organizationId,
   viewer,

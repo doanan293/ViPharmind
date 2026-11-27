@@ -1,8 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query"
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import type { ComponentType, ReactNode } from "react"
 import { createRoutesStub, useLocation } from "react-router"
-import { render, type RenderResult } from "vitest-browser-react"
+import { type RenderResult, render } from "vitest-browser-react"
 
 import { Toaster } from "~/components/ui/toast"
 
@@ -35,7 +35,7 @@ function serveSourceScope(): void {
   worker.use(
     http.get("*/api/v1/conversations/:conversationId", ({ params }) =>
       HttpResponse.json({
-        id: String(params["conversationId"]),
+        id: String(params.conversationId),
         title: "",
         turn_count: 0,
         created_at: "2026-10-11T09:00:00Z",

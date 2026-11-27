@@ -2,7 +2,7 @@ import { Link } from "react-router"
 
 import type { Language } from "~/i18n/config"
 
-import { type LegalDocument, LEGAL_TEXT } from "../lib/content"
+import { LEGAL_TEXT, type LegalDocument } from "../lib/content"
 import { SiteFooter } from "./SiteFooter"
 
 const UPDATED_LABEL: Record<Language, string> = {
@@ -12,6 +12,10 @@ const UPDATED_LABEL: Record<Language, string> = {
 
 const HOME_PATH: Record<Language, string> = { vi: "/", en: "/en/" }
 
+/**
+ * A legal page (privacy policy or terms) in `locale`, with its own `<title>` and the site
+ * footer. Its text is not translated through i18n: each language has its own version.
+ */
 export function LegalPage({
   document,
   locale,
@@ -35,7 +39,7 @@ export function LegalPage({
         </Link>
       </header>
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 md:px-8">
-        <article className="prose max-w-none prose-neutral dark:prose-invert">
+        <article className="prose prose-neutral dark:prose-invert max-w-none">
           <h1>{text.title}</h1>
           <p className="lead">{text.description}</p>
           <p className="text-sm">

@@ -1,32 +1,35 @@
 import type { InitOptions, Resource } from "i18next"
-
+import enAdmin from "./resources/en/admin.json"
+import enAudit from "./resources/en/audit.json"
 import enAuth from "./resources/en/auth.json"
 import enChat from "./resources/en/chat.json"
 import enCitations from "./resources/en/citations.json"
+import enCollections from "./resources/en/collections.json"
 import enCommon from "./resources/en/common.json"
 import enErrors from "./resources/en/errors.json"
 import enLanding from "./resources/en/landing.json"
-import enAudit from "./resources/en/audit.json"
 import enOrganizations from "./resources/en/organizations.json"
-import enCollections from "./resources/en/collections.json"
-import enAdmin from "./resources/en/admin.json"
 import enSettings from "./resources/en/settings.json"
+import viAdmin from "./resources/vi/admin.json"
+import viAudit from "./resources/vi/audit.json"
 import viAuth from "./resources/vi/auth.json"
 import viChat from "./resources/vi/chat.json"
 import viCitations from "./resources/vi/citations.json"
+import viCollections from "./resources/vi/collections.json"
 import viCommon from "./resources/vi/common.json"
 import viErrors from "./resources/vi/errors.json"
 import viLanding from "./resources/vi/landing.json"
-import viAudit from "./resources/vi/audit.json"
 import viOrganizations from "./resources/vi/organizations.json"
-import viCollections from "./resources/vi/collections.json"
-import viAdmin from "./resources/vi/admin.json"
 import viSettings from "./resources/vi/settings.json"
 
+/** UI languages, Vietnamese first; every namespace has a resource file for each. */
 export const SUPPORTED_LANGUAGES = ["vi", "en"] as const
+/** One of `SUPPORTED_LANGUAGES`; narrow unknown input with `isLanguage`. */
 export type Language = (typeof SUPPORTED_LANGUAGES)[number]
+/** The default language: used when nothing else picks one, and the unprefixed public URLs. */
 export const FALLBACK_LANGUAGE: Language = "vi"
 
+/** The i18next namespaces, one JSON file per language each under `resources/`. */
 export const NAMESPACES = [
   "common",
   "auth",
@@ -41,6 +44,7 @@ export const NAMESPACES = [
   "admin",
 ] as const
 
+/** Every translation bundled, by language then namespace; `vi` is the reference for keys. */
 export const resources = {
   vi: {
     common: viCommon,
@@ -70,6 +74,7 @@ export const resources = {
   },
 } satisfies Resource
 
+/** The i18next init options shared by the server, the client and tests; set `lng` per request. */
 export const i18nextOptions = {
   fallbackLng: FALLBACK_LANGUAGE,
   supportedLngs: SUPPORTED_LANGUAGES,
@@ -79,6 +84,7 @@ export const i18nextOptions = {
   interpolation: { escapeValue: false },
 } satisfies InitOptions
 
+/** Type guard for values from cookies, URLs or headers that should be a `Language`. */
 export function isLanguage(value: unknown): value is Language {
   return SUPPORTED_LANGUAGES.some((language) => language === value)
 }

@@ -11,6 +11,7 @@ import { CodeStep } from "~/components/code-step"
 
 const SKIP_AUTH_REDIRECT = { mutation: { meta: { skipAuthRedirect: true } } }
 
+/** What the email code step needs: the address, the password to sign in with, and any send error. */
 export type VerificationRequest = {
   email: string
   /** Needed with the code: the server signs in only whoever knows it. */

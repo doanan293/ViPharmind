@@ -3,6 +3,7 @@ import { useNavigate } from "react-router"
 import { describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 
+import { Button } from "~/components/ui/button"
 import { toast } from "~/components/ui/toast"
 
 import {
@@ -18,18 +19,18 @@ function Probe() {
   const navigate = useNavigate()
   return (
     <div>
-      <button
+      <Button
         type="button"
         onClick={() => void navigate("/login?next=%2Fchat")}
       >
         {t("composer.send")}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         onClick={() => toast.add({ title: t("notPersisted") })}
       >
         {t("composer.stop")}
-      </button>
+      </Button>
     </div>
   )
 }

@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog"
 import { Button } from "~/components/ui/button"
+import { Input } from "~/components/ui/input"
 import { toast } from "~/components/ui/toast"
 import { apiErrorMessage } from "~/i18n/error-message"
 
@@ -45,7 +46,7 @@ export function UploadButton({
         <UploadIcon aria-hidden="true" />
         {t("editor.upload")}
       </Button>
-      <input
+      <Input
         ref={input}
         type="file"
         accept=".md,.txt,text/markdown,text/plain"

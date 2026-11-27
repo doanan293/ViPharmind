@@ -1,3 +1,4 @@
+import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { ChevronDownIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
@@ -18,6 +19,7 @@ import {
 } from "~/components/ui/item"
 import { cn } from "~/lib/utils"
 
+/** One source card: its citation number, source name, translated title and whether a newer version exists. */
 export interface SourceCard {
   index: number
   source: string
@@ -25,6 +27,7 @@ export interface SourceCard {
   stale: boolean
 }
 
+/** Props of `Sources`; the caller controls whether the list is open. */
 export type SourcesProps = {
   sources: readonly SourceCard[]
   open: boolean
@@ -33,6 +36,7 @@ export type SourcesProps = {
   className?: string
 }
 
+/** A collapsible grid of source cards; clicking a card passes its citation number to `onSelect`. */
 export function Sources({
   sources,
   open,
@@ -71,7 +75,7 @@ export function Sources({
               key={source.index}
               variant="outline"
               size="sm"
-              render={(props) => <button type="button" {...props} />}
+              render={<ButtonPrimitive />}
               onClick={() => onSelect(source.index)}
               className="text-start"
             >

@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { createRoutesStub } from "react-router"
 import { describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
@@ -10,7 +10,9 @@ import { worker } from "../../../../tests/msw/browser"
 import { accountView } from "../../../../tests/utils/account"
 import { TestProviders } from "../../../../tests/utils/providers"
 
-const TOKEN = "a".repeat(43)
+/** Invitation tokens are 43 URL-safe base64 characters. */
+const TOKEN_LENGTH = 43
+const TOKEN = "a".repeat(TOKEN_LENGTH)
 const ORG = "11111111-1111-4111-8111-111111111111"
 
 function preview() {
@@ -33,14 +35,26 @@ function signedOut() {
   )
 }
 
+/** The sign-out callback the route component passes; `open` sets it before rendering. */
+const route: { signOut: () => Promise<void> } = {
+  signOut: async () => undefined,
+}
+
+function LandingRoute() {
+  return <InvitationLanding token={TOKEN} onSignOut={route.signOut} />
+}
+
+function OrganizationRoute() {
+  return <p>organization-page</p>
+}
+
+const Stub = createRoutesStub([
+  { path: "/invitations/:token", Component: LandingRoute },
+  { path: "/organizations/:id", Component: OrganizationRoute },
+])
+
 async function open(signOut: () => Promise<void> = async () => undefined) {
-  const Stub = createRoutesStub([
-    {
-      path: "/invitations/:token",
-      Component: () => <InvitationLanding token={TOKEN} onSignOut={signOut} />,
-    },
-    { path: "/organizations/:id", Component: () => <p>organization-page</p> },
-  ])
+  route.signOut = signOut
   await render(
     <TestProviders>
       <Stub initialEntries={[`/invitations/${TOKEN}`]} />
@@ -82,7 +96,9 @@ describe("InvitationLanding", () => {
     await page.getByRole("button", { name: "Tham gia" }).click()
     await expect.element(page.getByText("organization-page")).toBeVisible()
   })
+})
 
+describe("InvitationLanding problems", () => {
   test("explains a mismatched email and offers to sign out", async () => {
     let signedOutCalls = 0
     worker.use(

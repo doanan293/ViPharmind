@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "~/components/ui/card"
 
+/** The centred card with the brand mark, heading and description that every auth page uses. */
 export function AuthCard({
   title,
   description,

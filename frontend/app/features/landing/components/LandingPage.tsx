@@ -1,4 +1,3 @@
-import { BrandMark } from "~/components/brand-mark"
 import {
   ActivityIcon,
   LibraryIcon,
@@ -7,6 +6,7 @@ import {
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
+import { BrandMark } from "~/components/brand-mark"
 
 import { buttonVariants } from "~/components/ui/button"
 import {
@@ -25,6 +25,10 @@ const FEATURES = [
   { key: "guard", Icon: ShieldCheckIcon },
 ] as const
 
+/**
+ * The public landing page in `locale`: hero with sign-in and register links, feature cards
+ * and a link to the other language.
+ */
 export function LandingPage({ locale }: { locale: Language }) {
   const { t } = useTranslation("landing")
   const otherLocale: Language = locale === "vi" ? "en" : "vi"

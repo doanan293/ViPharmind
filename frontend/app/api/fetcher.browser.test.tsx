@@ -1,18 +1,19 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { afterEach, describe, expect, test } from "vitest"
 
 import { fetcher } from "~/api/fetcher"
+import { HttpStatus } from "~/api/http-status"
 import { ApiError } from "~/api/problem"
 
 import { worker } from "../../tests/msw/browser"
 
-describe("fetcher in the browser", () => {
-  afterEach(() => {
-    document.cookie = "csrftoken=; path=/; max-age=0"
+describe("fetcher request headers in the browser", () => {
+  afterEach(async () => {
+    await cookieStore.delete({ name: "csrftoken", path: "/" })
   })
 
   test("calls the same origin and sends the CSRF token on unsafe methods", async () => {
-    document.cookie = "csrftoken=token-123; path=/"
+    await cookieStore.set({ name: "csrftoken", value: "token-123", path: "/" })
     worker.use(
       http.post("/api/v1/conversations", ({ request }) =>
         HttpResponse.json(
@@ -34,7 +35,7 @@ describe("fetcher in the browser", () => {
   })
 
   test("does not send the CSRF token on safe methods", async () => {
-    document.cookie = "csrftoken=token-123; path=/"
+    await cookieStore.set({ name: "csrftoken", value: "token-123", path: "/" })
     worker.use(
       http.get("/api/v1/users/me", ({ request }) =>
         HttpResponse.json({ csrf: request.headers.get("x-csrftoken") })
@@ -56,7 +57,9 @@ describe("fetcher in the browser", () => {
     await fetcher("/api/v1/probe")
     expect(language).toBe("en")
   })
+})
 
+describe("fetcher responses in the browser", () => {
   test("throws ApiError built from problem+json", async () => {
     worker.use(
       http.get("/api/v1/conversations/7f0c", () =>
@@ -78,7 +81,7 @@ describe("fetcher in the browser", () => {
     const request = fetcher("/api/v1/conversations/7f0c")
 
     await expect(request).rejects.toBeInstanceOf(ApiError)
-    await expect(request).rejects.toHaveProperty("status", 404)
+    await expect(request).rejects.toHaveProperty("status", HttpStatus.NOT_FOUND)
     await expect(request).rejects.toHaveProperty(
       "code",
       "CONVERSATION_NOT_FOUND"

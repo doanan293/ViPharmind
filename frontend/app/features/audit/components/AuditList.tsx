@@ -5,13 +5,14 @@ import type {
 import { useTranslation } from "react-i18next"
 
 import type { AuditPage, Problem } from "~/api/gen/schemas"
-import { Button } from "~/components/ui/button"
-import { Spinner } from "~/components/ui/spinner"
 import { Alert, AlertDescription } from "~/components/ui/alert"
+import { Button } from "~/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
+import { Spinner } from "~/components/ui/spinner"
 
 import { describeEvent } from "../lib/describe-event"
 
+/** An infinite audit-log query, as every audit endpoint's generated hook returns it. */
 export type AuditQuery = UseInfiniteQueryResult<
   InfiniteData<AuditPage, string | null | undefined>,
   Problem

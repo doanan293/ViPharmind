@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
 
+/** The notice above the thread shown while the answering agent is down (the stream returned 503). */
 export function AgentUnavailableBanner() {
   const { t } = useTranslation("chat")
   return (

@@ -1,12 +1,14 @@
 import { useTranslation } from "react-i18next"
-import { Link, data } from "react-router"
+import { data, Link } from "react-router"
 
 import { buttonVariants } from "~/components/ui/button"
 
+/** Answers unknown paths with HTTP 404 so crawlers do not index them. */
 export function loader() {
   return data(null, { status: 404 })
 }
 
+/** The translated not-found page with a link to the home page. */
 export default function NotFound() {
   const { t } = useTranslation("common")
 

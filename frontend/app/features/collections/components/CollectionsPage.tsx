@@ -10,8 +10,7 @@ import type { CollectionView } from "~/api/gen/schemas"
 import { NameForm } from "~/components/name-form"
 import { Badge } from "~/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Progress } from "~/components/ui/progress"
-import { Spinner } from "~/components/ui/spinner"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import {
   Item,
   ItemActions,
@@ -20,7 +19,13 @@ import {
   ItemGroup,
   ItemTitle,
 } from "~/components/ui/item"
-import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
+import { Progress } from "~/components/ui/progress"
+import { Spinner } from "~/components/ui/spinner"
+
+import { COLLECTION_TITLE_MAX_LENGTH } from "../lib/limits"
+
+/** A full progress bar, in percent. */
+const FULL_PERCENT = 100
 
 function CollectionList({
   title,
@@ -84,12 +89,20 @@ function QuotaBar() {
           count: collections_used,
           max: collections_limit,
         })}
-        value={text_limit === 0 ? 100 : (100 * text_used) / text_limit}
+        value={
+          text_limit === 0
+            ? FULL_PERCENT
+            : (FULL_PERCENT * text_used) / text_limit
+        }
       />
     </div>
   )
 }
 
+/**
+ * The collections index: a form to create a collection, the user's quota, and
+ * every collection they can see grouped by owner. Creating one opens it.
+ */
 export function CollectionsPage() {
   const { t } = useTranslation("collections")
   const navigate = useNavigate()
@@ -114,7 +127,7 @@ export function CollectionsPage() {
             label={t("list.titleLabel")}
             submitLabel={t("list.create")}
             requiredMessage={t("list.titleRequired")}
-            maxLength={200}
+            maxLength={COLLECTION_TITLE_MAX_LENGTH}
             onSubmit={async (title) => {
               const created = await create.mutateAsync({ data: { title } })
               await navigate(`/collections/${created.id}`)

@@ -1,0 +1,645 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!node_modules",
+      "!build",
+      "!.react-router",
+      "!coverage",
+      "!playwright-report",
+      "!test-results",
+      "!package-lock.json",
+      "!openapi.json",
+      "!tests/public/mockServiceWorker.js"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "semicolons": "asNeeded",
+      "quoteStyle": "double",
+      "jsxQuoteStyle": "double",
+      "trailingCommas": "es5"
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    },
+    "includes": ["**", "!app/api/gen/**"]
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "a11y": "error",
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 10
+          }
+        },
+        "noExcessiveLinesPerFunction": {
+          "level": "error",
+          "options": {
+            "maxLines": 60,
+            "skipBlankLines": true
+          }
+        },
+        "useMaxParams": {
+          "level": "error",
+          "options": {
+            "max": 4
+          }
+        }
+      },
+      "correctness": {
+        "useHookAtTopLevel": "error",
+        "useExhaustiveDependencies": "error"
+      },
+      "style": {
+        "noMagicNumbers": "error",
+        "noNonNullAssertion": "error"
+      },
+      "suspicious": {
+        "noImportCycles": "error",
+        "noExplicitAny": "error",
+        "noUnnecessaryConditions": "error",
+        "useArraySortCompare": "error"
+      },
+      "nursery": {
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error",
+        "useAwaitThenable": "error",
+        "useExhaustiveSwitchCases": "error",
+        "noBaseToString": "error",
+        "noMisusedSpread": "error",
+        "noUnsafeUnaryMinus": "error",
+        "useTailwindSortedClasses": {
+          "level": "error",
+          "fix": "safe"
+        },
+        "noTailwindConflictingClasses": "error"
+      }
+    },
+    "includes": ["**", "!app/api/gen/**"]
+  },
+  "overrides": [
+    {
+      "includes": [
+        "app/api/**",
+        "app/components/**",
+        "app/hooks/**",
+        "app/i18n/**",
+        "app/lib/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "~/features",
+                      "~/features/**",
+                      "~/routes",
+                      "~/routes/**"
+                    ],
+                    "message": "Shared code (api, components, hooks, i18n, lib) must not depend on features or routes."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/admin/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["~/routes", "~/routes/**"],
+                    "message": "Features must not import routes; routes compose features."
+                  },
+                  {
+                    "group": [
+                      "~/features/collections",
+                      "~/features/collections/**",
+                      "~/features/conversations",
+                      "~/features/conversations/**",
+                      "~/features/landing",
+                      "~/features/landing/**",
+                      "~/features/legal",
+                      "~/features/legal/**",
+                      "~/features/organizations",
+                      "~/features/organizations/**",
+                      "~/features/settings",
+                      "~/features/settings/**",
+                      "~/features/shell",
+                      "~/features/shell/**"
+                    ],
+                    "message": "features/admin may only import features/auth, features/chat, features/audit; compose features in routes instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/audit/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["~/routes", "~/routes/**"],
+                    "message": "Features must not import routes; routes compose features."
+                  },
+                  {
+                    "group": [
+                      "~/features/admin",
+                      "~/features/admin/**",
+                      "~/features/auth",
+                      "~/features/auth/**",
+                      "~/features/chat",
+                      "~/features/chat/**",
+                      "~/features/collections",
+                      "~/features/collections/**",
+                      "~/features/conversations",
+                      "~/features/conversations/**",
+                      "~/features/landing",
+                      "~/features/landing/**",
+                      "~/features/legal",
+                      "~/features/legal/**",
+                      "~/features/organizations",
+                      "~/features/organizations/**",
+                      "~/features/settings",
+                      "~/features/settings/**",
+                      "~/features/shell",
+                      "~/features/shell/**"
+                    ],
+                    "message": "features/audit must not import other features; compose features in routes instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/auth/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["~/routes", "~/routes/**"],
+                    "message": "Features must not import routes; routes compose features."
+                  },
+                  {
+                    "group": [
+                      "~/features/admin",
+                      "~/features/admin/**",
+                      "~/features/audit",
+                      "~/features/audit/**",
+                      "~/features/chat",
+                      "~/features/chat/**",
+                      "~/features/collections",
+                      "~/features/collections/**",
+                      "~/features/conversations",
+                      "~/features/conversations/**",
+                      "~/features/landing",
+                      "~/features/landing/**",
+                      "~/features/legal",
+                      "~/features/legal/**",
+                      "~/features/organizations",
+                      "~/features/organizations/**",
+                      "~/features/settings",
+                      "~/features/settings/**",
+                      "~/features/shell",
+                      "~/features/shell/**"
+                    ],
+                    "message": "features/auth must not import other features; compose features in routes instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/chat/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["~/routes", "~/routes/**"],
+                    "message": "Features must not import routes; routes compose features."
+                  },
+                  {
+                    "group": [
+                      "~/features/admin",
+                      "~/features/admin/**",
+                      "~/features/audit",
+                      "~/features/audit/**",
+                      "~/features/auth",
+                      "~/features/auth/**",
+                      "~/features/collections",
+                      "~/features/collections/**",
+                      "~/features/landing",
+                      "~/features/landing/**",
+                      "~/features/legal",
+                      "~/features/legal/**",
+                      "~/features/organizations",
+                      "~/features/organizations/**",
+                      "~/features/settings",
+                      "~/features/settings/**",
+                      "~/features/shell",
+                      "~/features/shell/**"
+                    ],
+                    "message": "features/chat may only import features/conversations; compose features in routes instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/collections/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["~/routes", "~/routes/**"],
+                    "message": "Features must not import routes; routes compose features."
+                  },
+                  {
+                    "group": [
+                      "~/features/admin",
+                      "~/features/admin/**",
+                      "~/features/audit",
+                      "~/features/audit/**",
+                      "~/features/auth",
+                      "~/features/auth/**",
+                      "~/features/chat",
+                      "~/features/chat/**",
+                      "~/features/conversations",
+                      "~/features/conversations/**",
+                      "~/features/landing",
+                      "~/features/landing/**",
+                      "~/features/legal",
+                      "~/features/legal/**",
+                      "~/features/organizations",
+                      "~/features/organizations/**",
+                      "~/features/settings",
+                      "~/features/settings/**",
+                      "~/features/shell",
+                      "~/features/shell/**"
+                    ],
+                    "message": "features/collections must not import other features; compose features in routes instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/conversations/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["~/routes", "~/routes/**"],
+                    "message": "Features must not import routes; routes compose features."
+                  },
+                  {
+                    "group": [
+                      "~/features/admin",
+                      "~/features/admin/**",
+                      "~/features/audit",
+                      "~/features/audit/**",
+                      "~/features/auth",
+                      "~/features/auth/**",
+                      "~/features/chat",
+                      "~/features/chat/**",
+                      "~/features/collections",
+                      "~/features/collections/**",
+                      "~/features/landing",
+                      "~/features/landing/**",
+                      "~/features/legal",
+                      "~/features/legal/**",
+                      "~/features/organizations",
+                      "~/features/organizations/**",
+                      "~/features/settings",
+                      "~/features/settings/**",
+                      "~/features/shell",
+                      "~/features/shell/**"
+                    ],
+                    "message": "features/conversations must not import other features; compose features in routes instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/landing/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["~/routes", "~/routes/**"],
+                    "message": "Features must not import routes; routes compose features."
+                  },
+                  {
+                    "group": [
+                      "~/features/admin",
+                      "~/features/admin/**",
+                      "~/features/audit",
+                      "~/features/audit/**",
+                      "~/features/auth",
+                      "~/features/auth/**",
+                      "~/features/chat",
+                      "~/features/chat/**",
+                      "~/features/collections",
+                      "~/features/collections/**",
+                      "~/features/conversations",
+                      "~/features/conversations/**",
+                      "~/features/legal",
+                      "~/features/legal/**",
+                      "~/features/organizations",
+                      "~/features/organizations/**",
+                      "~/features/settings",
+                      "~/features/settings/**",
+                      "~/features/shell",
+                      "~/features/shell/**"
+                    ],
+                    "message": "features/landing must not import other features; compose features in routes instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/legal/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["~/routes", "~/routes/**"],
+                    "message": "Features must not import routes; routes compose features."
+                  },
+                  {
+                    "group": [
+                      "~/features/admin",
+                      "~/features/admin/**",
+                      "~/features/audit",
+                      "~/features/audit/**",
+                      "~/features/auth",
+                      "~/features/auth/**",
+                      "~/features/chat",
+                      "~/features/chat/**",
+                      "~/features/collections",
+                      "~/features/collections/**",
+                      "~/features/conversations",
+                      "~/features/conversations/**",
+                      "~/features/landing",
+                      "~/features/landing/**",
+                      "~/features/organizations",
+                      "~/features/organizations/**",
+                      "~/features/settings",
+                      "~/features/settings/**",
+                      "~/features/shell",
+                      "~/features/shell/**"
+                    ],
+                    "message": "features/legal must not import other features; compose features in routes instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/organizations/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["~/routes", "~/routes/**"],
+                    "message": "Features must not import routes; routes compose features."
+                  },
+                  {
+                    "group": [
+                      "~/features/admin",
+                      "~/features/admin/**",
+                      "~/features/auth",
+                      "~/features/auth/**",
+                      "~/features/chat",
+                      "~/features/chat/**",
+                      "~/features/collections",
+                      "~/features/collections/**",
+                      "~/features/conversations",
+                      "~/features/conversations/**",
+                      "~/features/landing",
+                      "~/features/landing/**",
+                      "~/features/legal",
+                      "~/features/legal/**",
+                      "~/features/settings",
+                      "~/features/settings/**",
+                      "~/features/shell",
+                      "~/features/shell/**"
+                    ],
+                    "message": "features/organizations may only import features/audit; compose features in routes instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/settings/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["~/routes", "~/routes/**"],
+                    "message": "Features must not import routes; routes compose features."
+                  },
+                  {
+                    "group": [
+                      "~/features/admin",
+                      "~/features/admin/**",
+                      "~/features/audit",
+                      "~/features/audit/**",
+                      "~/features/auth",
+                      "~/features/auth/**",
+                      "~/features/chat",
+                      "~/features/chat/**",
+                      "~/features/collections",
+                      "~/features/collections/**",
+                      "~/features/conversations",
+                      "~/features/conversations/**",
+                      "~/features/landing",
+                      "~/features/landing/**",
+                      "~/features/legal",
+                      "~/features/legal/**",
+                      "~/features/organizations",
+                      "~/features/organizations/**",
+                      "~/features/shell",
+                      "~/features/shell/**"
+                    ],
+                    "message": "features/settings must not import other features; compose features in routes instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/shell/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["~/routes", "~/routes/**"],
+                    "message": "Features must not import routes; routes compose features."
+                  },
+                  {
+                    "group": [
+                      "~/features/admin",
+                      "~/features/admin/**",
+                      "~/features/audit",
+                      "~/features/audit/**",
+                      "~/features/chat",
+                      "~/features/chat/**",
+                      "~/features/collections",
+                      "~/features/collections/**",
+                      "~/features/landing",
+                      "~/features/landing/**",
+                      "~/features/legal",
+                      "~/features/legal/**",
+                      "~/features/organizations",
+                      "~/features/organizations/**",
+                      "~/features/settings",
+                      "~/features/settings/**"
+                    ],
+                    "message": "features/shell may only import features/auth, features/conversations; compose features in routes instead."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app/features/**", "app/routes/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noRestrictedElements": {
+              "level": "error",
+              "options": {
+                "elements": {
+                  "button": "Use the shadcn component from ~/components/ui instead of a raw <button> (docs/engineering-guide.md, Reuse).",
+                  "input": "Use the shadcn component from ~/components/ui instead of a raw <input> (docs/engineering-guide.md, Reuse).",
+                  "select": "Use the shadcn component from ~/components/ui instead of a raw <select> (docs/engineering-guide.md, Reuse).",
+                  "textarea": "Use the shadcn component from ~/components/ui instead of a raw <textarea> (docs/engineering-guide.md, Reuse).",
+                  "dialog": "Use the shadcn component from ~/components/ui instead of a raw <dialog> (docs/engineering-guide.md, Reuse).",
+                  "table": "Use the shadcn component from ~/components/ui instead of a raw <table> (docs/engineering-guide.md, Reuse).",
+                  "label": "Use the shadcn component from ~/components/ui instead of a raw <label> (docs/engineering-guide.md, Reuse)."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tailwind": {
+    "stylesheet": "./app/app.css",
+    "mergeFunctions": ["cn"],
+    "variantFunctions": ["cva"]
+  }
+}

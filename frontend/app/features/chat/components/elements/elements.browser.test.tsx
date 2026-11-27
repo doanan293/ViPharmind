@@ -12,7 +12,73 @@ import { Citation } from "./inline-citation"
 import { RetrievalChunks } from "./retrieval-chunks"
 import { Sources } from "./sources"
 
-describe("adapted elements", () => {
+function RetrievalChunksHarness() {
+  const [open, setOpen] = useState(true)
+  return (
+    <RetrievalChunks
+      chunks={[
+        {
+          id: "1",
+          source: "Paracetamol",
+          locator: "Trang 812",
+          text: "Người lớn 500 mg",
+        },
+      ]}
+      searching={false}
+      open={open}
+      onOpenChange={setOpen}
+    />
+  )
+}
+
+function SourcesHarness({ onSelect }: { onSelect: (index: number) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Sources
+      sources={[
+        {
+          index: 1,
+          source: "Dược thư Quốc gia",
+          title: "Paracetamol › Liều dùng",
+          stale: false,
+        },
+        {
+          index: 2,
+          source: "Dược thư Quốc gia",
+          title: "Ibuprofen › Tương tác",
+          stale: true,
+        },
+      ]}
+      open={open}
+      onOpenChange={setOpen}
+      onSelect={onSelect}
+    />
+  )
+}
+
+function CitationHarness({ onSelect }: { onSelect: () => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <p>
+      Liều 500 mg
+      <Citation
+        index={1}
+        preview={{
+          source: "Dược thư Quốc gia",
+          heading: "Trích từ mục Paracetamol › Liều dùng",
+          pages: "Trang 812–813",
+          snippet: "Người lớn và trẻ em trên 12 tuổi…",
+          note: null,
+        }}
+        open={open}
+        onOpenChange={setOpen}
+        onSelect={onSelect}
+      />
+    </p>
+  )
+}
+
+describe("adapted status elements", () => {
   test("AgentStatus shows the label and a localized screen reader state", async () => {
     const screen = await renderWithProviders(
       <AgentStatus state="working" label="Đang tìm kiếm · vòng 2" />
@@ -53,57 +119,19 @@ describe("adapted elements", () => {
   })
 
   test("RetrievalChunks shows the read count and no score", async () => {
-    function Harness() {
-      const [open, setOpen] = useState(true)
-      return (
-        <RetrievalChunks
-          chunks={[
-            {
-              id: "1",
-              source: "Paracetamol",
-              locator: "Trang 812",
-              text: "Người lớn 500 mg",
-            },
-          ]}
-          searching={false}
-          open={open}
-          onOpenChange={setOpen}
-        />
-      )
-    }
-    const screen = await renderWithProviders(<Harness />)
+    const screen = await renderWithProviders(<RetrievalChunksHarness />)
     await expect.element(screen.getByText("Đã đọc 1 đoạn")).toBeVisible()
     await expect.element(screen.getByText("Người lớn 500 mg")).toBeVisible()
     expect(screen.container.querySelector("[role=meter]")).toBeNull()
   })
+})
 
+describe("adapted interactive elements", () => {
   test("Sources expands and selects a card by citation index", async () => {
     const onSelect = vi.fn<(index: number) => void>()
-    function Harness() {
-      const [open, setOpen] = useState(false)
-      return (
-        <Sources
-          sources={[
-            {
-              index: 1,
-              source: "Dược thư Quốc gia",
-              title: "Paracetamol › Liều dùng",
-              stale: false,
-            },
-            {
-              index: 2,
-              source: "Dược thư Quốc gia",
-              title: "Ibuprofen › Tương tác",
-              stale: true,
-            },
-          ]}
-          open={open}
-          onOpenChange={setOpen}
-          onSelect={onSelect}
-        />
-      )
-    }
-    const screen = await renderWithProviders(<Harness />)
+    const screen = await renderWithProviders(
+      <SourcesHarness onSelect={onSelect} />
+    )
     await screen.getByRole("button", { name: "2 nguồn" }).click()
     await expect
       .element(screen.getByText("Nguồn đã có phiên bản mới hơn"))
@@ -114,28 +142,9 @@ describe("adapted elements", () => {
 
   test("Citation is named by its index, previews on hover and selects on click", async () => {
     const onSelect = vi.fn<() => void>()
-    function Harness() {
-      const [open, setOpen] = useState(false)
-      return (
-        <p>
-          Liều 500 mg
-          <Citation
-            index={1}
-            preview={{
-              source: "Dược thư Quốc gia",
-              heading: "Trích từ mục Paracetamol › Liều dùng",
-              pages: "Trang 812–813",
-              snippet: "Người lớn và trẻ em trên 12 tuổi…",
-              note: null,
-            }}
-            open={open}
-            onOpenChange={setOpen}
-            onSelect={onSelect}
-          />
-        </p>
-      )
-    }
-    const screen = await renderWithProviders(<Harness />)
+    const screen = await renderWithProviders(
+      <CitationHarness onSelect={onSelect} />
+    )
     const trigger = screen.getByRole("button", { name: "1", exact: true })
     await userEvent.hover(trigger)
     await expect

@@ -2,17 +2,20 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { parseCiteIndex } from "~/features/chat/lib/cite-markers"
-
+import { usePageText } from "../lib/citation-format"
 import { useMessageCitations } from "./citation-context"
 import { Citation } from "./elements/inline-citation"
-import { usePageText } from "../lib/citation-format"
 
+/**
+ * Streamdown's renderer for a `cite-ref` element: a numbered badge with a hover preview that
+ * opens the citation sheet. Without a matching source in the message it renders plain `[n]`.
+ */
 export function CitationMarker(props: Record<string, unknown>) {
   const citations = useMessageCitations()
   const { t } = useTranslation("chat")
   const pageText = usePageText()
   const [open, setOpen] = useState(false)
-  const index = parseCiteIndex(props["index"])
+  const index = parseCiteIndex(props.index)
   if (index === null) {
     return null
   }

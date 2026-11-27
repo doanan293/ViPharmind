@@ -18,12 +18,20 @@ import { toast } from "~/components/ui/toast"
 
 import { removeConversationFromCache } from "../lib/conversation-cache"
 
+/**
+ * Props of {@link DeleteConversationDialog}; `conversation` null keeps it
+ * closed, and `activeConversationId` is the conversation open in the route.
+ */
 export type DeleteConversationDialogProps = {
   conversation: ConversationView | null
   activeConversationId: string | undefined
   onClose: () => void
 }
 
+/**
+ * Confirms and deletes a conversation, removing it from the cached list. If
+ * it was the open conversation, it navigates to a new chat at `/chat`.
+ */
 export function DeleteConversationDialog({
   conversation,
   activeConversationId,

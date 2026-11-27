@@ -4,6 +4,7 @@ import { Link } from "react-router"
 import { AuthCard } from "~/features/auth/components/AuthCard"
 import { ForgotPasswordForm } from "~/features/auth/components/ForgotPasswordForm"
 
+/** The password reset page at `/forgot-password`, with a link back to the login page. */
 export default function ForgotPasswordPage() {
   const { t } = useTranslation("auth")
   return (

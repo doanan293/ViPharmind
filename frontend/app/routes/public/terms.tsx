@@ -7,6 +7,7 @@ import type { Route } from "./+types/terms"
 
 const DEFAULT_SITE_URL = "http://localhost:8080"
 
+/** The page's locale and the public site URL for the canonical and hreflang links. */
 export function loader({ context }: Route.LoaderArgs) {
   const detected = getLocale(context)
   return {
@@ -15,11 +16,13 @@ export function loader({ context }: Route.LoaderArgs) {
   }
 }
 
+/** Description, canonical and hreflang links of the terms of use. */
 export const meta: Route.MetaFunction = ({ loaderData }) =>
   loaderData === undefined
     ? []
     : legalMeta("terms", loaderData.locale, loaderData.siteUrl)
 
+/** The terms of use at `/terms` (Vietnamese) and `/en/terms` (English). */
 export default function TermsRoute({ loaderData }: Route.ComponentProps) {
   return <LegalPage document="terms" locale={loaderData.locale} />
 }

@@ -63,7 +63,7 @@ describe("history merge", () => {
       "p1-u1",
       "p1-a1",
     ])
-    expect(olderMessagesFrom(pages, 3)).toEqual([])
+    expect(olderMessagesFrom(pages, pages.length)).toEqual([])
   })
 })
 

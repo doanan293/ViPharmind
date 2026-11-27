@@ -7,9 +7,11 @@ import NotFound, { loader } from "~/routes/not-found"
 
 import { createTestI18n } from "../../tests/utils/i18n"
 
+const HTTP_NOT_FOUND = 404
+
 describe("not-found route", () => {
   test("answers with HTTP 404", () => {
-    expect(loader().init?.status).toBe(404)
+    expect(loader().init?.status).toBe(HTTP_NOT_FOUND)
   })
 
   test("renders a translated message with a link home", () => {

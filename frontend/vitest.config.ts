@@ -14,6 +14,20 @@ export default defineConfig({
     },
   },
   test: {
+    // docs/engineering-guide.md, "Tests": coverage of app code is at least 80%; generated
+    // code and shadcn registry files are third-party code.
+    coverage: {
+      provider: "v8",
+      include: ["app/**/*.{ts,tsx}"],
+      exclude: [
+        "app/api/gen/**",
+        "app/components/ui/**",
+        "app/**/*.test.{ts,tsx}",
+        "app/**/*.d.ts",
+      ],
+      // Same measure as the backend (lines); branches and functions are reported.
+      thresholds: { lines: 80, statements: 80 },
+    },
     projects: [
       {
         extends: true,

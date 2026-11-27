@@ -8,9 +8,16 @@ import type {
 } from "@playwright/test"
 import { z } from "zod"
 
+import { HttpStatus } from "../../../app/api/http-status"
+
 export const API = "/api/v1"
 
 export type TestUser = { email: string; password: string; displayName: string }
+
+/** Characters of a UUID kept for a unique, readable test id. */
+const ID_LENGTH = 8
+/** How much of an unfinished stream body an error shows. */
+const BODY_TAIL_CHARS = 500
 
 const CodeResponse = z.object({ code: z.string().regex(/^\d{6}$/) })
 
@@ -42,7 +49,7 @@ async function csrfFor(
 
 /** A fresh user per test (the password satisfies the 8-character minimum). */
 export function newUser(): TestUser {
-  const id = randomUUID().slice(0, 8)
+  const id = randomUUID().slice(0, ID_LENGTH)
   return {
     email: `e2e-${id}@example.com`,
     password: `e2e-mat-khau-${id}`,
@@ -62,7 +69,7 @@ export async function registerUser(
       display_name: user.displayName,
     },
   })
-  await assertStatus(response, 201)
+  await assertStatus(response, HttpStatus.CREATED)
   const verify = await request.post(`${API}/auth/email/verify`, {
     headers: await csrfFor(request),
     data: {
@@ -71,7 +78,7 @@ export async function registerUser(
       password: user.password,
     },
   })
-  await assertStatus(verify, 204)
+  await assertStatus(verify, HttpStatus.NO_CONTENT)
 }
 
 /** The last code the E2E backend sent to an email address or E.164 number. */
@@ -82,7 +89,7 @@ export async function latestCode(
   const response = await request.get(`${API}/__e2e/outbox/code`, {
     params: { to },
   })
-  await assertStatus(response, 200)
+  await assertStatus(response, HttpStatus.OK)
   return CodeResponse.parse(await response.json()).code
 }
 
@@ -98,8 +105,8 @@ export async function loginUser(
   const login = await request.post(`${API}/auth/cookie/login`, {
     form: { username: user.email, password: user.password },
   })
-  await assertStatus(login, 204)
-  await assertStatus(await request.get(`${API}/users/me`), 200)
+  await assertStatus(login, HttpStatus.NO_CONTENT)
+  await assertStatus(await request.get(`${API}/users/me`), HttpStatus.OK)
 }
 
 export async function csrfHeaders(
@@ -118,7 +125,7 @@ export async function createConversation(page: Page): Promise<string> {
   const response = await page.request.post(`${API}/conversations`, {
     headers: await csrfHeaders(page.context()),
   })
-  await assertStatus(response, 201)
+  await assertStatus(response, HttpStatus.CREATED)
   const body: unknown = await response.json()
   return ConversationCreated.parse(body).id
 }
@@ -133,11 +140,11 @@ export async function askOverApi(
     headers: await csrfHeaders(page.context()),
     data: { conversation_id: conversationId, message },
   })
-  await assertStatus(response, 200)
+  await assertStatus(response, HttpStatus.OK)
   const body = await response.text()
   if (!body.includes("data: [DONE]")) {
     throw new Error(
-      `stream for "${message}" did not finish: ${body.slice(-500)}`
+      `stream for "${message}" did not finish: ${body.slice(-BODY_TAIL_CHARS)}`
     )
   }
 }
@@ -155,7 +162,7 @@ export async function makeSuperadmin(
     headers: await csrfFor(request),
     data: { email },
   })
-  await assertStatus(response, 204)
+  await assertStatus(response, HttpStatus.NO_CONTENT)
 }
 
 /** The path of the last invitation link emailed to `email`, or null when none was sent. */
@@ -166,9 +173,9 @@ export async function latestInvitationPath(
   const response = await request.get(`${API}/__e2e/outbox/invitation`, {
     params: { to: email },
   })
-  if (response.status() === 404) {
+  if (response.status() === HttpStatus.NOT_FOUND) {
     return null
   }
-  await assertStatus(response, 200)
+  await assertStatus(response, HttpStatus.OK)
   return InvitationResponse.parse(await response.json()).path
 }

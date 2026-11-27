@@ -8,9 +8,9 @@ import { auth } from "./chapters/auth"
 import { chat } from "./chapters/chat"
 import { collections } from "./chapters/collections"
 import { history } from "./chapters/history"
+import { intro } from "./chapters/intro"
 import { orgs } from "./chapters/orgs"
 import { publicPages } from "./chapters/public"
-import { intro } from "./chapters/intro"
 import {
   chapterTitle,
   type DemoContext,
@@ -39,7 +39,10 @@ test("walkthrough", async ({ page }) => {
   await chapterTitle(page, "5. Bộ tài liệu có phân quyền")
   await collections(page, ctx)
   await chapterTitle(page, "6. Cài đặt tài khoản")
-  await switchUser(page, ctx.owner!)
+  if (ctx.owner === undefined) {
+    throw new Error("the auth chapter did not create the owner")
+  }
+  await switchUser(page, ctx.owner)
   await account(page, ctx)
   await chapterTitle(page, "7. Quản trị")
   await admin(page, ctx)

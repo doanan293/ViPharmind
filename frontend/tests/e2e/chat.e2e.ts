@@ -1,8 +1,16 @@
 import type { Locator, Page, Request, Response } from "@playwright/test"
 import { z } from "zod"
 
+import { HttpStatus } from "../../app/api/http-status"
 import { API, askOverApi, createConversation } from "./support/api"
 import { expect, test } from "./support/fixtures"
+
+/** Sixteen turns asked over the API take a few minutes against the stub LLM. */
+const LONG_THREAD_TIMEOUT_MS = 180_000
+/** 16 turns = 32 messages; the first page holds the newest 30 (turns 2–16). */
+const LONG_THREAD_TURNS = 16
+/** A wheel delta far larger than the thread, so it scrolls all the way to the top. */
+const SCROLL_TO_TOP_DELTA = -20_000
 
 const MessagePage = z.object({
   items: z.array(
@@ -21,16 +29,26 @@ const MessagePage = z.object({
   next_cursor: z.string().nullable(),
 })
 
-/** Records every "Đang …" text rendered from now on, however briefly. */
+/** Records every "Đang …" text that appears in the page from now on, however briefly. */
 async function recordPhases(page: Page): Promise<void> {
   await page.evaluate(() => {
     const seen: string[] = []
     Reflect.set(window, "e2ePhases", seen)
-    new MutationObserver(() => {
-      for (const match of document.body.innerText.matchAll(/Đang [^\n]+/g)) {
+    const record = (text: string): void => {
+      for (const match of text.matchAll(/Đang [^\n]+/g)) {
         if (!seen.includes(match[0])) {
           seen.push(match[0])
         }
+      }
+    }
+    new MutationObserver(() => {
+      // Each phase label is one i18n string, so it is one text node.
+      const walker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT
+      )
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        record(node.textContent ?? "")
       }
     }).observe(document.body, {
       childList: true,
@@ -89,7 +107,7 @@ test("ask, see the phase, read the [1] answer, preview and open the full source"
     /\/messages\/[^/]+\/citations\/1$/.test(new URL(response.url()).pathname)
   )
   await marker.click()
-  expect((await detail).status()).toBe(200)
+  expect((await detail).status()).toBe(HttpStatus.OK)
   await expect(page.getByRole("heading", { name: "Nguồn [1]" })).toBeVisible()
   await expect(
     page.getByRole("region", { name: "Đoạn được trích dẫn" })
@@ -131,7 +149,7 @@ test("👎 with a reason and a note is stored for the answer", async ({
   const response = await page.request.get(
     `${API}/conversations/${conversationId}/messages`
   )
-  expect(response.status()).toBe(200)
+  expect(response.status()).toBe(HttpStatus.OK)
   const body: unknown = await response.json()
   const stored = MessagePage.parse(body).items.find(
     (item) => item.id === messageId
@@ -152,10 +170,9 @@ test("👎 with a reason and a note is stored for the answer", async ({
 test("scrolling to the top loads older messages and keeps the reading position", async ({
   signedInPage: page,
 }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(LONG_THREAD_TIMEOUT_MS)
   const conversationId = await createConversation(page)
-  // 16 turns = 32 messages; the first page holds the newest 30 (turns 2–16).
-  for (let turn = 1; turn <= 16; turn += 1) {
+  for (let turn = 1; turn <= LONG_THREAD_TURNS; turn += 1) {
     await askOverApi(page, conversationId, `Câu hỏi số ${turn}`)
   }
 
@@ -181,7 +198,7 @@ test("scrolling to the top loads older messages and keeps the reading position",
     isOlderPage(new URL(request.url()))
   )
   await anchor.hover()
-  await page.mouse.wheel(0, -20_000)
+  await page.mouse.wheel(0, SCROLL_TO_TOP_DELTA)
   await olderRequest
   await expect(anchor).toBeInViewport()
   const before = await topOf(anchor)

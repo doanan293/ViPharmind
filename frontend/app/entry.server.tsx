@@ -10,8 +10,25 @@ import { ServerRouter } from "react-router"
 
 import { getInstance } from "~/i18n/middleware.server"
 
+/**
+ * How long, in ms, React may keep streaming a response; React Router reads this export and
+ * the render aborts shortly after it.
+ */
 export const streamTimeout = 5_000
 
+/**
+ * Extra time after `streamTimeout` before the render is aborted, so React can flush its
+ * fallbacks first.
+ */
+const ABORT_DELAY_MS = 1_000
+
+/** Status of a response whose rendering hit an error after the shell was sent. */
+const INTERNAL_SERVER_ERROR = 500
+
+/**
+ * Server-renders a document request with the request's i18n instance. Bots get the fully
+ * rendered page, browsers a stream from the shell on; HEAD gets headers only.
+ */
 export default function handleRequest(
   request: Request,
   responseStatusCode: number,
@@ -40,7 +57,7 @@ export default function handleRequest(
       () => {
         abort()
       },
-      streamTimeout + 1000
+      streamTimeout + ABORT_DELAY_MS
     )
 
     const { pipe, abort } = renderToPipeableStream(
@@ -74,7 +91,7 @@ export default function handleRequest(
           reject(error instanceof Error ? error : new Error(String(error)))
         },
         onError(error: unknown) {
-          statusCode = 500
+          statusCode = INTERNAL_SERVER_ERROR
           // Errors before the shell reject above and are logged by React Router.
           if (shellRendered) {
             console.error(error)

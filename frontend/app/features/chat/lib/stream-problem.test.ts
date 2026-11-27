@@ -4,6 +4,8 @@ import { isApiError } from "~/api/problem"
 
 import { readStreamProblem } from "./stream-problem"
 
+const HTTP_SERVICE_UNAVAILABLE = 503
+
 describe("readStreamProblem", () => {
   test("turns a problem+json body carried in the error message into ApiError", () => {
     const problem = readStreamProblem(
@@ -11,13 +13,13 @@ describe("readStreamProblem", () => {
         JSON.stringify({
           type: "urn:pharma-agent:problem:agent-unavailable",
           title: "Agent unavailable",
-          status: 503,
+          status: HTTP_SERVICE_UNAVAILABLE,
           code: "AGENT_UNAVAILABLE",
         })
       )
     )
     expect(isApiError(problem)).toBe(true)
-    expect(problem?.status).toBe(503)
+    expect(problem?.status).toBe(HTTP_SERVICE_UNAVAILABLE)
     expect(problem?.code).toBe("AGENT_UNAVAILABLE")
     expect(problem?.message).toBe("Agent unavailable")
     expect(problem?.detail).toBeUndefined()

@@ -38,14 +38,14 @@ export function describeEvent(
   }
   return t(`action.${event.action}`, {
     actor,
-    name: text(details["name"]),
-    title: text(details["title"]),
-    email: text(details["email"]),
-    document: text(details["document"]),
-    release: text(details["release"]),
-    role: label(details["role"]),
-    from: label(details["from"]),
-    to: label(details["to"]),
+    name: text(details.name),
+    title: text(details.title),
+    email: text(details.email),
+    document: text(details.document),
+    release: text(details.release),
+    role: label(details.role),
+    from: label(details.from),
+    to: label(details.to),
     member: event.subject_name || t("subject.unknown"),
   })
 }

@@ -1,6 +1,6 @@
-import { type Page, expect } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 
-import { type DemoContext, ask, caption } from "../support/demo"
+import { ask, caption, type DemoContext } from "../support/demo"
 
 /** Conversation history: newest first, reopen, rename, delete. Expects at least one conversation. */
 export async function history(page: Page, _ctx: DemoContext): Promise<void> {

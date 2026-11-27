@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query"
+import { type UseQueryResult, useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Streamdown } from "streamdown"
 
 import { getGetMessageCitationQueryOptions } from "~/api/gen/endpoints"
+import type { CitationDetail, Problem } from "~/api/gen/schemas"
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert"
 import {
   Drawer,
@@ -24,11 +25,13 @@ import { apiErrorMessage } from "~/i18n/error-message"
 
 import { usePageText } from "../lib/citation-format"
 
+/** Which citation to show: the answer message and the citation number within it. */
 export type CitationTarget = {
   messageId: string
   index: number
 }
 
+/** Props of `CitationSheet`; a null `target` closes it. */
 export type CitationSheetProps = {
   target: CitationTarget | null
   onClose: () => void
@@ -38,7 +41,10 @@ function CitationDetailView({ messageId, index }: CitationTarget) {
   const { t } = useTranslation("citations")
   const { t: tErrors } = useTranslation("errors")
   const pageText = usePageText()
-  const query = useQuery(getGetMessageCitationQueryOptions(messageId, index))
+  // The annotation picks useQuery's overload without initial data, where `data` can be missing.
+  const query: UseQueryResult<CitationDetail, Problem> = useQuery(
+    getGetMessageCitationQueryOptions(messageId, index)
+  )
 
   if (query.isPending) {
     return (
@@ -94,6 +100,10 @@ function CitationDetailView({ messageId, index }: CitationTarget) {
   )
 }
 
+/**
+ * Shows the full cited passage of one citation, in a side sheet on desktop and a bottom
+ * drawer on phones. It keeps the last target on screen while it animates closed.
+ */
 export function CitationSheet({ target, onClose }: CitationSheetProps) {
   const { t } = useTranslation("citations")
   const isMobile = useIsMobile()

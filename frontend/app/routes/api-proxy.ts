@@ -87,10 +87,12 @@ async function forward(request: Request): Promise<Response> {
   })
 }
 
+/** Forwards GET and HEAD requests under `/api/*` to the backend. */
 export function loader({ request }: Route.LoaderArgs) {
   return forward(request)
 }
 
+/** Forwards `/api/*` requests that change data (POST, PUT, PATCH, DELETE) to the backend. */
 export function action({ request }: Route.ActionArgs) {
   return forward(request)
 }

@@ -2,9 +2,9 @@ import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router"
 
 import { useUsersCurrentUser } from "~/api/gen/endpoints"
+import { Alert, AlertDescription } from "~/components/ui/alert"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import { Spinner } from "~/components/ui/spinner"
-import { Alert, AlertDescription } from "~/components/ui/alert"
 import { isErrorCode } from "~/i18n/error-message"
 
 import { AccountSection } from "./AccountSection"
@@ -13,6 +13,7 @@ import { PasswordForm } from "./PasswordForm"
 import { ProfileForm } from "./ProfileForm"
 import { ThemeRadioGroup } from "./ThemeRadioGroup"
 
+/** The settings page: profile, account, password, language and theme cards, plus any `?error=` code. */
 export function SettingsPage() {
   const { t } = useTranslation("settings")
   const { t: tErrors } = useTranslation("errors")

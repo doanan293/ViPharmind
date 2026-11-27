@@ -1,3 +1,4 @@
+import type { UIMessageChunk } from "ai"
 import { describe, expect, test } from "vitest"
 
 import {
@@ -12,6 +13,26 @@ import {
   messageMetadataSchema,
   pharmaSourceMetadataSchema,
 } from "./message-schema"
+
+/** Names the chunk when its data part, pharma source or finish metadata breaks the frontend schema. */
+function schemaMismatches(chunk: UIMessageChunk): string[] {
+  if (chunk.type.startsWith("data-") && "data" in chunk) {
+    const name = chunk.type.slice("data-".length)
+    return dataPartMatchesSchema(name, chunk.data) ? [] : [chunk.type]
+  }
+  if (chunk.type === "source-document") {
+    const pharma = chunk.providerMetadata?.pharma
+    return pharmaSourceMetadataSchema.safeParse(pharma).success
+      ? []
+      : [`${chunk.type} ${chunk.sourceId}`]
+  }
+  if (chunk.type === "finish") {
+    return messageMetadataSchema.safeParse(chunk.messageMetadata).success
+      ? []
+      : [chunk.type]
+  }
+  return []
+}
 
 describe.each(CONTRACT_SCENARIOS)(
   "backend UI stream fixture %s",
@@ -33,24 +54,7 @@ describe.each(CONTRACT_SCENARIOS)(
 
     test("matches the pharma data part, source and metadata schemas", async () => {
       const chunks = validChunks(await parseFixtureChunks(scenario))
-      const mismatches = chunks.flatMap((chunk) => {
-        if (chunk.type.startsWith("data-") && "data" in chunk) {
-          const name = chunk.type.slice("data-".length)
-          return dataPartMatchesSchema(name, chunk.data) ? [] : [chunk.type]
-        }
-        if (chunk.type === "source-document") {
-          const pharma = chunk.providerMetadata?.["pharma"]
-          return pharmaSourceMetadataSchema.safeParse(pharma).success
-            ? []
-            : [`${chunk.type} ${chunk.sourceId}`]
-        }
-        if (chunk.type === "finish") {
-          return messageMetadataSchema.safeParse(chunk.messageMetadata).success
-            ? []
-            : [chunk.type]
-        }
-        return []
-      })
+      const mismatches = chunks.flatMap(schemaMismatches)
       expect(mismatches).toEqual([])
     })
   }
@@ -62,14 +66,44 @@ describe("scenario specifics", () => {
   }
 
   test.each([
-    ["completed-with-citations", "completed", "stop", true, 2],
-    ["blocked", "blocked", "stop", true, 0],
-    ["timeout", "timeout", "error", true, 0],
-    ["persist-failed", "completed", "stop", false, 2],
-    ["no-evidence", "abstained", "stop", true, 0],
+    {
+      scenario: "completed-with-citations",
+      status: "completed",
+      finishReason: "stop",
+      persisted: true,
+      sourceCount: 2,
+    },
+    {
+      scenario: "blocked",
+      status: "blocked",
+      finishReason: "stop",
+      persisted: true,
+      sourceCount: 0,
+    },
+    {
+      scenario: "timeout",
+      status: "timeout",
+      finishReason: "error",
+      persisted: true,
+      sourceCount: 0,
+    },
+    {
+      scenario: "persist-failed",
+      status: "completed",
+      finishReason: "stop",
+      persisted: false,
+      sourceCount: 2,
+    },
+    {
+      scenario: "no-evidence",
+      status: "abstained",
+      finishReason: "stop",
+      persisted: true,
+      sourceCount: 0,
+    },
   ] as const)(
-    "%s finishes with status %s, reason %s, persisted %s and %i sources",
-    async (scenario, status, finishReason, persisted, sourceCount) => {
+    "$scenario finishes with status $status, reason $finishReason, persisted $persisted and $sourceCount sources",
+    async ({ scenario, status, finishReason, persisted, sourceCount }) => {
       const chunks = await chunksOf(scenario)
       const finish = chunks.find((chunk) => chunk.type === "finish")
       expect(finish?.type === "finish" ? finish.finishReason : undefined).toBe(

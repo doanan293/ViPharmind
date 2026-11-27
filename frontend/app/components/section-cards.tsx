@@ -9,6 +9,7 @@ import {
 } from "~/components/ui/card"
 import { Skeleton } from "~/components/ui/skeleton"
 
+/** One summary card of `SectionCards`: a label, a headline value and a hint under it. */
 export interface SectionCard {
   label: string
   /** null while loading. */

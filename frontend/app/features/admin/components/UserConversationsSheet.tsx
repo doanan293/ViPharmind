@@ -1,3 +1,4 @@
+import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { ArrowLeftIcon } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -23,8 +24,10 @@ import {
 } from "~/components/ui/sheet"
 import { Spinner } from "~/components/ui/spinner"
 
+import { loadedPages } from "../lib/pages"
 import { ReadOnlyThread } from "./ReadOnlyThread"
 
+/** The user's conversations, newest first; choosing one opens it read-only. */
 function ConversationList({
   userId,
   onOpen,
@@ -47,8 +50,9 @@ function ConversationList({
       },
     }
   )
-  if (query.data === undefined) return <Spinner />
-  const items = query.data.pages.flatMap((page) => page.items)
+  const pages = loadedPages(query.data)
+  if (pages === undefined) return <Spinner />
+  const items = pages.flatMap((page) => page.items)
   if (items.length === 0) {
     return (
       <Empty>
@@ -65,7 +69,7 @@ function ConversationList({
           key={conversation.id}
           variant="outline"
           size="sm"
-          render={(props) => <button type="button" {...props} />}
+          render={<ButtonPrimitive />}
           onClick={() => onOpen(conversation.id)}
           className="text-start"
         >

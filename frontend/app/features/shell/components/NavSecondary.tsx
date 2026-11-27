@@ -9,8 +9,12 @@ import {
   SidebarMenuItem,
 } from "~/components/ui/sidebar"
 
-import { type NavItem, isActivePath } from "./NavMain"
+import { isActivePath, type NavItem } from "./NavMain"
 
+/**
+ * The secondary sidebar links (settings, admin); other props go to the sidebar group, e.g.
+ * `className` to push it down.
+ */
 export function NavSecondary({
   items,
   ...props

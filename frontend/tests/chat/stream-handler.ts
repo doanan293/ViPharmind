@@ -1,6 +1,6 @@
 import { createChat } from "@shadcn/helpers/ai-sdk"
 import { createUIMessageStreamResponse } from "ai"
-import { type HttpHandler, http, HttpResponse } from "msw"
+import { type HttpHandler, HttpResponse, http } from "msw"
 import { z } from "zod"
 
 import { getChatStreamUrl } from "~/api/gen/endpoints"
@@ -48,69 +48,98 @@ export type AnswerOptions = {
   withSource?: boolean
 }
 
+/** The callback form of `assistant(...)`, which scripts a turn through a writer. */
+type AssistantScript = Extract<
+  Parameters<ScriptedChat["assistant"]>[0],
+  (context: never) => void
+>
+type ChatWriter = Parameters<AssistantScript>[0]["writer"]
+
+/** How long a slow answer stays in the "searching" phase. */
+const SLOW_SEARCH_MS = 600
+/** Delay between streamed text chunks of a slow answer. */
+const SLOW_TEXT_DELAY_MS = 150
+const DEFAULT_ANSWER =
+  "Người lớn uống 0,5–1 g mỗi 4–6 giờ, tối đa 4 g mỗi ngày [1]."
+
+function writeSearchPhase(writer: ChatWriter, options: AnswerOptions): void {
+  writer.data({
+    type: "data-conversation",
+    data: {
+      id: options.conversationId ?? "c1",
+      title: options.title ?? "Cuộc trò chuyện mới",
+    },
+    transient: true,
+  })
+  writer.data({
+    type: "data-phase",
+    id: "phase",
+    data: { phase: "searching", round: 1 },
+  })
+  if (options.slow === true) {
+    writer.sleep(SLOW_SEARCH_MS)
+  }
+}
+
+function writeEvidence(writer: ChatWriter): void {
+  writer.data({
+    type: "data-phase",
+    id: "phase",
+    data: { phase: "answering" },
+  })
+  writer.data({
+    type: "data-evidence",
+    id: "evidence",
+    data: {
+      items: [
+        {
+          index: 1,
+          source: "Dược thư Quốc gia Việt Nam (Xuất bản lần thứ 2)",
+          title: "Paracetamol",
+          section: "Liều lượng và cách dùng",
+          startPage: 812,
+          endPage: 813,
+          snippet: "Người lớn và trẻ em trên 12 tuổi…",
+        },
+      ],
+    },
+  })
+}
+
+function writeText(writer: ChatWriter, text: string, slow: boolean): void {
+  if (text === "") {
+    return
+  }
+  if (slow) {
+    writer.text(text, { delayMs: SLOW_TEXT_DELAY_MS })
+  } else {
+    writer.text(text)
+  }
+}
+
+function writeSource(writer: ChatWriter): void {
+  writer.sourceDocument({
+    sourceId: "chunk-1",
+    mediaType: "text/markdown",
+    title: "Paracetamol › Liều lượng và cách dùng",
+    providerMetadata: { pharma: { ...pharmaSource(1) } },
+  })
+}
+
 export function answerChat(
   question: string,
   options: AnswerOptions = {}
 ): ScriptedChat {
-  const text =
-    options.text ??
-    "Người lớn uống 0,5–1 g mỗi 4–6 giờ, tối đa 4 g mỗi ngày [1]."
+  const text = options.text ?? DEFAULT_ANSWER
   return createChat<PharmaUIMessage>()
     .user(question)
     .assistant(
       ({ writer }) => {
-        writer.data({
-          type: "data-conversation",
-          data: {
-            id: options.conversationId ?? "c1",
-            title: options.title ?? "Cuộc trò chuyện mới",
-          },
-          transient: true,
-        })
-        writer.data({
-          type: "data-phase",
-          id: "phase",
-          data: { phase: "searching", round: 1 },
-        })
-        if (options.slow === true) {
-          writer.sleep(600)
-        }
-        writer.data({
-          type: "data-phase",
-          id: "phase",
-          data: { phase: "answering" },
-        })
-        writer.data({
-          type: "data-evidence",
-          id: "evidence",
-          data: {
-            items: [
-              {
-                index: 1,
-                source: "Dược thư Quốc gia Việt Nam (Xuất bản lần thứ 2)",
-                title: "Paracetamol",
-                section: "Liều lượng và cách dùng",
-                startPage: 812,
-                endPage: 813,
-                snippet: "Người lớn và trẻ em trên 12 tuổi…",
-              },
-            ],
-          },
-        })
-        if (text !== "") {
-          if (options.slow === true) {
-            writer.text(text, { delayMs: 150 })
-          } else {
-            writer.text(text)
-          }
-        }
+        writeSearchPhase(writer, options)
+        writeEvidence(writer)
+        writeText(writer, text, options.slow === true)
         if (options.withSource !== false) {
-          writer.sourceDocument({
-            sourceId: "chunk-1",
-            mediaType: "text/markdown",
-            title: "Paracetamol › Liều lượng và cách dùng",
-            providerMetadata: { pharma: { ...pharmaSource(1) } },
-          })
+          writeSource(writer)
         }
       },
       { id: options.id ?? "a-new", metadata: finishMetadata(options.metadata) }

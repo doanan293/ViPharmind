@@ -4,6 +4,8 @@ import { submitFeedbackBodyNoteMax } from "~/api/gen/zod"
 
 import { composeFeedbackNote } from "./feedback-note"
 
+const OVERLONG_NOTE_LENGTH = 5000
+
 describe("composeFeedbackNote", () => {
   test("puts selected reasons before the note", () => {
     expect(
@@ -19,7 +21,7 @@ describe("composeFeedbackNote", () => {
 
   test("never exceeds the backend limit", () => {
     expect(
-      composeFeedbackNote(["Sai thông tin"], "x".repeat(5000))
+      composeFeedbackNote(["Sai thông tin"], "x".repeat(OVERLONG_NOTE_LENGTH))
     ).toHaveLength(submitFeedbackBodyNoteMax)
   })
 })

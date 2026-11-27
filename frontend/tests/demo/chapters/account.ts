@@ -1,6 +1,12 @@
-import { type Page, expect } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 
-import { type DemoContext, caption, logIn, logOut } from "../support/demo"
+import {
+  caption,
+  type DemoContext,
+  logIn,
+  logOut,
+  PAUSE_MS,
+} from "../support/demo"
 
 /** Account settings: display name, password, sessions, language and theme. */
 export async function account(page: Page, ctx: DemoContext): Promise<void> {
@@ -55,7 +61,7 @@ export async function account(page: Page, ctx: DemoContext): Promise<void> {
   await page.getByRole("radio", { name: "Tối" }).click()
   await expect(page.locator("html")).toHaveClass(/\bdark\b/)
   await page.getByRole("link", { name: "Trò chuyện", exact: true }).click()
-  await page.waitForTimeout(800)
+  await page.waitForTimeout(PAUSE_MS)
   await page.getByRole("link", { name: "Cài đặt" }).click()
   await page.getByRole("radio", { name: "Sáng" }).click()
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/)

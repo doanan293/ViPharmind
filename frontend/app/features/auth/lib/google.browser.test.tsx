@@ -1,10 +1,10 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { afterEach, describe, expect, test, vi } from "vitest"
 
 import { getOauthGoogleCookieAuthorizeMockHandler } from "~/api/gen/endpoints.msw"
 import {
-  NEXT_PATH_STORAGE_KEY,
   completeGoogleLogin,
+  NEXT_PATH_STORAGE_KEY,
   startGoogleLogin,
 } from "~/features/auth/lib/google"
 

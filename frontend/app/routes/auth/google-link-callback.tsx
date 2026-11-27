@@ -2,13 +2,17 @@ import { useTranslation } from "react-i18next"
 import { redirect } from "react-router"
 
 import { getUsersCurrentUserQueryKey } from "~/api/gen/endpoints"
-import { UNKNOWN_ERROR_CODE, isApiError } from "~/api/problem"
+import { isApiError, UNKNOWN_ERROR_CODE } from "~/api/problem"
 import { queryClient } from "~/api/query-client"
 import { Spinner } from "~/components/ui/spinner"
 import { completeGoogleLink } from "~/features/settings/lib/google-link"
 
 import type { Route } from "./+types/google-link-callback"
 
+/**
+ * Links a Google account to the signed-in user and returns to the settings page, with the
+ * error code when linking failed. It always throws a redirect.
+ */
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   try {
     await completeGoogleLink(new URL(request.url))
@@ -22,6 +26,7 @@ export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   throw redirect("/settings")
 }
 
+/** The progress message shown while the Google account is linked. */
 export function HydrateFallback() {
   const { t } = useTranslation("auth")
   return (
@@ -32,6 +37,7 @@ export function HydrateFallback() {
   )
 }
 
+/** Shows the progress message; the client loader redirects before anything else renders. */
 export default function GoogleLinkCallback() {
   return <HydrateFallback />
 }

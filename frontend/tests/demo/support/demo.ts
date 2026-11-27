@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process"
 import { randomUUID } from "node:crypto"
 import path from "node:path"
 
-import { type Page, expect } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 
 export type DemoUser = { email: string; name: string; password: string }
 
@@ -30,15 +30,28 @@ const STACK = path.resolve(
   "../../../../scripts/demo-stack.sh"
 )
 
+/** A short pause between steps, so viewers can follow the video. */
+export const PAUSE_MS = 800
+
+const EMAIL_SUFFIX_LENGTH = 6
+const PASSWORD_SUFFIX_LENGTH = 8
+/** How long to wait for the backend to log an email or SMS. */
+const LOG_WAIT_MS = 30_000
+const LOG_POLL_INTERVAL_MS = 1_000
+/** 64 MiB: the backend log can be long. */
+const LOG_MAX_BUFFER_BYTES = 67_108_864
+/** A real LLM answer can take minutes. */
+const ANSWER_TIMEOUT_MS = 180_000
+
 function uniqueEmail(prefix: string): string {
-  return `${prefix}-${randomUUID().slice(0, 6)}@vipharmind.demo`
+  return `${prefix}-${randomUUID().slice(0, EMAIL_SUFFIX_LENGTH)}@vipharmind.demo`
 }
 
 export function demoUser(prefix: string, name: string): DemoUser {
   return {
     email: uniqueEmail(prefix),
     name,
-    password: `demo-${randomUUID().slice(0, 8)}`,
+    password: `demo-${randomUUID().slice(0, PASSWORD_SUFFIX_LENGTH)}`,
   }
 }
 
@@ -51,17 +64,17 @@ export async function latestCode(
     `not sent to ${to.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:[^\\n]*?(\\d{6})`,
     "g"
   )
-  const deadline = Date.now() + 30_000
+  const deadline = Date.now() + LOG_WAIT_MS
   while (Date.now() < deadline) {
     const logs = execFileSync(
       STACK,
       ["logs", "--since", since.toISOString(), "backend"],
-      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }
+      { encoding: "utf8", maxBuffer: LOG_MAX_BUFFER_BYTES }
     )
     const codes = [...logs.matchAll(pattern)].map((match) => match[1])
     const code = codes.at(-1)
     if (code !== undefined) return code
-    await new Promise((resolve) => setTimeout(resolve, 1_000))
+    await new Promise((resolve) => setTimeout(resolve, LOG_POLL_INTERVAL_MS))
   }
   throw new Error(`no code for ${to} in the backend log`)
 }
@@ -186,15 +199,12 @@ export async function ask(page: Page, question: string): Promise<void> {
   await page.getByRole("button", { name: "Gửi" }).click()
   const waitStarted = Date.now()
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const answered = expect(done).toHaveCount(before + 1, { timeout: 180_000 })
-    const failed = expect(retry).toHaveCount(retriesBefore + 1, {
-      timeout: 180_000,
-    })
-    const outcome = await Promise.any([
-      answered.then(() => "answered" as const),
-      failed.then(() => "failed" as const),
-    ])
-    if (outcome === "answered") {
+    // The new answer's feedback button or a new "Thử lại", whichever appears first.
+    await expect(
+      done.nth(before).or(retry.nth(retriesBefore)).first()
+    ).toBeAttached({ timeout: ANSWER_TIMEOUT_MS })
+    const answered = (await done.count()) > before
+    if (answered) {
       if (recording.startedAt !== null) {
         recording.waits.push([
           waitStarted - recording.startedAt,
@@ -218,19 +228,19 @@ export async function latestInvitationPath(
     `not sent to ${escaped}:[^\\n]*?https?://[^\\s/]+(/invitations/[\\w-]+)`,
     "g"
   )
-  const deadline = Date.now() + 30_000
+  const deadline = Date.now() + LOG_WAIT_MS
   while (Date.now() < deadline) {
     const logs = execFileSync(
       STACK,
       ["logs", "--since", since.toISOString(), "backend"],
       {
         encoding: "utf8",
-        maxBuffer: 64 * 1024 * 1024,
+        maxBuffer: LOG_MAX_BUFFER_BYTES,
       }
     )
     const found = [...logs.matchAll(pattern)].map((match) => match[1]).at(-1)
     if (found !== undefined) return found
-    await new Promise((resolve) => setTimeout(resolve, 1_000))
+    await new Promise((resolve) => setTimeout(resolve, LOG_POLL_INTERVAL_MS))
   }
   throw new Error(`no invitation for ${to} in the backend log`)
 }

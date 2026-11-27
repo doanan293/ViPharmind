@@ -4,11 +4,13 @@ import type { PharmaSourceMetadata } from "~/api/gen/schemas"
 
 import { Sources } from "./elements/sources"
 
+/** Props of `SourcesList`: an answer's cited sources and what selecting one does. */
 export type SourcesListProps = {
   sources: readonly PharmaSourceMetadata[]
   onSelect: (index: number) => void
 }
 
+/** The collapsible source cards under an answer; selecting a card passes its citation number to `onSelect`. */
 export function SourcesList({ sources, onSelect }: SourcesListProps) {
   const [open, setOpen] = useState(false)
   const cards = useMemo(

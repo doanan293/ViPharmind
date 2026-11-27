@@ -11,9 +11,9 @@ import {
 } from "~/components/ui/select"
 import {
   FALLBACK_LANGUAGE,
+  isLanguage,
   type Language,
   SUPPORTED_LANGUAGES,
-  isLanguage,
 } from "~/i18n/config"
 
 /** Endonyms: each language is named in itself, so these labels are not translated. */
@@ -27,6 +27,7 @@ const LANGUAGE_ITEMS = SUPPORTED_LANGUAGES.map((code) => ({
   label: LANGUAGE_NAMES[code],
 }))
 
+/** Chooses the interface language; the choice is posted to /actions/locale, which keeps it in a cookie. */
 export function LanguageSelect() {
   const { t, i18n } = useTranslation("settings")
   const fetcher = useFetcher()

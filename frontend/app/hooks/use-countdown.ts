@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 
+import { MILLISECONDS_PER_SECOND } from "~/lib/time"
+
 /** Whole seconds left until a deadline set with `start`; 0 when idle. */
 export function useCountdown(): {
   secondsLeft: number
@@ -18,7 +20,7 @@ export function useCountdown(): {
       if (current >= deadline) {
         setDeadline(null)
       }
-    }, 1000)
+    }, MILLISECONDS_PER_SECOND)
     return () => {
       window.clearInterval(timer)
     }
@@ -27,10 +29,12 @@ export function useCountdown(): {
   const start = useCallback((seconds: number) => {
     const current = Date.now()
     setNow(current)
-    setDeadline(current + seconds * 1000)
+    setDeadline(current + seconds * MILLISECONDS_PER_SECOND)
   }, [])
 
   const secondsLeft =
-    deadline === null ? 0 : Math.max(0, Math.ceil((deadline - now) / 1000))
+    deadline === null
+      ? 0
+      : Math.max(0, Math.ceil((deadline - now) / MILLISECONDS_PER_SECOND))
   return { secondsLeft, start }
 }

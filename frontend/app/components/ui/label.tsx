@@ -1,9 +1,10 @@
-import * as React from "react"
 import { cn } from "cn"
+import type * as React from "react"
 
 function Label({
   className,
   htmlFor,
+  children,
   ...props
 }: React.ComponentProps<"label">) {
   return (
@@ -15,7 +16,9 @@ function Label({
         className
       )}
       {...props}
-    />
+    >
+      {children}
+    </label>
   )
 }
 

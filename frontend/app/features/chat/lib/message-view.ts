@@ -9,11 +9,13 @@ import { textOf } from "./chat-messages"
 import type { AgentPhase, PharmaUIMessage } from "./message-schema"
 import { citationSourcesOf } from "./sources"
 
+/** What replaces or follows an answer: a guardrail notice, an error, or nothing. */
 export type MessageNotice =
   | { kind: "guardrail"; reason: "blocked" | "redirected" }
   | { kind: "error"; reason: "timeout" | "failed" | "network" }
   | null
 
+/** Everything `MessageParts` needs to render a message, derived from its parts and metadata. */
 export type MessageView = {
   text: string
   hasText: boolean
@@ -26,6 +28,7 @@ export type MessageView = {
   canGiveFeedback: boolean
 }
 
+/** The i18n key of each agent phase's status label. */
 export const PHASE_KEYS = {
   guarding: "phase.guarding",
   understanding: "phase.understanding",
@@ -48,6 +51,10 @@ function noticeOf(message: PharmaUIMessage, failed: boolean): MessageNotice {
   return failed ? { kind: "error", reason: "network" } : null
 }
 
+/**
+ * Derives what to render for a message: its text, latest phase, evidence, sorted sources,
+ * notice and whether it can take feedback. `failed` marks a transport failure without metadata.
+ */
 export function describeMessage(
   message: PharmaUIMessage,
   { streaming, failed }: { streaming: boolean; failed: boolean }

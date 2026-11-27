@@ -1,14 +1,14 @@
 import { createUIMessageStreamResponse, type UIMessageChunk } from "ai"
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { afterEach, describe, expect, test } from "vitest"
+
+import { getChatStreamUrl } from "~/api/gen/endpoints"
 
 import {
   apiAssistantMessage,
   apiUserMessage,
 } from "../../../../tests/chat/fixtures"
 import { worker } from "../../../../tests/msw/browser"
-
-import { getChatStreamUrl } from "~/api/gen/endpoints"
 
 import { toPharmaMessage } from "./chat-messages"
 import { createChatTransport } from "./chat-transport"
@@ -42,12 +42,12 @@ function send() {
 }
 
 describe("createChatTransport", () => {
-  afterEach(() => {
-    document.cookie = "csrftoken=; max-age=0; path=/"
+  afterEach(async () => {
+    await cookieStore.delete({ name: "csrftoken", path: "/" })
   })
 
   test("posts only the conversation id and the last question with the CSRF header", async () => {
-    document.cookie = "csrftoken=token-123; path=/"
+    await cookieStore.set({ name: "csrftoken", value: "token-123", path: "/" })
     const captured: { body: unknown; csrf: string | null }[] = []
     worker.use(
       http.post(`*${getChatStreamUrl()}`, async ({ request }) => {

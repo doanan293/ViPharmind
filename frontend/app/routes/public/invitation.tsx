@@ -4,6 +4,7 @@ import { useParams } from "react-router"
 import { useLogout } from "~/features/auth/hooks/use-logout"
 import { InvitationLanding } from "~/features/organizations/components/InvitationLanding"
 
+/** The page an organization invitation link opens, at `/invitations/:token`. */
 export default function InvitationRoute() {
   const { t } = useTranslation("organizations")
   const { token = "" } = useParams()

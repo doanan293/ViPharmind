@@ -1,3 +1,7 @@
+import { EllipsisVerticalIcon, LogOutIcon, SettingsIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
+import { Link } from "react-router"
+import type { AccountView } from "~/api/gen/schemas"
 import { Avatar, AvatarFallback } from "~/components/ui/avatar"
 import {
   DropdownMenu,
@@ -14,11 +18,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "~/components/ui/sidebar"
-import { EllipsisVerticalIcon, LogOutIcon, SettingsIcon } from "lucide-react"
-import { useTranslation } from "react-i18next"
-import { Link } from "react-router"
-
-import type { AccountView } from "~/api/gen/schemas"
 import { useLogout } from "~/features/auth/hooks/use-logout"
 import { accountLabel } from "~/features/auth/lib/account-label"
 
@@ -33,6 +32,10 @@ function initials(name: string): string {
     .toUpperCase()
 }
 
+/**
+ * The account menu at the bottom of the sidebar: who is signed in, a link to settings and
+ * sign-out.
+ */
 export function NavUser({ account }: { account: AccountView }) {
   const { t } = useTranslation("common")
   const { isMobile } = useSidebar()

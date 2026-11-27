@@ -1,17 +1,20 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { createRoutesStub } from "react-router"
 import { beforeEach, describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
-
-import type { AccountView } from "~/api/gen/schemas"
 import { getListConversationsMockHandler } from "~/api/gen/endpoints.msw"
+import type { AccountView } from "~/api/gen/schemas"
 import { SidebarProvider } from "~/components/ui/sidebar"
 import { TooltipProvider } from "~/components/ui/tooltip"
 import { AppSidebar } from "~/features/shell/components/AppSidebar"
 
 import { worker } from "../../../../tests/msw/browser"
 import { TestProviders } from "../../../../tests/utils/providers"
+
+// Wide enough that the sidebar is expanded rather than an off-canvas sheet.
+const DESKTOP_WIDTH = 1280
+const DESKTOP_HEIGHT = 800
 
 const USER: AccountView = {
   id: "u1",
@@ -58,7 +61,7 @@ async function renderShell() {
 
 describe("AppSidebar", () => {
   beforeEach(async () => {
-    await page.viewport(1280, 800)
+    await page.viewport(DESKTOP_WIDTH, DESKTOP_HEIGHT)
     worker.use(
       getListConversationsMockHandler({ items: [], next_cursor: null })
     )

@@ -1,5 +1,5 @@
-import { http, HttpResponse } from "msw"
-import { createRoutesStub } from "react-router"
+import { HttpResponse, http } from "msw"
+import { createRoutesStub, useParams } from "react-router"
 import { describe, expect, test } from "vitest"
 import { page, userEvent } from "vitest/browser"
 import { render } from "vitest-browser-react"
@@ -79,11 +79,17 @@ function serve(view: CollectionView, superadmin = false) {
   )
 }
 
+/** Renders the page for the route's tab, as the real route module does. */
+function CollectionRoute() {
+  const { tab } = useParams()
+  return <CollectionPage collectionId={ID} tab={tab} />
+}
+
 async function open(tab = "documents") {
   const Stub = createRoutesStub([
     {
       path: "/collections/:collectionId/:tab?",
-      Component: () => <CollectionPage collectionId={ID} tab={tab} />,
+      Component: CollectionRoute,
     },
   ])
   await render(
@@ -95,7 +101,7 @@ async function open(tab = "documents") {
   )
 }
 
-describe("CollectionPage", () => {
+describe("CollectionPage access", () => {
   test("only superadmins can make a collection public", async () => {
     serve(collection())
     await open()
@@ -124,7 +130,9 @@ describe("CollectionPage", () => {
     // Wait for the release list so its request does not outlive the test.
     await expect.element(page.getByText("Chưa xuất bản lần nào.")).toBeVisible()
   })
+})
 
+describe("CollectionPage glossary", () => {
   test("the glossary is saved as a whole list", async () => {
     serve(collection())
     const saved: unknown[] = []
@@ -176,7 +184,38 @@ describe("CollectionPage", () => {
       },
     ])
   })
+})
 
+describe("CollectionPage empty lists", () => {
+  test("an empty glossary says so instead of showing bare buttons", async () => {
+    serve(collection())
+    worker.use(
+      http.get(`*/api/v1/collections/${ID}/glossary`, () =>
+        HttpResponse.json([])
+      )
+    )
+    await open("glossary")
+    await expect.element(page.getByText("Chưa có thuật ngữ nào.")).toBeVisible()
+  })
+
+  test("an empty colloquial list says so", async () => {
+    serve(collection())
+    worker.use(
+      http.get(`*/api/v1/collections/${ID}/colloquial`, () =>
+        HttpResponse.json([])
+      ),
+      http.get(`*/api/v1/collections/${ID}/sections`, () =>
+        HttpResponse.json([])
+      )
+    )
+    await open("colloquial")
+    await expect
+      .element(page.getByText("Chưa có tên gọi dân gian nào."))
+      .toBeVisible()
+  })
+})
+
+describe("CollectionPage publishing", () => {
   test("publishing shows progress until the release is ready", async () => {
     serve(collection())
     let polls = 0
@@ -204,33 +243,6 @@ describe("CollectionPage", () => {
     // The job is polled every two seconds.
     await expect
       .element(page.getByText("Đã xuất bản bản 1."), { timeout: 5000 })
-      .toBeVisible()
-  })
-
-  test("an empty glossary says so instead of showing bare buttons", async () => {
-    serve(collection())
-    worker.use(
-      http.get(`*/api/v1/collections/${ID}/glossary`, () =>
-        HttpResponse.json([])
-      )
-    )
-    await open("glossary")
-    await expect.element(page.getByText("Chưa có thuật ngữ nào.")).toBeVisible()
-  })
-
-  test("an empty colloquial list says so", async () => {
-    serve(collection())
-    worker.use(
-      http.get(`*/api/v1/collections/${ID}/colloquial`, () =>
-        HttpResponse.json([])
-      ),
-      http.get(`*/api/v1/collections/${ID}/sections`, () =>
-        HttpResponse.json([])
-      )
-    )
-    await open("colloquial")
-    await expect
-      .element(page.getByText("Chưa có tên gọi dân gian nào."))
       .toBeVisible()
   })
 })

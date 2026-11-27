@@ -14,6 +14,10 @@ function isRateLimited(error: unknown): boolean {
 /** The backend's minimum gap between two codes to the same address. */
 const RESEND_COOLDOWN_SECONDS = 60
 
+/**
+ * "Resend code" link with a cooldown: it waits the backend's gap after a send, or the 429's
+ * Retry-After. `onResend` must reject with the API error when the send fails.
+ */
 export function ResendCodeButton({
   onResend,
   sendError = null,

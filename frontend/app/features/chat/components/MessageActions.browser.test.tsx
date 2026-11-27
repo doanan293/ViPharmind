@@ -1,6 +1,6 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { useState } from "react"
-import { describe, expect, test, vi } from "vitest"
+import { beforeEach, describe, expect, test, vi } from "vitest"
 import { page, userEvent } from "vitest/browser"
 
 import type { MessageFeedback } from "~/api/gen/schemas"
@@ -17,22 +17,23 @@ type FeedbackChange = (
   feedback: MessageFeedback | null
 ) => void
 
-function actionsPage(onChange: FeedbackChange) {
-  return function Page() {
-    const [feedback, setFeedback] = useState<MessageFeedback | null>(null)
-    return (
-      <MessageActions
-        conversationId="c1"
-        messageId="a1"
-        text="Người lớn 500 mg [1]."
-        feedback={feedback}
-        onFeedbackChange={(messageId, next) => {
-          onChange(messageId, next)
-          setFeedback(next)
-        }}
-      />
-    )
-  }
+/** Receives every feedback change the page under test reports; cleared before each test. */
+const onChange = vi.fn<FeedbackChange>()
+
+function ActionsPage() {
+  const [feedback, setFeedback] = useState<MessageFeedback | null>(null)
+  return (
+    <MessageActions
+      conversationId="c1"
+      messageId="a1"
+      text="Người lớn 500 mg [1]."
+      feedback={feedback}
+      onFeedbackChange={(messageId, next) => {
+        onChange(messageId, next)
+        setFeedback(next)
+      }}
+    />
+  )
 }
 
 function captureFeedback(): unknown[] {
@@ -41,7 +42,7 @@ function captureFeedback(): unknown[] {
     http.post(FEEDBACK_URL, async ({ request, params }) => {
       bodies.push(await request.json())
       return HttpResponse.json({
-        message_id: String(params["messageId"]),
+        message_id: String(params.messageId),
         rating: "up",
         note: "",
       })
@@ -51,10 +52,13 @@ function captureFeedback(): unknown[] {
 }
 
 describe("MessageActions", () => {
+  beforeEach(() => {
+    onChange.mockClear()
+  })
+
   test("sends Hữu ích and marks it pressed", async () => {
     const bodies = captureFeedback()
-    const onChange = vi.fn<FeedbackChange>()
-    await renderRoutes(actionsPage(onChange), { initialEntry: "/chat/c1" })
+    await renderRoutes(ActionsPage, { initialEntry: "/chat/c1" })
     const up = page.getByRole("button", { name: "Hữu ích", exact: true })
     await up.click()
     await expect.element(up).toHaveAttribute("aria-pressed", "true")
@@ -64,7 +68,7 @@ describe("MessageActions", () => {
 
   test("sends Chưa hữu ích, then the reasons and note from the dialog", async () => {
     const bodies = captureFeedback()
-    await renderRoutes(actionsPage(vi.fn<FeedbackChange>()), {
+    await renderRoutes(ActionsPage, {
       initialEntry: "/chat/c1",
     })
     await page.getByRole("button", { name: "Chưa hữu ích" }).click()
@@ -100,8 +104,7 @@ describe("MessageActions", () => {
         )
       )
     )
-    const onChange = vi.fn<FeedbackChange>()
-    await renderRoutes(actionsPage(onChange), { initialEntry: "/chat/c1" })
+    await renderRoutes(ActionsPage, { initialEntry: "/chat/c1" })
     const up = page.getByRole("button", { name: "Hữu ích", exact: true })
     await up.click()
     await expect
@@ -115,7 +118,7 @@ describe("MessageActions", () => {
     const writeText = vi
       .spyOn(navigator.clipboard, "writeText")
       .mockResolvedValue(undefined)
-    await renderRoutes(actionsPage(vi.fn<FeedbackChange>()), {
+    await renderRoutes(ActionsPage, {
       initialEntry: "/chat/c1",
     })
     await page.getByRole("button", { name: "Sao chép" }).click()

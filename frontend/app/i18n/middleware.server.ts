@@ -2,11 +2,11 @@ import { initReactI18next } from "react-i18next"
 import { createI18nextMiddleware } from "remix-i18next"
 
 import {
-  FALLBACK_LANGUAGE,
-  SUPPORTED_LANGUAGES,
   documentPathname,
+  FALLBACK_LANGUAGE,
   i18nextOptions,
   publicPageLocale,
+  SUPPORTED_LANGUAGES,
 } from "~/i18n/config"
 import { localeCookie } from "~/i18n/locale.server"
 

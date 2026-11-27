@@ -8,7 +8,7 @@ import {
 import { NameForm } from "~/components/name-form"
 import { Badge } from "~/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Spinner } from "~/components/ui/spinner"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import {
   Item,
   ItemActions,
@@ -17,8 +17,9 @@ import {
   ItemGroup,
   ItemTitle,
 } from "~/components/ui/item"
-import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
+import { Spinner } from "~/components/ui/spinner"
 
+/** The user's organizations, with a form to create a new one that opens it. */
 export function OrganizationsPage() {
   const { t } = useTranslation("organizations")
   const navigate = useNavigate()

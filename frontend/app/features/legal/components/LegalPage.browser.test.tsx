@@ -1,22 +1,18 @@
+import { MemoryRouter } from "react-router"
 import { describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
-import { createRoutesStub } from "react-router"
 
 import { LegalPage } from "~/features/legal/components/LegalPage"
 
 import { TestProviders } from "../../../../tests/utils/providers"
 
 async function open(document: "privacy" | "terms", locale: "vi" | "en") {
-  const Stub = createRoutesStub([
-    {
-      path: "/",
-      Component: () => <LegalPage document={document} locale={locale} />,
-    },
-  ])
   await render(
     <TestProviders language={locale}>
-      <Stub initialEntries={["/"]} />
+      <MemoryRouter>
+        <LegalPage document={document} locale={locale} />
+      </MemoryRouter>
     </TestProviders>
   )
 }

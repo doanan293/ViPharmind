@@ -14,11 +14,16 @@ const components: Components = { "cite-ref": CitationMarker }
 // remend keeps its link handler while either `links` or `images` is enabled, so both are off.
 const remendOptions = { links: false, images: false }
 
+/** Props of `AnswerMarkdown`: the answer text and whether it is still streaming. */
 export type AnswerMarkdownProps = {
   text: string
   streaming: boolean
 }
 
+/**
+ * Renders an answer's Markdown with Streamdown and turns each complete `[n]` marker into a
+ * citation badge. Must sit inside a `MessageCitationsProvider` for the badges to resolve.
+ */
 export function AnswerMarkdown({ text, streaming }: AnswerMarkdownProps) {
   const markup = useMemo(() => toCiteRefMarkup(text), [text])
   return (

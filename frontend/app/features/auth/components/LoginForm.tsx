@@ -1,97 +1,21 @@
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
-import { Controller, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router"
-import { z } from "zod"
 
+import { FieldGroup } from "~/components/ui/field"
 import {
-  getUsersCurrentUserQueryKey,
-  useAuthCookieLogin,
-  useAuthEmailVerifyRequest,
-} from "~/api/gen/endpoints"
-import { isApiError } from "~/api/problem"
-import { AuthCookieLoginBody } from "~/api/gen/zod"
-import { Button } from "~/components/ui/button"
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "~/components/ui/field"
-import { Input } from "~/components/ui/input"
-import { Spinner } from "~/components/ui/spinner"
-import {
-  type VerificationRequest,
-  VerifyEmailStep,
-  requestVerificationCode,
-} from "~/features/auth/components/VerifyEmailStep"
-import { apiErrorMessage } from "~/i18n/error-message"
-import { applyApiError } from "~/lib/form-errors"
+  FormSubmit,
+  FormTextField,
+} from "~/features/auth/components/FormFields"
+import { VerifyEmailStep } from "~/features/auth/components/VerifyEmailStep"
+import { useLoginForm } from "~/features/auth/hooks/use-login-form"
 
-const loginSchema = AuthCookieLoginBody.pick({
-  username: true,
-  password: true,
-}).extend({
-  username: z.email(),
-  password: z.string().min(1),
-})
-
-type LoginValues = z.infer<typeof loginSchema>
-
-const LOGIN_FIELDS = ["username", "password"] as const
-
+/** Email and password sign-in; an unverified account continues with the email code step. */
 export function LoginForm({ nextPath }: { nextPath: string }) {
   const { t } = useTranslation("auth")
-  const { t: tErrors } = useTranslation("errors")
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const login = useAuthCookieLogin({
-    mutation: { meta: { skipAuthRedirect: true } },
-  })
-  const requestCode = useAuthEmailVerifyRequest({
-    mutation: { meta: { skipAuthRedirect: true } },
-  })
-  const [unverified, setUnverified] = useState<VerificationRequest | null>(null)
-  const form = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { username: "", password: "" },
-  })
-
-  async function onSubmit(values: LoginValues) {
-    try {
-      await login.mutateAsync({ data: values })
-    } catch (error) {
-      if (isApiError(error) && error.code === "EMAIL_NOT_VERIFIED") {
-        setUnverified(
-          await requestVerificationCode(
-            (email) => requestCode.mutateAsync({ data: { email } }),
-            values.username,
-            values.password
-          )
-        )
-        return
-      }
-      applyApiError(
-        error,
-        form.setError,
-        LOGIN_FIELDS,
-        apiErrorMessage(error, tErrors)
-      )
-      return
-    }
-    await queryClient.invalidateQueries({
-      queryKey: getUsersCurrentUserQueryKey(),
-    })
-    await navigate(nextPath, { replace: true })
-  }
+  const { form, onSubmit, unverified } = useLoginForm(nextPath)
 
   if (unverified !== null) {
     return <VerifyEmailStep request={unverified} nextPath={nextPath} />
   }
-
-  const serverError = form.formState.errors.root?.server?.message
 
   return (
     <form
@@ -100,48 +24,28 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
       className="flex flex-col gap-6"
     >
       <FieldGroup>
-        <Controller
+        <FormTextField
+          control={form.control}
           name="username"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="login-email">{t("email")}</FieldLabel>
-              <Input
-                {...field}
-                id="login-email"
-                type="email"
-                autoComplete="email"
-                aria-invalid={fieldState.invalid}
-              />
-              <FieldError errors={[fieldState.error]} />
-            </Field>
-          )}
+          id="login-email"
+          label={t("email")}
+          type="email"
+          autoComplete="email"
         />
-        <Controller
-          name="password"
+        <FormTextField
           control={form.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="login-password">{t("password")}</FieldLabel>
-              <Input
-                {...field}
-                id="login-password"
-                type="password"
-                autoComplete="current-password"
-                aria-invalid={fieldState.invalid}
-              />
-              <FieldError errors={[fieldState.error]} />
-            </Field>
-          )}
+          name="password"
+          id="login-password"
+          label={t("password")}
+          type="password"
+          autoComplete="current-password"
         />
       </FieldGroup>
-      {serverError === undefined ? null : (
-        <FieldError>{serverError}</FieldError>
-      )}
-      <Button type="submit" disabled={form.formState.isSubmitting}>
-        {form.formState.isSubmitting ? <Spinner /> : null}
-        {t("login.submit")}
-      </Button>
+      <FormSubmit
+        serverError={form.formState.errors.root?.server?.message}
+        isSubmitting={form.formState.isSubmitting}
+        label={t("login.submit")}
+      />
     </form>
   )
 }

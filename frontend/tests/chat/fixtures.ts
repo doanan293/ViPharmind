@@ -64,6 +64,9 @@ export function apiAssistantMessage(
   }
 }
 
+/** Sentences of filler per scripted answer, enough to make a long conversation scroll. */
+const ANSWER_FILLER_SENTENCES = 12
+
 export function conversationTurns(
   count: number,
   prefix: string
@@ -74,7 +77,7 @@ export function conversationTurns(
       apiUserMessage(`${prefix}-u${turn}`, `Câu hỏi ${prefix} ${turn}`),
       apiAssistantMessage(
         `${prefix}-a${turn}`,
-        `Trả lời ${prefix} ${turn}\n\n${"Nội dung chi tiết. ".repeat(12)}`
+        `Trả lời ${prefix} ${turn}\n\n${"Nội dung chi tiết. ".repeat(ANSWER_FILLER_SENTENCES)}`
       ),
     ]
   }).flat()

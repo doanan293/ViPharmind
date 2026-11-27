@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { createRoutesStub } from "react-router"
 import { describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
@@ -31,6 +31,31 @@ function user(overrides: Partial<AdminUserView> = {}): AdminUserView {
   }
 }
 
+/** The section the route component passes; `open` sets it before rendering. */
+const route = { section: "users" }
+
+function AdminRoute() {
+  return <AdminPage section={route.section} />
+}
+
+function NotFound() {
+  return <p>Không tìm thấy trang</p>
+}
+
+function Loading() {
+  return <p>Đang tải</p>
+}
+
+const Stub = createRoutesStub([
+  {
+    path: "/admin/:section?",
+    loader: adminLoader,
+    Component: AdminRoute,
+    ErrorBoundary: NotFound,
+    HydrateFallback: Loading,
+  },
+])
+
 async function open(
   superadmin: boolean,
   collections: unknown[] = [],
@@ -48,15 +73,7 @@ async function open(
     ),
     http.get("*/api/v1/admin/ingest-jobs", () => HttpResponse.json(jobs))
   )
-  const Stub = createRoutesStub([
-    {
-      path: "/admin/:section?",
-      loader: adminLoader,
-      Component: () => <AdminPage section={section} />,
-      ErrorBoundary: () => <p>Không tìm thấy trang</p>,
-      HydrateFallback: () => <p>Đang tải</p>,
-    },
-  ])
+  route.section = section
   await render(
     <TestProviders>
       <Toaster>
@@ -100,32 +117,44 @@ describe("AdminPage", () => {
       .element(page.getByText("Đã khoá", { exact: true }))
       .toBeVisible()
   })
+})
 
+/** A collection row of the overview with its document and vector counts; only "a" is released. */
+function stat(
+  id: string,
+  { documents, points }: { documents: number; points: number }
+) {
+  return {
+    collection: {
+      id,
+      key: id,
+      title: id,
+      visibility: "private",
+      owner_user_id: null,
+      owner_organization_id: null,
+      owner_name: "",
+      is_system: false,
+      can_edit: false,
+      can_set_public: false,
+      current_release_id: null,
+      current_release_number: id === "a" ? 1 : null,
+    },
+    documents,
+    qdrant_points: points,
+  }
+}
+
+describe("AdminPage overview", () => {
   test("the overview cards add up the collections", async () => {
-    const stat = (id: string, documents: number, points: number) => ({
-      collection: {
-        id,
-        key: id,
-        title: id,
-        visibility: "private",
-        owner_user_id: null,
-        owner_organization_id: null,
-        owner_name: "",
-        is_system: false,
-        can_edit: false,
-        can_set_public: false,
-        current_release_id: null,
-        current_release_number: id === "a" ? 1 : null,
-      },
-      documents,
-      qdrant_points: points,
-    })
     worker.use(
       http.get("*/api/v1/admin/users", () =>
         HttpResponse.json({ items: [], next_cursor: null })
       )
     )
-    await open(true, [stat("a", 3, 1200), stat("b", 4, 800)])
+    await open(true, [
+      stat("a", { documents: 3, points: 1200 }),
+      stat("b", { documents: 4, points: 800 }),
+    ])
     await expect.element(page.getByText("2.000")).toBeVisible()
     await expect
       .element(page.getByText("1 đang có bản phát hành"))

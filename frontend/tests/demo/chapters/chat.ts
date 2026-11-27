@@ -1,6 +1,12 @@
-import { type Page, expect } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 
-import { type DemoContext, ask, caption, logIn } from "../support/demo"
+import {
+  ask,
+  caption,
+  type DemoContext,
+  logIn,
+  PAUSE_MS,
+} from "../support/demo"
 
 /** Drug Q&A: streamed answer with steps and citations, a follow-up, an off-topic question, feedback. */
 export async function chat(page: Page, ctx: DemoContext): Promise<void> {
@@ -17,13 +23,13 @@ export async function chat(page: Page, ctx: DemoContext): Promise<void> {
   const marker = page.getByRole("button", { name: /^\d{1,3}$/ }).first()
   await marker.hover()
   await expect(page.getByText(/^Trích từ mục /)).toBeVisible()
-  await page.waitForTimeout(800)
+  await page.waitForTimeout(PAUSE_MS)
   await caption(page, "Bấm vào trích dẫn để mở nguyên văn đoạn tài liệu")
   await marker.click()
   await expect(
     page.getByRole("heading", { name: /^Nguồn \[\d+\]$/ })
   ).toBeVisible()
-  await page.waitForTimeout(800)
+  await page.waitForTimeout(PAUSE_MS)
   await page.keyboard.press("Escape")
 
   await caption(page, "Câu hỏi nối tiếp hiểu ngữ cảnh của câu trước")
@@ -37,5 +43,5 @@ export async function chat(page: Page, ctx: DemoContext): Promise<void> {
     .getByRole("button", { name: "Hữu ích", exact: true })
     .first()
     .click()
-  await page.waitForTimeout(800)
+  await page.waitForTimeout(PAUSE_MS)
 }

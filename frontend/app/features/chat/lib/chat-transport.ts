@@ -22,6 +22,10 @@ function lastUserText(messages: readonly PharmaUIMessage[]): string {
   return ""
 }
 
+/**
+ * The AI SDK transport for the chat stream endpoint. It sends the session cookie and CSRF
+ * header, and only the conversation id and the last question, since the backend keeps history.
+ */
 export function createChatTransport(): DefaultChatTransport<PharmaUIMessage> {
   return new DefaultChatTransport<PharmaUIMessage>({
     api: getChatStreamUrl(),

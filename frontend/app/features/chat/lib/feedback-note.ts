@@ -1,5 +1,6 @@
 import { submitFeedbackBodyNoteMax } from "~/api/gen/zod"
 
+/** Builds the feedback note as `[reason, ...] note`, cut to the backend's maximum note length. */
 export function composeFeedbackNote(
   reasonLabels: readonly string[],
   note: string

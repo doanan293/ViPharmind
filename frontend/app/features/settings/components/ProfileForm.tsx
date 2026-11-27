@@ -20,6 +20,7 @@ import { createProfileSchema } from "../lib/account-schemas"
 
 const PROFILE_FIELDS = ["display_name"] as const
 
+/** Edits the signed-in user's display name and updates the cached account on save. */
 export function ProfileForm({ user }: { user: AccountView }) {
   const { t } = useTranslation("settings")
   const { t: tErrors } = useTranslation("errors")
@@ -35,7 +36,7 @@ export function ProfileForm({ user }: { user: AccountView }) {
   )
   const form = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { display_name: user.display_name ?? "" },
+    defaultValues: { display_name: user.display_name },
   })
   const rootError = form.formState.errors.root?.server?.message
 

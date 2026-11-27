@@ -1,9 +1,0 @@
-node_modules/
-build/
-.react-router/
-coverage/
-playwright-report/
-test-results/
-package-lock.json
-openapi.json
-tests/public/mockServiceWorker.js

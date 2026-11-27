@@ -3,8 +3,11 @@ import { z } from "zod"
 
 import { applyZodLocale } from "~/i18n/zod-locale"
 
+/** The shortest length the probe schema accepts, so "a" is too short. */
+const MIN_LENGTH = 3
+
 function tooShortMessage(): string | undefined {
-  return z.string().min(3).safeParse("a").error?.issues[0]?.message
+  return z.string().min(MIN_LENGTH).safeParse("a").error?.issues[0]?.message
 }
 
 describe("applyZodLocale", () => {

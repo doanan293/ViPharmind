@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest"
-
-import { AuditAction } from "~/api/gen/schemas"
 import type { AuditEventView } from "~/api/gen/schemas"
+import { AuditAction } from "~/api/gen/schemas"
 
 import { createTestI18n } from "../../../../tests/utils/i18n"
 import { describeEvent } from "./describe-event"
@@ -13,7 +12,7 @@ function event(overrides: Partial<AuditEventView>): AuditEventView {
     actor_user_id: "u1",
     actor_name: "An",
     actor_was_superadmin: false,
-    action: AuditAction["organizationcreated"],
+    action: AuditAction.organizationcreated,
     organization_id: null,
     subject_user_id: null,
     subject_name: "",
@@ -68,7 +67,7 @@ describe("describeEvent", () => {
   test("names the member an event is about, or says 'a member' when unknown", () => {
     const t = createTestI18n("vi").getFixedT("vi", "audit")
     const changed = event({
-      action: AuditAction["memberrole_changed"],
+      action: AuditAction.memberrole_changed,
       subject_user_id: "u2",
       subject_name: "Dược sĩ Lợi",
       details: { from: "member", to: "editor" },
@@ -78,7 +77,7 @@ describe("describeEvent", () => {
     )
     expect(
       describeEvent(
-        event({ action: AuditAction["memberremoved"], subject_user_id: "u3" }),
+        event({ action: AuditAction.memberremoved, subject_user_id: "u3" }),
         t
       )
     ).toBe("An đã xoá một thành viên khỏi tổ chức")

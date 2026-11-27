@@ -1,8 +1,10 @@
+import { RouterContextProvider } from "react-router"
 import { afterEach, describe, expect, test, vi } from "vitest"
 
-import { RouterContextProvider } from "react-router"
-
 import { action, loader } from "./api-proxy"
+
+const HTTP_NO_CONTENT = 204
+const HTTP_SERVICE_UNAVAILABLE = 503
 
 type Forwarded = { url: string; init: RequestInit & { duplex?: string } }
 
@@ -87,7 +89,7 @@ describe("api proxy", () => {
     expect(await new Response(calls[0]?.init.body).text()).toBe(
       "username=a%40b.c&password=x"
     )
-    expect(response.status).toBe(204)
+    expect(response.status).toBe(HTTP_NO_CONTENT)
     expect(response.headers.getSetCookie()).toEqual([
       "pharma_session=new; HttpOnly",
       "csrftoken=t; Path=/",
@@ -142,7 +144,7 @@ describe("api proxy failures", () => {
     const response = await loader(
       args(new Request("https://vipharmind.vercel.app/api/v1/users/me"))
     )
-    expect(response.status).toBe(503)
+    expect(response.status).toBe(HTTP_SERVICE_UNAVAILABLE)
     expect(response.headers.get("content-type")).toBe(
       "application/problem+json"
     )

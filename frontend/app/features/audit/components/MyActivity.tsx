@@ -6,6 +6,7 @@ import { AuditList } from "./AuditList"
 
 const PAGE_SIZE = 50
 
+/** The signed-in user's own activity log, loaded a page at a time. */
 export function MyActivity() {
   const { t } = useTranslation("audit")
   const query = useAuditMineInfinite(

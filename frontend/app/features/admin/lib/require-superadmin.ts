@@ -12,6 +12,7 @@ async function requireSuperadmin(request: Request): Promise<AccountView> {
   return user
 }
 
+/** Loader of the admin routes: returns the superadmin, or redirects to /login or throws a 404. */
 export async function adminLoader({ request }: LoaderFunctionArgs) {
   return { user: await requireSuperadmin(request) }
 }

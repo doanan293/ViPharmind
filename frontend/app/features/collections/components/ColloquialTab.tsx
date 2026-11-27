@@ -11,12 +11,12 @@ import {
 import type { ColloquialMappingRecord, SectionChoice } from "~/api/gen/schemas"
 import { TagsInput } from "~/components/tags-input"
 import { Button } from "~/components/ui/button"
-import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import { Input } from "~/components/ui/input"
 import { Spinner } from "~/components/ui/spinner"
 import { toast } from "~/components/ui/toast"
 import { apiErrorMessage } from "~/i18n/error-message"
 
+import { EmptyRows, RowListActions } from "./RowListActions"
 import { SectionPicker } from "./SectionPicker"
 
 interface Row {
@@ -55,6 +55,69 @@ function toRecord(row: Row): ColloquialMappingRecord {
   }
 }
 
+type Labels = Record<
+  (typeof TEXT_FIELDS)[number] | (typeof LIST_FIELDS)[number],
+  string
+>
+
+function ColloquialRow({
+  row,
+  choices,
+  labels,
+  editable,
+  handlers,
+}: {
+  row: Row
+  choices: SectionChoice[]
+  labels: Labels
+  editable: boolean
+  handlers: { onChange: (patch: Partial<Row>) => void; onRemove: () => void }
+}) {
+  const { t } = useTranslation("collections")
+  const { onChange, onRemove } = handlers
+  return (
+    <li className="grid gap-2 rounded-lg border p-3 sm:grid-cols-4">
+      {TEXT_FIELDS.map((field) => (
+        <Input
+          key={field}
+          aria-label={labels[field]}
+          placeholder={labels[field]}
+          value={row[field]}
+          readOnly={!editable}
+          onChange={(event) => onChange({ [field]: event.target.value })}
+        />
+      ))}
+      {LIST_FIELDS.map((field) => (
+        <TagsInput
+          key={field}
+          label={labels[field]}
+          placeholder={labels[field]}
+          value={row[field]}
+          disabled={!editable}
+          onValueChange={(value) => onChange({ [field]: value })}
+        />
+      ))}
+      <div className="flex items-start gap-2 sm:col-span-4">
+        <div className="flex-1">
+          <SectionPicker
+            choices={choices}
+            value={row.sections}
+            label={t("colloquial.sections")}
+            empty={t("colloquial.noSections")}
+            disabled={!editable}
+            onValueChange={(sections) => onChange({ sections })}
+          />
+        </div>
+        {editable ? (
+          <Button variant="ghost" size="sm" onClick={onRemove}>
+            {t("colloquial.remove")}
+          </Button>
+        ) : null}
+      </div>
+    </li>
+  )
+}
+
 function ColloquialEditor({
   collectionId,
   records,
@@ -71,7 +134,7 @@ function ColloquialEditor({
   const queryClient = useQueryClient()
   const save = useCollectionsColloquialPut()
   const [rows, setRows] = useState(() => records.map(toRow))
-  const labels = {
+  const labels: Labels = {
     key: t("colloquial.key"),
     aliases: t("colloquial.aliases"),
     visualSign: t("colloquial.visualSign"),
@@ -84,111 +147,56 @@ function ColloquialEditor({
     )
   }
 
+  function remove(id: number) {
+    setRows((current) => current.filter((other) => other.id !== id))
+  }
+
+  function saveAll() {
+    save.mutate(
+      {
+        collectionId,
+        data: rows.filter((row) => row.key.trim() !== "").map(toRecord),
+      },
+      {
+        onSuccess: (saved) => {
+          queryClient.setQueryData(
+            getCollectionsColloquialGetQueryKey(collectionId),
+            saved
+          )
+          toast.add({ type: "success", title: t("colloquial.saved") })
+        },
+        onError: (error) =>
+          toast.add({ type: "error", title: apiErrorMessage(error, tErrors) }),
+      }
+    )
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      {rows.length === 0 ? (
-        <Empty className="border">
-          <EmptyHeader>
-            <EmptyDescription>{t("colloquial.empty")}</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : null}
+      {rows.length === 0 ? <EmptyRows text={t("colloquial.empty")} /> : null}
       <ul className="flex flex-col gap-3">
         {rows.map((row) => (
-          <li
+          <ColloquialRow
             key={row.id}
-            className="grid gap-2 rounded-lg border p-3 sm:grid-cols-4"
-          >
-            {TEXT_FIELDS.map((field) => (
-              <Input
-                key={field}
-                aria-label={labels[field]}
-                placeholder={labels[field]}
-                value={row[field]}
-                readOnly={!editable}
-                onChange={(event) =>
-                  change(row.id, { [field]: event.target.value })
-                }
-              />
-            ))}
-            {LIST_FIELDS.map((field) => (
-              <TagsInput
-                key={field}
-                label={labels[field]}
-                placeholder={labels[field]}
-                value={row[field]}
-                disabled={!editable}
-                onValueChange={(value) => change(row.id, { [field]: value })}
-              />
-            ))}
-            <div className="flex items-start gap-2 sm:col-span-4">
-              <div className="flex-1">
-                <SectionPicker
-                  choices={choices}
-                  value={row.sections}
-                  label={t("colloquial.sections")}
-                  empty={t("colloquial.noSections")}
-                  disabled={!editable}
-                  onValueChange={(sections) => change(row.id, { sections })}
-                />
-              </div>
-              {editable ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setRows((current) =>
-                      current.filter((other) => other.id !== row.id)
-                    )
-                  }
-                >
-                  {t("colloquial.remove")}
-                </Button>
-              ) : null}
-            </div>
-          </li>
+            row={row}
+            choices={choices}
+            labels={labels}
+            editable={editable}
+            handlers={{
+              onChange: (patch) => change(row.id, patch),
+              onRemove: () => remove(row.id),
+            }}
+          />
         ))}
       </ul>
       {editable ? (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() =>
-              setRows((current) => [...current, toRow({ key: "" })])
-            }
-          >
-            {t("colloquial.add")}
-          </Button>
-          <Button
-            disabled={save.isPending}
-            onClick={() =>
-              save.mutate(
-                {
-                  collectionId,
-                  data: rows
-                    .filter((row) => row.key.trim() !== "")
-                    .map(toRecord),
-                },
-                {
-                  onSuccess: (saved) => {
-                    queryClient.setQueryData(
-                      getCollectionsColloquialGetQueryKey(collectionId),
-                      saved
-                    )
-                    toast.add({ type: "success", title: t("colloquial.saved") })
-                  },
-                  onError: (error) =>
-                    toast.add({
-                      type: "error",
-                      title: apiErrorMessage(error, tErrors),
-                    }),
-                }
-              )
-            }
-          >
-            {t("colloquial.save")}
-          </Button>
-        </div>
+        <RowListActions
+          addLabel={t("colloquial.add")}
+          saveLabel={t("colloquial.save")}
+          saving={save.isPending}
+          onAdd={() => setRows((current) => [...current, toRow({ key: "" })])}
+          onSave={saveAll}
+        />
       ) : null}
     </div>
   )

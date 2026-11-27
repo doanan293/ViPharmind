@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { useMessageScrollerScrollable } from "~/components/ui/message-scroller"
 import { Spinner } from "~/components/ui/spinner"
 
+/** Props of `OlderMessagesLoader`: the history paging state and what the thread has measured. */
 export type OlderMessagesLoaderProps = {
   hasOlder: boolean
   loadingOlder: boolean
@@ -12,6 +13,10 @@ export type OlderMessagesLoaderProps = {
   onLoadOlder: () => void
 }
 
+/**
+ * Requests the next older history page when the user scrolls to the top or the thread fits
+ * without scrolling, and shows a spinner while it loads. Must sit inside a `MessageScroller`.
+ */
 export function OlderMessagesLoader({
   hasOlder,
   loadingOlder,

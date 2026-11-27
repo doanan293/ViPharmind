@@ -2,6 +2,7 @@ import type { ParseKeys } from "i18next"
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
+/** A translation key of the admin namespace. */
 export type AdminKey = ParseKeys<"admin">
 
 /** A column header translated in the admin namespace. */
@@ -26,6 +27,7 @@ export function DateCell({
   }).format(new Date(value))
 }
 
+/** A number formatted for the interface language. */
 export function NumberCell({ value }: { value: number }): ReactNode {
   const { i18n } = useTranslation()
   return new Intl.NumberFormat(i18n.language).format(value)

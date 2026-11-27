@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { createRoutesStub } from "react-router"
 import { describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
@@ -83,13 +83,27 @@ function serve(
   )
 }
 
+/** The tab the route component passes; `open` sets it before rendering. */
+const route = { tab: "members" }
+
+function OrganizationRoute() {
+  return <OrganizationPage organizationId={ORG} tab={route.tab} />
+}
+
+function OrganizationsList() {
+  return <p>Danh sách tổ chức</p>
+}
+
+const Stub = createRoutesStub([
+  {
+    path: "/organizations/:organizationId/:tab?",
+    Component: OrganizationRoute,
+  },
+  { path: "/organizations", Component: OrganizationsList },
+])
+
 async function open(tab = "members") {
-  const Stub = createRoutesStub([
-    {
-      path: "/organizations/:organizationId/:tab?",
-      Component: () => <OrganizationPage organizationId={ORG} tab={tab} />,
-    },
-  ])
+  route.tab = tab
   await render(
     <TestProviders>
       <Toaster>
@@ -106,7 +120,7 @@ async function expectInvitationsReloaded() {
   await expect.poll(() => served.invitations).toBe(2)
 }
 
-describe("OrganizationPage", () => {
+describe("OrganizationPage members", () => {
   test("members see no log tab and no owner actions", async () => {
     serve("member")
     await open()
@@ -153,7 +167,9 @@ describe("OrganizationPage", () => {
     await expect.poll(() => served.members).toBe(loadsBeforeChange + 1)
     await expect.element(page.getByLabelText("Vai trò của Bình")).toBeVisible()
   })
+})
 
+describe("OrganizationPage member removal", () => {
   test("owners confirm before removing a member", async () => {
     serve("owner")
     let removed = 0
@@ -184,7 +200,9 @@ describe("OrganizationPage", () => {
     // The list reloads after the removal; wait for it before the handlers reset.
     await expect.poll(() => served.members).toBe(loadsBeforeRemove + 1)
   })
+})
 
+describe("OrganizationPage invitations", () => {
   test("a member's invitation waits for approval and an owner approves it", async () => {
     serve("member")
     const created: unknown[] = []
@@ -228,5 +246,265 @@ describe("OrganizationPage", () => {
     await page.getByRole("button", { name: "Duyệt" }).click()
     await expect.poll(() => approved).toBe(1)
     await expectInvitationsReloaded()
+  })
+})
+
+function problem({ status, code }: { status: number; code: string }) {
+  return HttpResponse.json(
+    { type: "about:blank", title: code, status, code },
+    { status, headers: { "Content-Type": "application/problem+json" } }
+  )
+}
+
+describe("OrganizationPage owner actions", () => {
+  test("owners rename the organization", async () => {
+    serve("owner")
+    const renames: unknown[] = []
+    worker.use(
+      http.patch(`*/api/v1/organizations/${ORG}`, async ({ request }) => {
+        const body = (await request.json()) as { name: string }
+        renames.push(body)
+        return HttpResponse.json({ ...organization("owner"), name: body.name })
+      })
+    )
+    await open()
+    await page.getByRole("button", { name: "Đổi tên" }).click()
+    const name = page.getByLabelText("Tên tổ chức")
+    await expect.element(name).toHaveValue("Khoa Dược")
+    await name.fill("Khoa Dược lâm sàng")
+    await page.getByRole("button", { name: "Lưu" }).click()
+    await expect.poll(() => renames).toEqual([{ name: "Khoa Dược lâm sàng" }])
+    await expect
+      .element(page.getByRole("heading", { name: "Khoa Dược lâm sàng" }))
+      .toBeVisible()
+    await expect.element(page.getByText("Bình")).toBeVisible()
+  })
+
+  test("cancelling a rename keeps the name and asks nothing", async () => {
+    serve("owner")
+    await open()
+    await page.getByRole("button", { name: "Đổi tên" }).click()
+    await page.getByRole("button", { name: "Huỷ" }).click()
+    await expect
+      .element(page.getByRole("heading", { name: "Khoa Dược" }))
+      .toBeVisible()
+    await expect.element(page.getByText("Bình")).toBeVisible()
+  })
+})
+
+describe("OrganizationPage delete and leave", () => {
+  test("deleting needs the typed name, then returns to the organization list", async () => {
+    serve("owner")
+    const deletes: unknown[] = []
+    worker.use(
+      http.delete(`*/api/v1/organizations/${ORG}`, async ({ request }) => {
+        deletes.push(await request.json())
+        return new HttpResponse(null, { status: 204 })
+      }),
+      http.get("*/api/v1/organizations", () => HttpResponse.json([]))
+    )
+    await open()
+    await expect.element(page.getByText("Bình")).toBeVisible()
+    await page.getByRole("button", { name: "Xoá tổ chức" }).click()
+    const confirm = page.getByRole("button", { name: "Xoá vĩnh viễn" })
+    await expect.element(confirm).toBeDisabled()
+    await page
+      .getByRole("alertdialog")
+      .getByLabelText("Tên tổ chức")
+      .fill("Khoa")
+    await expect.element(confirm).toBeDisabled()
+    await page
+      .getByRole("alertdialog")
+      .getByLabelText("Tên tổ chức")
+      .fill(" Khoa Dược ")
+    await confirm.click()
+    await expect.poll(() => deletes).toEqual([{ confirm_name: "Khoa Dược" }])
+    await expect.element(page.getByText("Danh sách tổ chức")).toBeVisible()
+  })
+
+  test("a failed leave shows the error and keeps the confirmation open", async () => {
+    serve("member")
+    worker.use(
+      http.post(`*/api/v1/organizations/${ORG}/leave`, () =>
+        problem({ status: 403, code: "FORBIDDEN_ROLE" })
+      )
+    )
+    await open()
+    await expect.element(page.getByText("Bình")).toBeVisible()
+    await page.getByRole("button", { name: "Rời tổ chức" }).click()
+    await expect
+      .element(
+        page.getByText("Bạn sẽ không còn thấy bộ tài liệu của tổ chức này.")
+      )
+      .toBeVisible()
+    await page.getByRole("button", { name: "Rời", exact: true }).click()
+    await expect
+      .element(page.getByText("Vai trò của bạn không làm được thao tác này."))
+      .toBeVisible()
+    await expect.element(page.getByRole("alertdialog")).toBeVisible()
+    await expect
+      .element(page.getByText("Danh sách tổ chức"))
+      .not.toBeInTheDocument()
+  })
+})
+
+describe("OrganizationPage leaving and errors", () => {
+  test("leaving returns to the organization list", async () => {
+    serve("member")
+    let left = 0
+    worker.use(
+      http.post(`*/api/v1/organizations/${ORG}/leave`, () => {
+        left += 1
+        return new HttpResponse(null, { status: 204 })
+      }),
+      http.get("*/api/v1/organizations", () => HttpResponse.json([]))
+    )
+    await open()
+    await expect.element(page.getByText("Bình")).toBeVisible()
+    await page.getByRole("button", { name: "Rời tổ chức" }).click()
+    await page.getByRole("button", { name: "Rời", exact: true }).click()
+    await expect.poll(() => left).toBe(1)
+    await expect.element(page.getByText("Danh sách tổ chức")).toBeVisible()
+  })
+
+  test("an unknown organization shows the API's error", async () => {
+    worker.use(
+      http.get("*/api/v1/users/me", () => HttpResponse.json(ME)),
+      http.get(`*/api/v1/organizations/${ORG}`, () =>
+        problem({ status: 404, code: "ORGANIZATION_NOT_FOUND" })
+      )
+    )
+    await open()
+    await expect
+      .element(page.getByText("Không tìm thấy tổ chức."))
+      .toBeVisible()
+  })
+})
+
+/** A draft collection owned by the organization. */
+const draft = {
+  id: "44444444-4444-4444-8444-444444444444",
+  key: "phac-do",
+  title: "Phác đồ",
+  visibility: "private" as const,
+  owner_user_id: null,
+  owner_organization_id: ORG,
+  owner_name: "Khoa Dược",
+  is_system: false,
+  can_edit: true,
+  can_set_public: false,
+  current_release_id: null,
+  current_release_number: null,
+}
+
+describe("OrganizationPage collections", () => {
+  test("editors create a collection owned by the organization", async () => {
+    serve("editor")
+    const created: unknown[] = []
+    let items: (typeof draft)[] = []
+    worker.use(
+      http.get("*/api/v1/collections", () =>
+        HttpResponse.json({
+          public: [],
+          mine: [],
+          others: [],
+          organizations: [
+            { organization_id: ORG, name: "Khoa Dược", role: "editor", items },
+          ],
+        })
+      ),
+      http.post("*/api/v1/collections", async ({ request }) => {
+        created.push(await request.json())
+        items = [draft]
+        return HttpResponse.json(draft, { status: 201 })
+      })
+    )
+    await open("collections")
+    await expect
+      .element(page.getByText("Tổ chức chưa có bộ tài liệu nào."))
+      .toBeVisible()
+    await page.getByLabelText("Tên bộ tài liệu").fill("Phác đồ")
+    await page.getByRole("button", { name: "Tạo bộ tài liệu" }).click()
+    await expect
+      .poll(() => created)
+      .toEqual([{ title: "Phác đồ", owner_organization_id: ORG }])
+    await expect
+      .element(page.getByRole("link", { name: /Phác đồ/ }))
+      .toBeVisible()
+    await expect
+      .element(page.getByText("Nháp (chỉ chủ sở hữu và biên tập viên)"))
+      .toBeVisible()
+    await expect.element(page.getByLabelText("Tên bộ tài liệu")).toHaveValue("")
+  })
+})
+
+describe("OrganizationPage collection access", () => {
+  test("members see the organization's shared collections but cannot create one", async () => {
+    serve("member")
+    worker.use(
+      http.get("*/api/v1/collections", () =>
+        HttpResponse.json({
+          public: [],
+          mine: [],
+          others: [],
+          organizations: [
+            {
+              organization_id: ORG,
+              name: "Khoa Dược",
+              role: "member",
+              items: [{ ...draft, visibility: "organization" }],
+            },
+          ],
+        })
+      )
+    )
+    await open("collections")
+    await expect.element(page.getByText("Cả tổ chức")).toBeVisible()
+    await expect
+      .element(page.getByLabelText("Tên bộ tài liệu"))
+      .not.toBeInTheDocument()
+  })
+})
+
+describe("OrganizationPage collection title errors", () => {
+  test("an empty title is rejected on the field", async () => {
+    serve("owner")
+    await open("collections")
+    await page.getByRole("button", { name: "Tạo bộ tài liệu" }).click()
+    await expect.element(page.getByText("Nhập tên bộ tài liệu.")).toBeVisible()
+  })
+
+  test("a rejected title shows the API's error on the field", async () => {
+    serve("owner")
+    worker.use(
+      http.post("*/api/v1/collections", () =>
+        HttpResponse.json(
+          {
+            type: "about:blank",
+            title: "Unprocessable",
+            status: 422,
+            code: "VALIDATION_ERROR",
+            errors: [
+              {
+                loc: ["body", "title"],
+                message: "Tên quá dài.",
+                type: "string_too_long",
+              },
+            ],
+          },
+          {
+            status: 422,
+            headers: { "Content-Type": "application/problem+json" },
+          }
+        )
+      )
+    )
+    await open("collections")
+    await page.getByLabelText("Tên bộ tài liệu").fill("Phác đồ")
+    await page.getByRole("button", { name: "Tạo bộ tài liệu" }).click()
+    await expect.element(page.getByText("Tên quá dài.")).toBeVisible()
+    await expect
+      .element(page.getByLabelText("Tên bộ tài liệu"))
+      .toHaveAttribute("aria-invalid", "true")
   })
 })

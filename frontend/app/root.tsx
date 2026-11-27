@@ -1,13 +1,13 @@
 import { QueryClientProvider } from "@tanstack/react-query"
-import { useEffect, type ReactNode } from "react"
+import { type ReactNode, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import {
+  isRouteErrorResponse,
   Links,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
-  isRouteErrorResponse,
   useRouteLoaderData,
 } from "react-router"
 import { PreventFlashOnWrongTheme, ThemeProvider } from "remix-themes"
@@ -22,18 +22,30 @@ import { themeSessionResolver } from "~/lib/theme.server"
 import type { Route } from "./+types/root"
 import stylesheet from "./app.css?url"
 
+const HTTP_NOT_FOUND = 404
+
+/** The global stylesheet and the favicon, linked from every page. */
 export const links: Route.LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
   { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
 ]
 
+/** Detects the request's locale and gives every loader an i18n instance for it. */
 export const middleware = [i18nextMiddleware]
 
+/**
+ * The request's locale and the theme stored in the theme cookie, read by `Layout` and
+ * `App`.
+ */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const { getTheme } = await themeSessionResolver(request)
   return { locale: getLocale(context), theme: getTheme() }
 }
 
+/**
+ * The HTML document around every page, error pages included: head tags, theme provider and
+ * scripts. Loader data may be missing when the root loader failed.
+ */
 export function Layout({ children }: { children: ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root")
   const theme = data?.theme ?? null
@@ -62,6 +74,10 @@ export function Layout({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * Provides the query client, toasts and tooltips to every route and keeps the client
+ * language in step with the locale the server detected.
+ */
 export default function App({ loaderData }: Route.ComponentProps) {
   const { i18n } = useTranslation()
 
@@ -82,9 +98,14 @@ export default function App({ loaderData }: Route.ComponentProps) {
   )
 }
 
+/**
+ * The page shown when a route throws: a not-found message for 404 responses, a generic one
+ * otherwise, with the stack trace in development.
+ */
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const { t } = useTranslation("common")
-  const notFound = isRouteErrorResponse(error) && error.status === 404
+  const notFound =
+    isRouteErrorResponse(error) && error.status === HTTP_NOT_FOUND
 
   return (
     <main className="mx-auto flex min-h-svh max-w-md flex-col justify-center gap-2 p-6">

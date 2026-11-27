@@ -1,5 +1,5 @@
-import { Markdown } from "@tiptap/markdown"
 import { TableKit } from "@tiptap/extension-table"
+import { Markdown } from "@tiptap/markdown"
 import {
   type Editor,
   EditorContent,

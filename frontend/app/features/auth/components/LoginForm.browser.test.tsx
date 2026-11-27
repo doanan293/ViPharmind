@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { createRoutesStub } from "react-router"
 import { beforeEach, describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
@@ -35,6 +35,32 @@ async function submit(email: string, password: string) {
   await page.getByLabelText("Email").fill(email)
   await page.getByLabelText("Mật khẩu").fill(password)
   await page.getByRole("button", { name: "Đăng nhập" }).click()
+}
+
+/** Login answers EMAIL_NOT_VERIFIED; the code request and verify bodies land in the arrays. */
+function mockUnverifiedLogin(requested: string[], verified: unknown[]) {
+  worker.use(
+    http.post("/api/v1/auth/cookie/login", () =>
+      HttpResponse.json(
+        { code: "EMAIL_NOT_VERIFIED", title: "Forbidden" },
+        {
+          status: 403,
+          headers: { "Content-Type": "application/problem+json" },
+        }
+      )
+    ),
+    http.post("/api/v1/auth/email/verify/request", async ({ request }) => {
+      requested.push(await request.text())
+      return new HttpResponse(null, { status: 202 })
+    }),
+    http.post("/api/v1/auth/email/verify", async ({ request }) => {
+      verified.push(await request.json())
+      return new HttpResponse(null, { status: 204 })
+    }),
+    http.get("/api/v1/users/me", () =>
+      HttpResponse.json({ id: "u1", email: "an@example.com" })
+    )
+  )
 }
 
 describe("LoginForm", () => {
@@ -92,28 +118,7 @@ describe("LoginForm", () => {
   test("an unverified email gets a code and the verification step", async () => {
     const requested: string[] = []
     const verified: unknown[] = []
-    worker.use(
-      http.post("/api/v1/auth/cookie/login", () =>
-        HttpResponse.json(
-          { code: "EMAIL_NOT_VERIFIED", title: "Forbidden" },
-          {
-            status: 403,
-            headers: { "Content-Type": "application/problem+json" },
-          }
-        )
-      ),
-      http.post("/api/v1/auth/email/verify/request", async ({ request }) => {
-        requested.push(await request.text())
-        return new HttpResponse(null, { status: 202 })
-      }),
-      http.post("/api/v1/auth/email/verify", async ({ request }) => {
-        verified.push(await request.json())
-        return new HttpResponse(null, { status: 204 })
-      }),
-      http.get("/api/v1/users/me", () =>
-        HttpResponse.json({ id: "u1", email: "an@example.com" })
-      )
-    )
+    mockUnverifiedLogin(requested, verified)
     await renderLogin()
     await submit("an@example.com", "mat-khau-dai")
     await expect

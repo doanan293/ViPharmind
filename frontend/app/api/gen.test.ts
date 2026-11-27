@@ -5,8 +5,8 @@ import {
   getUsersCurrentUserUrl,
 } from "~/api/gen/endpoints"
 import {
-  getViPharmindAPIMock,
   getUsersCurrentUserMockHandler,
+  getViPharmindAPIMock,
 } from "~/api/gen/endpoints.msw"
 import { AuthCookieLoginBody, RegisterRegisterBody } from "~/api/gen/zod"
 

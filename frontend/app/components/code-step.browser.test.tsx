@@ -7,6 +7,9 @@ import { CodeStep } from "~/components/code-step"
 
 import { TestProviders } from "../../tests/utils/providers"
 
+/** A little longer than the resend cooldown, so the button is enabled again after it. */
+const PAST_COOLDOWN_MS = 61_000
+
 async function renderStep(
   onSubmit: (code: string) => Promise<void>,
   onResend: () => Promise<void> = async () => {}
@@ -78,7 +81,7 @@ describe("CodeStep", () => {
       await expect
         .element(page.getByRole("button", { name: "Gửi lại sau 60 giây" }))
         .toBeDisabled()
-      await vi.advanceTimersByTimeAsync(61_000)
+      await vi.advanceTimersByTimeAsync(PAST_COOLDOWN_MS)
       await page.getByRole("button", { name: "Gửi lại mã" }).click()
       await expect
         .element(page.getByRole("button", { name: "Gửi lại sau 42 giây" }))

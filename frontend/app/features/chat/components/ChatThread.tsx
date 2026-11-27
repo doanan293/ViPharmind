@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router"
 
-import { useListMessagesInfinite } from "~/api/gen/endpoints"
-import { isApiError } from "~/api/problem"
 import { Button } from "~/components/ui/button"
 import {
   Empty,
@@ -12,20 +10,20 @@ import {
   EmptyTitle,
 } from "~/components/ui/empty"
 import { Spinner } from "~/components/ui/spinner"
-import { toast } from "~/components/ui/toast"
-import { apiErrorMessage } from "~/i18n/error-message"
 
-import { ChatSession } from "./ChatSession"
-import { NewChat } from "./NewChat"
+import { useMessageHistory } from "../hooks/use-message-history"
 import { toPharmaMessage } from "../lib/chat-messages"
 import { readInitialQuestion } from "../lib/location-state"
 
-const HISTORY_PAGE_SIZE = 30
+import { ChatSession } from "./ChatSession"
+import { NewChat } from "./NewChat"
 
+/** Props of `ChatThread`; an undefined id means a new chat. */
 export type ChatThreadProps = {
   conversationId: string | undefined
 }
 
+/** The loading state of the chat page, also used as its route Suspense fallback. */
 export function ChatThreadFallback() {
   const { t } = useTranslation("chat")
   return (
@@ -38,46 +36,23 @@ export function ChatThreadFallback() {
 
 function ConversationChat({ conversationId }: { conversationId: string }) {
   const { t } = useTranslation("chat")
-  const { t: tErrors } = useTranslation("errors")
   const navigate = useNavigate()
   const location = useLocation()
   const initialQuestion = readInitialQuestion(location.state)
+  const { history, notFound } = useMessageHistory(conversationId)
   const {
     data,
-    error,
     isError,
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
     refetch,
-  } = useListMessagesInfinite(
-    conversationId,
-    { limit: HISTORY_PAGE_SIZE },
-    {
-      query: {
-        initialPageParam: undefined,
-        getNextPageParam: (page) => page.next_cursor ?? undefined,
-        staleTime: Number.POSITIVE_INFINITY,
-        gcTime: 0,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-      },
-    }
-  )
-  const notFound = isApiError(error) && error.code === "CONVERSATION_NOT_FOUND"
+  } = history
   const firstPage = data?.pages[0]
   const initialMessages = useMemo(
     () => firstPage?.items.map(toPharmaMessage) ?? [],
     [firstPage]
   )
-
-  useEffect(() => {
-    if (!notFound) {
-      return
-    }
-    toast.add({ title: apiErrorMessage(error, tErrors), type: "error" })
-    void navigate("/chat", { replace: true })
-  }, [notFound, error, navigate, tErrors])
 
   const clearInitialQuestion = useCallback(() => {
     void navigate(location.pathname, { replace: true, state: null })
@@ -123,6 +98,10 @@ function ConversationChat({ conversationId }: { conversationId: string }) {
   )
 }
 
+/**
+ * The chat page body: the new-chat screen without a conversation id, otherwise the
+ * conversation's history and session. Remounts when the conversation changes.
+ */
 export function ChatThread({ conversationId }: ChatThreadProps) {
   if (conversationId === undefined) {
     return <NewChat />

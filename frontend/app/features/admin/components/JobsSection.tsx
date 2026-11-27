@@ -12,12 +12,13 @@ import { Progress } from "~/components/ui/progress"
 import { Spinner } from "~/components/ui/spinner"
 
 import {
-  type AdminKey,
   AdminHeader,
+  type AdminKey,
   DateCell,
   useColumnLabels,
 } from "./columns"
 
+/** How many of the latest ingest jobs the console lists. */
 export const RECENT_JOBS = 50
 const POLL_MS = 5000
 const column = dataTableColumns<JobView>()
@@ -52,6 +53,9 @@ function ProgressCell({ value }: { value: number }) {
   )
 }
 
+/** How much of a collection id to show when its title is unknown. */
+const SHORT_ID_LENGTH = 8
+
 /** The collection's title (from the console's collection list), else its short id. */
 function CollectionCell({ id }: { id: string }) {
   const stats = useAdminCollectionsList()
@@ -66,7 +70,7 @@ function CollectionCell({ id }: { id: string }) {
           : "underline-offset-4 hover:underline"
       }
     >
-      {title ?? id.slice(0, 8)}
+      {title ?? id.slice(0, SHORT_ID_LENGTH)}
     </Link>
   )
 }

@@ -28,11 +28,17 @@ const RenameSchema = z.object({
 
 type RenameValues = z.infer<typeof RenameSchema>
 
+/** Props of {@link RenameConversationDialog}; `conversation` null keeps it closed. */
 export type RenameConversationDialogProps = {
   conversation: ConversationView | null
   onClose: () => void
 }
 
+/**
+ * A dialog to rename a conversation, open while `conversation` is set. On
+ * success it updates the cached conversation list and calls `onClose`;
+ * on failure it shows a toast and stays open.
+ */
 export function RenameConversationDialog({
   conversation,
   onClose,

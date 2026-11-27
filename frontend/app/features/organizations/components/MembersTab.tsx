@@ -8,7 +8,7 @@ import {
   useOrganizationsMembersRemove,
   useOrganizationsMembersSetRole,
 } from "~/api/gen/endpoints"
-import { Role } from "~/api/gen/schemas"
+import { type MemberItem, Role } from "~/api/gen/schemas"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -32,8 +32,142 @@ import {
 import { toast } from "~/components/ui/toast"
 import { apiErrorMessage } from "~/i18n/error-message"
 
-import { type Viewer, atLeast } from "../lib/roles"
+import { atLeast, type Viewer } from "../lib/roles"
 
+type Removing = { userId: string; name: string }
+
+/** The member's role: a select for owners, plain text for everyone else. */
+function MemberRole({
+  member,
+  name,
+  canManage,
+  onChange,
+}: {
+  member: MemberItem
+  name: string
+  canManage: boolean
+  onChange: (role: Role) => void
+}) {
+  const { t } = useTranslation("organizations")
+  if (!canManage) {
+    return t(`role.${member.role}`)
+  }
+  return (
+    <NativeSelect
+      aria-label={t("members.roleOf", { name })}
+      value={member.role}
+      onChange={(event) => {
+        const role = Object.values(Role).find(
+          (value) => value === event.target.value
+        )
+        if (role === undefined) return
+        onChange(role)
+      }}
+    >
+      {Object.values(Role).map((role) => (
+        <NativeSelectOption key={role} value={role}>
+          {t(`role.${role}`)}
+        </NativeSelectOption>
+      ))}
+    </NativeSelect>
+  )
+}
+
+/** One member row; owners can change the role or remove anyone but themselves. */
+function MemberRow({
+  member,
+  isMe,
+  canManage,
+  onRoleChange,
+  onRemove,
+}: {
+  member: MemberItem
+  isMe: boolean
+  canManage: boolean
+  onRoleChange: (role: Role) => void
+  onRemove: (removing: Removing) => void
+}) {
+  const { t } = useTranslation("organizations")
+  const name = member.display_name || member.email || member.user_id
+  return (
+    <TableRow>
+      <TableCell>
+        {name}
+        {isMe ? ` (${t("members.you")})` : ""}
+      </TableCell>
+      <TableCell>{member.email ?? ""}</TableCell>
+      <TableCell>
+        <MemberRole
+          member={member}
+          name={name}
+          canManage={canManage}
+          onChange={onRoleChange}
+        />
+      </TableCell>
+      {canManage ? (
+        <TableCell>
+          {isMe ? null : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onRemove({ userId: member.user_id, name })}
+            >
+              {t("members.remove", { name })}
+            </Button>
+          )}
+        </TableCell>
+      ) : null}
+    </TableRow>
+  )
+}
+
+/** Asks before removing a member; `removing` null keeps the dialog closed. */
+function RemoveMemberDialog({
+  removing,
+  pending,
+  onClose,
+  onConfirm,
+}: {
+  removing: Removing | null
+  pending: boolean
+  onClose: () => void
+  onConfirm: (removing: Removing) => void
+}) {
+  const { t } = useTranslation("organizations")
+  return (
+    <AlertDialog
+      open={removing !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("members.removeTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("members.removeDescription", { name: removing?.name ?? "" })}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
+          <Button
+            variant="destructive"
+            disabled={pending}
+            onClick={() => {
+              if (removing === null) return
+              onConfirm(removing)
+            }}
+          >
+            {t("members.removeConfirm")}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+/** The organization's members with their roles; owners manage roles and membership. */
 export function MembersTab({
   organizationId,
   viewer,
@@ -50,10 +184,7 @@ export function MembersTab({
   const setRole = useOrganizationsMembersSetRole()
   const remove = useOrganizationsMembersRemove()
   const canManage = atLeast(viewer, "owner")
-  const [removing, setRemoving] = useState<{
-    userId: string
-    name: string
-  } | null>(null)
+  const [removing, setRemoving] = useState<Removing | null>(null)
   const refresh = () =>
     queryClient.invalidateQueries({
       queryKey: getOrganizationsMembersListQueryKey(organizationId),
@@ -76,104 +207,40 @@ export function MembersTab({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {members.data.map((member) => {
-            const name = member.display_name || member.email || member.user_id
-            const isMe = member.user_id === currentUserId
-            return (
-              <TableRow key={member.user_id}>
-                <TableCell>
-                  {name}
-                  {isMe ? ` (${t("members.you")})` : ""}
-                </TableCell>
-                <TableCell>{member.email ?? ""}</TableCell>
-                <TableCell>
-                  {canManage ? (
-                    <NativeSelect
-                      aria-label={t("members.roleOf", { name })}
-                      value={member.role}
-                      onChange={(event) => {
-                        const role = Object.values(Role).find(
-                          (value) => value === event.target.value
-                        )
-                        if (role === undefined) return
-                        setRole.mutate(
-                          {
-                            organizationId,
-                            userId: member.user_id,
-                            data: { role },
-                          },
-                          { onSuccess: () => void refresh(), onError: fail }
-                        )
-                      }}
-                    >
-                      {Object.values(Role).map((role) => (
-                        <NativeSelectOption key={role} value={role}>
-                          {t(`role.${role}`)}
-                        </NativeSelectOption>
-                      ))}
-                    </NativeSelect>
-                  ) : (
-                    t(`role.${member.role}`)
-                  )}
-                </TableCell>
-                {canManage ? (
-                  <TableCell>
-                    {isMe ? null : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setRemoving({ userId: member.user_id, name })
-                        }
-                      >
-                        {t("members.remove", { name })}
-                      </Button>
-                    )}
-                  </TableCell>
-                ) : null}
-              </TableRow>
-            )
-          })}
+          {members.data.map((member) => (
+            <MemberRow
+              key={member.user_id}
+              member={member}
+              isMe={member.user_id === currentUserId}
+              canManage={canManage}
+              onRoleChange={(role) =>
+                setRole.mutate(
+                  { organizationId, userId: member.user_id, data: { role } },
+                  { onSuccess: () => void refresh(), onError: fail }
+                )
+              }
+              onRemove={setRemoving}
+            />
+          ))}
         </TableBody>
       </Table>
-      <AlertDialog
-        open={removing !== null}
-        onOpenChange={(open) => {
-          if (!open) setRemoving(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("members.removeTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("members.removeDescription", { name: removing?.name ?? "" })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              disabled={remove.isPending}
-              onClick={() => {
-                if (removing === null) return
-                remove.mutate(
-                  { organizationId, userId: removing.userId },
-                  {
-                    onSuccess: () => {
-                      setRemoving(null)
-                      void refresh()
-                    },
-                    onError: fail,
-                  }
-                )
-              }}
-            >
-              {t("members.removeConfirm")}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <RemoveMemberDialog
+        removing={removing}
+        pending={remove.isPending}
+        onClose={() => setRemoving(null)}
+        onConfirm={(target) =>
+          remove.mutate(
+            { organizationId, userId: target.userId },
+            {
+              onSuccess: () => {
+                setRemoving(null)
+                void refresh()
+              },
+              onError: fail,
+            }
+          )
+        }
+      />
     </>
   )
 }

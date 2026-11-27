@@ -11,6 +11,7 @@ import { Button } from "~/components/ui/button"
 import { Spinner } from "~/components/ui/spinner"
 import { cn } from "~/lib/utils"
 
+/** Props of `ErrorState`: the translated message and the retry action. */
 export type ErrorStateProps = {
   title: string
   detail: string
@@ -19,6 +20,7 @@ export type ErrorStateProps = {
   className?: string
 }
 
+/** An error alert for a failed answer with a retry button; while `retrying` it shows a spinner and a retrying label instead. */
 export function ErrorState({
   title,
   detail,

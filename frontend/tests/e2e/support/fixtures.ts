@@ -1,6 +1,6 @@
-import { type Page, test as base } from "@playwright/test"
+import { test as base, type Page } from "@playwright/test"
 
-import { type TestUser, loginUser, newUser, registerUser } from "./api"
+import { loginUser, newUser, registerUser, type TestUser } from "./api"
 
 type Fixtures = {
   /** A registered user that no other test uses. */

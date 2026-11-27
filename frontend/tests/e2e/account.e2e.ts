@@ -1,6 +1,9 @@
 import { latestCode, newUser, registerUser } from "./support/api"
 import { expect, test } from "./support/fixtures"
 
+/** Digits of the clock used to make a fresh phone number after the "09" prefix. */
+const PHONE_SUFFIX_DIGITS = 8
+
 test("forgot password resets with an emailed code", async ({
   page,
   request,
@@ -40,7 +43,7 @@ test("phone sign-in creates an account and opens the chat", async ({
   page,
   request,
 }) => {
-  const local = `09${String(Date.now()).slice(-8)}`
+  const local = `09${String(Date.now()).slice(-PHONE_SUFFIX_DIGITS)}`
   const e164 = `+84${local.slice(1)}`
 
   await page.goto("/login")

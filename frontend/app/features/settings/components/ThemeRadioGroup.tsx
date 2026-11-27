@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { Theme, type ThemeMetadata, isTheme, useTheme } from "remix-themes"
+import { isTheme, Theme, type ThemeMetadata, useTheme } from "remix-themes"
 
 import { Field, FieldLabel, FieldLegend, FieldSet } from "~/components/ui/field"
 import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group"
@@ -17,6 +17,7 @@ function choiceOf(
   return theme === Theme.DARK ? "dark" : "light"
 }
 
+/** Light, dark or system theme; remix-themes stores the choice, and system follows the OS. */
 export function ThemeRadioGroup() {
   const { t } = useTranslation("settings")
   const [theme, setTheme, { definedBy }] = useTheme()

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 
-import { FALLBACK_LANGUAGE, type Language, isLanguage } from "~/i18n/config"
+import { FALLBACK_LANGUAGE, isLanguage, type Language } from "~/i18n/config"
 
 import { LEGAL_LINK_LABELS, LEGAL_PATHS } from "../lib/content"
 

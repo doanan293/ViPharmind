@@ -2,7 +2,7 @@ import type { MetaDescriptor } from "react-router"
 
 import type { Language } from "~/i18n/config"
 
-import { type LegalDocument, LEGAL_PATHS, LEGAL_TEXT } from "./content"
+import { LEGAL_PATHS, LEGAL_TEXT, type LegalDocument } from "./content"
 
 /** Description, canonical URL and the hreflang pair; LegalPage renders the <title>. */
 export function legalMeta(

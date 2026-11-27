@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
-import { Controller, useForm } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import { z } from "zod"
@@ -12,15 +12,52 @@ import {
   useAuthPhoneRequest,
 } from "~/api/gen/endpoints"
 import { CodeStep } from "~/components/code-step"
-import { Button } from "~/components/ui/button"
-import { Field, FieldError, FieldLabel } from "~/components/ui/field"
-import { Input } from "~/components/ui/input"
-import { Spinner } from "~/components/ui/spinner"
+import {
+  FormSubmit,
+  FormTextField,
+} from "~/features/auth/components/FormFields"
 import { apiErrorMessage } from "~/i18n/error-message"
 import { applyApiError } from "~/lib/form-errors"
 import { phoneSchema } from "~/lib/phone"
 
 const SKIP_AUTH_REDIRECT = { mutation: { meta: { skipAuthRedirect: true } } }
+
+type Intent = "login" | "register"
+
+/** The SMS code step: a correct code signs in (or registers) and goes to `nextPath`. */
+function PhoneCodeStep({
+  phone,
+  nextPath,
+  intent,
+  onResend,
+}: {
+  phone: string
+  nextPath: string
+  intent: Intent
+  onResend: () => Promise<void>
+}) {
+  const { t } = useTranslation("auth")
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const login = useAuthPhoneLogin(SKIP_AUTH_REDIRECT)
+  return (
+    <CodeStep
+      id="phone-login-code"
+      description={t("phone.sentTo", { phone })}
+      submitLabel={
+        intent === "register" ? t("phone.continue") : t("login.submit")
+      }
+      onSubmit={async (code) => {
+        await login.mutateAsync({ data: { phone, code } })
+        await queryClient.invalidateQueries({
+          queryKey: getUsersCurrentUserQueryKey(),
+        })
+        await navigate(nextPath, { replace: true })
+      }}
+      onResend={onResend}
+    />
+  )
+}
 
 /** Phone sign-in; a number without an account gets one, so this also registers. */
 export function PhoneLoginForm({
@@ -29,14 +66,11 @@ export function PhoneLoginForm({
 }: {
   nextPath: string
   /** On the register page the code step reads as continuing, not signing in. */
-  intent?: "login" | "register"
+  intent?: Intent
 }) {
   const { t } = useTranslation("auth")
   const { t: tErrors } = useTranslation("errors")
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const requestCode = useAuthPhoneRequest(SKIP_AUTH_REDIRECT)
-  const login = useAuthPhoneLogin(SKIP_AUTH_REDIRECT)
   const [phone, setPhone] = useState<string | null>(null)
   const schema = useMemo(
     () => z.object({ phone: phoneSchema(tErrors("PHONE_NUMBER_INVALID")) }),
@@ -67,56 +101,35 @@ export function PhoneLoginForm({
 
   if (phone !== null) {
     return (
-      <CodeStep
-        id="phone-login-code"
-        description={t("phone.sentTo", { phone })}
-        submitLabel={
-          intent === "register" ? t("phone.continue") : t("login.submit")
-        }
-        onSubmit={async (code) => {
-          await login.mutateAsync({ data: { phone, code } })
-          await queryClient.invalidateQueries({
-            queryKey: getUsersCurrentUserQueryKey(),
-          })
-          await navigate(nextPath, { replace: true })
-        }}
+      <PhoneCodeStep
+        phone={phone}
+        nextPath={nextPath}
+        intent={intent}
         onResend={() => send(phone)}
       />
     )
   }
 
-  const serverError = form.formState.errors.root?.server?.message
   return (
     <form
       noValidate
       onSubmit={(event) => void onSubmit(event)}
       className="flex flex-col gap-6"
     >
-      <Controller
-        name="phone"
+      <FormTextField
         control={form.control}
-        render={({ field, fieldState }) => (
-          <Field data-invalid={fieldState.invalid}>
-            <FieldLabel htmlFor="login-phone">{t("phone.label")}</FieldLabel>
-            <Input
-              {...field}
-              id="login-phone"
-              type="tel"
-              autoComplete="tel"
-              inputMode="tel"
-              aria-invalid={fieldState.invalid}
-            />
-            <FieldError errors={[fieldState.error]} />
-          </Field>
-        )}
+        name="phone"
+        id="login-phone"
+        label={t("phone.label")}
+        type="tel"
+        autoComplete="tel"
+        inputMode="tel"
       />
-      {serverError === undefined ? null : (
-        <FieldError>{serverError}</FieldError>
-      )}
-      <Button type="submit" disabled={form.formState.isSubmitting}>
-        {form.formState.isSubmitting ? <Spinner /> : null}
-        {t("phone.send")}
-      </Button>
+      <FormSubmit
+        serverError={form.formState.errors.root?.server?.message}
+        isSubmitting={form.formState.isSubmitting}
+        label={t("phone.send")}
+      />
     </form>
   )
 }

@@ -11,16 +11,21 @@ function keysOf(value: unknown, prefix = ""): string[] {
   )
 }
 
+/** Sorts strings in a fixed, locale-independent order so two key lists compare equal. */
+function sorted(values: readonly string[]): string[] {
+  return values.toSorted((left, right) => left.localeCompare(right, "en"))
+}
+
 describe("translation resources", () => {
   test("both languages register every namespace", () => {
-    const expected = [...NAMESPACES].toSorted()
-    expect(Object.keys(resources.vi).toSorted()).toEqual(expected)
-    expect(Object.keys(resources.en).toSorted()).toEqual(expected)
+    const expected = sorted(NAMESPACES)
+    expect(sorted(Object.keys(resources.vi))).toEqual(expected)
+    expect(sorted(Object.keys(resources.en))).toEqual(expected)
   })
 
   test.each(NAMESPACES)("vi and en define the same keys in %s", (namespace) => {
-    expect(keysOf(resources.en[namespace]).toSorted()).toEqual(
-      keysOf(resources.vi[namespace]).toSorted()
+    expect(sorted(keysOf(resources.en[namespace]))).toEqual(
+      sorted(keysOf(resources.vi[namespace]))
     )
   })
 

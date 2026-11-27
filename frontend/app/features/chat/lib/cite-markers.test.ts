@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest"
 
 import { parseCiteIndex, toCiteRefMarkup } from "./cite-markers"
 
+const CITE_INDEX = 3
+
 describe("toCiteRefMarkup", () => {
   test("converts every complete marker", () => {
     expect(toCiteRefMarkup("Người lớn 500 mg [1] và trẻ em [12].")).toBe(
@@ -26,10 +28,10 @@ describe("toCiteRefMarkup", () => {
 
 describe("parseCiteIndex", () => {
   test("accepts a positive integer string only", () => {
-    expect(parseCiteIndex("3")).toBe(3)
+    expect(parseCiteIndex(String(CITE_INDEX))).toBe(CITE_INDEX)
     expect(parseCiteIndex("0")).toBeNull()
     expect(parseCiteIndex("x")).toBeNull()
-    expect(parseCiteIndex(3)).toBeNull()
+    expect(parseCiteIndex(CITE_INDEX)).toBeNull()
     expect(parseCiteIndex(undefined)).toBeNull()
   })
 })

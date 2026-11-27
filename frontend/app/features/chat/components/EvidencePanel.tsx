@@ -5,11 +5,16 @@ import { usePageText } from "~/features/chat/lib/citation-format"
 
 import { RetrievalChunks } from "./elements/retrieval-chunks"
 
+/** Props of `EvidencePanel`: the passages the agent read and whether it is still searching. */
 export type EvidencePanelProps = {
   items: EvidenceData["items"]
   searching: boolean
 }
 
+/**
+ * The collapsible list of passages the agent read for an answer. It stays open while
+ * searching and closes afterwards, unless the user toggled it.
+ */
 export function EvidencePanel({ items, searching }: EvidencePanelProps) {
   const pageText = usePageText()
   const [openOverride, setOpenOverride] = useState<boolean | null>(null)

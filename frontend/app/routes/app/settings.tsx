@@ -1,6 +1,7 @@
 import { LegalLinks } from "~/features/legal/components/LegalLinks"
 import { SettingsPage } from "~/features/settings/components/SettingsPage"
 
+/** Account settings at `/settings`, followed by links to the legal pages. */
 export default function SettingsRoute() {
   return (
     <>

@@ -1,11 +1,13 @@
 import { useCallback } from "react"
 import { useTranslation } from "react-i18next"
 
+/** The i18n key and values for a page reference, or null when the source has no pages. */
 export type PageLabel =
   | { key: "pages.single"; page: number }
   | { key: "pages.range"; start: number; end: number }
   | null
 
+/** Describes a page reference as one page or a range; a missing end falls back to the other end. */
 export function pageLabel(
   startPage: number | null,
   endPage: number | null
@@ -19,6 +21,7 @@ export function pageLabel(
   return { key: "pages.range", start: startPage, end: endPage }
 }
 
+/** Returns a stable function that formats a page reference in the current language, or null without pages. */
 export function usePageText(): (
   startPage: number | null,
   endPage: number | null

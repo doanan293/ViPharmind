@@ -5,6 +5,11 @@ import { defineConfig, devices } from "@playwright/test"
 // whole walkthrough as one video in demo-videos/.
 const video = process.env.DEMO_VIDEO === "1"
 
+/** A recorded walkthrough may take up to an hour. */
+const VIDEO_TIMEOUT_MS = 3_600_000
+/** One demo chapter without recording. */
+const DEMO_TIMEOUT_MS = 300_000
+
 export default defineConfig({
   testDir: "./tests/demo",
   testMatch: video ? "walkthrough.demo.ts" : "**/*.demo.ts",
@@ -12,7 +17,7 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   retries: 0,
-  timeout: video ? 3_600_000 : 300_000,
+  timeout: video ? VIDEO_TIMEOUT_MS : DEMO_TIMEOUT_MS,
   expect: { timeout: 120_000 },
   reporter: [["list"]],
   use: {

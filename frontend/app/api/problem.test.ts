@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest"
 
+import { HttpStatus } from "~/api/http-status"
 import { ApiError, isApiError, toApiError } from "~/api/problem"
 
 function jsonResponse(
@@ -23,10 +24,12 @@ function fieldsOf(error: ApiError) {
   }
 }
 
-describe("toApiError", () => {
+const RETRY_AFTER_SECONDS = 42
+
+describe("toApiError on a problem+json body", () => {
   test("maps an RFC 9457 problem", async () => {
     const error = await toApiError(
-      jsonResponse(404, {
+      jsonResponse(HttpStatus.NOT_FOUND, {
         type: "urn:pharma-agent:problem:conversation-not-found",
         title: "Conversation not found",
         status: 404,
@@ -54,7 +57,7 @@ describe("toApiError", () => {
       },
     ]
     const error = await toApiError(
-      jsonResponse(422, {
+      jsonResponse(HttpStatus.UNPROCESSABLE_CONTENT, {
         type: "urn:pharma-agent:problem:validation-error",
         title: "Validation error",
         status: 422,
@@ -71,10 +74,16 @@ describe("toApiError", () => {
       errors: items,
     })
   })
+})
 
+describe("toApiError on other bodies", () => {
   test("reads a fastapi-users error code from a plain detail body", async () => {
     const error = await toApiError(
-      jsonResponse(400, { detail: "LOGIN_BAD_CREDENTIALS" }, "application/json")
+      jsonResponse(
+        HttpStatus.BAD_REQUEST,
+        { detail: "LOGIN_BAD_CREDENTIALS" },
+        "application/json"
+      )
     )
 
     expect(fieldsOf(error)).toEqual({
@@ -88,7 +97,11 @@ describe("toApiError", () => {
 
   test("uses UNKNOWN when a detail is prose instead of a code", async () => {
     const error = await toApiError(
-      jsonResponse(404, { detail: "Not Found" }, "application/json")
+      jsonResponse(
+        HttpStatus.NOT_FOUND,
+        { detail: "Not Found" },
+        "application/json"
+      )
     )
 
     expect(fieldsOf(error)).toEqual({
@@ -116,20 +129,22 @@ describe("toApiError", () => {
       errors: [],
     })
   })
+})
 
+describe("toApiError on a 429", () => {
   test("keeps Retry-After in seconds", async () => {
     const response = new Response(
       JSON.stringify({ code: "RATE_LIMITED", title: "Too Many Requests" }),
       {
         status: 429,
         headers: {
-          "Retry-After": "42",
+          "Retry-After": String(RETRY_AFTER_SECONDS),
           "Content-Type": "application/problem+json",
         },
       }
     )
     const error = await toApiError(response)
-    expect(error.retryAfter).toBe(42)
+    expect(error.retryAfter).toBe(RETRY_AFTER_SECONDS)
     expect(
       (await toApiError(new Response(null, { status: 500 }))).retryAfter
     ).toBeUndefined()

@@ -27,7 +27,7 @@ async function renderParts(
   return { screen, props }
 }
 
-describe("MessageParts", () => {
+describe("MessageParts answers", () => {
   test("shows phase and evidence while streaming", async () => {
     const { screen } = await renderParts({
       streaming: true,
@@ -69,7 +69,9 @@ describe("MessageParts", () => {
       .toBeVisible()
     await expect.element(screen.getByText("Trang 812")).toBeVisible()
   })
+})
 
+describe("MessageParts completed answers", () => {
   test("renders a completed answer with sources that open citations", async () => {
     const { screen, props } = await renderParts({
       message: toPharmaMessage(
@@ -111,7 +113,9 @@ describe("MessageParts", () => {
       .element(screen.getByText("Mình chỉ hỗ trợ tra cứu thuốc."))
       .toBeVisible()
   })
+})
 
+describe("MessageParts notices and actions", () => {
   test("shows a timeout with retry", async () => {
     const { screen, props } = await renderParts({
       message: toPharmaMessage(

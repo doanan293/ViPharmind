@@ -32,6 +32,10 @@ function mapConversationItems(
   )
 }
 
+/**
+ * Sets a conversation's title in every cached conversation list page.
+ * Returns false when no cached page holds it, so the caller can refetch.
+ */
 export function updateConversationTitle(
   queryClient: QueryClient,
   conversation: { id: string; title: string }
@@ -49,6 +53,7 @@ export function updateConversationTitle(
   return found
 }
 
+/** Replaces a conversation in every cached list page with the server's view of it. */
 export function replaceConversationInCache(
   queryClient: QueryClient,
   conversation: ConversationView
@@ -58,6 +63,7 @@ export function replaceConversationInCache(
   )
 }
 
+/** Drops a conversation from every cached list page, e.g. after deleting it. */
 export function removeConversationFromCache(
   queryClient: QueryClient,
   conversationId: string
@@ -67,6 +73,7 @@ export function removeConversationFromCache(
   )
 }
 
+/** Marks the cached conversation lists stale so they refetch; resolves when done. */
 export function invalidateConversations(
   queryClient: QueryClient
 ): Promise<void> {
@@ -75,6 +82,10 @@ export function invalidateConversations(
   })
 }
 
+/**
+ * Sets the feedback stored on one message in the cached message pages of a
+ * conversation; `null` clears it.
+ */
 export function setMessageFeedbackInCache(
   queryClient: QueryClient,
   conversationId: string,

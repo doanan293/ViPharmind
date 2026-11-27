@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { createRoutesStub } from "react-router"
 import { beforeEach, describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
@@ -35,43 +35,64 @@ async function renderAndSubmit(password = "correct horse") {
   await page.getByRole("button", { name: "Tạo tài khoản" }).click()
 }
 
+/** A POST handler that answers with the given problem+json body and its status. */
+function problemHandler(
+  path: string,
+  problem: { code: string; title: string; status: number; type?: string }
+) {
+  return http.post(path, () =>
+    HttpResponse.json(problem, {
+      status: problem.status,
+      headers: { "Content-Type": "application/problem+json" },
+    })
+  )
+}
+
+/** Registration succeeds and verification works; returns the request bodies as they arrive. */
+function mockRegisterAndVerify(): { registered: unknown; verify: string } {
+  const bodies: { registered: unknown; verify: string } = {
+    registered: null,
+    verify: "",
+  }
+  worker.use(
+    http.post("/api/v1/auth/register", async ({ request }) => {
+      bodies.registered = await request.json()
+      return HttpResponse.json(
+        { id: "u1", email: "an@example.com", display_name: "An" },
+        { status: 201 }
+      )
+    }),
+    // Registration already sent a code, so asking again lands in the cooldown.
+    http.post("/api/v1/auth/email/verify/request", () =>
+      HttpResponse.json(
+        { code: "RATE_LIMITED", title: "Too Many Requests", status: 429 },
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/problem+json",
+            "Retry-After": "58",
+          },
+        }
+      )
+    ),
+    http.post("/api/v1/auth/email/verify", async ({ request }) => {
+      bodies.verify = await request.text()
+      return new HttpResponse(null, { status: 204 })
+    }),
+    http.get("/api/v1/users/me", () =>
+      HttpResponse.json({ id: "u1", email: "an@example.com" })
+    )
+  )
+  return bodies
+}
+
 describe("RegisterForm", () => {
   beforeEach(() => {
     applyZodLocale("vi")
   })
 
   test("registers, then verifies the email with the code and opens the next path", async () => {
-    let registered: unknown = null
-    let verifyBody = ""
-    worker.use(
-      http.post("/api/v1/auth/register", async ({ request }) => {
-        registered = await request.json()
-        return HttpResponse.json(
-          { id: "u1", email: "an@example.com", display_name: "An" },
-          { status: 201 }
-        )
-      }),
-      // Registration already sent a code, so asking again lands in the cooldown.
-      http.post("/api/v1/auth/email/verify/request", () =>
-        HttpResponse.json(
-          { code: "RATE_LIMITED", title: "Too Many Requests", status: 429 },
-          {
-            status: 429,
-            headers: {
-              "Content-Type": "application/problem+json",
-              "Retry-After": "58",
-            },
-          }
-        )
-      ),
-      http.post("/api/v1/auth/email/verify", async ({ request }) => {
-        verifyBody = await request.text()
-        return new HttpResponse(null, { status: 204 })
-      }),
-      http.get("/api/v1/users/me", () =>
-        HttpResponse.json({ id: "u1", email: "an@example.com" })
-      )
-    )
+    const bodies = mockRegisterAndVerify()
 
     await renderAndSubmit()
 
@@ -85,13 +106,13 @@ describe("RegisterForm", () => {
     await page.getByLabelText("Mã xác minh").fill("123456")
     await page.getByRole("button", { name: "Xác minh email" }).click()
     await expect.element(page.getByText("chat-page")).toBeVisible()
-    expect(registered).toEqual({
+    expect(bodies.registered).toEqual({
       email: "an@example.com",
       password: "correct horse",
       display_name: "An",
     })
     // The password proves this is the person who registered, not just the inbox owner.
-    expect(JSON.parse(verifyBody)).toEqual({
+    expect(JSON.parse(bodies.verify)).toEqual({
       email: "an@example.com",
       code: "123456",
       password: "correct horse",
@@ -106,19 +127,11 @@ describe("RegisterForm", () => {
           { status: 201 }
         )
       ),
-      http.post("/api/v1/auth/email/verify/request", () =>
-        HttpResponse.json(
-          {
-            code: "DELIVERY_FAILED",
-            title: "Service Unavailable",
-            status: 503,
-          },
-          {
-            status: 503,
-            headers: { "Content-Type": "application/problem+json" },
-          }
-        )
-      )
+      problemHandler("/api/v1/auth/email/verify/request", {
+        code: "DELIVERY_FAILED",
+        title: "Service Unavailable",
+        status: 503,
+      })
     )
 
     await renderAndSubmit()
@@ -142,20 +155,12 @@ describe("RegisterForm", () => {
 
   test("shows the translated message when the email is taken", async () => {
     worker.use(
-      http.post("/api/v1/auth/register", () =>
-        HttpResponse.json(
-          {
-            type: "urn:pharma-agent:problem:register-user-already-exists",
-            title: "User already exists",
-            status: 400,
-            code: "REGISTER_USER_ALREADY_EXISTS",
-          },
-          {
-            status: 400,
-            headers: { "Content-Type": "application/problem+json" },
-          }
-        )
-      )
+      problemHandler("/api/v1/auth/register", {
+        type: "urn:pharma-agent:problem:register-user-already-exists",
+        title: "User already exists",
+        status: 400,
+        code: "REGISTER_USER_ALREADY_EXISTS",
+      })
     )
 
     await renderAndSubmit()

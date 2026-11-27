@@ -16,7 +16,7 @@ function streamingAssistant(parts: PharmaUIMessage["parts"]): PharmaUIMessage {
   return { id: "a1", role: "assistant", parts }
 }
 
-describe("describeMessage", () => {
+describe("describeMessage answers", () => {
   test("maps a streaming message before text arrives", () => {
     const view = describeMessage(
       streamingAssistant([
@@ -53,7 +53,9 @@ describe("describeMessage", () => {
     expect(view.notice).toBeNull()
     expect(view.canGiveFeedback).toBe(false)
   })
+})
 
+describe("describeMessage history", () => {
   test("maps a completed history message with sorted sources", () => {
     const message = toPharmaMessage(
       apiAssistantMessage(
@@ -96,7 +98,9 @@ describe("describeMessage", () => {
     expect(of("timeout").canGiveFeedback).toBe(false)
     expect(of("abstained").notice).toBeNull()
   })
+})
 
+describe("describeMessage failures and roles", () => {
   test("maps a transport failure without metadata to a network error", () => {
     const view = describeMessage(
       streamingAssistant([{ type: "text", text: "Đang" }]),

@@ -16,6 +16,7 @@ import {
 } from "~/components/ui/input-group"
 import { cn } from "~/lib/utils"
 
+/** Props of `Composer`; the draft is controlled by the caller. */
 export type ComposerProps = {
   value: string
   onValueChange: (value: string) => void
@@ -28,6 +29,10 @@ export type ComposerProps = {
   leading?: ReactNode
 }
 
+/**
+ * The question box under the thread. Enter sends and Shift+Enter adds a line; while `busy` the
+ * send button becomes a stop button. Over-long drafts and `error` show under the box.
+ */
 export function Composer({
   value,
   onValueChange,

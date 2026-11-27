@@ -6,10 +6,13 @@ import { auth } from "./chapters/auth"
 import { chat } from "./chapters/chat"
 import { collections } from "./chapters/collections"
 import { history } from "./chapters/history"
+import { intro } from "./chapters/intro"
 import { orgs } from "./chapters/orgs"
 import { publicPages } from "./chapters/public"
-import { intro } from "./chapters/intro"
 import { ask, type DemoContext } from "./support/demo"
+
+/** Chapters that wait for real LLM answers can take many minutes. */
+const LLM_CHAPTER_TIMEOUT_MS = 900_000
 
 // Each chapter on its own while developing; prerequisites (accounts) run first in the same page.
 test("intro", async ({ page }) => {
@@ -22,14 +25,14 @@ test("auth", async ({ page }) => {
 })
 
 test("chat", async ({ page }) => {
-  test.setTimeout(900_000)
+  test.setTimeout(LLM_CHAPTER_TIMEOUT_MS)
   const ctx: DemoContext = {}
   await auth(page, ctx)
   await chat(page, ctx)
 })
 
 test("history", async ({ page }) => {
-  test.setTimeout(900_000)
+  test.setTimeout(LLM_CHAPTER_TIMEOUT_MS)
   const ctx: DemoContext = {}
   await auth(page, ctx)
   await page.goto("/chat")
@@ -44,7 +47,7 @@ test("orgs", async ({ page }) => {
 })
 
 test("collections", async ({ page }) => {
-  test.setTimeout(900_000)
+  test.setTimeout(LLM_CHAPTER_TIMEOUT_MS)
   const ctx: DemoContext = {}
   await auth(page, ctx)
   await orgs(page, ctx)

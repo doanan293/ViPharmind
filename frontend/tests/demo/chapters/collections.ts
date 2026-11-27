@@ -1,6 +1,6 @@
-import { type Page, expect } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 
-import { type DemoContext, ask, caption, switchUser } from "../support/demo"
+import { ask, caption, type DemoContext, switchUser } from "../support/demo"
 import { ORGANIZATION } from "./orgs"
 
 const COLLECTION = "Phác đồ khoa Dược"

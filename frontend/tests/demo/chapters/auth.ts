@@ -1,8 +1,8 @@
-import { type Page, expect } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 
 import {
-  type DemoContext,
   caption,
+  type DemoContext,
   demoUser,
   latestCode,
   logIn,
@@ -11,6 +11,9 @@ import {
 } from "../support/demo"
 
 /** Accounts: email sign-up with a code, wrong password, phone sign-in, forgot password. */
+/** Digits of the clock used to make a fresh phone number after the "09" prefix. */
+const PHONE_SUFFIX_DIGITS = 8
+
 export async function auth(page: Page, ctx: DemoContext): Promise<void> {
   ctx.owner = demoUser("owner", "Dược sĩ An")
   ctx.member = demoUser("member", "Dược sĩ Lợi")
@@ -54,7 +57,7 @@ export async function auth(page: Page, ctx: DemoContext): Promise<void> {
   await expect(page).toHaveURL(/\/login$/)
 
   await caption(page, "Đăng nhập bằng số điện thoại với mã SMS")
-  const local = `09${String(Date.now()).slice(-8)}`
+  const local = `09${String(Date.now()).slice(-PHONE_SUFFIX_DIGITS)}`
   await page.waitForLoadState("networkidle")
   await page.getByRole("tab", { name: "Số điện thoại" }).click()
   await page.getByRole("textbox", { name: "Số điện thoại" }).fill(local)

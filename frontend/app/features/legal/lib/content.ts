@@ -1,12 +1,15 @@
 import type { Language } from "~/i18n/config"
 
+/** The two legal pages the site publishes. */
 export type LegalDocument = "privacy" | "terms"
 
+/** One headed section of a legal page. */
 export interface LegalSection {
   heading: string
   paragraphs: string[]
 }
 
+/** The full text of one legal page in one language; `updated` is an ISO date. */
 export interface LegalText {
   title: string
   description: string
@@ -20,6 +23,7 @@ export const LEGAL_PATHS: Record<LegalDocument, Record<Language, string>> = {
   terms: { vi: "/terms", en: "/en/terms" },
 }
 
+/** Link text for each legal page in each language. */
 export const LEGAL_LINK_LABELS: Record<
   LegalDocument,
   Record<Language, string>
@@ -30,6 +34,10 @@ export const LEGAL_LINK_LABELS: Record<
 
 const UPDATED = "2026-10-10"
 
+/**
+ * The text of each legal page in each language. Each language is a complete text of its
+ * own rather than i18n keys.
+ */
 export const LEGAL_TEXT: Record<LegalDocument, Record<Language, LegalText>> = {
   privacy: {
     vi: {

@@ -2,13 +2,17 @@ import { useTranslation } from "react-i18next"
 import { redirect } from "react-router"
 
 import { getUsersCurrentUserQueryKey } from "~/api/gen/endpoints"
-import { UNKNOWN_ERROR_CODE, isApiError } from "~/api/problem"
+import { isApiError, UNKNOWN_ERROR_CODE } from "~/api/problem"
 import { queryClient } from "~/api/query-client"
 import { Spinner } from "~/components/ui/spinner"
 import { completeGoogleLogin } from "~/features/auth/lib/google"
 
 import type { Route } from "./+types/google-callback"
 
+/**
+ * Finishes a Google sign-in and redirects to the page the user started from, or back to
+ * the login page with the error code. It always throws a redirect.
+ */
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   let nextPath: string
   try {
@@ -23,6 +27,7 @@ export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   throw redirect(nextPath)
 }
 
+/** The progress message shown while the Google sign-in completes. */
 export function HydrateFallback() {
   const { t } = useTranslation("auth")
   return (
@@ -33,6 +38,7 @@ export function HydrateFallback() {
   )
 }
 
+/** Shows the progress message; the client loader redirects before anything else renders. */
 export default function GoogleCallback() {
   return <HydrateFallback />
 }

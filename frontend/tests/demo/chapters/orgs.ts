@@ -1,9 +1,10 @@
-import { type Page, expect } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 
 import {
-  type DemoContext,
   caption,
+  type DemoContext,
   latestInvitationPath,
+  PAUSE_MS,
   switchUser,
 } from "../support/demo"
 
@@ -50,5 +51,5 @@ export async function orgs(page: Page, ctx: DemoContext): Promise<void> {
   await expect(
     page.getByText(new RegExp(`đã đổi vai trò của ${ctx.member.name}`))
   ).toBeVisible()
-  await page.waitForTimeout(800)
+  await page.waitForTimeout(PAUSE_MS)
 }

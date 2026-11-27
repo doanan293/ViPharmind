@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
@@ -11,6 +11,8 @@ import { worker } from "../../../../tests/msw/browser"
 import { TestProviders } from "../../../../tests/utils/providers"
 
 const CONVERSATION = "88888888-8888-4888-8888-888888888888"
+/** How long the fake server holds each save, so a second pick lands while the first is in flight. */
+const SAVE_DELAY_MS = 200
 
 function collection(id: string, title: string): CollectionView {
   return {
@@ -40,7 +42,7 @@ function conversation(collectionIds: string[] | null): ConversationView {
   }
 }
 
-describe("ConversationSources", () => {
+describe("ConversationSources narrowing", () => {
   test("narrows the conversation to chosen collections and back to all", async () => {
     let current: string[] | null = null
     const patches: unknown[] = []
@@ -107,7 +109,9 @@ describe("ConversationSources", () => {
       .element(page.getByRole("combobox", { name: "Nguồn", exact: true }))
       .toBeVisible()
   })
+})
 
+describe("ConversationSources quick picks", () => {
   test("two quick picks keep both", async () => {
     const patches: unknown[] = []
     worker.use(
@@ -127,7 +131,7 @@ describe("ConversationSources", () => {
         async ({ request }) => {
           const body = await request.json()
           patches.push(body)
-          await new Promise((resolve) => setTimeout(resolve, 200))
+          await new Promise((resolve) => setTimeout(resolve, SAVE_DELAY_MS))
           return HttpResponse.json(
             conversation(
               typeof body === "object" &&

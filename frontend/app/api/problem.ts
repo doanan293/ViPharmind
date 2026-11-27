@@ -6,6 +6,7 @@ const problemItemSchema = z.object({
   type: z.string(),
 })
 
+/** One field-level validation error from a problem+json `errors` list (`loc` is the path to the field). */
 export type ProblemItem = z.infer<typeof problemItemSchema>
 
 const problemSchema = z.object({
@@ -20,8 +21,13 @@ const detailSchema = z.object({ detail: z.string() })
 
 const ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_]*$/
 
+/** The code an `ApiError` carries when the response body names no machine-readable code. */
 export const UNKNOWN_ERROR_CODE = "UNKNOWN"
 
+/**
+ * A failed backend response, normalised from problem+json, a bare `{"detail"}` body or no body.
+ * Callers branch on `code` and `status`; `title` is the `message` and is not shown to users.
+ */
 export class ApiError extends Error {
   override readonly name = "ApiError"
   readonly status: number
@@ -48,6 +54,7 @@ export class ApiError extends Error {
   }
 }
 
+/** Type guard that narrows an unknown thrown value (e.g. a query error) to `ApiError`. */
 export function isApiError(value: unknown): value is ApiError {
   return value instanceof ApiError
 }
@@ -60,6 +67,7 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+/** Reads the body of a non-OK response into an `ApiError`; never throws, even on a non-JSON body. */
 export async function toApiError(response: Response): Promise<ApiError> {
   const status = response.status
   const fallbackTitle = response.statusText || `HTTP ${status}`

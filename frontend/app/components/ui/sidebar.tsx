@@ -1,13 +1,12 @@
 "use client"
 
-import * as React from "react"
-import { useTranslation } from "react-i18next"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
-
-import { useIsMobile } from "~/hooks/use-mobile"
+import { PanelLeftIcon } from "lucide-react"
+import * as React from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Separator } from "~/components/ui/separator"
@@ -24,11 +23,32 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "~/components/ui/tooltip"
-import { PanelLeftIcon } from "lucide-react"
+import { useIsMobile } from "~/hooks/use-mobile"
+import { MILLISECONDS_PER_SECOND, SECONDS_PER_DAY } from "~/lib/time"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
+const SIDEBAR_COOKIE_DAYS = 7
+const SIDEBAR_COOKIE_MAX_AGE = SECONDS_PER_DAY * SIDEBAR_COOKIE_DAYS
+const SKELETON_MIN_WIDTH_PERCENT = 50
+const SKELETON_WIDTH_RANGE_PERCENT = 40
 type CssVariables = Record<`--${string}`, string>
+
+/** Keeps the sidebar state in a cookie; a browser without the Cookie Store API skips it. */
+function persistSidebarState(open: boolean): void {
+  if (!("cookieStore" in window)) {
+    return
+  }
+  window.cookieStore
+    .set({
+      name: SIDEBAR_COOKIE_NAME,
+      value: String(open),
+      path: "/",
+      expires: Date.now() + SIDEBAR_COOKIE_MAX_AGE * MILLISECONDS_PER_SECOND,
+    })
+    .catch(() => {
+      // The cookie only remembers the state; failing to write it changes nothing on screen.
+    })
+}
 
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
@@ -86,7 +106,7 @@ function SidebarProvider({
       }
 
       // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      persistSidebarState(openState)
     },
     [setOpenProp, open]
   )
@@ -96,7 +116,7 @@ function SidebarProvider({
     return isMobile
       ? setOpenMobile((value) => !value)
       : setOpen((value) => !value)
-  }, [isMobile, setOpen, setOpenMobile])
+  }, [isMobile, setOpen])
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -128,7 +148,7 @@ function SidebarProvider({
       setOpenMobile,
       toggleSidebar,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+    [state, open, setOpen, isMobile, openMobile, toggleSidebar]
   )
 
   return (
@@ -238,7 +258,7 @@ function Sidebar({
           "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex",
           // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
-            ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
+            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)] p-2"
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
           className
         )}
@@ -611,7 +631,7 @@ function SidebarMenuSkeleton({
 }) {
   // Random width between 50 to 90%.
   const [width] = React.useState(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
+    return `${Math.floor(Math.random() * SKELETON_WIDTH_RANGE_PERCENT) + SKELETON_MIN_WIDTH_PERCENT}%`
   })
   const skeletonStyle: React.CSSProperties & CssVariables = {
     "--skeleton-width": width,

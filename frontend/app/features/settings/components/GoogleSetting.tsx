@@ -22,6 +22,7 @@ import { apiErrorMessage } from "~/i18n/error-message"
 
 import { startGoogleLink } from "../lib/google-link"
 
+/** Links a Google account by redirect, or unlinks it after a confirmation dialog. */
 export function GoogleSetting({ linked }: { linked: boolean }) {
   const { t } = useTranslation("settings")
   const { t: tErrors } = useTranslation("errors")

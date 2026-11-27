@@ -6,8 +6,8 @@ import {
 } from "ai"
 
 import {
-  pharmaDataPartSchemas,
   type PharmaUIMessage,
+  pharmaDataPartSchemas,
 } from "~/features/chat/lib/message-schema"
 
 const fixtureFiles = import.meta.glob<string>(

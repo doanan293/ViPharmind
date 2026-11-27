@@ -10,6 +10,10 @@ import { useRedirectIfAuthenticated } from "~/features/auth/hooks/use-redirect-i
 import { safeNextPath } from "~/features/auth/lib/next-path"
 import { LegalConsent } from "~/features/legal/components/LegalLinks"
 
+/**
+ * The registration page: email or phone sign-up, Google, and the consent to the legal
+ * pages. A signed-in user goes straight to `?next=`.
+ */
 export default function RegisterPage() {
   const { t } = useTranslation("auth")
   const [searchParams] = useSearchParams()

@@ -22,6 +22,7 @@ import { Input } from "~/components/ui/input"
 import { apiErrorMessage } from "~/i18n/error-message"
 import { applyApiError } from "~/lib/form-errors"
 
+/** A quota as the API carries it; null means the default applies. */
 export interface Quota {
   text_quota_bytes: number | null
   collection_quota: number | null

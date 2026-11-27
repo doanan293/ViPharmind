@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test"
 
-import { type TestUser, latestCode, newUser } from "./support/api"
+import { latestCode, newUser, type TestUser } from "./support/api"
 import { expect, test } from "./support/fixtures"
 
 async function logIn(page: Page, user: TestUser): Promise<void> {

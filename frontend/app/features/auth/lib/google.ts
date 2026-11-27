@@ -11,6 +11,10 @@ function assignLocation(url: string): void {
   window.location.assign(url)
 }
 
+/**
+ * Starts Google sign-in: remembers `nextPath` for the callback and sends the browser to
+ * Google. `assign` replaces the navigation in tests.
+ */
 export async function startGoogleLogin(
   nextPath: string,
   assign: (url: string) => void = assignLocation
@@ -21,6 +25,7 @@ export async function startGoogleLogin(
   assign(authorizationUrl)
 }
 
+/** Finishes Google sign-in on the callback page and returns the safe path to go to next. */
 export async function completeGoogleLogin(callbackUrl: URL): Promise<string> {
   const { searchParams } = callbackUrl
   // Same-origin call; the backend reads its OAuth state cookie and sets pharma_session.

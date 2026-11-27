@@ -1,12 +1,11 @@
 "use client"
 
-import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { cn } from "cn"
-
-import { Button } from "~/components/ui/button"
 import { XIcon } from "lucide-react"
+import type * as React from "react"
 import { useTranslation } from "react-i18next"
+import { Button } from "~/components/ui/button"
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -129,11 +128,11 @@ function SheetDescription({
 
 export {
   Sheet,
-  SheetTrigger,
   SheetClose,
   SheetContent,
-  SheetHeader,
-  SheetFooter,
-  SheetTitle,
   SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
 }

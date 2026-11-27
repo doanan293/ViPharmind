@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { useParams } from "react-router"
 import { describe, expect, test, vi } from "vitest"
 import { page, userEvent } from "vitest/browser"
@@ -17,6 +17,11 @@ function ChatPage() {
     </div>
   )
 }
+
+const NEWEST_PAGE_TURNS = 15
+const OLDER_PAGE_TURNS = 5
+/** Long enough for the scroller to have requested an older page if it were going to. */
+const SETTLE_MS = 300
 
 function messageElement(id: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-message-id="${id}"]`)
@@ -37,11 +42,16 @@ describe("loading older messages", () => {
           cursors.push(cursor)
           if (cursor === null) {
             return HttpResponse.json(
-              messagePage(conversationTurns(15, "new"), "cursor-older")
+              messagePage(
+                conversationTurns(NEWEST_PAGE_TURNS, "new"),
+                "cursor-older"
+              )
             )
           }
           await olderGate
-          return HttpResponse.json(messagePage(conversationTurns(5, "old")))
+          return HttpResponse.json(
+            messagePage(conversationTurns(OLDER_PAGE_TURNS, "old"))
+          )
         }
       )
     )
@@ -52,7 +62,7 @@ describe("loading older messages", () => {
       .toBeVisible()
     // A thread taller than the viewport requests nothing older until the user scrolls to the top.
     await new Promise((resolve) => {
-      setTimeout(resolve, 300)
+      setTimeout(resolve, SETTLE_MS)
     })
     expect(cursors).toEqual([null])
 

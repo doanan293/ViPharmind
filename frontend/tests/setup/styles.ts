@@ -4,6 +4,6 @@
 import appStyles from "../../app/app.css?inline"
 
 const style = document.createElement("style")
-style.dataset["testStylesheet"] = "app"
+style.dataset.testStylesheet = "app"
 style.textContent = appStyles
 document.head.append(style)

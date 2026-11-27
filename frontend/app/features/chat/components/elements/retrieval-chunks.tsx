@@ -17,6 +17,7 @@ import {
 } from "~/components/ui/item"
 import { cn } from "~/lib/utils"
 
+/** One passage the agent read, with its source and a translated page locator. */
 export interface RetrievalChunk {
   id: string
   source: string
@@ -24,6 +25,7 @@ export interface RetrievalChunk {
   text: string
 }
 
+/** Props of `RetrievalChunks`; the caller controls whether the list is open. */
 export type RetrievalChunksProps = {
   chunks: readonly RetrievalChunk[]
   searching: boolean
@@ -32,6 +34,7 @@ export type RetrievalChunksProps = {
   className?: string
 }
 
+/** A collapsible list of the passages the agent read; the trigger shows a searching label, then the read count. */
 export function RetrievalChunks({
   chunks,
   searching,

@@ -1,5 +1,5 @@
-import { useTranslation } from "react-i18next"
 import type * as React from "react"
+import { useTranslation } from "react-i18next"
 import { Outlet } from "react-router"
 
 import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar"
@@ -17,6 +17,10 @@ export const clientMiddleware: Route.ClientMiddlewareFunction[] = [
   },
 ]
 
+/**
+ * Loads the signed-in user for the sidebar, redirecting to the login page (with `?next=`)
+ * when the session has expired.
+ */
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   return { user: await requireUser(request) }
 }
@@ -24,6 +28,7 @@ export async function clientLoader({ request }: Route.ClientLoaderArgs) {
 // Also run on hydration, so the first document load of /chat is guarded.
 clientLoader.hydrate = true as const
 
+/** The loading screen shown while the user is checked on the first document load. */
 export function HydrateFallback() {
   const { t } = useTranslation("common")
   return (
@@ -40,6 +45,7 @@ const SHELL_STYLE: React.CSSProperties & { "--header-height": string } = {
   "--header-height": "3rem",
 }
 
+/** The app shell around every private page: sidebar, header and the page below them. */
 export default function AppLayout({ loaderData }: Route.ComponentProps) {
   return (
     <SidebarProvider style={SHELL_STYLE}>

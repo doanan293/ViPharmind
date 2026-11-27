@@ -12,17 +12,19 @@ import {
 import type { PharmaUIMessage } from "../lib/message-schema"
 import {
   describeMessage,
+  type MessageNotice,
   type MessageView,
   PHASE_KEYS,
 } from "../lib/message-view"
 
 import { AnswerMarkdown } from "./AnswerMarkdown"
+import { EvidencePanel } from "./EvidencePanel"
 import { AgentStatus } from "./elements/agent-status"
 import { ErrorState } from "./elements/error-state"
 import { GuardrailNotice } from "./elements/guardrail-notice"
-import { EvidencePanel } from "./EvidencePanel"
 import { SourcesList } from "./SourcesList"
 
+/** Props of `MessageParts`: one thread message and the session state that applies to it. */
 export type MessagePartsProps = {
   message: PharmaUIMessage
   streaming: boolean
@@ -31,9 +33,105 @@ export type MessagePartsProps = {
   retrying: boolean
   onRetry: (messageId: string) => void
   onOpenCitation: (messageId: string, index: number) => void
+  /** Renders the footer actions of a finished assistant answer; omitted, it has none. */
   renderActions?: (message: PharmaUIMessage, view: MessageView) => ReactNode
 }
 
+const ERROR_KEYS = {
+  timeout: "error.timeout",
+  network: "error.network",
+  failed: "error.failed",
+} as const satisfies Record<ErrorReason, string>
+
+type ErrorReason = Extract<
+  NonNullable<MessageNotice>,
+  { kind: "error" }
+>["reason"]
+
+function UserMessage({ text }: { text: string }) {
+  return (
+    <Message align="end">
+      <MessageContent>
+        <Bubble variant="secondary" align="end">
+          <BubbleContent className="whitespace-pre-wrap">{text}</BubbleContent>
+        </Bubble>
+      </MessageContent>
+    </Message>
+  )
+}
+
+type AnswerBodyProps = {
+  view: MessageView
+  streaming: boolean
+  retrying: boolean
+  onRetry: () => void
+}
+
+function AnswerBody({ view, streaming, retrying, onRetry }: AnswerBodyProps) {
+  const { t } = useTranslation("chat")
+  const { notice } = view
+  if (notice?.kind === "guardrail") {
+    return (
+      <GuardrailNotice
+        title={
+          notice.reason === "blocked"
+            ? t("guardrail.blocked")
+            : t("guardrail.redirected")
+        }
+      >
+        <AnswerMarkdown text={view.text} streaming={false} />
+      </GuardrailNotice>
+    )
+  }
+  if (notice?.kind === "error") {
+    return (
+      <>
+        {view.hasText ? (
+          <AnswerMarkdown text={view.text} streaming={false} />
+        ) : null}
+        <ErrorState
+          title={t("error.title")}
+          detail={t(ERROR_KEYS[notice.reason])}
+          retrying={retrying}
+          onRetry={onRetry}
+        />
+      </>
+    )
+  }
+  return view.hasText ? (
+    <AnswerMarkdown text={view.text} streaming={streaming} />
+  ) : null
+}
+
+function usePhaseLabel(phase: MessageView["phase"]): string {
+  const { t } = useTranslation("chat")
+  if (phase === undefined) {
+    return ""
+  }
+  return phase.phase === "searching" && typeof phase.round === "number"
+    ? t("phase.searchingRound", { round: phase.round })
+    : t(PHASE_KEYS[phase.phase])
+}
+
+function useCitations(
+  messageId: string,
+  view: MessageView,
+  onOpenCitation: MessagePartsProps["onOpenCitation"]
+): MessageCitations {
+  return useMemo<MessageCitations>(
+    () => ({
+      messageId,
+      sources: new Map(view.sources.map((source) => [source.index, source])),
+      openCitation: (index) => onOpenCitation(messageId, index),
+    }),
+    [messageId, view.sources, onOpenCitation]
+  )
+}
+
+/**
+ * Renders one thread message: a user bubble, or an assistant answer with its agent status,
+ * evidence, cited Markdown, sources, stop marker and footer actions.
+ */
 export function MessageParts({
   message,
   streaming,
@@ -49,72 +147,11 @@ export function MessageParts({
     () => describeMessage(message, { streaming, failed }),
     [message, streaming, failed]
   )
-  const citations = useMemo<MessageCitations>(
-    () => ({
-      messageId: message.id,
-      sources: new Map(view.sources.map((source) => [source.index, source])),
-      openCitation: (index) => onOpenCitation(message.id, index),
-    }),
-    [message.id, view.sources, onOpenCitation]
-  )
+  const citations = useCitations(message.id, view, onOpenCitation)
+  const phaseLabel = usePhaseLabel(view.phase)
 
   if (message.role === "user") {
-    return (
-      <Message align="end">
-        <MessageContent>
-          <Bubble variant="secondary" align="end">
-            <BubbleContent className="whitespace-pre-wrap">
-              {view.text}
-            </BubbleContent>
-          </Bubble>
-        </MessageContent>
-      </Message>
-    )
-  }
-
-  let phaseLabel = ""
-  if (view.phase !== undefined) {
-    phaseLabel =
-      view.phase.phase === "searching" && typeof view.phase.round === "number"
-        ? t("phase.searchingRound", { round: view.phase.round })
-        : t(PHASE_KEYS[view.phase.phase])
-  }
-
-  let body: ReactNode = null
-  if (view.notice?.kind === "guardrail") {
-    body = (
-      <GuardrailNotice
-        title={
-          view.notice.reason === "blocked"
-            ? t("guardrail.blocked")
-            : t("guardrail.redirected")
-        }
-      >
-        <AnswerMarkdown text={view.text} streaming={false} />
-      </GuardrailNotice>
-    )
-  } else if (view.notice?.kind === "error") {
-    const detail =
-      view.notice.reason === "timeout"
-        ? t("error.timeout")
-        : view.notice.reason === "network"
-          ? t("error.network")
-          : t("error.failed")
-    body = (
-      <>
-        {view.hasText ? (
-          <AnswerMarkdown text={view.text} streaming={false} />
-        ) : null}
-        <ErrorState
-          title={t("error.title")}
-          detail={detail}
-          retrying={retrying}
-          onRetry={() => onRetry(message.id)}
-        />
-      </>
-    )
-  } else if (view.hasText) {
-    body = <AnswerMarkdown text={view.text} streaming={streaming} />
+    return <UserMessage text={view.text} />
   }
 
   return (
@@ -130,7 +167,12 @@ export function MessageParts({
           />
         ) : null}
         <MessageCitationsProvider value={citations}>
-          {body}
+          <AnswerBody
+            view={view}
+            streaming={streaming}
+            retrying={retrying}
+            onRetry={() => onRetry(message.id)}
+          />
         </MessageCitationsProvider>
         {view.sources.length > 0 && view.notice === null ? (
           <SourcesList

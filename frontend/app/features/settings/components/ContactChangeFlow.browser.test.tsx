@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query"
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { beforeEach, describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"

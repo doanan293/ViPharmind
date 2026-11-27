@@ -11,6 +11,10 @@ import { useRedirectIfAuthenticated } from "~/features/auth/hooks/use-redirect-i
 import { safeNextPath } from "~/features/auth/lib/next-path"
 import { isErrorCode } from "~/i18n/error-message"
 
+/**
+ * The login page: email or phone sign-in, Google, and the error a failed Google sign-in
+ * sent back in `?error=`. A signed-in user goes straight to `?next=`.
+ */
 export default function LoginPage() {
   const { t } = useTranslation("auth")
   const { t: tErrors } = useTranslation("errors")

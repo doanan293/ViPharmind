@@ -7,6 +7,7 @@ import { ContactChangeFlow } from "./ContactChangeFlow"
 import { GoogleSetting } from "./GoogleSetting"
 import { SessionsList } from "./SessionsList"
 
+/** The sign-in methods of the account: email, phone and Google when available, and sessions. */
 export function AccountSection({ user }: { user: AccountView }) {
   const { t } = useTranslation("settings")
   return (

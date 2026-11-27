@@ -12,10 +12,10 @@ import { DataTable, dataTableColumns } from "~/components/data-table"
 import { Button } from "~/components/ui/button"
 import { Spinner } from "~/components/ui/spinner"
 import { toast } from "~/components/ui/toast"
-
+import { loadedPages } from "../lib/pages"
 import {
-  type AdminKey,
   AdminHeader,
+  type AdminKey,
   DateCell,
   useColumnLabels,
 } from "./columns"
@@ -77,6 +77,7 @@ const COLUMNS = column.columns([
   }),
 ])
 
+/** The admin organization list with member counts, and an editor for each organization's quota. */
 export function OrganizationsSection() {
   const { t } = useTranslation("admin")
   const queryClient = useQueryClient()
@@ -93,8 +94,9 @@ export function OrganizationsSection() {
   const [editing, setEditing] = useState<AdminOrganizationView | null>(null)
   const labels = useColumnLabels(LABELS)
 
-  if (organizations.data === undefined) return <Spinner />
-  const items = organizations.data.pages.flatMap((page) => page.items)
+  const pages = loadedPages(organizations.data)
+  if (pages === undefined) return <Spinner />
+  const items = pages.flatMap((page) => page.items)
   return (
     <EditQuota value={setEditing}>
       <div className="flex flex-col gap-4">

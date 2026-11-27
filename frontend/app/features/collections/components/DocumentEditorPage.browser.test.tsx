@@ -1,5 +1,5 @@
-import { http, HttpResponse } from "msw"
-import { createRoutesStub } from "react-router"
+import { HttpResponse, http } from "msw"
+import { createRoutesStub, useParams } from "react-router"
 import { describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
@@ -43,15 +43,25 @@ function serve() {
   )
 }
 
+/** Renders the editor for the route's document, as the real route module does. */
+function DocumentRoute() {
+  const { documentId } = useParams()
+  if (documentId === undefined) return null
+  return <DocumentEditorPage collectionId={ID} documentId={documentId} />
+}
+
+/** Stands in for the collection page the editor returns to. */
+function CollectionStub() {
+  return <p>Bộ</p>
+}
+
 async function open(documentId = "new") {
   const Stub = createRoutesStub([
     {
       path: "/collections/:collectionId/documents/:documentId",
-      Component: () => (
-        <DocumentEditorPage collectionId={ID} documentId={documentId} />
-      ),
+      Component: DocumentRoute,
     },
-    { path: "/collections/:collectionId/:tab?", Component: () => <p>Bộ</p> },
+    { path: "/collections/:collectionId/:tab?", Component: CollectionStub },
   ])
   await render(
     <TestProviders>

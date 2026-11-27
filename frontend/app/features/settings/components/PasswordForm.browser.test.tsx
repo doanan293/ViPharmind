@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { describe, expect, test } from "vitest"
 import { page } from "vitest/browser"
 import { render } from "vitest-browser-react"
@@ -33,6 +33,26 @@ async function fillNewPasswords(value: string, confirm: string): Promise<void> {
   await page.getByRole("button", { name: "Đổi mật khẩu" }).click()
 }
 
+async function fillCurrentPassword(value: string): Promise<void> {
+  await page.getByLabelText("Mật khẩu hiện tại", { exact: true }).fill(value)
+}
+
+/** Accepts every password change and collects the request bodies. */
+function capturePasswordChanges(): unknown[] {
+  const bodies: unknown[] = []
+  worker.use(
+    http.put("*/api/v1/account/password", async ({ request }) => {
+      bodies.push(await request.json())
+      return new HttpResponse(null, { status: 204 })
+    })
+  )
+  return bodies
+}
+
+async function expectAlert(text: string): Promise<void> {
+  await expect.element(page.getByRole("alert")).toHaveTextContent(text)
+}
+
 function problem(code: string): Response {
   return HttpResponse.json(
     { title: "Bad request", status: 400, code },
@@ -42,18 +62,10 @@ function problem(code: string): Response {
 
 describe("PasswordForm", () => {
   test("changes the password with the current one and clears the fields", async () => {
-    const bodies: unknown[] = []
-    worker.use(
-      http.put("*/api/v1/account/password", async ({ request }) => {
-        bodies.push(await request.json())
-        return new HttpResponse(null, { status: 204 })
-      })
-    )
+    const bodies = capturePasswordChanges()
     await renderForm()
 
-    await page
-      .getByLabelText("Mật khẩu hiện tại", { exact: true })
-      .fill("mat-khau-cu-123")
+    await fillCurrentPassword("mat-khau-cu-123")
     await fillNewPasswords("mat-khau-moi-123", "mat-khau-moi-123")
 
     await expect.element(page.getByText("Đã đổi mật khẩu.")).toBeVisible()
@@ -66,13 +78,7 @@ describe("PasswordForm", () => {
   })
 
   test("a phone account sets its first password without a current one", async () => {
-    const bodies: unknown[] = []
-    worker.use(
-      http.put("*/api/v1/account/password", async ({ request }) => {
-        bodies.push(await request.json())
-        return new HttpResponse(null, { status: 204 })
-      })
-    )
+    const bodies = capturePasswordChanges()
     await renderForm(false)
 
     await expect
@@ -84,76 +90,6 @@ describe("PasswordForm", () => {
     expect(bodies).toEqual([
       { current_password: null, new_password: "mat-khau-moi-123" },
     ])
-  })
-
-  test("requires at least 8 characters without calling the API", async () => {
-    await renderForm()
-
-    await page
-      .getByLabelText("Mật khẩu hiện tại", { exact: true })
-      .fill("mat-khau-cu-123")
-    await fillNewPasswords("1234567", "1234567")
-
-    await expect
-      .element(page.getByRole("alert"))
-      .toHaveTextContent("Mật khẩu tối thiểu 8 ký tự.")
-  })
-
-  test("reports a mismatch without calling the API", async () => {
-    await renderForm()
-
-    await page
-      .getByLabelText("Mật khẩu hiện tại", { exact: true })
-      .fill("mat-khau-cu-123")
-    await fillNewPasswords("mat-khau-moi-123", "mat-khau-khac-123")
-
-    await expect
-      .element(page.getByRole("alert"))
-      .toHaveTextContent("Hai mật khẩu không khớp.")
-  })
-
-  test("asks for the current password before calling the API", async () => {
-    await renderForm()
-
-    await fillNewPasswords("mat-khau-moi-123", "mat-khau-moi-123")
-
-    await expect
-      .element(page.getByRole("alert"))
-      .toHaveTextContent("Nhập mật khẩu hiện tại.")
-  })
-
-  test("puts a wrong current password on its own field", async () => {
-    worker.use(
-      http.put("*/api/v1/account/password", () =>
-        problem("CURRENT_PASSWORD_INVALID")
-      )
-    )
-    await renderForm()
-
-    await page
-      .getByLabelText("Mật khẩu hiện tại", { exact: true })
-      .fill("sai-mat-khau")
-    await fillNewPasswords("mat-khau-moi-123", "mat-khau-moi-123")
-
-    await expect
-      .element(page.getByRole("alert"))
-      .toHaveTextContent("Mật khẩu hiện tại không đúng.")
-  })
-
-  test("puts the server password rule on the new password field", async () => {
-    worker.use(
-      http.put("*/api/v1/account/password", () => problem("PASSWORD_INVALID"))
-    )
-    await renderForm()
-
-    await page
-      .getByLabelText("Mật khẩu hiện tại", { exact: true })
-      .fill("mat-khau-cu-123")
-    await fillNewPasswords("mat-khau-moi-123", "mat-khau-moi-123")
-
-    await expect
-      .element(page.getByRole("alert"))
-      .toHaveTextContent("Mật khẩu cần từ 8 đến 128 ký tự.")
   })
 
   test("tells an account without a verified email when the password starts to work", async () => {
@@ -172,5 +108,59 @@ describe("PasswordForm", () => {
     await expect
       .element(page.getByText(/chỉ có tác dụng sau khi/))
       .not.toBeInTheDocument()
+  })
+})
+
+describe("PasswordForm validation", () => {
+  test("requires at least 8 characters without calling the API", async () => {
+    await renderForm()
+
+    await fillCurrentPassword("mat-khau-cu-123")
+    await fillNewPasswords("1234567", "1234567")
+
+    await expectAlert("Mật khẩu tối thiểu 8 ký tự.")
+  })
+
+  test("reports a mismatch without calling the API", async () => {
+    await renderForm()
+
+    await fillCurrentPassword("mat-khau-cu-123")
+    await fillNewPasswords("mat-khau-moi-123", "mat-khau-khac-123")
+
+    await expectAlert("Hai mật khẩu không khớp.")
+  })
+
+  test("asks for the current password before calling the API", async () => {
+    await renderForm()
+
+    await fillNewPasswords("mat-khau-moi-123", "mat-khau-moi-123")
+
+    await expectAlert("Nhập mật khẩu hiện tại.")
+  })
+
+  test("puts a wrong current password on its own field", async () => {
+    worker.use(
+      http.put("*/api/v1/account/password", () =>
+        problem("CURRENT_PASSWORD_INVALID")
+      )
+    )
+    await renderForm()
+
+    await fillCurrentPassword("sai-mat-khau")
+    await fillNewPasswords("mat-khau-moi-123", "mat-khau-moi-123")
+
+    await expectAlert("Mật khẩu hiện tại không đúng.")
+  })
+
+  test("puts the server password rule on the new password field", async () => {
+    worker.use(
+      http.put("*/api/v1/account/password", () => problem("PASSWORD_INVALID"))
+    )
+    await renderForm()
+
+    await fillCurrentPassword("mat-khau-cu-123")
+    await fillNewPasswords("mat-khau-moi-123", "mat-khau-moi-123")
+
+    await expectAlert("Mật khẩu cần từ 8 đến 128 ký tự.")
   })
 })

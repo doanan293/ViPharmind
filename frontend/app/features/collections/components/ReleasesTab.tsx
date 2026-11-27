@@ -9,8 +9,7 @@ import {
 } from "~/api/gen/endpoints"
 import { Badge } from "~/components/ui/badge"
 import { Button } from "~/components/ui/button"
-import { Spinner } from "~/components/ui/spinner"
-import { toast } from "~/components/ui/toast"
+import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
 import {
   Item,
   ItemActions,
@@ -19,9 +18,14 @@ import {
   ItemGroup,
   ItemTitle,
 } from "~/components/ui/item"
-import { Empty, EmptyDescription, EmptyHeader } from "~/components/ui/empty"
+import { Spinner } from "~/components/ui/spinner"
+import { toast } from "~/components/ui/toast"
 import { apiErrorMessage } from "~/i18n/error-message"
 
+/**
+ * The collection's releases with their publish dates, marking the current
+ * one. Editors get a roll-back button when an older retired release exists.
+ */
 export function ReleasesTab({
   collectionId,
   editable,

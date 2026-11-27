@@ -1,4 +1,3 @@
-import { BrandMark } from "~/components/brand-mark"
 import {
   ActivityIcon,
   BuildingIcon,
@@ -10,8 +9,8 @@ import {
 import type * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
-
 import type { AccountView } from "~/api/gen/schemas"
+import { BrandMark } from "~/components/brand-mark"
 import {
   Sidebar,
   SidebarContent,
@@ -27,7 +26,9 @@ import { NavMain } from "./NavMain"
 import { NavSecondary } from "./NavSecondary"
 import { NavUser } from "./NavUser"
 
-/** The app-sidebar of shadcn's dashboard-01 block with this app's pages and conversations. */
+/**
+ * The app-sidebar of shadcn's dashboard-01 block with this app's pages and conversations.
+ */
 export function AppSidebar({
   user,
   ...props

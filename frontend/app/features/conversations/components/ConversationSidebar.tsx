@@ -1,3 +1,7 @@
+import type {
+  InfiniteData,
+  UseInfiniteQueryResult,
+} from "@tanstack/react-query"
 import {
   MoreHorizontalIcon,
   PencilIcon,
@@ -10,7 +14,13 @@ import { useInView } from "react-intersection-observer"
 import { Link, NavLink, useParams } from "react-router"
 
 import { useListConversationsInfinite } from "~/api/gen/endpoints"
-import type { ConversationView } from "~/api/gen/schemas"
+import type {
+  ConversationPage,
+  ConversationView,
+  ListConversationsParams,
+  Problem,
+} from "~/api/gen/schemas"
+import { Alert, AlertDescription } from "~/components/ui/alert"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,7 +38,6 @@ import {
   SidebarMenuItem,
   SidebarMenuSkeleton,
 } from "~/components/ui/sidebar"
-import { Alert, AlertDescription } from "~/components/ui/alert"
 
 import { DeleteConversationDialog } from "./DeleteConversationDialog"
 import { RenameConversationDialog } from "./RenameConversationDialog"
@@ -40,12 +49,83 @@ type PendingAction = {
   conversation: ConversationView
 } | null
 
+type ConversationPages = InfiniteData<
+  ConversationPage,
+  ListConversationsParams["cursor"]
+>
+
 const SKELETON_KEYS = ["first", "second", "third"] as const
 
+function ConversationItem({
+  conversation,
+  active,
+  onAction,
+}: {
+  conversation: ConversationView
+  active: boolean
+  onAction: (kind: "rename" | "delete") => void
+}) {
+  const { t } = useTranslation("chat")
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        render={<NavLink to={`/chat/${conversation.id}`} />}
+        isActive={active}
+      >
+        <span className="truncate">{conversation.title}</span>
+      </SidebarMenuButton>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <SidebarMenuAction
+              showOnHover
+              aria-label={t("conversations.more", {
+                title: conversation.title,
+              })}
+            />
+          }
+        >
+          <MoreHorizontalIcon aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="right" align="start">
+          <DropdownMenuItem onClick={() => onAction("rename")}>
+            <PencilIcon aria-hidden />
+            {t("conversations.rename")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => onAction("delete")}
+          >
+            <Trash2Icon aria-hidden />
+            {t("conversations.delete")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </SidebarMenuItem>
+  )
+}
+
+/**
+ * The sidebar's list of the user's conversations, loading further pages as
+ * the list scrolls, with rename and delete actions. Reads the open conversation
+ * from the route's `conversationId` param to mark it active.
+ */
 export function ConversationSidebar() {
   const { t } = useTranslation("chat")
   const { conversationId } = useParams()
   const [pending, setPending] = useState<PendingAction>(null)
+  // Typed explicitly: without `initialData` the pages are undefined until the
+  // first one loads, which the generated hook's first overload hides.
+  const query: UseInfiniteQueryResult<ConversationPages, Problem> =
+    useListConversationsInfinite<ConversationPages, Problem>(
+      { limit: CONVERSATION_PAGE_SIZE },
+      {
+        query: {
+          initialPageParam: undefined,
+          getNextPageParam: (page) => page.next_cursor ?? undefined,
+        },
+      }
+    )
   const {
     data,
     isPending,
@@ -53,15 +133,7 @@ export function ConversationSidebar() {
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useListConversationsInfinite(
-    { limit: CONVERSATION_PAGE_SIZE },
-    {
-      query: {
-        initialPageParam: undefined,
-        getNextPageParam: (page) => page.next_cursor ?? undefined,
-      },
-    }
-  )
+  } = query
   const { ref: sentinelRef, inView } = useInView({ rootMargin: "120px" })
 
   useEffect(() => {
@@ -107,43 +179,12 @@ export function ConversationSidebar() {
             </SidebarMenuItem>
           ) : null}
           {conversations.map((conversation) => (
-            <SidebarMenuItem key={conversation.id}>
-              <SidebarMenuButton
-                render={<NavLink to={`/chat/${conversation.id}`} />}
-                isActive={conversation.id === conversationId}
-              >
-                <span className="truncate">{conversation.title}</span>
-              </SidebarMenuButton>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <SidebarMenuAction
-                      showOnHover
-                      aria-label={t("conversations.more", {
-                        title: conversation.title,
-                      })}
-                    />
-                  }
-                >
-                  <MoreHorizontalIcon aria-hidden />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="right" align="start">
-                  <DropdownMenuItem
-                    onClick={() => setPending({ kind: "rename", conversation })}
-                  >
-                    <PencilIcon aria-hidden />
-                    {t("conversations.rename")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => setPending({ kind: "delete", conversation })}
-                  >
-                    <Trash2Icon aria-hidden />
-                    {t("conversations.delete")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
+            <ConversationItem
+              key={conversation.id}
+              conversation={conversation}
+              active={conversation.id === conversationId}
+              onAction={(kind) => setPending({ kind, conversation })}
+            />
           ))}
           {hasNextPage ? (
             <SidebarMenuItem ref={sentinelRef}>

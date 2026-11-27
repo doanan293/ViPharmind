@@ -8,6 +8,8 @@ import { MessageParts } from "~/features/chat/components/MessageParts"
 import { olderMessagesFrom } from "~/features/chat/lib/chat-messages"
 import { apiErrorMessage } from "~/i18n/error-message"
 
+import { loadedPages } from "../lib/pages"
+
 const noop = () => undefined
 
 /** A user's conversation as they saw it, without retry, feedback or citation actions. */
@@ -32,7 +34,8 @@ export function ReadOnlyThread({
     }
   )
 
-  if (query.isError && query.data === undefined) {
+  const pages = loadedPages(query.data)
+  if (query.isError && pages === undefined) {
     return (
       <Alert variant="destructive">
         <AlertDescription>
@@ -41,9 +44,9 @@ export function ReadOnlyThread({
       </Alert>
     )
   }
-  if (query.data === undefined) return <Spinner />
+  if (pages === undefined) return <Spinner />
   // Pages run newest first; each page is in reading order.
-  const messages = olderMessagesFrom(query.data.pages, 0)
+  const messages = olderMessagesFrom(pages, 0)
   return (
     <div className="flex flex-col gap-4">
       {query.hasNextPage ? (

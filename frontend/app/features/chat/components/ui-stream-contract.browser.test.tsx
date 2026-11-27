@@ -5,9 +5,9 @@ import {
   CONTRACT_SCENARIOS,
   fixtureMessage,
 } from "../../../../tests/chat/ui-stream-fixtures"
-import { MessageParts } from "./MessageParts"
 import type { PharmaUIMessage } from "../lib/message-schema"
 import { describeMessage } from "../lib/message-view"
+import { MessageParts } from "./MessageParts"
 
 const CITE_MARKER = /\[(\d{1,3})\](?!\()/g
 

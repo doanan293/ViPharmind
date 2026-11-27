@@ -6,6 +6,7 @@ import type {
 
 import type { PharmaMessagePart, PharmaUIMessage } from "./message-schema"
 
+/** Converts a stored message from the history API into the AI SDK message shape the thread renders. */
 export function toPharmaMessage(message: ApiUIMessage): PharmaUIMessage {
   return {
     id: message.id,
@@ -26,6 +27,7 @@ export function toPharmaMessage(message: ApiUIMessage): PharmaUIMessage {
   }
 }
 
+/** Puts older history before the current messages, skipping any message the thread already has. */
 export function prependOlder(
   current: readonly PharmaUIMessage[],
   older: readonly PharmaUIMessage[]
@@ -34,6 +36,10 @@ export function prependOlder(
   return [...older.filter((message) => !known.has(message.id)), ...current]
 }
 
+/**
+ * The messages of the history pages after the first `appliedPageCount`, oldest first. Pages
+ * come newest first from the API, so they are reversed.
+ */
 export function olderMessagesFrom(
   pages: readonly MessagePage[],
   appliedPageCount: number
@@ -44,12 +50,14 @@ export function olderMessagesFrom(
     .flatMap((page) => page.items.map(toPharmaMessage))
 }
 
+/** The concatenated text parts of a message, without sources or data parts. */
 export function textOf(message: PharmaUIMessage): string {
   return message.parts
     .flatMap((part) => (part.type === "text" ? [part.text] : []))
     .join("")
 }
 
+/** The text of the last user message before the given answer, or undefined if there is none. */
 export function questionBefore(
   messages: readonly PharmaUIMessage[],
   assistantMessageId: string
@@ -66,6 +74,7 @@ export function questionBefore(
   return undefined
 }
 
+/** Returns the messages with the given message's feedback replaced; messages without metadata are left as they are. */
 export function withFeedback(
   messages: readonly PharmaUIMessage[],
   messageId: string,
@@ -78,6 +87,7 @@ export function withFeedback(
   )
 }
 
+/** Removes the last turn: a trailing assistant message, then the user message before it. */
 export function dropTrailingTurn(
   messages: readonly PharmaUIMessage[]
 ): PharmaUIMessage[] {

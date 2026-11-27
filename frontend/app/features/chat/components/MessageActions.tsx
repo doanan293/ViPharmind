@@ -19,11 +19,14 @@ import { cn } from "~/lib/utils"
 import { composeFeedbackNote } from "../lib/feedback-note"
 
 import { FeedbackDialog, type FeedbackReason } from "./elements/feedback-dialog"
+/** Props of `MessageActions`: the answer they act on and its current feedback. */
 export type MessageActionsProps = {
   conversationId: string
   messageId: string
+  /** The answer text that the copy button puts on the clipboard. */
   text: string
   feedback: MessageFeedback | null
+  /** Called optimistically with the new feedback, and with the old one if saving fails. */
   onFeedbackChange: (
     messageId: string,
     feedback: MessageFeedback | null
@@ -32,31 +35,9 @@ export type MessageActionsProps = {
 
 const COPIED_RESET_MS = 2000
 
-export function MessageActions({
-  conversationId,
-  messageId,
-  text,
-  feedback,
-  onFeedbackChange,
-}: MessageActionsProps) {
+function CopyButton({ text }: { text: string }) {
   const { t } = useTranslation("chat")
-  const queryClient = useQueryClient()
-  const submitFeedback = useSubmitFeedback()
   const [copied, setCopied] = useState(false)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [selected, setSelected] = useState<string[]>([])
-  const [note, setNote] = useState("")
-  const [sent, setSent] = useState(false)
-
-  const reasons = useMemo<FeedbackReason[]>(
-    () => [
-      { id: "incorrect", label: t("feedback.reasons.incorrect") },
-      { id: "incomplete", label: t("feedback.reasons.incomplete") },
-      { id: "wrongSource", label: t("feedback.reasons.wrongSource") },
-      { id: "unclear", label: t("feedback.reasons.unclear") },
-    ],
-    [t]
-  )
 
   useEffect(() => {
     if (!copied) {
@@ -66,7 +47,36 @@ export function MessageActions({
     return () => window.clearTimeout(timer)
   }, [copied])
 
-  function apply(next: MessageFeedback) {
+  async function copy() {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label={copied ? t("actions.copied") : t("actions.copy")}
+      onClick={() => void copy()}
+    >
+      {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
+    </Button>
+  )
+}
+
+type FeedbackTarget = Omit<MessageActionsProps, "text">
+
+function useApplyFeedback({
+  conversationId,
+  messageId,
+  feedback,
+  onFeedbackChange,
+}: FeedbackTarget): (next: MessageFeedback) => void {
+  const { t } = useTranslation("chat")
+  const queryClient = useQueryClient()
+  const submitFeedback = useSubmitFeedback()
+
+  return (next: MessageFeedback) => {
     const previous = feedback
     onFeedbackChange(messageId, next)
     setMessageFeedbackInCache(queryClient, conversationId, messageId, next)
@@ -86,86 +96,138 @@ export function MessageActions({
       }
     )
   }
+}
 
-  async function copy() {
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
+function useFeedbackReasons(): FeedbackReason[] {
+  const { t } = useTranslation("chat")
+  return useMemo<FeedbackReason[]>(
+    () => [
+      { id: "incorrect", label: t("feedback.reasons.incorrect") },
+      { id: "incomplete", label: t("feedback.reasons.incomplete") },
+      { id: "wrongSource", label: t("feedback.reasons.wrongSource") },
+      { id: "unclear", label: t("feedback.reasons.unclear") },
+    ],
+    [t]
+  )
+}
+
+function NotHelpfulDialog({
+  apply,
+  open,
+  onOpenChange,
+  draft,
+}: {
+  apply: (next: MessageFeedback) => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  draft: ReturnType<typeof useFeedbackDraft>
+}) {
+  const { t } = useTranslation("chat")
+  const reasons = useFeedbackReasons()
+
+  function sendDetails() {
+    const labels = reasons
+      .filter((reason) => draft.selected.includes(reason.id))
+      .map((reason) => reason.label)
+    apply({ rating: "down", note: composeFeedbackNote(labels, draft.note) })
+    draft.setSent(true)
   }
 
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="sr-only">
+          <DialogTitle>{t("feedback.title")}</DialogTitle>
+        </DialogHeader>
+        <FeedbackDialog
+          reasons={reasons}
+          selected={draft.selected}
+          note={draft.note}
+          sent={draft.sent}
+          onToggleReason={draft.toggleReason}
+          onNoteChange={draft.setNote}
+          onSubmit={sendDetails}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function useFeedbackDraft() {
+  const [selected, setSelected] = useState<string[]>([])
+  const [note, setNote] = useState("")
+  const [sent, setSent] = useState(false)
+  return {
+    selected,
+    note,
+    sent,
+    setNote,
+    setSent,
+    reset: () => {
+      setSelected([])
+      setNote("")
+      setSent(false)
+    },
+    toggleReason: (id: string) => {
+      setSelected((current) =>
+        current.includes(id)
+          ? current.filter((value) => value !== id)
+          : [...current, id]
+      )
+    },
+  }
+}
+
+/**
+ * The footer actions of a finished answer: copy, thumbs up and thumbs down. Thumbs down
+ * saves the rating at once and opens a dialog that can add reasons and a note.
+ */
+export function MessageActions({ text, ...target }: MessageActionsProps) {
+  const { t } = useTranslation("chat")
+  const apply = useApplyFeedback(target)
+  const draft = useFeedbackDraft()
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const rating = target.feedback?.rating
+
   function openNotHelpful() {
-    setSelected([])
-    setNote("")
-    setSent(false)
+    draft.reset()
     setDialogOpen(true)
     apply({ rating: "down", note: "" })
   }
 
-  function toggleReason(id: string) {
-    setSelected((current) =>
-      current.includes(id)
-        ? current.filter((value) => value !== id)
-        : [...current, id]
-    )
-  }
-
-  function sendDetails() {
-    const labels = reasons
-      .filter((reason) => selected.includes(reason.id))
-      .map((reason) => reason.label)
-    apply({ rating: "down", note: composeFeedbackNote(labels, note) })
-    setSent(true)
-  }
-
   return (
     <div className="flex items-center gap-0.5">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={copied ? t("actions.copied") : t("actions.copy")}
-        onClick={() => void copy()}
-      >
-        {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
-      </Button>
+      <CopyButton text={text} />
       <Button
         variant="ghost"
         size="icon-sm"
         aria-label={t("actions.up")}
-        aria-pressed={feedback?.rating === "up"}
+        aria-pressed={rating === "up"}
         onClick={() => apply({ rating: "up", note: "" })}
       >
         <ThumbsUpIcon
           aria-hidden
-          className={cn(feedback?.rating === "up" && "fill-current")}
+          className={cn(rating === "up" && "fill-current")}
         />
       </Button>
       <Button
         variant="ghost"
         size="icon-sm"
         aria-label={t("actions.down")}
-        aria-pressed={feedback?.rating === "down"}
+        aria-pressed={rating === "down"}
         onClick={openNotHelpful}
       >
         <ThumbsDownIcon
           aria-hidden
-          className={cn(feedback?.rating === "down" && "fill-current")}
+          className={cn(rating === "down" && "fill-current")}
         />
       </Button>
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader className="sr-only">
-            <DialogTitle>{t("feedback.title")}</DialogTitle>
-          </DialogHeader>
-          <FeedbackDialog
-            reasons={reasons}
-            selected={selected}
-            note={note}
-            sent={sent}
-            onToggleReason={toggleReason}
-            onNoteChange={setNote}
-            onSubmit={sendDetails}
-          />
-        </DialogContent>
-      </Dialog>
+      <NotHelpfulDialog
+        apply={apply}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        draft={draft}
+      />
     </div>
   )
 }

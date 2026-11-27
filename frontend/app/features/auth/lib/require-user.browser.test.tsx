@@ -1,12 +1,14 @@
-import { http, HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import { afterEach, describe, expect, test } from "vitest"
 
 import { getUsersCurrentUserMockHandler } from "~/api/gen/endpoints.msw"
 import { queryClient } from "~/api/query-client"
 import { requireUser } from "~/features/auth/lib/require-user"
-
-import { accountView } from "../../../../tests/utils/account"
 import { worker } from "../../../../tests/msw/browser"
+import { accountView } from "../../../../tests/utils/account"
+
+/** React Router's `redirect()` answers with 302 Found. */
+const HTTP_FOUND = 302
 
 describe("requireUser", () => {
   afterEach(() => {
@@ -49,6 +51,6 @@ describe("requireUser", () => {
       thrown instanceof Response
         ? [thrown.status, thrown.headers.get("Location")]
         : []
-    ).toEqual([302, "/login?next=%2Fchat%2F7f0c%3Fdraft%3D1"])
+    ).toEqual([HTTP_FOUND, "/login?next=%2Fchat%2F7f0c%3Fdraft%3D1"])
   })
 })

@@ -11,35 +11,74 @@ import {
 } from "~/api/gen/endpoints"
 import { OTP_LENGTH, OtpCodeField } from "~/components/otp-code-field"
 import { ResendCodeButton } from "~/components/resend-code-button"
-import { Button } from "~/components/ui/button"
 import {
   Field,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "~/components/ui/field"
-import { Input } from "~/components/ui/input"
-import { Spinner } from "~/components/ui/spinner"
 import { toast } from "~/components/ui/toast"
+import {
+  FormSubmit,
+  FormTextField,
+} from "~/features/auth/components/FormFields"
 import { passwordSchema } from "~/features/auth/lib/password"
 import { apiErrorMessage } from "~/i18n/error-message"
 import { applyApiError } from "~/lib/form-errors"
 
 const SKIP_AUTH_REDIRECT = { mutation: { meta: { skipAuthRedirect: true } } }
 
-export function ForgotPasswordForm() {
+/** First step: asks for the account email and sends it a reset code. */
+function ForgotEmailStep({ onSent }: { onSent: (email: string) => void }) {
   const { t } = useTranslation("auth")
   const { t: tErrors } = useTranslation("errors")
-  const navigate = useNavigate()
   const forgot = useAuthPasswordForgot(SKIP_AUTH_REDIRECT)
-  const reset = useAuthPasswordReset(SKIP_AUTH_REDIRECT)
-  const [email, setEmail] = useState<string | null>(null)
-
   const emailForm = useForm({
     resolver: zodResolver(z.object({ email: z.email() })),
     defaultValues: { email: "" },
   })
-  const resetSchema = useMemo(
+
+  const sendCode = emailForm.handleSubmit(async (values) => {
+    try {
+      await forgot.mutateAsync({ data: { email: values.email } })
+      onSent(values.email)
+    } catch (error) {
+      applyApiError(
+        error,
+        emailForm.setError,
+        ["email"],
+        apiErrorMessage(error, tErrors)
+      )
+    }
+  })
+
+  return (
+    <form
+      noValidate
+      onSubmit={(event) => void sendCode(event)}
+      className="flex flex-col gap-6"
+    >
+      <FormTextField
+        control={emailForm.control}
+        name="email"
+        id="forgot-email"
+        label={t("email")}
+        type="email"
+        autoComplete="email"
+      />
+      <FormSubmit
+        serverError={emailForm.formState.errors.root?.server?.message}
+        isSubmitting={emailForm.formState.isSubmitting}
+        label={t("phone.send")}
+      />
+    </form>
+  )
+}
+
+/** The reset form's schema, built per render language so its messages are translated. */
+function useResetSchema() {
+  const { t } = useTranslation("auth")
+  return useMemo(
     () =>
       z
         .object({
@@ -55,29 +94,22 @@ export function ForgotPasswordForm() {
         }),
     [t]
   )
+}
+
+/** Second step: the emailed code and the new password, twice; success goes to /login. */
+function ResetPasswordStep({ email }: { email: string }) {
+  const { t } = useTranslation("auth")
+  const { t: tErrors } = useTranslation("errors")
+  const navigate = useNavigate()
+  const forgot = useAuthPasswordForgot(SKIP_AUTH_REDIRECT)
+  const reset = useAuthPasswordReset(SKIP_AUTH_REDIRECT)
+  const resetSchema = useResetSchema()
   const resetForm = useForm({
     resolver: zodResolver(resetSchema),
     defaultValues: { code: "", password: "", confirm: "" },
   })
 
-  const sendCode = emailForm.handleSubmit(async (values) => {
-    try {
-      await forgot.mutateAsync({ data: { email: values.email } })
-      setEmail(values.email)
-    } catch (error) {
-      applyApiError(
-        error,
-        emailForm.setError,
-        ["email"],
-        apiErrorMessage(error, tErrors)
-      )
-    }
-  })
-
   const submitReset = resetForm.handleSubmit(async (values) => {
-    if (email === null) {
-      return
-    }
     try {
       await reset.mutateAsync({
         data: { email, code: values.code, password: values.password },
@@ -95,43 +127,6 @@ export function ForgotPasswordForm() {
     await navigate("/login", { replace: true })
   })
 
-  if (email === null) {
-    const serverError = emailForm.formState.errors.root?.server?.message
-    return (
-      <form
-        noValidate
-        onSubmit={(event) => void sendCode(event)}
-        className="flex flex-col gap-6"
-      >
-        <Controller
-          name="email"
-          control={emailForm.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="forgot-email">{t("email")}</FieldLabel>
-              <Input
-                {...field}
-                id="forgot-email"
-                type="email"
-                autoComplete="email"
-                aria-invalid={fieldState.invalid}
-              />
-              <FieldError errors={[fieldState.error]} />
-            </Field>
-          )}
-        />
-        {serverError === undefined ? null : (
-          <FieldError>{serverError}</FieldError>
-        )}
-        <Button type="submit" disabled={emailForm.formState.isSubmitting}>
-          {emailForm.formState.isSubmitting ? <Spinner /> : null}
-          {t("phone.send")}
-        </Button>
-      </form>
-    )
-  }
-
-  const serverError = resetForm.formState.errors.root?.server?.message
   return (
     <form
       noValidate
@@ -159,35 +154,22 @@ export function ForgotPasswordForm() {
           )}
         />
         {(["password", "confirm"] as const).map((name) => (
-          <Controller
+          <FormTextField
             key={name}
-            name={name}
             control={resetForm.control}
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor={`forgot-${name}`}>
-                  {t(`forgot.${name}`)}
-                </FieldLabel>
-                <Input
-                  {...field}
-                  id={`forgot-${name}`}
-                  type="password"
-                  autoComplete="new-password"
-                  aria-invalid={fieldState.invalid}
-                />
-                <FieldError errors={[fieldState.error]} />
-              </Field>
-            )}
+            name={name}
+            id={`forgot-${name}`}
+            label={t(`forgot.${name}`)}
+            type="password"
+            autoComplete="new-password"
           />
         ))}
       </FieldGroup>
-      {serverError === undefined ? null : (
-        <FieldError>{serverError}</FieldError>
-      )}
-      <Button type="submit" disabled={resetForm.formState.isSubmitting}>
-        {resetForm.formState.isSubmitting ? <Spinner /> : null}
-        {t("forgot.submit")}
-      </Button>
+      <FormSubmit
+        serverError={resetForm.formState.errors.root?.server?.message}
+        isSubmitting={resetForm.formState.isSubmitting}
+        label={t("forgot.submit")}
+      />
       <ResendCodeButton
         onResend={async () => {
           await forgot.mutateAsync({ data: { email } })
@@ -195,4 +177,13 @@ export function ForgotPasswordForm() {
       />
     </form>
   )
+}
+
+/** Password reset by email: send a code to the address, then set a new password with it. */
+export function ForgotPasswordForm() {
+  const [email, setEmail] = useState<string | null>(null)
+  if (email === null) {
+    return <ForgotEmailStep onSent={setEmail} />
+  }
+  return <ResetPasswordStep email={email} />
 }

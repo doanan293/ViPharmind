@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test"
 
+import { HttpStatus } from "../../app/api/http-status"
+
 const ROOT_HREF = /^(https?:\/\/[^/]+)?\/$/
 const EN_HREF = /^(https?:\/\/[^/]+)?\/en\/$/
 
@@ -22,7 +24,7 @@ test("the prerendered /en/ HTML already contains the hreflang links", async ({
   request,
 }) => {
   const response = await request.get("/en/")
-  expect(response.status()).toBe(200)
+  expect(response.status()).toBe(HttpStatus.OK)
   const html = await response.text()
 
   expect(html).toMatch(/<html[^>]*lang="en"/)

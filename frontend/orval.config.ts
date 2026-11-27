@@ -11,7 +11,7 @@ export default defineConfig({
       httpClient: "fetch",
       mock: { generators: [{ type: "msw" }] },
       clean: true,
-      formatter: "prettier",
+      formatter: "biome",
       override: {
         mutator: { path: "./app/api/fetcher.ts", name: "fetcher" },
         // Generated functions resolve to the response body; errors are thrown by the fetcher.
@@ -31,7 +31,7 @@ export default defineConfig({
       mode: "single",
       target: "./app/api/gen/zod.ts",
       client: "zod",
-      formatter: "prettier",
+      formatter: "biome",
       override: { zod: { version: 4 } },
     },
   },

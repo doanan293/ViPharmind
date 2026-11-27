@@ -16,7 +16,7 @@ Take, in this order:
 
 - UI: shadcn first. Installed components are in `frontend/app/components/ui/`; check the
   registry (`npx shadcn@latest view <name>`) before building a widget.
-- No raw `button`, `input`, `select`, `textarea`, `dialog`, `table`, `label`, `form` in
+- No raw `button`, `input`, `select`, `textarea`, `dialog`, `table`, `label` in
   `app/features/` or `app/routes/`.
 - Python: validation with pydantic, HTTP with httpx; never hand-roll retries, parsing or
   date handling.
