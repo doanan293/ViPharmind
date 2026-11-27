@@ -4,7 +4,7 @@
 
 **Goal:** Bring the ViPharmind frontend to the backend's standard and add a "don't reinvent the wheel" rule to the guide of ViPharmind and of `python-project-template`.
 
-**Architecture:** Tools and checks first (versions, oxlint config, a JSDoc presence test, coverage), so the work to do is measured by failing checks; then parallel agents fix findings per feature area; guide, AGENTS.md and template last.
+**Architecture:** Tools and checks first (Biome replacing oxlint and prettier, a JSDoc presence test, coverage), so the work to do is measured by failing checks; then parallel agents fix findings per feature area; guide, AGENTS.md and template last.
 
 **Tech Stack:** React Router 7, TypeScript 7.0.2, Biome 2.6.9 (lint + format, replacing oxlint and prettier), vitest 5.1.2 (+ browser, coverage-v8), shadcn.
 
@@ -19,7 +19,7 @@
 - `noRestrictedElements` in `app/features/**` and `app/routes/**`: `button`, `input`, `select`, `textarea`, `dialog`, `table`, `label`, `form`.
 - JSDoc on every exported component, hook, function, class and type outside `app/api/gen/**` and `app/components/ui/**`, saying something the name doesn't.
 - Coverage ≥ 80% (`npm run test:coverage`).
-- No suppressions (`oxlint-disable`, `@ts-ignore`, `@ts-expect-error`, `any`), no change to UI behaviour, routes, API or `frontend/openapi.json`.
+- No suppressions (`biome-ignore`, `@ts-ignore`, `@ts-expect-error`, `any`), no change to UI behaviour, routes, API or `frontend/openapi.json`.
 - AGENTS.md: `@docs/engineering-guide.md` plus only rules an agent must never miss.
 - pharma-lab/ is being edited by another workflow: do not touch it.
 
